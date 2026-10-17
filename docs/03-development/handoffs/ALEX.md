@@ -22,11 +22,12 @@ A restarted session reads this file first; keep it short, factual and current.
 |---|---|
 | Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator access on reverez/Voice requested in #2; `permissions.push` was `false` on 17 Oct 16:00) |
 | Branch | `feat/alex-ui` (local clone of reverez/Voice, remote `origin`) |
-| Last pushed commit | `9f1ef7a` (baseline); local commits not yet pushed (no push permission) |
+| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` (#15) not yet pushed (no push permission) |
 | Current issue | #15 demo layout: implemented, tests green, PR pending push access |
 | Machine | Windows 11, 1920x1200 at 125 % (`dpiScale=1.25`, logical desktop 1536x960); `FIDELIS_FIJI_DIR=C:\Users\al3xk\dev\Fiji` (archive 20261013-1517, SHA-256 `9201287a…794c54`, 1379 files match `external/fiji.lock.json`); Python 3.11 via `py -3.11 -I` |
-| Last UI-test result on this branch | `WorkspaceLayoutTest`, `WorkspaceViewportTest`, `WorkspaceU2Test`, `ConfirmationUiTest`: see the #15 PROGRESS comments for the exact lines |
-| Last full-suite result on this branch | see the #15 / #3 comments (recorded when run) |
+| Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`) |
+| Last full-suite result on this branch | `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment |
+| FX-001 baseline diff | regenerated here with the pinned Fiji: numbers and hashes identical, only the lead's absolute clone paths and `seconds` differ (restored with `git checkout -- verification`; details in the #3 comment) |
 | Open PRs | none yet (push blocked) |
 
 ## Done
@@ -56,7 +57,13 @@ A restarted session reads this file first; keep it short, factual and current.
 
 ## Blockers and open questions
 
-- Push permission on reverez/Voice (`akurkar07`): requested in #2 on 17 Oct.
+- Push permission on reverez/Voice (`akurkar07`): requested in #2 on 17 Oct. Preflight (#3) is all PASS except that line
+  (speech lines WARN, as allowed for the UI stream).
+- Test-order observation (for #4): `ConfirmationUiTest.vocabularyPromptFollowsDocumentsAndRecording` fails when run *after*
+  `WorkspaceViewportTest` + `WorkspaceU2Test` in one JVM: those scenarios leave seven documents open (two-squares.png x3,
+  stack10, comp3, ramp16, confirm-required), the vocabulary prompt lists at most five titles, so the new document never
+  appears. It passes alone, first, and in the full suite's alphabetical order. Not caused by #15 (`LayoutScenario.stop()`
+  closes its documents; `[layout] after cleanup: documents=[] results=0`).
 - Observed while testing (for #4, integrator): the test JVM's isolated `build/test-home` keeps IJ_Prefs between runs
   (`blackBackground=true`, `measurements=area mean min` were already set at the start of a fresh test JVM after an earlier
   J-12 run). `LayoutScenario.stop()` restores `blackBackground`, measurements and precision and clears Results through the
@@ -68,3 +75,4 @@ A restarted session reads this file first; keep it short, factual and current.
 - Use `py -3.11 -I` (the plain `python` on this machine is 3.10). `FIDELIS_FIJI_DIR` is set for the user; a shell opened
   before 17 Oct 16:00 needs `$env:FIDELIS_FIJI_DIR = "C:\Users\al3xk\dev\Fiji"`.
 - Evidence at 1920x1080 on this 1536x960 logical desktop comes from the undecorated screenshot frame; interactive runs are clamped.
+- `FIDELIS_PYTHON` is set (user level) to the Python 3.11 interpreter so the macro-replay tests do not pick up the 3.10 `python`.
