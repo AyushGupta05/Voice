@@ -55,8 +55,13 @@ final class ScreenshotRun {
                     w.frame().toFront();
                 });
                 Thread.sleep(1500);
+                if (opts.pennyDemo() != null) {
+                    sc.fidelis.penny.ui.PennyDemo.apply(w, opts.pennyDemo());
+                    Thread.sleep(900);
+                }
                 if (opts.instruction() != null) ScreenshotJ12.instructionFlow(w, ctx, opts, out);
                 else shoot(w, out);
+                if (opts.pennyDemo() != null) robotEvidence(w, out); // the on-screen pixels: Penny's flash paints inside the live canvas
                 SwingUtilities.invokeAndWait(() -> System.out.println("[fidelis] frame " + w.frame().getWidth() + "x" + w.frame().getHeight()
                         + "; layout " + w.docks().describe()
                         + (w.documents().focusedView() == null ? "" : "; canvas " + w.documents().focusedView().canvas().getWidth() + "x"
@@ -161,6 +166,7 @@ final class ScreenshotRun {
                 Point p = SwingUtilities.convertPoint(c, 0, 0, root);
                 Graphics2D cg = (Graphics2D) g.create(p.x, p.y, c.getWidth(), c.getHeight());
                 c.paint(cg);
+                sc.fidelis.penny.ui.CanvasFlash.paintOver(c, cg); // Penny's highlight is painted inside the canvas
                 cg.dispose();
             }
         }
@@ -291,6 +297,29 @@ final class ScreenshotRun {
         System.out.println("[fidelis] popup over canvas realised as: " + (win == null ? "lightweight (inside the frame)" : win.getClass().getName())
                 + "; showing=" + pm.isShowing());
         pm.setVisible(false);
+    }
+
+    /** Write {@code <out>-robot.png} from the screen when the desktop can be captured. */
+    static void robotEvidence(Workspace w, Path out) {
+        try {
+            BufferedImage[] shot = new BufferedImage[1];
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    shot[0] = robotCapture(w);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            if (isBlack(shot[0])) {
+                System.out.println("[fidelis] robot capture is all black (locked desktop or no screen-recording permission); not written");
+                return;
+            }
+            Path robotOut = Path.of(out.toString().replaceFirst("\\.png$", "") + "-robot.png");
+            ImageIO.write(shot[0], "png", robotOut.toFile());
+            System.out.println("[fidelis] robot capture written: " + robotOut.toAbsolutePath());
+        } catch (Exception | Error ex) {
+            System.out.println("[fidelis] robot capture unavailable: " + ex);
+        }
     }
 
     private static boolean isBlack(BufferedImage img) {

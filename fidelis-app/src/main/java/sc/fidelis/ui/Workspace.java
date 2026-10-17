@@ -48,6 +48,10 @@ public final class Workspace {
     private final StatusBar status;
     private final Docks docks;
     private final LegacyWindows legacy;
+    private final sc.fidelis.penny.ui.PennyPanel penny;
+    private sc.fidelis.penny.voice.PennyVoiceClient pennyClient;
+    private sc.fidelis.penny.ui.PennyLiveVoice pennyVoice;
+    private sc.fidelis.penny.PennyUi pennyUi;
     private final Runnable quitAction;
     private final EngineListener engineListener = this::onEvent;
     static final Dimension DEFAULT_SIZE = new Dimension(1440, 900);
@@ -78,6 +82,10 @@ public final class Workspace {
         Dimension requested = o.size() != null ? o.size() : DEFAULT_SIZE;
         Workspace w = create(engine, quit, o.screenshot() == null ? clampToScreen(requested) : requested);
         if (o.toolLabels()) w.tools.setLabelled(true);
+        // Penny (docs/INTEGRATION.md "Voice in the workspace"): the bridge's hooks draw here, and the strip follows the
+        // gateway's /events socket. Screenshot and demo runs never connect, so they cannot disturb a live gateway.
+        w.installPennyUi();
+        if (o.screenshot() == null && o.pennyDemo() == null && pennyVoiceEnabled(o)) w.connectPenny(sc.fidelis.penny.voice.PennyVoiceClient.create());
         // The speech service spawns a Python process: construct it off the EDT, attach when it exists
         if (ServiceRegistry.speech() == null) {
             new Thread(() -> {
@@ -100,6 +108,11 @@ public final class Workspace {
         w.frame.setVisible(true);
         for (String p : o.open()) w.ctx.openPath(Path.of(p));
         if (o.screenshot() != null) ScreenshotRun.schedule(w, o, () -> Bootstrap.exit(ij, 0));
+    }
+
+    /** Penny's live voice is on unless {@code --no-penny} or {@code -Dfidelis.penny.voice=false}. */
+    static boolean pennyVoiceEnabled(Options o) {
+        return !o.noPenny() && !"false".equalsIgnoreCase(System.getProperty("fidelis.penny.voice"));
     }
 
     /** Build a workspace around {@code engine} without showing it (tests show it themselves). */
@@ -127,6 +140,8 @@ public final class Workspace {
         ctx.setDocks(docks);
         banners = new Banners(ctx);
         ctx.setBanners(banners);
+        penny = new sc.fidelis.penny.ui.PennyPanel();
+        banners.setPenny(penny);
         documents = new DocumentArea(ctx);
         ctx.setDocuments(documents);
         parameters = new ParametersPanel(ctx);
@@ -171,6 +186,8 @@ public final class Workspace {
                 // A disposed workspace must not keep receiving (and acting on) engine or speech events (#16)
                 engine.removeListener(engineListener);
                 commandBar.detachSpeech();
+                disconnectPenny();
+                if (pennyUi != null && sc.fidelis.penny.PennyUi.current() == pennyUi) sc.fidelis.penny.PennyUi.register(null);
             }
         });
 
@@ -242,6 +259,43 @@ public final class Workspace {
                 }
             });
         }, "fidelis-quit-request").start();
+    }
+
+    // ---- Penny ---------------------------------------------------------------------------------
+
+    /** Register this workspace as the Penny bridge's UI ({@link sc.fidelis.penny.PennyUi}): flashes, zoom, geometry, plan card. */
+    public void installPennyUi() {
+        pennyUi = new sc.fidelis.penny.ui.WorkspacePennyUi(this, penny);
+        sc.fidelis.penny.PennyUi.register(pennyUi);
+    }
+
+    /** Follow Penny's gateway with {@code client} (started here) and give the Mic and typed instructions to it (EDT). */
+    public void connectPenny(sc.fidelis.penny.voice.PennyVoiceClient client) {
+        disconnectPenny();
+        pennyClient = client;
+        penny.bind(client);
+        pennyVoice = new sc.fidelis.penny.ui.PennyLiveVoice(client, penny);
+        commandBar.setLiveVoice(pennyVoice);
+        client.start();
+    }
+
+    /** Attach any live voice to the command bar (demos and tests); null detaches. */
+    public void setLiveVoice(LiveVoice v) {
+        commandBar.setLiveVoice(v);
+    }
+
+    private void disconnectPenny() {
+        commandBar.detachLiveVoice();
+        if (pennyVoice != null) pennyVoice.dispose();
+        pennyVoice = null;
+        penny.dispose();
+        if (pennyClient != null) pennyClient.close();
+        pennyClient = null;
+    }
+
+    /** Penny's strip and plan card under the command bar. */
+    public sc.fidelis.penny.ui.PennyPanel penny() {
+        return penny;
     }
 
     /** Restore the default dock sizes and visibility. */
@@ -333,7 +387,7 @@ public final class Workspace {
 
     /** Command-line options of the workspace (handled in {@link #launch}). */
     record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search, String scenario,
-                   boolean confirm, boolean closeWindow, String theme, boolean toolLabels) {
+                   boolean confirm, boolean closeWindow, String theme, boolean toolLabels, String pennyDemo, boolean noPenny) {
         static Options parse(String[] args) {
             Path shot = null;
             java.util.List<String> open = new java.util.ArrayList<>();
@@ -345,6 +399,8 @@ public final class Workspace {
             boolean closeWindow = false;
             String theme = null;
             boolean toolLabels = false;
+            String pennyDemo = null;
+            boolean noPenny = false;
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
                     case "--screenshot" -> {
@@ -365,6 +421,10 @@ public final class Workspace {
                         if (i + 1 < args.length) theme = args[++i];
                     }
                     case "--tool-labels" -> toolLabels = true;
+                    case "--penny-demo" -> { // listening, thinking, speaking, plan, running, answer (screenshots; no gateway)
+                        if (i + 1 < args.length) pennyDemo = args[++i];
+                    }
+                    case "--no-penny" -> noPenny = true;
                     case "--search" -> {
                         if (i + 1 < args.length) search = args[++i];
                     }
@@ -383,7 +443,7 @@ public final class Workspace {
                 shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
-            return new Options(shot, open, size, instruction, search, scenario, confirm, closeWindow, theme, toolLabels);
+            return new Options(shot, open, size, instruction, search, scenario, confirm, closeWindow, theme, toolLabels, pennyDemo, noPenny);
         }
     }
 }

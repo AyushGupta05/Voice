@@ -15,14 +15,16 @@ import javax.swing.UIManager;
 import sc.fidelis.engine.api.EngineEvent;
 
 /**
- * Workspace banners under the command bar (docs D14 C-07, C-09): the dialog-pending banner and the
- * slot for the proposal sheet. Banners never auto-dismiss while their condition holds.
+ * Workspace banners under the command bar (docs D14 C-07, C-09): the Penny strip (when Penny is attached, see
+ * {@link #setPenny}), the dialog-pending banner and the slot for the proposal sheet. Banners never auto-dismiss while
+ * their condition holds.
  */
 public final class Banners extends JPanel {
     private final UiContext ctx;
     private final JPanel dialogBanner = new JPanel(new BorderLayout(8, 0));
     private final JLabel dialogText = new JLabel();
     private JComponent sheet;
+    private JComponent penny;
     private String pendingOperation;
     private String pendingTitle;
 
@@ -64,6 +66,22 @@ public final class Banners extends JPanel {
     private static Color tint(Color bg) {
         boolean dark = bg.getRed() + bg.getGreen() + bg.getBlue() < 384;
         return dark ? new Color(0x4a3f1a) : new Color(0xfff4d6);
+    }
+
+    /** Mount the Penny strip (the voice panel, #18) first, directly under the command bar; it manages its own visibility. */
+    void setPenny(JComponent c) {
+        if (penny != null) remove(penny);
+        penny = c;
+        if (c != null) {
+            c.setAlignmentX(Component.LEFT_ALIGNMENT);
+            add(c, 0);
+        }
+        revalidate();
+        repaint();
+    }
+
+    JComponent penny() {
+        return penny;
     }
 
     boolean isDialogPendingVisible() {
