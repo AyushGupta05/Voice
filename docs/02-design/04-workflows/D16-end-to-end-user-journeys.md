@@ -73,6 +73,7 @@ D12 owns the UI surfaces UI-01…UI-20. This document uses them only by ID.
 | J-12 | Cell counting end to end with the MVP command set | MVP | PER-2 (PER-1 assisted) | R3, R1 | FR-PROC-001/003/015/016, FR-MEAS-001…004, FR-HIST-002 | L3 E1–E7 (GUI reference) + L4 E9 on FX-003, FX-030 |
 | J-13 | Recover after an engine crash (replay) | PARITY | PER-2 | journal + R4 replay | FR-SYS-007 | L3 E1–E6 |
 | J-14 | Apply a recorded workflow to a folder | PARITY | PER-2, PER-3 | R4 / M1 batch | FR-MACRO-007, FR-PROC-009 | L3 E1/E3/E5/E7 |
+| J-15 | Nuclei counting in a multi-channel fluorescence image (Split Channels, nuclei channel, J-12 steps) | HACK (proposed 2026-10-17, issue #8 on reverez/Voice) | PER-2 | R3, R1 | FR-PROC-001, FR-ROI-001, FR-MEAS-003, FR-HIST-002 | L3 E1–E7 (GUI reference) on FX-004 (cache-only; licence not stated, not redistributed) |
 
 ## 3. Journeys
 

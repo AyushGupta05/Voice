@@ -2,6 +2,10 @@
 
 Fidelis is at an early stage: a working **prototype** plus a **design proposal** awaiting approval. These conventions keep the two apart and keep `main` trustworthy.
 
+## Workstation development (from 17 October 2026)
+
+The Fidelis workstation (`fidelis-app/`) is under active development on `reverez/Voice`, branch `development/fidelis-workstation`, by three workstreams (engine, voice, UI). For that work the rules in [docs/03-development/GITHUB-WORKFLOW.md](docs/03-development/GITHUB-WORKFLOW.md) and [docs/03-development/WORKSTREAM-CONTRACTS.md](docs/03-development/WORKSTREAM-CONTRACTS.md) take precedence over the rest of this page: feature branches `feat/<name>-<area>`, pull requests into `development/fidelis-workstation` (not `main`), merges by the integrator only, file ownership checked with `fidelis-app/tools/check_ownership.py`, and verification with `fidelis-app/tools/{build,test}.py`. DEC-010 is implemented as recorded in `docs/03-development/ACTIVE-DEVELOPMENT.md`; its formal status remains "proposed" until the owner approves it.
+
 ## Two tracks, kept separate
 
 | Track | Lives in | Rules |

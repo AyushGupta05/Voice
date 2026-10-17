@@ -9,4 +9,12 @@ Implementation records of the Fidelis workstation (`fidelis-app/`), started 2026
 - [HANDOFF.md](HANDOFF.md) — the handoff written at the pause of 2026-10-17: what is implemented and verified, decisions, unresolved problems, suggested workstreams.
 - [screenshots/](screenshots/) — real screenshots of the workstation on the real engine (J-12 on Blobs, proposal sheet, compare view).
 
+Team delivery (three workstreams, from 2026-10-17 15:00 BST; tracking on reverez/Voice issue #2):
+
+- [TEAM-PLAN.md](TEAM-PLAN.md) — goal, verified baseline, gap analysis, workstreams, milestones and schedule, dependencies, risks, integration authority.
+- [WORKSTREAM-CONTRACTS.md](WORKSTREAM-CONTRACTS.md) — file ownership, architecture invariants, the implemented contract, how to change it.
+- [GITHUB-WORKFLOW.md](GITHUB-WORKFLOW.md) — branches, issue lifecycle, pull requests, merges, blockers, checkpoints and recovery.
+- Execution briefs with launch prompts: [ARNAV-EXECUTION.md](ARNAV-EXECUTION.md) (engine, integration), [AYUSH-EXECUTION.md](AYUSH-EXECUTION.md) (voice, language), [ALEX-EXECUTION.md](ALEX-EXECUTION.md) (UI).
+- Workstream handoffs: [handoffs/](handoffs/) (one file per developer, owned by that workstream).
+
 DEC-010 (hybrid B) is implemented as recorded in ACTIVE-DEVELOPMENT; its formal status in `docs/DECISIONS.md` remains "proposed" until the owner approves it.
