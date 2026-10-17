@@ -637,9 +637,29 @@ final class Analysis {
         int bins = Math.max(5, Math.min(30, (int) Math.round(Math.sqrt(area.length))));
         var plot = new ij.gui.Plot("Size distribution", "Area (" + (unit == null || unit.isBlank() ? "pixel" : unit) + "²)", "Objects");
         plot.addHistogram(area, (Arrays.stream(area).max().orElse(1) - Arrays.stream(area).min().orElse(0)) / bins);
-        var shown = plot.show();
-        Pipeline.placeBeside(imp, shown);
+        plot.setFrameSize(420, 260);
+        // Shown as a picture in a non-focusable window, not a PlotWindow: a PlotWindow is an ImageWindow and becomes
+        // ImageJ's current image, so the next "remove the tiny ones" would act on the plot instead of the cells.
+        var picture = plot.getProcessor().getBufferedImage();
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            if (histogramFrame == null || !histogramFrame.isDisplayable()) {
+                histogramFrame = new javax.swing.JFrame("Size distribution");
+                histogramFrame.setType(java.awt.Window.Type.UTILITY);
+                histogramFrame.setFocusableWindowState(false);
+                histogramFrame.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+                histogramLabel = new javax.swing.JLabel();
+                histogramFrame.getContentPane().add(histogramLabel);
+            }
+            histogramFrame.setTitle("Size distribution — " + (imp == null ? "" : imp.getTitle()));
+            histogramLabel.setIcon(new javax.swing.ImageIcon(picture));
+            histogramFrame.pack();
+            if (!histogramFrame.isVisible()) Pipeline.placeBeside(imp, histogramFrame);
+            histogramFrame.setVisible(true);
+        });
     }
+    private static javax.swing.JFrame histogramFrame;
+    private static javax.swing.JLabel histogramLabel;
+
     /** The image pixel the researcher means by "this/these": explicit x/y, else the live pointer over the canvas, else its last position there. */
     static java.awt.Point pointedAt(ImagePlus imp, JsonObject args) {
         if (args.has("x") && args.has("y")) return new java.awt.Point((int) Operations.number(args, "x", 0), (int) Operations.number(args, "y", 0));
