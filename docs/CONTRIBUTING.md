@@ -40,3 +40,9 @@ Run `./script/test-bridge.sh` after Java adapter changes. It tests parameter rej
 `./script/test-bridge-ui.sh` additionally checks isolated JavaFX list/table selection fingerprints and selectable menu actions. It needs a desktop JavaFX runtime, opens no windows and touches no scientific session. The headless bridge checks now also cover exact hierarchy recovery and scientific-notation parsing.
 
 For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `npm run smoke:voice -- --public-fixture` connects synthetic protocol events and scripted backend responses to real QuPath read/view operations. It never proves live inference or microphone quality. Preserve the production funding gate.
+
+## Continuous integration
+
+`.github/workflows/verify.yml` runs `npm ci` / `npm run check` on Ubuntu 24.04 and the offline native PCM tests/build on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
+
+CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
