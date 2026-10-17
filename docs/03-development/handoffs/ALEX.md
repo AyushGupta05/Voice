@@ -22,10 +22,10 @@ A restarted session reads this file first; keep it short, factual and current.
 |---|---|
 | Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator access on reverez/Voice requested in #2; `permissions.push` was `false` on 17 Oct 16:00) |
 | Branch | `feat/alex-ui` (local clone of reverez/Voice, remote `origin`) |
-| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` (#15) not yet pushed (no push permission) |
-| Current issue | #15 demo layout: implemented, tests green, PR pending push access |
+| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15) and `da1a4d6` (#16) not yet pushed (no push permission) |
+| Current issue | #15 and #16 implemented and tested locally, both PRs pending push access; next #19 macro editor |
 | Machine | Windows 11, 1920x1200 at 125 % (`dpiScale=1.25`, logical desktop 1536x960); `FIDELIS_FIJI_DIR=C:\Users\al3xk\dev\Fiji` (archive 20261013-1517, SHA-256 `9201287a…794c54`, 1379 files match `external/fiji.lock.json`); Python 3.11 via `py -3.11 -I` |
-| Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`) |
+| Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`); `WorkspaceDisposeTest` 1/1 and `WorkspaceShortcutTest` 1/1 at `da1a4d6`; `WorkspaceU2Test` 20 consecutive runs, 20 × `4 tests finished, 0 failed` |
 | Last full-suite result on this branch | `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment |
 | FX-001 baseline diff | regenerated here with the pinned Fiji: numbers and hashes identical, only the lead's absolute clone paths and `seconds` differ (restored with `git checkout -- verification`; details in the #3 comment) |
 | Open PRs | none yet (push blocked) |
@@ -48,12 +48,20 @@ A restarted session reads this file first; keep it short, factual and current.
   canvas + Results (71 rows, >= 6 columns) + ROI list (71) + History showing, non-overlapping, inside the frame at 1500x940 and
   1920x1080; dividers move their panels; reset restores the defaults; collapse/restore of both docks.
 - Screenshots opened and inspected: `docs/03-development/screenshots/j12-layout-1500x940.png`, `j12-layout-1920x1080.png`.
+- #16 reliability (`da1a4d6`): `CommandBar` keeps and detaches its speech listener on dispose; `WorkspaceDisposeTest` (counting
+  engine delegate) proves no engine listener survives `dispose()`. `DocumentArea.snapshotDiagnostics()` + `U2Scenario` report why
+  a before-copy was not taken when "before snapshot" times out (flake not reproduced: 20/20 green). Shortcut parity: `MenuBuilder`
+  registers Fiji's accelerators with `UiContext`, accelerator activations are recorded as `Origin.SHORTCUT`, `Routes` sends
+  `Edit>Selection>Add to Manager` to `ROI_LIST_ADD` (the engine syncs the IJ1 ROI Manager only around Analyze Particles);
+  `WorkspaceShortcutTest` reads every binding from Fiji (`Menus.getShortcuts()` + menu bar) and asserts Ctrl+M, Ctrl+T,
+  Ctrl+Shift+A, Ctrl+Shift+T, Ctrl+Z, Ctrl+Shift+D (Fiji's Duplicate binding), + / -, space-pan on the product engine; the
+  table it prints is in the #16 PR body draft.
 
 ## Next steps
 
 1. When push access lands: `git push origin feat/alex-ui`, open the #15 PR (body drafted in the #15 comments), `READY FOR REVIEW:`.
-2. #16: compare flake loop (20x `WorkspaceU2Test`), shortcut parity table and test (listener disposal already done here).
-3. #19 macro editor dock.
+2. Open the #16 PR (body drafted; table from the `[shortcut]` lines of `WorkspaceShortcutTest`).
+3. #19 macro editor dock (RSyntaxTextArea 3.6.0 is in `Fiji/jars`, on the classpath via `fijienv.fiji_classpath()`).
 
 ## Blockers and open questions
 
