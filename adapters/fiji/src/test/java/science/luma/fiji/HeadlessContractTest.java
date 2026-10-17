@@ -158,6 +158,33 @@ public final class HeadlessContractTest {
         var undone = call("undo", new JsonObject(), true, key("context"));
         expect(undone.get("mode").getAsString().equals("checkpoint") && undone.getAsJsonObject("counts").get("roiManager").getAsInt() == 0, "undo restores the pre-segmentation checkpoint: " + undone);
 
+        // --- per-image scope: a second image sees none of the first image's manager entries; undo reports what it restored
+        var other = new ImagePlus("other.tif", new ByteProcessor(64, 64));
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(other));
+        var otherManager = call("roi_manager", new JsonObject(), false, null);
+        expect(otherManager.get("forImage").getAsInt() == 0 && otherManager.get("total").getAsInt() == 0, "ROI Manager scoped per image: " + otherManager);
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
+        var seg2 = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        expect(seg2.get("count").getAsInt() == discs, "segment again: " + seg2.get("count"));
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(other));
+        var otherManager2 = call("roi_manager", new JsonObject(), false, null);
+        expect(otherManager2.get("forImage").getAsInt() == 0 && otherManager2.get("total").getAsInt() == discs, "the first image's particles are tagged, not listed for the other image: " + otherManager2);
+        expect(rawCall("measure", obj("scope", "manager"), true, key("context")).statusCode() == 409, "manager measure on the other image refuses the first image's ROIs");
+        var otherUndo = rawCall("undo", new JsonObject(), true, key("context"));
+        if (otherUndo.statusCode() == 200) { var restoredOther = JsonParser.parseString(otherUndo.body()).getAsJsonObject().getAsJsonObject("result"); expect(restoredOther.get("imageId").getAsInt() == other.getID() && restoredOther.getAsJsonObject("restoredCounts").get("roiManager").getAsInt() == discs, "undo on the other image only touches its own checkpoint and leaves the first image's manager entries: " + otherUndo.body()); }
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
+        var undo2 = call("undo", new JsonObject(), true, key("context"));
+        expect(undo2.get("mode").getAsString().equals("checkpoint") && undo2.get("imageId").getAsInt() == imp.getID() && undo2.getAsJsonObject("before").get("roiManagerForImage").getAsInt() == discs && undo2.getAsJsonObject("restoredCounts").get("roiManagerForImage").getAsInt() == 0, "undo restores this image's entries and reports before/after: " + undo2);
+        other.close();
+
+        // --- burned-in text and specks are not cells: a flat saturated bar and a 2x2 speck are excluded and reported
+        imp.getProcessor().setValue(255); imp.getProcessor().fill(new ij.gui.Roi(140, 240, 40, 5));
+        imp.getProcessor().setValue(230); imp.getProcessor().fill(new ij.gui.Roi(230, 10, 4, 4));
+        var artifacts = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        expect(artifacts.get("count").getAsInt() == discs && artifacts.getAsJsonObject("excluded").get("text").getAsInt() == 1 && artifacts.getAsJsonObject("excluded").get("tiny").getAsInt() == 1, "text bar and speck excluded: " + artifacts.get("count") + " " + artifacts.get("excluded"));
+        expect(artifacts.get("managerTotal").getAsInt() == discs, "excluded objects are removed from the ROI Manager too");
+        call("undo", new JsonObject(), true, key("context"));
+
         // --- "only this area": an active area ROI scopes segmentation to particles whose centroid lies inside it
         var scopeRoi = obj("type", "rectangle"); scopeRoi.addProperty("x", 0); scopeRoi.addProperty("y", 0); scopeRoi.addProperty("width", 120); scopeRoi.addProperty("height", 254);
         call("select_roi", scopeRoi, false, null);
@@ -244,6 +271,12 @@ public final class HeadlessContractTest {
         for (var window : ui.getAsJsonArray("windows")) expect(List.of("Log", "Results").contains(window.getAsJsonObject().get("title").getAsString()), "only ImageJ's own Log/Results windows are visible: " + ui);
         var act = obj("nodeId", "missing", "action", "fire");
         expect(rawCall("ui_action", act, true, key("context")).statusCode() == 409, "ui_action on a stale id is refused");
+
+        // --- a macro runtime error: ImageJ's modal "Macro Error" dialog is closed automatically and reported as the call's error
+        var broken = rawCall("run_macro", obj("code", "x = 1;\ny = undefinedFunction(x);"), true, key("context"));
+        expect(broken.statusCode() == 409 && broken.body().contains("closed automatically"), "macro error surfaced, dialog auto-closed: " + broken.body());
+        for (var window : call("ui", new JsonObject(), false, null).getAsJsonArray("windows")) expect(!window.getAsJsonObject().get("title").getAsString().contains("Macro Error"), "no Macro Error dialog left open");
+        expect(!call("context", new JsonObject(), false, null).get("analysisRunning").getAsBoolean(), "bridge idle after the auto-closed error");
 
         // --- a macro that opens a dialog: the watcher returns the dialog, ui lists it, ui_action presses OK and the macro completes
         var dialogMacro = call("run_macro", obj("code", "showMessage(\"Luma test\", \"press ok\"); print(\"after-dialog\");"), true, key("context"));

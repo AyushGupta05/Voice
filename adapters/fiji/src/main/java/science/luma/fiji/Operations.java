@@ -78,12 +78,19 @@ final class Operations {
     static ResultsTable results() { return Analyzer.getResultsTable(); }
     static void showResults(ResultsTable table) { if (IJ.isResultsWindow() || guiVisible()) table.show("Results"); }
 
+    /** ROI Manager entries the bridge adds are tagged with the image they came from, so measures, highlights, checkpoints and undo stay per image. */
+    static final String ROI_IMAGE_PROPERTY = "luma.imageId";
+    static void tag(Roi roi, ImagePlus owner) { if (roi != null && owner != null) roi.setProperty(ROI_IMAGE_PROPERTY, String.valueOf(owner.getID())); }
+    /** Untagged entries (added by the researcher) belong to every image; tagged ones only to theirs. */
+    static boolean belongsTo(Roi roi, int imageId) { String tag = roi == null ? null : roi.getProperty(ROI_IMAGE_PROPERTY); return tag == null || tag.isBlank() || tag.equals(String.valueOf(imageId)); }
     Map<String, Object> counts(ImagePlus imp) {
         var result = new LinkedHashMap<String, Object>();
         var overlay = imp == null ? null : imp.getOverlay();
         var manager = managerOrNull();
         result.put("overlay", overlay == null ? 0 : overlay.size());
         result.put("roiManager", manager == null ? 0 : manager.getCount());
+        int forImage = 0; if (manager != null && imp != null) for (var roi : manager.getRoisAsArray()) if (belongsTo(roi, imp.getID())) forImage++;
+        result.put("roiManagerForImage", forImage);
         result.put("resultsRows", results().size());
         return result;
     }
@@ -249,14 +256,20 @@ final class Operations {
         var rois = manager == null ? new Roi[0] : manager.getRoisAsArray();
         int limit = integer(args, "limit", 200, 1, 2000);
         var rows = new ArrayList<Map<String, Object>>();
-        for (int i = 0; i < Math.min(limit, rois.length); i++) { var row = new LinkedHashMap<String, Object>(); row.put("index", i); row.putAll(roiJson(rois[i])); row.remove("points"); rows.add(row); }
-        return Map.of("total", rois.length, "rois", rows, "truncated", rois.length > limit);
+        var active = activeOrNull(); int forImage = 0;
+        for (int i = 0; i < rois.length; i++) {
+            boolean mine = active == null || belongsTo(rois[i], active.getID()); if (mine) forImage++;
+            if (rows.size() >= limit || (!mine && !bool(args, "allImages", false))) continue;
+            var row = new LinkedHashMap<String, Object>(); row.put("index", i); row.putAll(roiJson(rois[i])); row.remove("points");
+            String tag = rois[i].getProperty(ROI_IMAGE_PROPERTY); row.put("imageId", tag == null || tag.isBlank() ? null : Integer.parseInt(tag)); rows.add(row);
+        }
+        return Map.of("total", rois.length, "forImage", forImage, "rois", rows, "truncated", rows.size() < (bool(args, "allImages", false) ? rois.length : forImage));
     }
     Map<String, Object> addToManager(JsonObject args) {
         var imp = active(); var roi = imp.getRoi();
         if (roi == null) throw new IllegalStateException("Select a region first.");
         var manager = manager(); if (manager == null) throw new IllegalStateException("The ROI Manager is unavailable in headless mode.");
-        manager.addRoi(roi);
+        tag(roi, imp); manager.addRoi(roi);
         journal.record("add_to_manager", "roiManager(\"Add\");");
         return Map.of("index", manager.getCount() - 1, "total", manager.getCount(), "highlight", Viewer.roiHighlight(imp, List.of(roi), "Added to ROI Manager", 1));
     }
@@ -265,6 +278,8 @@ final class Operations {
         var all = manager.getRoisAsArray(); var result = new ArrayList<Roi>();
         if (args.has("indices")) { for (var index : args.getAsJsonArray("indices")) { int i = index.getAsInt(); if (i >= 0 && i < all.length) result.add(all[i]); } }
         else result.addAll(Arrays.asList(all));
+        var active = activeOrNull();
+        if (active != null && !bool(args, "allImages", false)) result.removeIf(roi -> !belongsTo(roi, active.getID()));
         return result;
     }
 
@@ -427,9 +442,10 @@ final class Operations {
     Map<String, Object> analyzeParticles(JsonObject args) {
         var imp = active();
         if (!thresholdedOrBinary(imp)) throw new IllegalStateException("Threshold the image first (fiji_threshold) or use a binary mask; Analyze Particles needs one.");
-        return particles(imp, args, "analyze_particles");
+        return particles(imp, imp, args, "analyze_particles");
     }
-    private Map<String, Object> particles(ImagePlus imp, JsonObject args, String operation) {
+    /** Runs Analyze Particles on {@code imp}; new ROI Manager entries are tagged as belonging to {@code owner} (the original image when a scratch mask is analysed). */
+    private Map<String, Object> particles(ImagePlus imp, ImagePlus owner, JsonObject args, String operation) {
         double minSize = number(args, "minSize", 0), maxSize = args.has("maxSize") ? number(args, "maxSize", Double.POSITIVE_INFINITY) : Double.POSITIVE_INFINITY;
         double minCirc = number(args, "minCircularity", 0), maxCirc = number(args, "maxCircularity", 1);
         String show = string(args, "show", "Nothing");
@@ -451,6 +467,7 @@ final class Operations {
         String sizeText = plain(minSize) + "-" + (Double.isInfinite(maxSize) ? "Infinity" : plain(maxSize));
         journal.record(operation, "run(\"Analyze Particles...\", \"size=" + sizeText + " circularity=" + String.format(Locale.US, "%.2f-%.2f", minCirc, maxCirc) + " show=" + (show.isBlank() ? "Nothing" : show) + " display" + (exclude ? " exclude" : "") + (include ? " include" : "") + (summarize ? " summarize" : "") + (manager != null ? " add" : "") + "\");");
         int count = table.size() - before;
+        if (manager != null) { var rois = manager.getRoisAsArray(); for (int i = managerBefore; i < rois.length; i++) tag(rois[i], owner); }
         var cal = imp.getCalibration();
         var bounds = new ArrayList<Rectangle>(); double totalArea = 0;
         int areaColumn = column(table, "Area"), bx = column(table, "BX"), by = column(table, "BY"), bw = column(table, "Width"), bh = column(table, "Height");
@@ -468,26 +485,70 @@ final class Operations {
         result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " particle" : " particles"), 120, true)); 
         return result;
     }
-    /** "Only this area": drops the particles just added whose centroid is outside the ROI, from the Results table and the ROI Manager alike. */
-    void restrictToSelection(Map<String, Object> result, Roi selection, Calibration cal) {
+    /** Removes the just-added particles that are not in {@code keep} (offsets within the added range) from the Results table and the ROI Manager, and recomputes the totals. */
+    void dropParticles(Map<String, Object> result, List<Integer> keep) {
         var table = results(); int count = ((Number) result.get("count")).intValue(); if (count == 0) return;
-        int first = table.size() - count, xc = column(table, "X"), yc = column(table, "Y"), areaColumn = column(table, "Area");
-        if (xc < 0 || yc < 0) throw new IllegalStateException("Centroid columns are missing; cannot scope to the selection.");
-        var keep = new ArrayList<Integer>();
-        for (int r = first; r < table.size(); r++) { double x = cal.getRawX(table.getValueAsDouble(xc, r)), y = cal.getRawY(table.getValueAsDouble(yc, r)); if (selection.contains((int) Math.floor(x), (int) Math.floor(y))) keep.add(r - first); }
+        int first = table.size() - count, areaColumn = column(table, "Area");
         for (int r = table.size() - 1; r >= first; r--) if (!keep.contains(r - first)) table.deleteRows(r, r);
         var manager = managerOrNull(); int added = ((Number) result.get("addedToManager")).intValue(); int managerBefore = ((Number) result.get("managerTotal")).intValue() - added;
         if (manager != null && added == count) {
             var rois = manager.getRoisAsArray(); manager.reset();
             for (int i = 0; i < managerBefore; i++) manager.addRoi(rois[i]);
             for (int k : keep) manager.addRoi(rois[managerBefore + k]);
+            for (int i = rois.length - 1; i >= managerBefore + count && i < rois.length; i--) manager.addRoi(rois[i]);
         }
         double total = 0; for (int r = first; r < table.size() && areaColumn >= 0; r++) total += table.getValueAsDouble(areaColumn, r);
         result.put("count", keep.size()); result.put("totalArea", total); result.put("averageSize", keep.isEmpty() ? 0.0 : total / keep.size());
-        result.put("excludedOutsideSelection", count - keep.size()); result.put("scope", "selection"); result.put("selection", roiJson(selection));
         result.put("addedToManager", manager == null ? 0 : keep.size()); result.put("managerTotal", manager == null ? 0 : manager.getCount()); result.put("resultsRows", table.size());
         result.put("summary", summary(table, first, (Analyzer.getMeasurements() | Measurements.AREA | Measurements.MEAN | Measurements.RECT | Measurements.CENTROID) & ~Measurements.ADD_TO_OVERLAY).get("summary"));
         if (IJ.isResultsWindow()) table.show("Results");
+    }
+    /** "Only this area": keeps the particles just added whose centroid lies inside the ROI. */
+    void restrictToSelection(Map<String, Object> result, Roi selection, Calibration cal) {
+        var table = results(); int count = ((Number) result.get("count")).intValue(); if (count == 0) return;
+        int first = table.size() - count, xc = column(table, "X"), yc = column(table, "Y");
+        if (xc < 0 || yc < 0) throw new IllegalStateException("Centroid columns are missing; cannot scope to the selection.");
+        var keep = new ArrayList<Integer>();
+        for (int r = first; r < table.size(); r++) { double x = cal.getRawX(table.getValueAsDouble(xc, r)), y = cal.getRawY(table.getValueAsDouble(yc, r)); if (selection.contains((int) Math.floor(x), (int) Math.floor(y))) keep.add(r - first); }
+        dropParticles(result, keep);
+        result.put("excludedOutsideSelection", count - keep.size()); result.put("scope", "selection"); result.put("selection", roiJson(selection));
+    }
+    /** Burned-in annotation text (flat, saturated) and specks far below the typical object size are not cells; drop them and say so. */
+    void excludeArtifacts(Map<String, Object> result, ImagePlus imp, int channel) {
+        var table = results(); int count = ((Number) result.get("count")).intValue(); if (count == 0) { result.put("excluded", Map.of("text", 0, "tiny", 0)); return; }
+        int first = table.size() - count, areaColumn = column(table, "Area");
+        var manager = managerOrNull(); int added = ((Number) result.get("addedToManager")).intValue(); int managerBefore = ((Number) result.get("managerTotal")).intValue() - added;
+        var rois = manager != null && added == count ? manager.getRoisAsArray() : null;
+        ImageProcessor ip = imp.getStackSize() > 1 ? imp.getStack().getProcessor(imp.getStackIndex(Math.min(channel, Math.max(1, imp.getNChannels())), imp.getZ(), imp.getT())) : imp.getProcessor();
+        double ceiling = imp.getBitDepth() == 8 || imp.getBitDepth() == 24 ? 255 : imp.getBitDepth() == 16 ? 65535 : Double.NaN;
+        double globalMax = ip.getStats().max, range = Math.max(1, globalMax - ip.getStats().min);
+        var areas = new ArrayList<Double>(); for (int r = first; r < table.size(); r++) areas.add(areaColumn >= 0 ? table.getValueAsDouble(areaColumn, r) : 0.0);
+        var sorted = new ArrayList<>(areas); Collections.sort(sorted); double median = sorted.get(sorted.size() / 2);
+        var keep = new ArrayList<Integer>(); int text = 0, tiny = 0;
+        for (int i = 0; i < count; i++) {
+            Roi roi = rois != null ? rois[managerBefore + i] : null;
+            double area = areas.get(i); boolean isText = false;
+            if (roi != null) {
+                ip.setRoi(roi); var stats = ij.process.ImageStatistics.getStatistics(ip, Measurements.MEAN | Measurements.STD_DEV | Measurements.MIN_MAX | Measurements.AREA, null); ip.resetRoi();
+                // Annotation text is flat (no texture) and saturated: at the bit-depth ceiling, or for 16-bit data at a
+                // 12-bit-or-higher ceiling that is also the channel maximum. Flat objects below that are kept: real data can be flat too.
+                boolean flat = stats.stdDev <= 0.01 * range;
+                boolean saturated = !Double.isNaN(ceiling) && stats.max >= ceiling - 1 || imp.getBitDepth() == 16 && stats.max >= 4095 && stats.max >= globalMax;
+                isText = flat && saturated;
+            }
+            boolean isTiny = count >= 5 && area < 0.15 * median;
+            if (isText) text++; else if (isTiny) tiny++; else keep.add(i);
+        }
+        if (text + tiny > 0) dropParticles(result, keep);
+        result.put("excluded", Map.of("text", text, "tiny", tiny));
+    }
+    static double solidity(Roi roi, double area) {
+        try { var hull = roi.getConvexHull(); if (hull == null) return 1; double hullArea = Math.abs(polygonArea(hull)); return hullArea <= 0 ? 1 : Math.min(1, area / hullArea); }
+        catch (RuntimeException error) { return 1; }
+    }
+    static double polygonArea(java.awt.Polygon polygon) {
+        double sum = 0; for (int i = 0; i < polygon.npoints; i++) { int j = (i + 1) % polygon.npoints; sum += (double) polygon.xpoints[i] * polygon.ypoints[j] - (double) polygon.xpoints[j] * polygon.ypoints[i]; }
+        return sum / 2;
     }
     /** Detections stay visible even with the ROI Manager hidden: bright magenta outlines in the overlay, numbered when there are at most 200. */
     static void outline(ImagePlus imp, RoiManager manager, int managerBefore, List<Rectangle> bounds, int count) {
@@ -531,10 +592,11 @@ final class Operations {
             if (results().size() > 0) { results().reset(); steps.add("clear results"); macro.add("run(\"Clear Results\");"); }
             for (var line : macro) journal.record("segment_cells", line);
             int journalBefore = journal.size();
-            var result = particles(work, particleArgs, "segment_cells");
+            var result = particles(work, imp, particleArgs, "segment_cells");
             result.put("channel", channel); result.put("channelChosenBy", choice.by());
             steps.add("analyze particles (" + result.get("count") + " found)");
             result.put("scope", "image");
+            if (!bool(args, "keepArtifacts", false)) { excludeArtifacts(result, imp, channel); var excluded = (Map<?, ?>) result.get("excluded"); if (((Number) excluded.get("text")).intValue() + ((Number) excluded.get("tiny")).intValue() > 0) steps.add("excluded annotation text (" + excluded.get("text") + ") and specks (" + excluded.get("tiny") + ")"); }
             if (saved != null && saved.isArea()) { restrictToSelection(result, saved, imp.getCalibration()); steps.add("kept particles whose centroid lies inside the selection (" + result.get("count") + ")"); }
             for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro"))); 
             macro.add("close(\"luma-segmentation-mask\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nroiManager(\"Show All without labels\");");

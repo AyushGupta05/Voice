@@ -50,6 +50,9 @@ public final class PipelineContractTest {
         java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
 
         var segmentArgs = new JsonObject(); segmentArgs.addProperty("watershed", false);
+        // keepArtifacts: the specks must survive segmentation here so the explicit "remove < 20 µm²" correction is exercised;
+        // the folder replay then reproduces the same choice (no artifact exclusion), so counts must still match.
+        segmentArgs.addProperty("keepArtifacts", true);
         var segmented = call("segment_cells", segmentArgs, true, null);
         expect(segmented.get("count").getAsInt() == 12, "8 nuclei + 1 touching pair + 3 specks: " + segmented.get("count"));
 
@@ -80,5 +83,13 @@ public final class PipelineContractTest {
         }
         expect(Files.isRegularFile(Path.of(applied.getAsJsonObject("workflow").get("path").getAsString())), "macro saved");
         System.out.println("PASS segment 12 → split at pointer 13 → remove < 20 µm² 10 → apply to folder: 3 × 10, csv " + run.get("csv"));
+        // Default segmentation drops the specks itself; the folder replay must drop them the same way.
+        var plain = call("segment_cells", new JsonObject(), true, null);
+        int live = plain.get("count").getAsInt();
+        expect(plain.getAsJsonObject("excluded").get("tiny").getAsInt() == 3, "specks excluded as artifacts: " + plain.get("excluded"));
+        var again = new JsonObject(); again.addProperty("name", "pipeline default");
+        var replay = call("apply_analysis", again, true, null).getAsJsonObject("run");
+        for (var image : replay.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == live, "artifact exclusion replays to the live count " + live + ": " + image);
+        System.out.println("PASS default artifact exclusion: live " + live + " = folder replay on 3 images");
     }
 }

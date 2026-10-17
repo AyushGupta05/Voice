@@ -17,7 +17,7 @@ final class Checkpoints {
     static final long MAX_BYTES = 512L * 1024 * 1024;
     static final long MAX_TOTAL_BYTES = 1024L * 1024 * 1024;
     static final int MAX_COUNT = 6;
-    static final String SCOPE = "pixels, ROI, overlay, ROI Manager and Results of one image; not files, windows or display settings";
+    static final String SCOPE = "pixels, ROI, overlay, this image's ROI Manager entries and the Results table; not files, windows, display settings or other images";
 
     record Checkpoint(String id, String label, int imageId, String title, ImageStack stack, int channel, int slice, int frame,
                       Roi roi, Overlay overlay, Roi[] managerRois, ResultsTable results, Map<String, Object> counts, long bytes, String at) {}
@@ -39,8 +39,9 @@ final class Checkpoints {
             roi = imp.getRoi() == null ? null : (Roi) imp.getRoi().clone();
             overlay = imp.getOverlay() == null ? null : imp.getOverlay().duplicate();
             var managed = manager == null ? new Roi[0] : manager.getRoisAsArray();
-            rois = new Roi[managed.length];
-            for (int i = 0; i < managed.length; i++) rois[i] = (Roi) managed[i].clone();
+            var mine = new ArrayList<Roi>();
+            for (var entry : managed) if (Operations.belongsTo(entry, imp.getID())) mine.add((Roi) entry.clone());
+            rois = mine.toArray(Roi[]::new);
             table = results == null ? null : (ResultsTable) results.clone();
         } catch (OutOfMemoryError | RuntimeException error) {
             return skipped(label, counts, "copying failed: " + error.getClass().getSimpleName());
@@ -94,7 +95,11 @@ final class Checkpoints {
         if (checkpoint.roi() == null) imp.deleteRoi(); else imp.setRoi((Roi) checkpoint.roi().clone());
         imp.setOverlay(checkpoint.overlay() == null ? null : checkpoint.overlay().duplicate());
         if (manager != null) {
+            // Only this image's entries are replaced; other images' ROIs stay in the manager untouched.
+            var others = new ArrayList<Roi>();
+            for (var roi : manager.getRoisAsArray()) if (!Operations.belongsTo(roi, imp.getID())) others.add(roi);
             manager.reset();
+            for (var roi : others) manager.addRoi(roi);
             for (var roi : checkpoint.managerRois()) manager.addRoi((Roi) roi.clone());
         }
         if (checkpoint.results() != null) {

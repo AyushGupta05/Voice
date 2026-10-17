@@ -100,7 +100,29 @@ final class Scripting {
     }
 
     /** Outcome of watching a worker: finished (value or error), a dialog that stayed open, or still running. */
-    record Watched(boolean finished, Object value, Throwable error, Window dialog, long elapsedMs) {}
+    record Watched(boolean finished, Object value, Throwable error, Window dialog, long elapsedMs, List<String> autoClosed) {
+        Watched(boolean finished, Object value, Throwable error, Window dialog, long elapsedMs) { this(finished, value, error, dialog, elapsedMs, List.of()); }
+        /** Text of an auto-closed ImageJ error dialog ("Macro Error", "Exception", …), or null. */
+        String errorDialog() { for (var text : autoClosed) if (text.startsWith("error:")) return text.substring(6); return null; }
+        boolean cancelledFileDialog() { return autoClosed.stream().anyMatch(text -> text.startsWith("file:")); }
+    }
+    /** Native file choosers cannot be driven through fiji_ui_action, so a bridge call that spawns one gets it cancelled. */
+    static boolean isFileDialog(Window window) {
+        if (window instanceof java.awt.FileDialog) return true;
+        return window instanceof java.awt.Dialog && hasFileChooser(window);
+    }
+    private static boolean hasFileChooser(java.awt.Component component) {
+        if (component instanceof javax.swing.JFileChooser) return true;
+        if (component instanceof java.awt.Container container) for (var child : container.getComponents()) if (hasFileChooser(child)) return true;
+        return false;
+    }
+    /** ImageJ's modal error/message dialogs block every client; they are read, closed and reported as the call's error instead. */
+    static boolean isErrorDialog(Window window) {
+        String title = UiTree.title(window);
+        if (title.equals("Macro Error") || title.equals("Exception") || title.equals("Error") || title.equals("ImageJ Exception")) return true;
+        // IJ.error() uses the plain "ImageJ" title; informational showMessage() dialogs keep their own title and are returned for the model to read.
+        return window instanceof ij.gui.MessageDialog && title.equals("ImageJ") && Macros.dialogText(window).matches("(?is).*(error|exception|not found|cannot|unable|required|invalid|failed|no image).*");
+    }
 
     /** Runs work off the EDT and watches for new dialogs; returns when done, when a dialog stays open for 400 ms, or after the timeout. */
     Watched watch(String name, ImagePlus imp, java.util.concurrent.Callable<Object> work, long timeoutMs) throws InterruptedException {
@@ -112,19 +134,27 @@ final class Scripting {
             try { holder[0] = work.call(); } catch (Throwable error) { holder[1] = error; } finally { done.set(true); analysisRunning.set(false); }
         }, "luma-" + name);
         thread.setDaemon(true); analysisRunning.set(true); long start = System.currentTimeMillis(); thread.start();
-        Window seen = null; long seenAt = 0;
+        Window seen = null; long seenAt = 0; var autoClosed = new ArrayList<String>(); var closing = new HashSet<Window>();
         while (!done.get()) {
             long elapsed = System.currentTimeMillis() - start;
-            if (elapsed > timeoutMs) return new Watched(false, null, null, null, elapsed);
-            var dialogs = UiTree.newDialogs(before).stream().filter(window -> window instanceof java.awt.Dialog).toList();
+            if (elapsed > timeoutMs) return new Watched(false, null, null, null, elapsed, List.copyOf(autoClosed));
+            var dialogs = UiTree.newDialogs(before).stream().filter(window -> window instanceof java.awt.Dialog && !closing.contains(window)).toList();
             if (!dialogs.isEmpty()) {
                 var current = dialogs.getLast();
-                if (current != seen) { seen = current; seenAt = System.currentTimeMillis(); }
-                else if (System.currentTimeMillis() - seenAt > 400) return new Watched(false, null, null, current, elapsed);
+                if (isFileDialog(current)) { autoClosed.add("file:" + UiTree.title(current)); closing.add(current); EventQueue.invokeLater(current::dispose); seen = null; }
+                else if (isErrorDialog(current)) { autoClosed.add("error:" + Macros.dialogText(current)); closing.add(current); EventQueue.invokeLater(current::dispose); seen = null; }
+                else if (current != seen) { seen = current; seenAt = System.currentTimeMillis(); }
+                else if (System.currentTimeMillis() - seenAt > 400) return new Watched(false, null, null, current, elapsed, List.copyOf(autoClosed));
             } else seen = null;
             TimeUnit.MILLISECONDS.sleep(40);
         }
-        return new Watched(true, holder[0], (Throwable) holder[1], null, System.currentTimeMillis() - start);
+        return new Watched(true, holder[0], (Throwable) holder[1], null, System.currentTimeMillis() - start, List.copyOf(autoClosed));
+    }
+    /** Common outcome fields: an auto-closed error dialog fails the call with ImageJ's own text; a cancelled file dialog is reported. */
+    private static void applyAutoClosed(Watched watched, Map<String, Object> result, String what) {
+        String error = watched.errorDialog();
+        if (error != null) throw new IllegalStateException(what + " failed in Fiji: " + error + " (the error dialog was closed automatically)");
+        if (watched.cancelledFileDialog()) { result.put("cancelledFileDialog", true); result.put("note", "The command opened a native file chooser, which the bridge cancelled; use fiji_open_path, fiji_save_image or fiji_export_results with an explicit path instead."); }
     }
     Map<String, Object> dialogJson(Window window) throws Exception {
         var holder = new Object[1];
@@ -152,6 +182,7 @@ final class Scripting {
         var result = new LinkedHashMap<String, Object>();
         result.put("command", name); result.put("requested", requested); result.put("options", options); result.put("elapsedMs", watched.elapsedMs());
         if (watched.error() != null) throw new IllegalStateException("Command failed: " + Objects.toString(watched.error().getMessage(), watched.error().getClass().getSimpleName()));
+        applyAutoClosed(watched, result, "Command \"" + name + "\"");
         if (watched.dialog() != null) { result.put("dispatched", true); result.put("completed", false); result.put("dialog", dialogJson(watched.dialog())); result.put("note", "The command opened a dialog and is waiting. Fill it with fiji_ui_action and press its OK button, or run again with options."); }
         else if (!watched.finished()) { result.put("dispatched", true); result.put("completed", false); result.put("running", true); result.put("note", "Still running after " + timeoutMs / 1000 + " s; fiji_context reports analysisRunning until it finishes."); }
         else { result.put("dispatched", true); result.put("completed", true); }
@@ -173,6 +204,7 @@ final class Scripting {
         var result = new LinkedHashMap<String, Object>();
         result.put("elapsedMs", watched.elapsedMs());
         if (watched.error() != null) throw new IllegalStateException("Macro failed: " + Objects.toString(watched.error().getMessage(), watched.error().getClass().getSimpleName()));
+        applyAutoClosed(watched, result, "Macro");
         if (watched.dialog() != null) { result.put("completed", false); result.put("dialog", dialogJson(watched.dialog())); result.put("note", "The macro opened a dialog and is waiting."); }
         else if (!watched.finished()) { result.put("completed", false); result.put("running", true); }
         else { result.put("completed", true); String value = Objects.toString(watched.value(), ""); result.put("result", value.length() > 4000 ? value.substring(0, 4000) : value); result.put("aborted", "[aborted]".equals(value)); }
@@ -200,6 +232,7 @@ final class Scripting {
         }, timeoutMs);
         var result = new LinkedHashMap<String, Object>();
         result.put("language", language); result.put("elapsedMs", watched.elapsedMs()); result.put("stdout", truncate(out.toString())); result.put("stderr", truncate(err.toString()));
+        applyAutoClosed(watched, result, "Script");
         if (watched.error() != null) throw new IllegalStateException("Script failed: " + truncate(Objects.toString(watched.error().getCause() == null ? watched.error().getMessage() : watched.error().getCause().getMessage(), watched.error().getClass().getSimpleName())) + (err.toString().isBlank() ? "" : "\n" + truncate(err.toString())));
         if (watched.dialog() != null) { result.put("completed", false); result.put("dialog", dialogJson(watched.dialog())); result.put("note", "The script opened a dialog (probably #@ parameters) and is waiting."); }
         else if (!watched.finished()) { result.put("completed", false); result.put("running", true); }

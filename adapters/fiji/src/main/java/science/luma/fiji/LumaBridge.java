@@ -191,6 +191,7 @@ public final class LumaBridge implements PlugIn {
                     var path = edt(() -> { check(expected); return Operations.openablePath(Operations.string(args, "path", "")); });
                     var watched = scripting.watch("open", null, () -> ops.openOffThread(path), OPEN_TIMEOUT_MS);
                     if (watched.error() != null) throw new IllegalStateException("Could not open " + path.getFileName() + ": " + Objects.toString(watched.error().getMessage(), watched.error().getClass().getSimpleName()));
+                    if (watched.errorDialog() != null) throw new IllegalStateException("Could not open " + path.getFileName() + ": " + watched.errorDialog());
                     var result = new LinkedHashMap<String, Object>(); result.put("path", path.toString()); result.put("elapsedMs", watched.elapsedMs());
                     if (watched.dialog() != null) { result.put("opened", false); result.put("dispatched", true); result.put("dialog", scripting.dialogJson(watched.dialog())); result.put("note", "The reader opened a dialog (for example Bio-Formats import options); fill it with fiji_ui_action and press OK."); }
                     else if (!watched.finished()) { result.put("opened", false); result.put("dispatched", true); result.put("running", true); result.put("note", "Still reading after " + OPEN_TIMEOUT_MS / 1000 + " s; fiji_context reports analysisRunning until the image appears."); }
@@ -344,12 +345,15 @@ public final class LumaBridge implements PlugIn {
         ImagePlus imp = null;
         for (var candidate : ops.images()) if (candidate.getID() == target.imageId()) imp = candidate;
         if (imp == null) throw new IllegalStateException("The checkpoint's image (" + target.title() + ") is no longer open.");
-        var backup = checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), ops.counts(imp));
+        var before = ops.counts(imp);
+        var backup = checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), before);
         Checkpoints.restore(target, imp, ops.managerOrNull());
         if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow()); else WindowManager.setTempCurrentImage(imp);
         journal.record("restore", "// restored Luma checkpoint \"" + target.label() + "\"");
         var result = new LinkedHashMap<String, Object>();
-        result.put("restored", target.id()); result.put("label", target.label()); result.put("counts", ops.counts(imp)); result.put("image", Operations.describe(imp)); result.put("undoCheckpoint", backup);
+        result.put("restored", target.id()); result.put("label", target.label()); result.put("imageId", imp.getID()); result.put("title", imp.getTitle());
+        result.put("before", before); result.put("counts", ops.counts(imp)); result.put("restoredCounts", ops.counts(imp)); result.put("image", Operations.describe(imp)); result.put("undoCheckpoint", backup);
+        result.put("scope", "this image only: its pixels, ROI, overlay, its ROI Manager entries and the Results table");
         result.put("highlight", Viewer.imageHighlight(imp, "Restored: " + target.label()));
         return result;
     }

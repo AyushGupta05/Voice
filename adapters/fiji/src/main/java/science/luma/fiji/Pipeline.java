@@ -27,7 +27,7 @@ public final class Pipeline {
     private String image;
     private Integer channel;
     private String method = "Otsu";
-    private boolean dark = true, watershed = true;
+    private boolean dark = true, watershed = true, excludeArtifacts = true;
     private double sigma = 1, minArea = 0, maxArea = Double.POSITIVE_INFINITY, minCircularity = 0;
     private double splitFactor = 0, splitTolerance = 0.5;
     private String unit = "pixel";
@@ -48,7 +48,7 @@ public final class Pipeline {
                     if (t.get("method") instanceof String m) method = m;
                     if (t.get("dark") instanceof Boolean d) dark = d;
                 }
-                watershed = Operations.bool(args, "watershed", true);
+                watershed = Operations.bool(args, "watershed", true); excludeArtifacts = !Operations.bool(args, "keepArtifacts", false);
                 sigma = Operations.bool(args, "gaussian", true) ? Operations.number(args, "sigma", 1) : 0;
                 minArea = Operations.number(args, "minSize", 0); maxArea = Double.POSITIVE_INFINITY; minCircularity = 0;
                 splitFactor = 0; splitTolerance = 0.5;
@@ -88,6 +88,7 @@ public final class Pipeline {
         if (!ready()) throw new IllegalStateException("Segment the cells first; there is no analysis to reuse yet.");
         var steps = new ArrayList<String>();
         steps.add("nuclei/cells from channel " + (channel == null ? "current" : channel) + ", Gaussian sigma " + Operations.plain(sigma) + ", " + method + " threshold" + (dark ? " (bright objects)" : "") + ", fill holes" + (watershed ? ", watershed" : ""));
+        if (excludeArtifacts) steps.add("drop burned-in text and specks under 0.15× the median size");
         steps.addAll(corrections);
         steps.add("measure area, intensity and shape on the original pixels");
         var result = new LinkedHashMap<String, Object>();
@@ -100,12 +101,11 @@ public final class Pipeline {
         var p = new LinkedHashMap<String, Object>();
         p.put("channel", channel == null ? 1 : channel); p.put("method", method); p.put("dark", dark); p.put("sigma", sigma); p.put("watershed", watershed);
         p.put("minArea", round(minArea)); p.put("maxArea", Double.isInfinite(maxArea) ? "Infinity" : String.valueOf(round(maxArea))); p.put("minCircularity", round(minCircularity));
-        p.put("splitFactor", round(splitFactor)); p.put("splitTolerance", splitTolerance);
+        p.put("splitFactor", round(splitFactor)); p.put("splitTolerance", splitTolerance); p.put("excludeArtifacts", excludeArtifacts);
         return p;
     }
     /** ImageJ macro that reproduces the analysis; the split and the post-split filter call this class so they behave exactly as live. */
     String macro() {
-        boolean refine = splitFactor > 0;
         return String.join("\n",
             "// Reproduces the analysis Penny ran on " + image + " with the researcher's corrections.",
             "original = getTitle();",
@@ -118,11 +118,10 @@ public final class Pipeline {
             "run(\"Convert to Mask\");",
             "run(\"Fill Holes\");",
             "if (watershed) run(\"Watershed\");",
-            refine ? "run(\"Analyze Particles...\", \"size=0-Infinity show=Nothing add\");"
-                   : "run(\"Analyze Particles...\", \"size=\" + minArea + \"-\" + maxArea + \" circularity=\" + minCircularity + \"-1.00 show=Nothing add\");",
+            "run(\"Analyze Particles...\", \"size=0-Infinity show=Nothing add\");",
             "close(\"penny-mask\");",
             "selectImage(original);",
-            refine ? "call(\"science.luma.fiji.Pipeline.refine\", \"\" + splitFactor, \"\" + splitTolerance, \"\" + minArea, \"\" + maxArea, \"\" + minCircularity);" : "// no split correction",
+            "call(\"science.luma.fiji.Pipeline.refine\", \"\" + splitFactor, \"\" + splitTolerance, \"\" + minArea, \"\" + maxArea, \"\" + minCircularity, \"\" + excludeArtifacts, \"\" + channel);",
             "run(\"Set Measurements...\", \"area mean standard min integrated median perimeter shape bounding redirect=None decimal=3\");",
             "if (roiManager(\"count\") > 0) roiManager(\"Measure\");",
             "sum = 0; for (i = 0; i < nResults; i++) sum += getResult(\"Area\", i);",
@@ -163,15 +162,36 @@ public final class Pipeline {
         return List.of();
     }
 
+    /** The same rule as Operations.excludeArtifacts: flat saturated objects are burned-in text; with ≥ 5 objects, specks under 0.15× the median area. */
+    static Roi[] withoutArtifacts(ImagePlus imp, Roi[] rois, int channel) {
+        ImageProcessor ip = imp.getStackSize() > 1 ? imp.getStack().getProcessor(imp.getStackIndex(Math.min(Math.max(1, channel), Math.max(1, imp.getNChannels())), imp.getZ(), imp.getT())) : imp.getProcessor();
+        double ceiling = imp.getBitDepth() == 8 || imp.getBitDepth() == 24 ? 255 : imp.getBitDepth() == 16 ? 65535 : Double.NaN;
+        var global = ip.getStats(); double globalMax = global.max, range = Math.max(1, global.max - global.min);
+        double[] px = new double[rois.length]; for (int i = 0; i < rois.length; i++) px[i] = rois[i].getStatistics().pixelCount;
+        double[] sorted = px.clone(); Arrays.sort(sorted); double median = sorted[sorted.length / 2];
+        var keep = new ArrayList<Roi>();
+        for (int i = 0; i < rois.length; i++) {
+            ip.setRoi(rois[i]); var stats = ij.process.ImageStatistics.getStatistics(ip, ij.measure.Measurements.STD_DEV | ij.measure.Measurements.MIN_MAX, null); ip.resetRoi();
+            boolean flat = stats.stdDev <= 0.01 * range;
+            boolean saturated = !Double.isNaN(ceiling) && stats.max >= ceiling - 1 || imp.getBitDepth() == 16 && stats.max >= 4095 && stats.max >= globalMax;
+            boolean tiny = rois.length >= 5 && px[i] < 0.15 * median;
+            if (!(flat && saturated) && !tiny) keep.add(rois[i]);
+        }
+        return keep.toArray(new Roi[0]);
+    }
     /** Macro entry point: split oversized objects, then apply the area/circularity filter, on the macro's ROI Manager. */
-    public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) {
+    public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) { return refine(factor, tolerance, minArea, maxArea, minCircularity, "false", "1"); }
+    /** As live: drop artifacts (as segment_cells does), then split oversized objects, then apply the area/circularity filter. */
+    public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity, String artifacts, String channel) {
         ImagePlus imp = WindowManager.getCurrentImage();
         RoiManager rm = RoiManager.getInstance();
         if (rm == null && Interpreter.isBatchMode()) rm = Interpreter.getBatchModeRoiManager();
         if (rm == null || imp == null) return "0";
         Roi[] rois = rm.getRoisAsArray(); if (rois.length == 0) return "0";
+        if ("true".equals(artifacts) || "1".equals(artifacts)) rois = withoutArtifacts(imp, rois, (int) Math.round(Double.parseDouble(channel)));
         double f = Double.parseDouble(factor), tol = Double.parseDouble(tolerance), lo = Double.parseDouble(minArea), circ = Double.parseDouble(minCircularity);
         double hi = "Infinity".equals(maxArea) ? Double.POSITIVE_INFINITY : Double.parseDouble(maxArea);
+        if (rois.length == 0) { rm.reset(); return "0"; }
         double[] px = new double[rois.length]; for (int i = 0; i < rois.length; i++) px[i] = rois[i].getStatistics().pixelCount;
         double[] sorted = px.clone(); Arrays.sort(sorted); double median = sorted[sorted.length / 2];
         int minPart = Math.max(4, (int) Math.round(median * 0.15));
