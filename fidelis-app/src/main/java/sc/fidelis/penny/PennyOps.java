@@ -61,13 +61,13 @@ final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
             "results", "object_stats", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
-            "confirm", "cancel_plan");
-    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "history", "macro");
+            "confirm", "cancel_plan", "dialog", "dialog_action");
+    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "history", "macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
     /** View operations that are engine plans (select_roi, display, stack); the other views never reach the engine. */
     static final Set<String> PLAN_VIEWS = Set.of("select_roi", "display", "stack");
     static final Set<String> MUTATING = Set.of("open_path", "command", "segment_cells", "measure", "threshold", "analyze_particles",
-            "filter", "convert", "duplicate", "undo", "redo", "run_macro", "confirm");
+            "filter", "convert", "duplicate", "undo", "redo", "run_macro", "confirm", "dialog_action");
 
     static final List<String> THRESHOLD_METHODS = List.of("Default", "Huang", "Intermodes", "IsoData", "IJ_IsoData", "Li",
             "MaxEntropy", "Mean", "MinError", "Minimum", "Moments", "Otsu", "Percentile", "RenyiEntropy", "Shanbhag", "Triangle", "Yen");
@@ -88,7 +88,16 @@ final class PennyOps {
      * The last completed segment_cells: its document, how many undo steps revert it, the SHA-256 of the plane it left,
      * and the choices a replacement keeps (8-bit conversion, polarity).
      */
-    record Segmentation(DocumentId doc, int undoSteps, String digest, boolean converted, boolean dark) {}
+    record Segmentation(DocumentId doc, int undoSteps, String digest, boolean converted, boolean dark, int historyEnd) {}
+
+    /** Actions that leave a document's pixels and undo snapshots alone (a segmentation can still be replaced after them). */
+    static final Set<String> KEEPS_UNDO = Set.of(PennyCommands.MEASURE, PennyCommands.SET_MEASUREMENTS, PennyCommands.ANALYZE_PARTICLES,
+            Operations.SET_ROI, Operations.CLEAR_ROI, Operations.ROI_LIST_ADD, Operations.ROI_LIST_SELECT, Operations.ROI_LIST_DELETE,
+            Operations.ROI_LIST_RENAME, Operations.SET_DISPLAY_RANGE, Operations.SET_POSITION, Operations.SET_THRESHOLD,
+            Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD, Operations.OPEN);
+
+    /** A dialog the engine reported for one of a plan's operations (EngineEvent.DialogPending). */
+    record PendingDialog(String operationId, String title, String dialogClass) {}
 
     /** A plan admitted for execution and the future of its run on the plan thread. */
     record Running(Plan plan, Future<Map<String, Object>> future) {}
@@ -130,6 +139,16 @@ final class PennyOps {
         Finisher finish = (p, r) -> new LinkedHashMap<>();
         boolean explicit;
         int undoSteps;
+        /** The approved plane of a stack document ({c, z, t}); COMMAND steps are pinned to it. Null for single planes. */
+        int[] position;
+        /** The original Fiji dialog the plan's current engine operation waits on, set from the engine's events. */
+        volatile PendingDialog dialog;
+        /** The running plan's future, for dialog_action to wait on again. */
+        volatile Running handle;
+        /** Index of the step being run (for dialog reports). */
+        volatile int current = -1;
+        /** Title of a dialog Penny pressed Cancel on (the command then ends as cancelled, not as a failure). */
+        volatile String cancelledDialog;
         List<String> reasons = List.of();
         String contextKey;
         String codeToken;
@@ -174,6 +193,12 @@ final class PennyOps {
      */
     private final Object admission = new Object();
     private final AtomicReference<Segmentation> lastSegmentation = new AtomicReference<>();
+    /** Engine requests of Penny's plans by request id, and their operations by operation id (from the engine's events). */
+    private final Map<String, Plan> byRequest = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Plan> byOperation = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Engine operations queued or running that are not Penny's (the workspace's, a native command's). */
+    private final Set<String> foreignOps = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final sc.fidelis.engine.api.EngineListener listener = this::onEvent;
     /** The last plan discarded without running, and why ({planId, reason}), so a late confirm can say so. */
     private final AtomicReference<String[]> discarded = new AtomicReference<>();
 
@@ -181,6 +206,32 @@ final class PennyOps {
         this.engine = engine;
         this.mode = mode;
         this.policy = new ConfirmationPolicy(engine::schema, engine::globals);
+        engine.addListener(listener);
+    }
+
+    private static boolean terminal(OperationState s) {
+        return s == OperationState.COMPLETED || s == OperationState.FAILED || s == OperationState.CANCELLED
+                || s == OperationState.ROLLED_BACK || s == OperationState.PARTIAL || s == OperationState.AWAITING_CONFIRMATION;
+    }
+
+    /** Engine events (on the EDT, must not block): which operations are Penny's, their dialogs, and foreign activity. */
+    private void onEvent(sc.fidelis.engine.api.EngineEvent e) {
+        if (e instanceof sc.fidelis.engine.api.EngineEvent.OperationStateChanged sc) {
+            Plan p = sc.requestId() == null ? null : byRequest.get(sc.requestId());
+            if (p != null) {
+                byOperation.put(sc.operationId(), p);
+                if (sc.state() == OperationState.RUNNING || terminal(sc.state())) {
+                    PendingDialog d = p.dialog;
+                    if (d != null && d.operationId().equals(sc.operationId())) p.dialog = null;
+                }
+            } else if (byOperation.get(sc.operationId()) == null) {
+                if (terminal(sc.state())) foreignOps.remove(sc.operationId());
+                else foreignOps.add(sc.operationId());
+            }
+        } else if (e instanceof sc.fidelis.engine.api.EngineEvent.DialogPending dp) {
+            Plan p = dp.operationId() == null ? null : byOperation.get(dp.operationId());
+            if (p != null) p.dialog = new PendingDialog(dp.operationId(), dp.windowTitle(), dp.dialogClass());
+        }
     }
 
     ConfirmMode mode() {
@@ -188,6 +239,7 @@ final class PennyOps {
     }
 
     void shutdown() {
+        engine.removeListener(listener);
         planRunner.shutdownNow();
     }
 
@@ -206,6 +258,7 @@ final class PennyOps {
             case "object_stats" -> { return objectStats(); }
             case "history" -> { return history(a); }
             case "macro" -> { return macro(); }
+            case "dialog" -> { return dialogRead(); }
             default -> { }
         }
         Object admitted;
@@ -225,7 +278,8 @@ final class PennyOps {
     private Object admit(Call c) {
         JsonObject a = c.args();
         Plan busy = running.get();
-        if (busy != null && MUTATING.contains(c.operation()) && !c.operation().equals("confirm") || busy != null && PLAN_VIEWS.contains(c.operation()))
+        if (busy != null && MUTATING.contains(c.operation()) && !c.operation().equals("confirm") && !c.operation().equals("dialog_action")
+                || busy != null && PLAN_VIEWS.contains(c.operation()))
             throw new Failure(409, "Penny is still running " + busy.call.operation() + " (" + busy.id + ") in Fidelis; wait for it to finish.",
                     Map.of("planId", busy.id, "running", true));
         return switch (c.operation()) {
@@ -234,6 +288,7 @@ final class PennyOps {
             case "highlight" -> highlight(a);
             case "cancel_plan" -> cancel(PennyJson.str(a, "planId", null));
             case "confirm" -> admitConfirm(PennyJson.str(a, "planId", null));
+            case "dialog_action" -> admitDialogAction(a);
             case "open_path" -> run(openPath(c));
             case "command" -> run(command(c));
             case "segment_cells" -> run(segmentCells(c));
@@ -312,6 +367,17 @@ final class PennyOps {
         return out;
     }
 
+    private static boolean blockedFor(Running run, long ms) {
+        try {
+            run.future().get(ms, TimeUnit.MILLISECONDS);
+            return false;
+        } catch (TimeoutException e) {
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /** Under {@link #admission}: reserve the plan thread and start the plan there. */
     private Running reserve(Plan p, boolean confirmed) {
         if (!running.compareAndSet(null, p)) {
@@ -324,7 +390,9 @@ final class PennyOps {
             discard(old, "another action (" + p.call.operation() + ") ran after it, so the image, selection or results changed");
         ui(() -> PennyUi.current().showPlan(card(p), true));
         try {
-            return new Running(p, planRunner.submit(() -> runSteps(p, confirmed)));
+            Running r = new Running(p, planRunner.submit(() -> runSteps(p, confirmed)));
+            p.handle = r;
+            return r;
         } catch (RuntimeException e) {
             running.compareAndSet(p, null);
             throw new Failure(409, "The Penny plan runner is stopped.");
@@ -334,8 +402,23 @@ final class PennyOps {
     /** Wait (bounded) for a running plan; it keeps running if the wait times out. */
     private Map<String, Object> await(Running run) {
         Plan p = run.plan();
+        long deadline = System.currentTimeMillis() + HTTP_WAIT_SECONDS * 1000;
         try {
-            return run.future().get(HTTP_WAIT_SECONDS, TimeUnit.SECONDS);
+            while (true) {
+                try {
+                    return run.future().get(100, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    PendingDialog d = p.dialog;
+                    if (d != null) {
+                        java.awt.Window w = DialogDriver.find(d.title(), d.dialogClass());
+                        // a modal dialog blocks the command; a non-modal tool window (Brightness/Contrast) does not, unless the
+                        // command is still waiting half a second later (a non-blocking dialog the plugin waits on)
+                        if (w != null && (DialogDriver.onEdt(() -> ((java.awt.Dialog) w).isModal()) || blockedFor(run, 500)))
+                            return dialogResult(p, w, null);
+                    }
+                    if (System.currentTimeMillis() > deadline) throw e;
+                }
+            }
         } catch (TimeoutException e) {
             throw new Failure(409, "Still running in Fidelis after " + HTTP_WAIT_SECONDS + " s (a dialog may be waiting there); "
                     + "check history before retrying.", Map.of("planId", p.id, "running", true));
@@ -353,12 +436,31 @@ final class PennyOps {
     private Map<String, Object> runSteps(Plan p, boolean confirmed) {
         List<ActionResult> results = new ArrayList<>();
         try {
+            Set<String> ours = new LinkedHashSet<>();
+            int mark = -1;
             for (int i = 0; i < p.steps.size(); i++) {
                 Step s = p.steps.get(i);
                 final int index = i;
+                // the approval binds the whole plan: let foreign engine work finish, then make sure nothing else acted
+                // on Fidelis since the plan was approved (or since its previous step)
+                waitForForeignOps(p, i, results);
+                if (i == 0) {
+                    if (!contextKey().equals(p.contextKey))
+                        throw stepFailure(p, i, null, results, "the image, selection, results or history changed after the plan was approved", true);
+                } else {
+                    for (HistoryRecord h : sinceMark(mark)) {
+                        boolean mine = p.transcriptRef.equals(h.transcriptRef()) || ours.contains(h.actionId())
+                                || (h.params() != null && ours.contains(String.valueOf(h.params().get("parentActionId"))));
+                        if (!mine)
+                            throw stepFailure(p, i, null, results, "another action (" + h.label() + ", " + h.origin() + ") ran in Fidelis after step " + i
+                                    + "; the plan stopped so it does not act on a changed image", true);
+                    }
+                }
                 ui(() -> PennyUi.current().planProgress(p.id, index, s.label()));
+                p.current = i;
                 ActionRequest r = s.request();
                 if (r.kind() == ActionKind.CODE && p.codeToken != null) r = r.withConfirmation(p.codeToken);
+                byRequest.put(r.requestId(), p);
                 ActionResult res;
                 try {
                     // no timeout: the plan owns the bridge until the engine reports a terminal state (an original Fiji
@@ -366,12 +468,32 @@ final class PennyOps {
                     res = engine.submit(r).get();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw stepFailure(p, i, null, results, "interrupted");
+                    throw stepFailure(p, i, null, results, "interrupted", false);
                 } catch (ExecutionException e) {
-                    throw stepFailure(p, i, null, results, String.valueOf(e.getCause()));
+                    throw stepFailure(p, i, null, results, String.valueOf(e.getCause()), false);
                 }
                 results.add(res);
-                if (!res.succeeded()) throw stepFailure(p, i, res, results, null);
+                if (res.record() != null) ours.add(res.record().actionId());
+                mark = engine.history().size();
+                if (!res.succeeded() && p.cancelledDialog != null) {
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("status", "cancelled");
+                    out.put("planId", p.id);
+                    out.put("operation", p.call.operation());
+                    out.put("dialog", p.cancelledDialog);
+                    out.put("state", String.valueOf(res.state()));
+                    out.put("engineMessage", res.error() == null ? null : res.error().message());
+                    out.put("step", step(s, res));
+                    List<Map<String, Object>> done = new ArrayList<>();
+                    for (int k = 0; k < i; k++) done.add(step(p.steps.get(k), results.get(k)));
+                    out.put("completedSteps", done);
+                    out.put("note", "The Fiji dialog '" + p.cancelledDialog + "' was cancelled, so " + s.label() + " did not finish"
+                            + (i + 1 < p.steps.size() ? " and the remaining steps did not run." : "."));
+                    out.put("contextKey", contextKey());
+                    ui(() -> PennyUi.current().planFinished(p.id, false, "cancelled"));
+                    return out;
+                }
+                if (!res.succeeded()) throw stepFailure(p, i, res, results, null, false);
             }
             int undoable = 0;
             for (int i = 0; i < results.size(); i++) {
@@ -407,11 +529,34 @@ final class PennyOps {
             ui(() -> PennyUi.current().planFinished(p.id, false, String.valueOf(e)));
             throw new Failure(409, "The plan stopped: " + e, Map.of("planId", p.id));
         } finally {
+            p.dialog = null;
+            for (Step st : p.steps) byRequest.remove(st.request().requestId());
+            byOperation.values().removeIf(x -> x == p);
             running.compareAndSet(p, null);
         }
     }
 
-    private Failure stepFailure(Plan p, int i, ActionResult res, List<ActionResult> done, String why) {
+    private List<HistoryRecord> sinceMark(int mark) {
+        List<HistoryRecord> h = engine.history();
+        return mark < 0 || mark >= h.size() ? List.of() : h.subList(mark, h.size());
+    }
+
+    /** Wait (up to 30 s) until no engine operation other than Penny's is queued or running. */
+    private void waitForForeignOps(Plan p, int i, List<ActionResult> results) {
+        long end = System.currentTimeMillis() + 30_000;
+        while (!foreignOps.isEmpty()) {
+            if (System.currentTimeMillis() > end)
+                throw stepFailure(p, i, null, results, "Fidelis is still busy with another action (" + foreignOps.size() + " operation(s))", true);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw stepFailure(p, i, null, results, "interrupted", true);
+            }
+        }
+    }
+
+    private Failure stepFailure(Plan p, int i, ActionResult res, List<ActionResult> done, String why, boolean notStarted) {
         Step s = p.steps.get(i);
         String msg = why != null ? why : res.error() != null ? res.error().message() : "ended in " + res.state();
         String text = p.steps.size() == 1 ? msg : "Step " + (i + 1) + " of " + p.steps.size() + " (" + s.label() + ") did not complete: " + msg;
@@ -430,7 +575,8 @@ final class PennyOps {
         extra.put("completedSteps", completed);
         if (res != null && res.record() != null) extra.put("step", step(s, res));
         String failedStep;
-        if (res == null) failedStep = "The failed step's effect is unknown; check History before retrying.";
+        if (notStarted) failedStep = "Step " + (i + 1) + " was not started.";
+        else if (res == null) failedStep = "The failed step's effect is unknown; check History before retrying.";
         else if (res.state() == OperationState.ROLLED_BACK) failedStep = "The engine rolled the failed step back.";
         else if (res.record() == null) failedStep = "The engine refused the failed step before running it.";
         else failedStep = "The failed step may have changed the image, ROIs or results (state " + res.state() + "); check History before retrying.";
@@ -499,6 +645,21 @@ final class PennyOps {
     Map<String, Object> cancel(String planId) {
         Plan p = pending.get();
         Map<String, Object> out = new LinkedHashMap<>();
+        Plan r = running.get();
+        PendingDialog rd = r == null ? null : r.dialog;
+        if (p == null && rd != null && (planId == null || planId.isBlank() || planId.equals(r.id))) {
+            java.awt.Window w = DialogDriver.find(rd.title(), rd.dialogClass());
+            DialogDriver.Described dd = w == null ? null : DialogDriver.describe(w);
+            if (dd != null && dd.buttons().stream().anyMatch(b -> b.equalsIgnoreCase("Cancel"))) {
+                r.cancelledDialog = dd.title();
+                DialogDriver.act(w, Map.of(), "Cancel");
+                out.put("cancelled", true);
+                out.put("planId", r.id);
+                out.put("dialogCancelled", dd.title());
+                out.put("note", "Cancel was pressed on the Fiji dialog; the command ends as its plugin decides (see history).");
+                return out;
+            }
+        }
         if (p == null || (planId != null && !planId.isBlank() && !planId.equals(p.id)) || !pending.compareAndSet(p, null)) {
             out.put("cancelled", false);
             out.put("note", "nothing was waiting" + (planId == null ? "" : " under " + planId));
@@ -508,6 +669,58 @@ final class PennyOps {
         out.put("cancelled", true);
         out.put("planId", p.id);
         return out;
+    }
+
+    private Map<String, Object> dialogResult(Plan p, java.awt.Window w, String note) {
+        DialogDriver.Described d = DialogDriver.describe(w);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("status", "dialog");
+        out.put("planId", p.id);
+        out.put("operation", p.call.operation());
+        int i = p.current;
+        out.put("step", i < 0 || i >= p.steps.size() ? null : map("index", i + 1, "of", p.steps.size(), "label", p.steps.get(i).label()));
+        out.put("dialog", d.json());
+        out.put("note", note != null ? note : "The command is waiting on its original Fiji dialog. Fill and press it with dialog_action "
+                + "{fields:{key: value}, press: \"OK\" | \"Cancel\" | <button>}, or answer it in Fidelis; nothing else runs until it is answered.");
+        out.put("contextKey", contextKey());
+        return out;
+    }
+
+    /** {@code dialog}: the dialog Penny's running plan waits on, else the other dialogs showing (read only). */
+    private Map<String, Object> dialogRead() {
+        Plan p = running.get();
+        PendingDialog d = p == null ? null : p.dialog;
+        java.awt.Window w = d == null ? null : DialogDriver.find(d.title(), d.dialogClass());
+        if (w != null) {
+            Map<String, Object> out = dialogResult(p, w, null);
+            out.put("pending", true);
+            return out;
+        }
+        List<Map<String, Object>> others = new ArrayList<>();
+        for (java.awt.Window x : DialogDriver.showing()) {
+            DialogDriver.Described dd = DialogDriver.describe(x);
+            others.add(map("title", dd.title(), "kind", dd.kind(), "buttons", dd.buttons()));
+        }
+        Map<String, Object> out = map("pending", false, "others", others);
+        out.put("note", others.isEmpty() ? "No Fiji dialog is open." : "These dialogs are not waiting for Penny; answer them in Fidelis.");
+        return out;
+    }
+
+    /** Under {@link #admission}: fill and press the dialog Penny's running plan waits on, then wait for the plan again. */
+    private Running admitDialogAction(JsonObject a) {
+        Plan p = running.get();
+        PendingDialog d = p == null ? null : p.dialog;
+        java.awt.Window w = d == null ? null : DialogDriver.find(d.title(), d.dialogClass());
+        if (p == null || w == null || p.handle == null) throw new Failure(409, "No Fiji dialog is waiting for Penny.");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> values = (Map<String, Object>) PennyJson.toJava(PennyJson.object(a, "fields"));
+        String press = PennyJson.str(a, "press", "OK");
+        if (press != null && press.isBlank()) press = null;
+        String title = DialogDriver.describe(w).title();
+        DialogDriver.act(w, values, press);
+        if (press != null && (press.trim().equalsIgnoreCase("Cancel") || press.trim().equalsIgnoreCase("No"))) p.cancelledDialog = title;
+        if (press != null) DialogDriver.awaitClosed(w, 3000);
+        return p.handle;
     }
 
     Map<String, Object> pendingJson() {
@@ -556,9 +769,24 @@ final class PennyOps {
         return engine.schema(id).orElseThrow(() -> new Failure(409, "The command " + id + " is not in this Fiji runtime's catalogue."));
     }
 
+    /** The plan's approved plane of a stack document, read once when the plan is built; null for single planes. */
+    private int[] position(Plan p) {
+        if (p.position == null && p.doc != null) {
+            DocumentInfo d = engine.document(p.doc).orElse(null);
+            ImagePlus imp = imp(p.doc);
+            if (d != null && d.isStack() && imp != null) p.position = new int[] {imp.getC(), imp.getZ(), imp.getT()};
+        }
+        return p.position;
+    }
+
     /** A COMMAND step: user keys, recipe keys, then catalogue defaults (see {@link Params}). */
     private Step commandStep(Plan p, String role, String id, Map<String, Object> user, Map<String, Object> recipe, TargetScope ts) {
         CommandSchema s = schema(id);
+        // pin the approved plane: a stack command must not follow a plane change made in the workspace meanwhile
+        if (ts != null && ts.document().equals(p.doc) && ts.channel() == null && ts.slice() == null && ts.frame() == null) {
+            int[] pos = position(p);
+            if (pos != null) ts = new TargetScope(ts.document(), pos[0], pos[1], pos[2], ts.allPlanes(), ts.roiIndex());
+        }
         DocumentInfo d = ts == null ? null : engine.document(ts.document()).orElse(null);
         Map<String, Object> params;
         Map<String, String> prov;
@@ -581,6 +809,14 @@ final class PennyOps {
 
     private Step directStep(Plan p, String role, String op, String label, String menu, Map<String, Object> params,
                             Map<String, String> prov, String preview, TargetScope ts) {
+        if (op.equals(Operations.SET_POSITION) && ts != null && ts.document().equals(p.doc)) {
+            int[] pos = position(p);
+            if (pos != null) {
+                if (params.get("channel") instanceof Number n) pos[0] = n.intValue();
+                if (params.get("slice") instanceof Number n) pos[1] = n.intValue();
+                if (params.get("frame") instanceof Number n) pos[2] = n.intValue();
+            }
+        }
         ActionRequest r = ActionRequest.direct(p.origin, op, meta(p, params), ts);
         return new Step(role, label, menu, r, prov, preview);
     }
@@ -770,19 +1006,24 @@ final class PennyOps {
         String q = PennyJson.str(a, "query", "");
         if (q.isBlank()) throw new IllegalArgumentException("'query' is required");
         int limit = PennyJson.integer(a, "limit", 10, 1, 50);
-        List<CommandSchema.Summary> hits = engine.search(q, limit);
-        if (hits.isEmpty()) {
-            // the engine's search wants every token; long clauses are scanned token by token instead
-            String[] tokens = q.toLowerCase(Locale.ROOT).split("[^a-z0-9]+");
+        // the engine's ranked search (every token must match), topped up by a token scan of the whole catalogue (built
+        // from the live menus, Plugins included) so long phrases and partial names still find plugins
+        List<CommandSchema.Summary> hits = new ArrayList<>(engine.search(q, limit));
+        if (hits.size() < limit) {
+            String[] tokens = q.toLowerCase(Locale.ROOT).split("[^a-z0-9']+");
             List<Map.Entry<Integer, CommandSchema.Summary>> scored = new ArrayList<>();
             for (CommandSchema.Summary s : engine.catalogue()) {
+                if (hits.stream().anyMatch(h -> h.commandId().equals(s.commandId()))) continue;
                 String hay = (s.label() + " " + s.menuPath()).toLowerCase(Locale.ROOT);
                 int n = 0;
-                for (String t : tokens) if (t.length() > 2 && hay.contains(t)) n++;
+                for (String t : tokens) if (t.length() > 1 && hay.contains(t)) n += s.label().toLowerCase(Locale.ROOT).contains(t) ? 2 : 1;
                 if (n > 0) scored.add(Map.entry(n, s));
             }
             scored.sort((x, y) -> y.getKey() - x.getKey());
-            hits = scored.stream().limit(limit).map(Map.Entry::getValue).toList();
+            for (Map.Entry<Integer, CommandSchema.Summary> e : scored) {
+                if (hits.size() >= limit) break;
+                hits.add(e.getValue());
+            }
         }
         List<Map<String, Object>> out = new ArrayList<>();
         for (CommandSchema.Summary s : hits) {
@@ -790,6 +1031,10 @@ final class PennyOps {
             Optional<CommandSchema> sc = engine.schema(s.commandId());
             m.put("schemaComplete", sc.map(CommandSchema::schemaComplete).orElse(false));
             m.put("consequence", sc.map(x -> String.valueOf(x.consequence())).orElse(null));
+            if (sc.isPresent() && !sc.get().schemaComplete()) {
+                m.put("route", opensFileChooser(sc.get()) ? "file chooser: not available from Penny (use open_path)"
+                        : "original Fiji dialog, if it has one: answered with dialog_action");
+            }
             if (sc.isPresent() && sc.get().schemaComplete()) {
                 List<Map<String, Object>> ps = new ArrayList<>();
                 for (ParameterSchema p : sc.get().parameters()) {
@@ -859,11 +1104,8 @@ final class PennyOps {
         for (int i = h.size() - 1; i >= 0; i--) {
             HistoryRecord r = h.get(i);
             if (PennyCommands.ANALYZE_PARTICLES.equals(r.commandId()) && r.outcome() == OperationState.COMPLETED) {
-                List<MeasurementRow> mine = all.stream().filter(x -> r.actionId().equals(x.actionId())).toList();
-                if (!mine.isEmpty()) {
-                    rows = mine;
-                    source = "Analyze Particles " + r.actionId();
-                }
+                rows = all.stream().filter(x -> r.actionId().equals(x.actionId())).toList();
+                source = "Analyze Particles " + r.actionId();
                 break;
             }
         }
@@ -996,6 +1238,9 @@ final class PennyOps {
             List<String> sugg = engine.search(id.substring(id.lastIndexOf('>') + 1).replace("...", ""), 3).stream().map(CommandSchema.Summary::commandId).toList();
             return new IllegalArgumentException("Unknown command " + id + (sugg.isEmpty() ? "" : "; did you mean " + sugg + "?"));
         });
+        if (!s.schemaComplete() && opensFileChooser(s))
+            throw new Failure(409, s.label() + " starts with an operating-system file chooser, which Penny cannot see or fill; use open_path "
+                    + "for files (or run it from Fidelis's menu).", Map.of("code", "FILE_CHOOSER"));
         @SuppressWarnings("unchecked")
         Map<String, Object> user = (Map<String, Object>) PennyJson.toJava(PennyJson.object(c.args(), "params"));
         Optional<DocumentInfo> d = engine.focused().flatMap(engine::document);
@@ -1007,16 +1252,34 @@ final class PennyOps {
             ActionResult r = res.get(0);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("step", step(plan.steps.get(0), r));
+            if (r.record() != null) m.put("provenance", String.valueOf(r.record().provenance()));
             if (r.digest() != null) {
                 m.put("resultsRowsAdded", r.digest().resultsRowsAdded());
                 if (!r.digest().added().isEmpty()) engine.document(r.digest().added().get(0)).ifPresent(x -> m.put("document", documentJson(x)));
                 if (!r.digest().globalsDelta().isEmpty()) m.put("globalsChanged", r.digest().globalsDelta());
+                if (!r.digest().windowsOpened().isEmpty()) m.put("windowsOpened", r.digest().windowsOpened());
+                if (!r.digest().newLogLines().isEmpty())
+                    m.put("log", r.digest().newLogLines().size() > 20 ? r.digest().newLogLines().subList(0, 20) : r.digest().newLogLines());
             }
             DocumentId shown = m.containsKey("document") ? r.digest().added().get(0) : plan.doc;
             if (shown != null) m.put("highlight", Highlight.canvas(shown, s.label()));
             return m;
         };
         return p;
+    }
+
+    private static final Set<String> FILE_CHOOSER_LABELS = Set.of("Open...", "Open Next", "Save", "Import...", "Image Sequence...",
+            "Raw...", "LUT... ", "Text Image... ", "Text File... ", "Results... ", "URL...", "Stack From List...", "TIFF Virtual Stack...",
+            "AVI...", "XY Coordinates... ", "Open Recent", "Bio-Formats", "Bio-Formats Importer", "Bio-Formats Exporter", "Bio-Formats Windowless Importer",
+            "Revert");
+
+    /** Commands whose first act is an OS file chooser (or a file import/export) when run without catalogued options. */
+    static boolean opensFileChooser(CommandSchema s) {
+        String path = s.menuPath() == null ? "" : s.menuPath();
+        String label = s.label().trim();
+        return FILE_CHOOSER_LABELS.contains(s.label()) || FILE_CHOOSER_LABELS.contains(label) || path.startsWith("File>Import")
+                || path.startsWith("File>Save As") || path.startsWith("File>Export") || label.contains("Importer") || label.contains("Exporter")
+                || (path.equals("File") && (label.startsWith("Open") || label.startsWith("Save")));
     }
 
     private static String method(JsonObject a, String def) {
@@ -1075,7 +1338,7 @@ final class PennyOps {
         // original) when the image still holds exactly the mask that segmentation left; otherwise the image is used as is
         Segmentation last = lastSegmentation.get();
         boolean replace = !Boolean.FALSE.equals(PennyJson.bool(a, "replace")) && last != null && last.doc().equals(d.id())
-                && last.undoSteps() > 0 && last.digest() != null && last.digest().equals(planeDigest(d.id()));
+                && last.undoSteps() > 0 && last.digest() != null && last.digest().equals(planeDigest(d.id())) && untouchedSince(last);
         if (replace) {
             for (int i = 1; i <= last.undoSteps(); i++)
                 p.steps.add(directStep(p, "undo", Operations.UNDO, "Undo the previous segmentation (" + i + " of " + last.undoSteps() + ")",
@@ -1124,7 +1387,7 @@ final class PennyOps {
             m.put("threshold", map("method", method, "dark", dark));
             m.put("watershed", watershed);
             m.put("replacedPrevious", replace);
-            lastSegmentation.set(new Segmentation(d.id(), plan.undoSteps, planeDigest(d.id()), to8, dark));
+            lastSegmentation.set(new Segmentation(d.id(), plan.undoSteps, planeDigest(d.id()), to8, dark, engine.history().size()));
             return m;
         };
         return p;
@@ -1285,6 +1548,8 @@ final class PennyOps {
                 if (rois.isEmpty()) throw new Failure(409, "The ROI list is empty; segment or add regions first.");
                 if (rois.size() > 1000) throw new Failure(409, "The ROI list has " + rois.size() + " entries; measure at most 1000 at once.");
                 boolean moved = false;
+                ImagePlus start = imp(d.id());
+                int c0 = start == null ? 1 : start.getC(), z0 = start == null ? 1 : start.getZ(), t0 = start == null ? 1 : start.getT();
                 for (int i = 0; i < rois.size(); i++) {
                     int[] pos = rois.get(i).position();
                     Integer pc = null, pz = null, pt = null;
@@ -1293,8 +1558,12 @@ final class PennyOps {
                         pz = pos[1] > 0 ? pos[1] : null;
                         pt = pos[2] > 0 ? pos[2] : null;
                     }
-                    moved |= pc != null || pz != null || pt != null;
-                    TargetScope roiTarget = new TargetScope(d.id(), pc, pz, pt, false, i);
+                    boolean placed = pc != null || pz != null || pt != null;
+                    moved |= placed;
+                    // unspecified coordinates mean the plane the measurement started on, not wherever a previous ROI left the image
+                    TargetScope roiTarget = d.isStack()
+                            ? new TargetScope(d.id(), pc != null ? pc : c0, pz != null ? pz : z0, pt != null ? pt : t0, false, i)
+                            : new TargetScope(d.id(), null, null, null, false, i);
                     Step s = commandStep(p, "measure", PennyCommands.MEASURE, Map.of(), Map.of(), roiTarget);
                     p.steps.add(new Step(s.role(), "Measure ROI " + (i + 1) + " of " + rois.size(), s.menuPath(), s.request(), s.provenance(), s.preview()));
                 }
@@ -1373,8 +1642,7 @@ final class PennyOps {
                     "setAutoThreshold(\"" + method + (dark ? " dark" : "") + "\");", ts));
         }
         p.finish = (plan, res) -> {
-            ImagePlus imp = imp(d.id());
-            ImageProcessor ip = imp == null ? null : imp.getProcessor();
+            ImageProcessor ip = LiveRead.processor(imp(d.id()));
             double lo = ip == null ? Double.NaN : ip.getMinThreshold();
             double hi = ip == null ? Double.NaN : ip.getMaxThreshold();
             boolean set = ip != null && lo != ImageProcessor.NO_THRESHOLD;
@@ -1604,16 +1872,7 @@ final class PennyOps {
      * ImageJ statistics call, which would set the live processor's ROI while the engine may be using it.
      */
     private double[] pixelRange(DocumentId id, Integer channel) {
-        ImagePlus imp = imp(id);
-        if (imp == null) return null;
-        Object pixels;
-        if (imp.getStackSize() > 1) {
-            int c = channel == null ? imp.getC() : channel;
-            pixels = imp.getStack().getPixels(imp.getStackIndex(c, imp.getZ(), imp.getT()));
-        } else {
-            ImageProcessor ip = imp.getProcessor();
-            pixels = ip == null ? null : ip.getPixels();
-        }
+        Object pixels = LiveRead.planePixels(imp(id), channel);
         double lo = Double.POSITIVE_INFINITY, hi = Double.NEGATIVE_INFINITY;
         if (pixels instanceof byte[] b) for (byte v : b) { int x = v & 0xff; lo = Math.min(lo, x); hi = Math.max(hi, x); }
         else if (pixels instanceof short[] sh) for (short v : sh) { int x = v & 0xffff; lo = Math.min(lo, x); hi = Math.max(hi, x); }
@@ -1624,16 +1883,26 @@ final class PennyOps {
         return Double.isFinite(lo) ? new double[] {lo, hi} : null;
     }
 
+    /**
+     * True when nothing since the segmentation could have pushed or popped an undo snapshot of its document: every later
+     * history record is for another document, or a measurement, selection, display, position, threshold or ROI-list action.
+     */
+    private boolean untouchedSince(Segmentation last) {
+        List<HistoryRecord> h = engine.history();
+        if (last.historyEnd() > h.size()) return false;
+        for (HistoryRecord r : h.subList(last.historyEnd(), h.size())) {
+            boolean thisDoc = r.target() == null || r.target().document() == null || r.target().document().equals(last.doc());
+            if (!thisDoc) continue;
+            if (r.commandId() == null || !KEEPS_UNDO.contains(r.commandId())) return false;
+        }
+        return true;
+    }
+
     /** SHA-256 of the current plane's pixels (read from the array) with type and size; null when unavailable. */
     private String planeDigest(DocumentId id) {
         ImagePlus imp = imp(id);
         if (imp == null) return null;
-        Object px;
-        if (imp.getStackSize() > 1) px = imp.getStack().getPixels(imp.getCurrentSlice());
-        else {
-            ImageProcessor ip = imp.getProcessor();
-            px = ip == null ? null : ip.getPixels();
-        }
+        Object px = LiveRead.planePixels(imp, null);
         java.nio.ByteBuffer bb;
         if (px instanceof byte[] b) bb = java.nio.ByteBuffer.wrap(b);
         else if (px instanceof short[] sh) { bb = java.nio.ByteBuffer.allocate(sh.length * 2); bb.asShortBuffer().put(sh); }
@@ -1642,7 +1911,8 @@ final class PennyOps {
         else return null;
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update((imp.getType() + ":" + imp.getWidth() + "x" + imp.getHeight() + ":" + imp.getCurrentSlice() + ":").getBytes(StandardCharsets.UTF_8));
+            md.update((imp.getType() + ":" + imp.getWidth() + "x" + imp.getHeight() + ":" + imp.getC() + "," + imp.getZ() + "," + imp.getT() + ":")
+                    .getBytes(StandardCharsets.UTF_8));
             md.update(bb.array());
             return HexFormat.of().formatHex(md.digest());
         } catch (java.security.NoSuchAlgorithmException e) {
