@@ -81,15 +81,19 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   includes the execution-binding test, a workspace action queued before step 3 stops the plan there, and the
   competing-analysis test, a workspace Analyze Particles right after Penny's stops the plan before it copies objects). With the NL, UI-confirmation
   and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
-  installed on this Mac). Full suite (`test.py`, all classes, before the last two bridge fixes): 412 tests, 6 failed, none
-  in or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
-  (`verification/reference_runner.py` looks only for Windows `.exe`/`.bat` launchers) and
-  `InteractiveJourneyTest` ×1 (Subtract Background's `separate` field); the last two run now that the FX fixtures are
-  cached.
+  installed on this Mac). Full suite (`test.py`, all classes, final branch state c721e93): 423 tests, 6 failed, none in
+  or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
+  (`verification/reference_runner.py` looks only for Windows `.exe`/`.bat` launchers) and `InteractiveJourneyTest` ×1
+  (Subtract Background's `separate` field). Two earlier full runs were cut short by a native macOS AppKit text-input
+  crash inside the UI tests (`TextInputUIMacHelper` / "Exception raised accessing first rect for character range"),
+  which then broke later classes; it does not involve the bridge and did not recur in the final run.
 - Real-app-tested: the full workspace started with `run.py` and the bridge on a spare port, driven over HTTP the way the
-  gateway does (context, then the approved change bound to it): open Blobs, `segment_cells` 67 objects (mean 326.657 px²,
-  0.19 s), whole-image measure, `run_macro` waiting then confirmed, `undo`, history showing `NL_SPOKEN` steps with the
-  task id. Smoke with and without `fidelis.penny=true` through `Bootstrap`.
+  gateway does (context, then the approved change bound to it). Final state: open Blobs, `segment_cells` 67 objects on
+  `blobs-mask` in 0.82 s with the original focused, not binary and holding the 67 ROIs; `measure {scope:"rois"}` 67 rows,
+  mean intensity 190.34 (146.3–220.2) from the original pixels; Variance… stopped at its dialog, filled and pressed OK
+  through `dialog_action` (recorded `LEGACY_DIALOG`); Gamma… cancelled (`status:"cancelled"`); every history step
+  `NL_SPOKEN` with the task id. Earlier: `run_macro` waiting then confirmed, `undo`. Smoke through `Bootstrap` with
+  and without `fidelis.penny=true` (exit 0, and 5 when the port is taken).
 - Review: the repository's autoreview helper (Codex, branch diff against `integration/fidelis-penny`). The first run was
   a reviewer failure (its one finding used an absolute path and was discarded; no review produced). The second reported
   11 findings (3 P1: context check before plan construction, ImageJ statistics mutating the live processor's ROI, per-ROI
