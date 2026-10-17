@@ -274,3 +274,7 @@ test('an exact open-image title or stem wins over an earlier loose mask match', 
     assert.deepEqual(fiji.fastRoute(request, context)?.arguments, { id: 2 }, request);
   assert.equal(fiji.fastRoute('Open hela-cells-mask.tif', context)?.tool, 'fiji_context');
 });
+
+test('very large pixel areas are spoken in millions', () => {
+  assert.equal(fiji.localSentenceFor!('fiji_tumor_region', {}, { status: 'completed', result: { areaFraction: 0.63, areaFractionOf: 'tissue', area: 3457728, regions: 3, unit: 'pixel' } }), '3 regions cover 63% of the section, 3.5 million square pixels.');
+});

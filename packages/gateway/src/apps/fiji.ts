@@ -114,7 +114,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 /** An area spoken with the unit the bridge reported; µm² of a millimetre or more is said in mm² (exact factor 10⁶). */
 function spokenArea(area: number, unit: string | undefined): string {
   if (!unit) return round(area);
-  if (/^pixels?$/i.test(unit)) return `${round(area)} square pixels`;
+  if (/^pixels?$/i.test(unit)) return area >= 1e6 ? `${(area / 1e6).toFixed(1)} million square pixels` : `${round(area)} square pixels`;
   if (/^(?:µm|um|μm|micron)$/i.test(unit) && area >= 1e6) return `${round(area / 1e6)} mm²`;
   return `${round(area)} ${unit}²`;
 }
