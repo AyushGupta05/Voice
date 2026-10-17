@@ -53,7 +53,15 @@ components:
     revision: {tag: imagej-ui-swing-1.2.2, sha: 9815290ef2f28f3472ea8a9c4c63d2bd8f06ff78, date: 2025-06-13}
     installed: jars/imagej-ui-swing-1.2.2.jar
     licence_declared: BSD-2-Clause (ImageJ developers)
-    role: Swing UI components and SciJava UserInterface implementations
+    role: ImageJ2 Swing UI components (viewers, widgets, updater UI). Contains no UserInterface implementations (G3/A07 correction, 2026-10-17); those are in scijava-ui-swing (UP-24).
+    usage: [runtime, reference]
+  - id: UP-24
+    name: scijava-ui-swing
+    repo: https://github.com/scijava/scijava-ui-swing
+    revision: {tag: scijava-ui-swing-1.0.5, sha: 97fd87c16ebe99b0f50cafa45f184fb6f230444b (git ls-remote; not cloned)}
+    installed: jars/scijava-ui-swing-1.0.5.jar
+    licence_declared: BSD-2-Clause (per P70 jar metadata scan, A24)
+    role: SciJava UserInterface plugins SwingSDIUI and SwingMdiUI, SwingLookAndFeelService (FlatLaf options), CommandFinder, console, Watch Events
     usage: [runtime, reference]
   - id: UP-06
     name: scijava-common

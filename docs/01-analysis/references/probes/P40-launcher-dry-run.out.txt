@@ -1,0 +1,204 @@
+### fiji-windows-x64.exe --allow-multiple  --dry-run [--run probe.groovy]  (classpath elided)
+[DRY-RUN]
+C:\Users\arnav\Documents\dev\Fiji\java\win64\zulu21.42.19-ca-jdk21.0.7-win_x64\bin\java.exe
+-XX:+UseG1GC
+--module-path=C:\Users\arnav\Documents\dev\Fiji\jars\win64
+--add-modules=javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web
+-Dpython.cachedir.skip=true
+-Dplugins.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dimagej.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dij.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dij.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Djava.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+-Djna.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+--enable-native-access=ALL-UNNAMED
+--add-opens=java.base/java.lang=ALL-UNNAMED
+-Dscijava.app.unlock-modules=true
+-Dscijava.app.name=Fiji
+-Dscijava.app.directory=C:\Users\arnav\Documents\dev\Fiji
+-Dscijava.app.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dscijava.app.splash-image=C:\Users\arnav\Documents\dev\Fiji\images\icon.png
+-Dscijava.app.java-version-minimum=1.8
+-Dscijava.app.java-version-recommended=21
+-Dscijava.app.look-and-feel=com.formdev.flatlaf.FlatLightLaf
+-Dscijava.app.config-file=C:\Users\arnav\Documents\dev\Fiji\config\jaunch\fiji.cfg
+-Dscijava.app.java-root=C:\Users\arnav\Documents\dev\Fiji\java\win64
+-Dscijava.app.java-links=https://downloads.imagej.net/java/jdk-urls.txt
+-Dscijava.app.java-platform=win64
+-Dscijava.app.icon=C:\Users\arnav\Documents\dev\Fiji\images\icon.png
+-Dscijava.app.categories=ImageProcessing;Science;Education;
+-Dscijava.app.wmclass=sc-fiji-Fiji
+-Dscijava.context.strict=false
+-Djavafx.allowjs=true
+-Dsun.java2d.uiScale=true
+-Dpython.console.encoding=UTF-8
+-Djava.class.path=C:\Users\arnav\Documen...<classpath elided>
+-Xmx23g
+org.scijava.launcher.ClassLauncher
+net.imagej.Main
+--run
+C:/probe.groovy
+
+### fiji-windows-x64.exe --allow-multiple --headless --dry-run [--run probe.groovy]  (classpath elided)
+[DRY-RUN]
+C:\Users\arnav\Documents\dev\Fiji\java\win64\zulu21.42.19-ca-jdk21.0.7-win_x64\bin\java.exe
+-XX:+UseG1GC
+--module-path=C:\Users\arnav\Documents\dev\Fiji\jars\win64
+--add-modules=javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web
+-Dpython.cachedir.skip=true
+-Dplugins.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dimagej.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dij.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dij.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Djava.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+-Djna.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+--enable-native-access=ALL-UNNAMED
+--add-opens=java.base/java.lang=ALL-UNNAMED
+-Dscijava.app.unlock-modules=true
+-Dscijava.app.name=Fiji
+-Dscijava.app.directory=C:\Users\arnav\Documents\dev\Fiji
+-Dscijava.app.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dscijava.app.java-version-minimum=1.8
+-Dscijava.app.java-version-recommended=21
+-Dscijava.app.look-and-feel=com.formdev.flatlaf.FlatLightLaf
+-Dscijava.app.config-file=C:\Users\arnav\Documents\dev\Fiji\config\jaunch\fiji.cfg
+-Dscijava.app.java-root=C:\Users\arnav\Documents\dev\Fiji\java\win64
+-Dscijava.app.java-links=https://downloads.imagej.net/java/jdk-urls.txt
+-Dscijava.app.java-platform=win64
+-Dscijava.app.icon=C:\Users\arnav\Documents\dev\Fiji\images\icon.png
+-Dscijava.app.categories=ImageProcessing;Science;Education;
+-Dscijava.app.wmclass=sc-fiji-Fiji
+-Dscijava.context.strict=false
+-Djavafx.allowjs=true
+-Dsun.java2d.uiScale=true
+-Dpython.console.encoding=UTF-8
+-Djava.awt.headless=true
+-Dapple.awt.UIElement=true
+-Djava.class.path=C:\Users\arnav\Documen...<classpath elided>
+-Xmx23g
+org.scijava.launcher.ClassLauncher
+net.imagej.Main
+--run
+C:/probe.groovy
+
+### fiji-windows-x64.exe --allow-multiple --main-class=groovy.ui.GroovyMain --dry-run [--run probe.groovy]  (classpath elided)
+[DRY-RUN]
+C:\Users\arnav\Documents\dev\Fiji\java\win64\zulu21.42.19-ca-jdk21.0.7-win_x64\bin\java.exe
+-XX:+UseG1GC
+-Dpatch.ij1=false
+--module-path=C:\Users\arnav\Documents\dev\Fiji\jars\win64
+--add-modules=javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web
+-Dpython.cachedir.skip=true
+-Dplugins.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dimagej.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dij.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.dir=C:\Users\arnav\Documents\dev\Fiji
+-Dfiji.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dij.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Djava.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+-Djna.library.path=C:\Users\arnav\Documents\dev\Fiji\lib\win64
+--enable-native-access=ALL-UNNAMED
+--add-opens=java.base/java.lang=ALL-UNNAMED
+-Dscijava.app.unlock-modules=true
+-Dscijava.app.name=Fiji
+-Dscijava.app.directory=C:\Users\arnav\Documents\dev\Fiji
+-Dscijava.app.executable=C:\Users\arnav\Documents\dev\Fiji\fiji-windows-x64.exe
+-Dscijava.app.splash-image=C:\Users\arnav\Documents\dev\Fiji\images\icon.png
+-Dscijava.app.java-version-minimum=1.8
+-Dscijava.app.java-version-recommended=21
+-Dscijava.app.look-and-feel=com.formdev.flatlaf.FlatLightLaf
+-Dscijava.app.config-file=C:\Users\arnav\Documents\dev\Fiji\config\jaunch\fiji.cfg
+-Dscijava.app.java-root=C:\Users\arnav\Documents\dev\Fiji\java\win64
+-Dscijava.app.java-links=https://downloads.imagej.net/java/jdk-urls.txt
+-Dscijava.app.java-platform=win64
+-Dscijava.app.icon=C:\Users\arnav\Documents\dev\Fiji\images\icon.png
+-Dscijava.app.categories=ImageProcessing;Science;Education;
+-Dscijava.app.wmclass=sc-fiji-Fiji
+-Dscijava.context.strict=false
+-Djavafx.allowjs=true
+-Dsun.java2d.uiScale=true
+-Dpython.console.encoding=UTF-8
+-Djava.class.path=C:\Users\arnav\Documen...<classpath elided>
+-Xmx23g
+groovy.ui.GroovyMain
+--run
+C:/probe.groovy
+
+### --help
+Usage: fiji-windows-x64.exe [<Runtime options>.. --] [<main arguments>..]
+
+Fiji launcher (Jaunch v2.1.1 / 5dbbcb8 / windowsX64)
+Runtime options are passed to the runtime platform (JVM or Python),
+main arguments to the launched program (Fiji).
+
+In addition, the following options are supported:
+--default-gc
+                    do not use advanced garbage collector settings by default\n(-XX:+UseG1GC)
+--gc-g1
+                    use the G1 garbage collector
+--debug-gc
+                    show debug info about the garbage collector on stderr
+--no-splash
+                    suppress showing a splash screen upon startup
+--jdb
+                    launch the jdb debugger
+--python
+                    launch in Python mode
+--no-python
+                    do not launch in Python mode
+--allow-multiple
+                    do not reuse existing Fiji instance
+--info
+                    informational output
+--plugins <dir>
+                    use <dir> to discover plugins
+--run <plugin> [<arg>]
+                    run <plugin> in Fiji, optionally with arguments
+--edit [<file>...]
+                    edit the given file in the script editor
+--update
+                    start the command-line version of the Updater
+--main-class <class name>
+                    start the given class instead of Fiji
+--python-home <path>
+                    specify PYTHON_HOME explicitly
+--print-python-home
+                    print path to the selected Python
+--print-python-info
+                    print information about the selected Python
+--java-home <path>
+                    specify Java installation path explicitly
+--print-class-path, --print-classpath
+                    print runtime classpath elements
+--print-java-home
+                    print path to the selected Java
+--print-java-info
+                    print information about the selected Java
+--heap, --mem, --memory <amount>
+                    set Java's heap size to <amount> (e.g. 512M or 64%)
+--class-path, --classpath, -classpath, --cp, -cp <path>
+                    append <path> to the class path
+--ext <path>
+                    set Java's extension directory to <path>
+--debugger <port>[,suspend]
+                    start Java in a mode so an IDE/debugger can attach to it
+--help, -h
+                    show this help
+--version
+                    print the version of the software
+--dry-run
+                    show the command line, but do not run anything
+--debug
+                    verbose output
+--headless
+                    run in text mode (without any GUI)
+--print-app-dir
+                    print directory where the application is located
+--print-config-dir
+                    print directory where the configuration files are located
+--system
+                    do not try to run bundled runtime

@@ -1,0 +1,7 @@
+a1 macro roiManager(add) headless, return value = [aborted]
+a2 macro Overlay.addSelection headless = 2
+b1 IJ.run(imp, Bio-Formats Exporter, save=[..] compression=Uncompressed) = exists=false size=0
+b2 IJ.run(imp, Bio-Formats Exporter, save=.. export compression=Uncompressed) with image shown = exists=false size=0
+b3 reopen b via Bio-Formats = skipped
+c1 live non-daemon threads at end of script body = main[WAITING]
+c2 script end = Sat Oct 17 08:34:17 BST 2026

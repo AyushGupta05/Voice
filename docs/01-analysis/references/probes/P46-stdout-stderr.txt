@@ -1,0 +1,6 @@
+java.awt.HeadlessException
+
+java.lang.NullPointerException: Cannot invoke "java.util.Vector.size()" because "checkboxes" is null
+
+java.lang.NullPointerException: Cannot invoke "java.util.Vector.size()" because "checkboxes" is null
+

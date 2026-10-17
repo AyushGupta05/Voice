@@ -1,0 +1,3 @@
+[INFO] Overriding BigStitcher; identifier: command:net.preibisch.stitcher.plugin.BigStitcher; jar: file:/C:/Users/arnav/Documents/dev/Fiji/jars/BigStitcher-3.0.8.jar
+[INFO] Reading available sites from https://imagej.net/
+[INFO] Found 10 JHotDraw adapters.
