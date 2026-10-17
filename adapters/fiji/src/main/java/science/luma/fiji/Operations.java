@@ -133,6 +133,32 @@ final class Operations {
         if (red && green && blue) return "grays"; if (red && green) return "yellow"; if (red && blue) return "magenta"; if (green && blue) return "cyan";
         return red ? "red" : green ? "green" : blue ? "blue" : "other";
     }
+    // Ruifrok & Johnston optical-density vectors (hematoxylin first), as in Fiji's Colour Deconvolution "H&E" and "H DAB".
+    static final double[][] HE_VECTORS = {{0.644211, 0.716556, 0.266844}, {0.092789, 0.954111, 0.283111}};
+    static final double[][] HDAB_VECTORS = {{0.650, 0.704, 0.286}, {0.268, 0.570, 0.776}};
+    record Hematoxylin(ImagePlus image, String vectors, double dabFraction) {}
+    /** Fraction of stained pixels (total OD > 0.15) that look DAB-brown (blue absorbed much more than red). */
+    static double dabFraction(ColorProcessor cp) {
+        int[] px = (int[]) cp.getPixels(); long stained = 0, brown = 0;
+        for (int i = 0; i < px.length; i += 1 + px.length / 400_000) {
+            int c = px[i]; double r = -Math.log10((((c >> 16) & 0xff) + 1) / 256.0), g = -Math.log10((((c >> 8) & 0xff) + 1) / 256.0), b = -Math.log10(((c & 0xff) + 1) / 256.0);
+            if (r + g + b < 0.15) continue; stained++;
+            // DAB absorbs blue far more than red and green; eosin (pink) absorbs green most, hematoxylin (blue/purple) absorbs red most.
+            if (b > 1.25 * r && b > 1.2 * g && b > 0.25) brown++;
+        }
+        return stained == 0 ? 0 : (double) brown / stained;
+    }
+    /** "Find the nuclei" on an RGB brightfield image: an 8-bit hematoxylin optical-density image (bright = more hematoxylin) of the current
+     *  plane, deconvolved with H-DAB vectors when at least 10% of the stained pixels look DAB-brown, else H&E. Calibration is copied. */
+    static Hematoxylin hematoxylin(ImagePlus imp) {
+        if (!(imp.getProcessor() instanceof ColorProcessor cp)) throw new IllegalArgumentException("Colour deconvolution needs an RGB image.");
+        double dab = dabFraction(cp); boolean hdab = dab >= 0.10;
+        var od = Analysis.deconvolve(cp, hdab ? HDAB_VECTORS : HE_VECTORS, 0);
+        od.resetMinAndMax(); od.setMinAndMax(0, Math.max(0.5, od.getMax()));
+        var out = new ImagePlus("luma-hematoxylin", od.convertToByte(true));
+        out.setCalibration(imp.getCalibration().copy());
+        return new Hematoxylin(out, hdab ? "H DAB" : "H&E", dab);
+    }
     record ChannelChoice(int channel, String by) {}
     /** Nuclei first: an explicit channel, else a blue-LUT channel, else a DAPI/Hoechst/nuc label, else the current channel. */
     static ChannelChoice nucleiChannel(ImagePlus imp, JsonObject args) {
@@ -563,8 +589,8 @@ final class Operations {
     }
     Map<String, Object> segmentCells(JsonObject args) {
         var imp = active();
-        if (imp.getType() == ImagePlus.COLOR_RGB && !args.has("channel")) throw new IllegalStateException("RGB image: convert to 8-bit or choose a channel before segmenting.");
-        var choice = nucleiChannel(imp, args); int channel = choice.channel();
+        boolean deconvolve = imp.getType() == ImagePlus.COLOR_RGB && !args.has("channel");
+        var choice = deconvolve ? new ChannelChoice(1, "hematoxylin") : nucleiChannel(imp, args); int channel = choice.channel();
         String method = thresholdMethod(args); boolean watershed = bool(args, "watershed", true), gaussian = bool(args, "gaussian", true);
         double sigma = number(args, "sigma", 1);
         var steps = new ArrayList<String>(); var macro = new ArrayList<String>();
@@ -572,12 +598,19 @@ final class Operations {
         boolean blackBackground = ij.Prefs.blackBackground;
         ImagePlus work = null;
         try {
-            work = new Duplicator().run(imp, channel, channel, imp.getZ(), imp.getZ(), imp.getT(), imp.getT());
-            work.setTitle("luma-segmentation-mask");
-            steps.add("duplicate channel " + channel + " of " + imp.getTitle()); macro.add("selectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nrun(\"Duplicate...\", \"title=luma-segmentation-mask duplicate channels=" + channel + "\");");
-            if (work.getBitDepth() != 8) { IJ.run(work, "8-bit", ""); steps.add("convert to 8-bit"); macro.add("run(\"8-bit\");"); }
+            Hematoxylin hema = null;
+            if (deconvolve) {
+                hema = hematoxylin(imp); work = hema.image(); work.setTitle("luma-segmentation-mask");
+                steps.add("colour deconvolution (" + hema.vectors() + " vectors): hematoxylin optical density of " + imp.getTitle());
+                macro.add("selectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nrun(\"Colour Deconvolution\", \"vectors=[" + hema.vectors() + "] hide\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "-(Colour_1)\");\nrun(\"Invert\");\nrename(\"luma-segmentation-mask\");");
+            } else {
+                work = new Duplicator().run(imp, channel, channel, imp.getZ(), imp.getZ(), imp.getT(), imp.getT());
+                work.setTitle("luma-segmentation-mask");
+                steps.add("duplicate channel " + channel + " of " + imp.getTitle()); macro.add("selectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nrun(\"Duplicate...\", \"title=luma-segmentation-mask duplicate channels=" + channel + "\");");
+                if (work.getBitDepth() != 8) { IJ.run(work, "8-bit", ""); steps.add("convert to 8-bit"); macro.add("run(\"8-bit\");"); }
+            }
             if (gaussian) { IJ.run(work, "Gaussian Blur...", "sigma=" + plain(sigma)); steps.add("Gaussian blur sigma " + plain(sigma)); macro.add("run(\"Gaussian Blur...\", \"sigma=" + plain(sigma) + "\");"); }
-            boolean dark = args.has("dark") ? args.get("dark").getAsBoolean() : !work.getProcessor().isInvertedLut();
+            boolean dark = deconvolve ? true : args.has("dark") ? args.get("dark").getAsBoolean() : !work.getProcessor().isInvertedLut();
             IJ.setAutoThreshold(work, method + (dark ? " dark" : "")); steps.add("auto threshold " + method + (dark ? " (dark background)" : "")); macro.add("setAutoThreshold(\"" + method + (dark ? " dark" : "") + "\");");
             double lower = work.getProcessor().getMinThreshold(), upper = work.getProcessor().getMaxThreshold();
             ij.Prefs.blackBackground = true; macro.add("setOption(\"BlackBackground\", true);");
@@ -593,7 +626,8 @@ final class Operations {
             for (var line : macro) journal.record("segment_cells", line);
             int journalBefore = journal.size();
             var result = particles(work, imp, particleArgs, "segment_cells");
-            result.put("channel", channel); result.put("channelChosenBy", choice.by());
+            result.put("channel", deconvolve ? null : channel); result.put("channelChosenBy", choice.by());
+            if (hema != null) result.put("deconvolution", Map.of("vectors", hema.vectors(), "dabFraction", hema.dabFraction(), "note", "hematoxylin optical density segmented bright-on-dark; intensities measured on the RGB image"));
             steps.add("analyze particles (" + result.get("count") + " found)");
             result.put("scope", "image");
             if (!bool(args, "keepArtifacts", false)) { excludeArtifacts(result, imp, channel); var excluded = (Map<?, ?>) result.get("excluded"); if (((Number) excluded.get("text")).intValue() + ((Number) excluded.get("tiny")).intValue() > 0) steps.add("excluded annotation text (" + excluded.get("text") + ") and specks (" + excluded.get("tiny") + ")"); }

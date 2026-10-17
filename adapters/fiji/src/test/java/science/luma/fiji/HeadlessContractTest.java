@@ -222,6 +222,20 @@ public final class HeadlessContractTest {
         java.nio.file.Files.deleteIfExists(pngFile);
         java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
 
+        // --- "find the nuclei" on an RGB H&E-like image: hematoxylin channel by colour deconvolution, no channel argument needed
+        var he = new ij.process.ColorProcessor(160, 120); he.setColor(new java.awt.Color(235, 225, 238)); he.fill();
+        he.setColor(new java.awt.Color(95, 60, 150)); for (int i = 0; i < 6; i++) he.fill(new OvalRoi(15 + (i % 3) * 50, 20 + (i / 3) * 55, 24, 24));
+        he.setColor(new java.awt.Color(225, 160, 190)); he.fill(new OvalRoi(120, 80, 30, 30)); // eosin-pink cytoplasm blob, not a nucleus
+        var rgb = new ImagePlus("he-like.tif", he);
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(rgb));
+        var nuclei = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        expect(nuclei.get("channelChosenBy").getAsString().equals("hematoxylin") && nuclei.getAsJsonObject("deconvolution").get("vectors").getAsString().equals("H&E") && nuclei.get("count").getAsInt() == 6, "six purple nuclei found via hematoxylin deconvolution, pink blob ignored: " + nuclei.get("count") + " " + nuclei.get("deconvolution"));
+        expect(Operations.dabFraction(he) < 0.1, "H&E-like colours are not DAB-brown");
+        var brown = new ij.process.ColorProcessor(40, 40); brown.setColor(new java.awt.Color(120, 70, 20)); brown.fill();
+        expect(Operations.dabFraction(brown) > 0.5, "DAB-brown pixels are recognised");
+        call("close", obj("title", "he-like.tif"), true, key("context"));
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
+
         // --- stack navigation accepts words
         var words = obj("slice", "next"); expect(Operations.position(words, "slice", 2, 5) == 3 && Operations.position(obj("slice", "previous"), "slice", 1, 5) == 1 && Operations.position(obj("slice", "last"), "slice", 1, 5) == 5 && Operations.position(obj("slice", "4"), "slice", 1, 5) == 4, "next/previous/first/last resolve against the axis");
         expect(rawCall("stack", obj("slice", "sideways"), false, null).statusCode() == 400, "unknown navigation word rejected");
