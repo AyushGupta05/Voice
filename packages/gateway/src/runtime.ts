@@ -100,7 +100,9 @@ export class Runtime extends EventEmitter {
       if (this.autoApprove) {
         // Same recorded decision path as a human click, taken by policy; no pending card is shown.
         const settled = await this.decide(action.id, true, 'policy');
+        const dialog = settled.status === 'completed' && (name === 'qupath_open_path' || name === 'qupath_open_project_image') ? await this.settleImageTypeDialog(signal) : undefined;
         return { status: settled.status, actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
+          ...(dialog ? { imageTypeDialog: dialog } : {}),
           recovery: 'Hierarchy changes can be restored from the checkpoint; files, image settings and script effects cannot.' };
       }
       this.emit('action', action);
@@ -117,6 +119,32 @@ export class Runtime extends EventEmitter {
       this.emit('tool', { name, arguments: args, result });
       return result;
     });
+  }
+  /** After opening an image, QuPath may ask for the image type. Accept its own preselected stain so the
+   * researcher is never left looking at a modal, and tell the model what happened. */
+  private async settleImageTypeDialog(signal?: AbortSignal): Promise<string | undefined> {
+    type Control = { id?: string; type?: string; text?: string; selected?: boolean; disabled?: boolean };
+    type Ui = { windows?: Array<{ title?: string; controls?: Control[] }> };
+    for (let attempt = 0; attempt < 12; attempt++) {
+      if (signal?.aborted) return undefined;
+      await new Promise(resolve => setTimeout(resolve, 500));
+      let ui: Ui | undefined;
+      try { ui = await this.adapter.execute('ui') as Ui; } catch { return undefined; }
+      const dialog = ui?.windows?.find(window => window.title === 'Set image type');
+      if (!dialog) {
+        // Give the reader a moment to raise the dialog before deciding none is coming.
+        if (attempt >= 3) return undefined;
+        continue;
+      }
+      const chosen = dialog.controls?.find(control => control.type === 'ToggleButton' && control.selected)?.text?.replace(/\s+/g, ' ');
+      const apply = dialog.controls?.find(control => control.type === 'Button' && control.text === 'Apply' && !control.disabled);
+      if (!apply?.id) return 'A "Set image type" dialog is open but has no enabled Apply button; inspect it with qupath_ui.';
+      try {
+        const outcome = await this.call('qupath_ui_action', { nodeId: apply.id, action: 'fire' }, signal) as { status?: unknown };
+        return outcome?.status === 'completed' ? `Applied QuPath's preselected image type${chosen ? ` (${chosen})` : ''}.` : 'Could not apply the image type; inspect the dialog with qupath_ui.';
+      } catch (error) { return `Image type dialog is open; applying failed: ${error instanceof Error ? error.message : String(error)}`; }
+    }
+    return undefined;
   }
   async decide(id: string, approved: boolean, decidedBy: 'human' | 'policy' = 'human') {
     const action = this.actions.get(id);
