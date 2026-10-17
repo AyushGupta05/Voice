@@ -1,0 +1,186 @@
+# P51 raw output (capture-log.txt), 2026-10-17. Scratch paths shortened to <scratch>.
+# NOTE: in the first two passes ("capture" mode, PIDs 14580) every non-refused window failed with
+#   Exception calling "CopyFromScreen" with "5" argument(s): "The handle is invalid"
+# (stderr, not captured in this log). Cause: the input desktop was the Windows screen saver (see P52).
+# Off-screen windows were REFUSED because their off-screen sample points were not owned by Fiji.
+﻿pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+REFUSED 'Plot of synthetic-blobs': 50 sampled points not owned by Fiji
+pids: 14580
+REFUSED 'Log': 120 sampled points not owned by Fiji
+pids: 14580
+REFUSED 'Recorder': 100 sampled points not owned by Fiji
+pids: 14580
+pids: 14580
+pids: 14580
+--- run 2 (sandbox disabled for screen DC access) 2026-10-17T08:16:27.2147384+01:00
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 14580
+REFUSED 'Plot of synthetic-blobs': 50 sampled points not owned by Fiji
+pids: 14580
+REFUSED 'Log': 120 sampled points not owned by Fiji
+pids: 14580
+REFUSED 'Recorder': 100 sampled points not owned by Fiji
+pids: 14580
+pids: 14580
+pids: 14580
+pids: 20732
+printwindow ok=True 938x619 '*New_' -> <scratch>/G4\run\pw\p1-new.png
+printwindow ok=True 242x505 'B&C' -> <scratch>/G4\run\pw\p1-b-c.png
+printwindow ok=True 419x466 'Threshold' -> <scratch>/G4\run\pw\p1-threshold.png
+printwindow ok=True 401x460 'synthetic-blobs' -> <scratch>/G4\run\pw\p1-synthetic-blobs.png
+printwindow ok=True 401x460 'synthetic-blobs-threshold' -> <scratch>/G4\run\pw\p1-synthetic-blobs-threshold.png
+printwindow ok=True 280x277 'Channels' -> <scratch>/G4\run\pw\p1-channels.png
+printwindow ok=True 497x538 'hyperstack-demo' -> <scratch>/G4\run\pw\p1-hyperstack-demo.png
+printwindow ok=True 578x364 'Log' -> <scratch>/G4\run\pw\p1-log.png
+printwindow ok=True 1061x729 'Plot of synthetic-blobs' -> <scratch>/G4\run\pw\p1-plot-of-synthetic-blobs.png
+printwindow ok=True 467x490 'Histogram of synthetic-blobs' -> <scratch>/G4\run\pw\p1-histogram-of-synthetic-blobs.png
+printwindow ok=True 578x364 'Results' -> <scratch>/G4\run\pw\p1-results.png
+printwindow ok=True 286x427 'ROI Manager' -> <scratch>/G4\run\pw\p1-roi-manager.png
+printwindow ok=True 872x450 'Recorder' -> <scratch>/G4\run\pw\p1-recorder.png
+printwindow ok=True 916x163 '(Fiji Is Just) ImageJ' -> <scratch>/G4\run\pw\p1-fiji-is-just-imagej.png
+--- final run pid 32508 2026-10-17T08:20:40.5888838+01:00
+pids: 32508
+printwindow ok=True 938x619 '*New_' -> <scratch>/G4\run\pw3\p1-new.png
+printwindow ok=True 242x505 'B&C' -> <scratch>/G4\run\pw3\p1-b-c.png
+printwindow ok=True 401x460 'synthetic-blobs' -> <scratch>/G4\run\pw3\p1-synthetic-blobs.png
+printwindow ok=True 419x466 'Threshold' -> <scratch>/G4\run\pw3\p1-threshold.png
+printwindow ok=True 401x460 'synthetic-blobs-threshold' -> <scratch>/G4\run\pw3\p1-synthetic-blobs-threshold.png
+printwindow ok=True 280x277 'Channels' -> <scratch>/G4\run\pw3\p1-channels.png
+printwindow ok=True 497x538 'hyperstack-demo' -> <scratch>/G4\run\pw3\p1-hyperstack-demo.png
+printwindow ok=True 578x364 'Log' -> <scratch>/G4\run\pw3\p1-log.png
+printwindow ok=True 1061x729 'Plot of synthetic-blobs' -> <scratch>/G4\run\pw3\p1-plot-of-synthetic-blobs.png
+printwindow ok=True 467x490 'Histogram of synthetic-blobs' -> <scratch>/G4\run\pw3\p1-histogram-of-synthetic-blobs.png
+printwindow ok=True 578x364 'Results' -> <scratch>/G4\run\pw3\p1-results.png
+printwindow ok=True 286x427 'ROI Manager' -> <scratch>/G4\run\pw3\p1-roi-manager.png
+printwindow ok=True 872x450 'Recorder' -> <scratch>/G4\run\pw3\p1-recorder.png
+printwindow ok=True 916x163 '(Fiji Is Just) ImageJ' -> <scratch>/G4\run\pw3\p1-fiji-is-just-imagej.png
+pids: 32508
+printwindow ok=True 980x738 'Command Finder' -> <scratch>/G4\run\pw3\p2-command-finder.png
+pids: 32508
+printwindow ok=True 266x238 'Gaussian Blur...' -> <scratch>/G4\run\pw3\p3-gaussian-blur.png
+pids: 32508
+
+ Handle   Pid Class           L    T    R    B Title                       
+ ------   --- -----           -    -    -    - -----                       
+ 789190 32508 SunAwtDialog 1147  338 1413  576 Gaussian Blur...            
+ 657498 32508 SunAwtFrame   551  225  952  685 synthetic-blobs             
+ 395980 32508 SunAwtFrame  1331  189 2311  927 Command Finder              
+ 264870 32508 SunAwtFrame   851  900 1789 1519 *New_                       
+ 264828 32508 SunAwtDialog 1781  180 2023  685 B&C                         
+5834784 32508 SunAwtDialog 2036  180 2455  646 Threshold                   
+ 920088 32508 SunAwtFrame   971  225 1372  685 synthetic-blobs-threshold   
+2165298 32508 SunAwtDialog 1781  675 2061  952 Channels                    
+1378848 32508 SunAwtFrame    11  225  508  763 hyperstack-demo             
+ 985644 32508 SunAwtFrame    11 1290  589 1654 Log                         
+ 526848 32508 SunAwtFrame  1736  840 2797 1569 Plot of synthetic-blobs     
+ 920038 32508 SunAwtFrame   551  780 1018 1270 Histogram of synthetic-blobs
+ 394660 32508 SunAwtFrame    11  840  589 1204 Results                     
+ 919580 32508 SunAwtFrame  1391  225 1677  652 ROI Manager                 
+ 787280 32508 SunAwtFrame   851 1290 1723 1740 Recorder                    
+ 460128 32508 SunAwtFrame  1316    0 2232  163 (Fiji Is Just) ImageJ       
+
+
+
+pids: 32508
+printwindow ok=True raw=938x174 saved=938x174 '(Fiji Is Just) ImageJ' -> <scratch>/G4\run\pwraw\raw-fiji-is-just-imagej.png
+
+printwindow ok=True raw=441x477 saved=278x310 'Threshold' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Do
+cuments-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\threshold.png
+
+
+
+printwindow ok=True raw=600x375 saved=384x242 'Results' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Docu
+ments-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\results.png
+
+
+
+printwindow ok=True raw=960x630 saved=624x412 '*New_' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Docume
+nts-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\new.png
+
+
+
+printwindow ok=True raw=302x288 saved=185x184 'Channels' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Doc
+uments-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\channels.png
+
+
+
+printwindow ok=True raw=308x438 saved=189x284 'ROI Manager' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-
+Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\roi-manager.png
+
+
+
+printwindow ok=True raw=1083x740 saved=706x485 'Plot of synthetic-blobs' -> C:\Users\arnav\AppData\Local\Temp\claude\c-
+-Users-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\plot-of-synthet
+ic-blobs.png
+
+
+
+printwindow ok=True raw=600x375 saved=384x242 'Log' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Document
+s-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\log.png
+
+
+
+printwindow ok=True raw=938x174 saved=609x108 '(Fiji Is Just) ImageJ' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Us
+ers-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\fiji-is-just-image
+j.png
+
+
+
+printwindow ok=True raw=423x471 saved=266x306 'synthetic-blobs' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-ar
+nav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\synthetic-blobs.png
+
+
+
+printwindow ok=True raw=894x461 saved=580x299 'Recorder' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Doc
+uments-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\recorder.png
+
+
+
+printwindow ok=True raw=264x516 saved=160x336 'B&C' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Document
+s-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\b-c.png
+
+
+
+printwindow ok=True raw=519x549 saved=330x358 'hyperstack-demo' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-ar
+nav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\hyperstack-demo.png
+
+
+
+printwindow ok=True raw=489x501 saved=310x326 'Histogram of synthetic-blobs' -> C:\Users\arnav\AppData\Local\Temp\claud
+e\c--Users-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\histogram-o
+f-synthetic-blobs.png
+
+
+
+printwindow ok=True raw=1002x749 saved=652x491 'Command Finder' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-ar
+nav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\command-finder.png
+
+
+
+printwindow ok=True raw=288x249 saved=176x158 'Gaussian Blur...' -> C:\Users\arnav\AppData\Local\Temp\claude\c--Users-a
+rnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\gaussian-blur.png
+
+
+
+printwindow ok=True raw=423x471 saved=266x306 'synthetic-blobs-threshold' -> C:\Users\arnav\AppData\Local\Temp\claude\c
+--Users-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G4\run\pwtrim\synthetic-blob
+s-threshold.png
+
+

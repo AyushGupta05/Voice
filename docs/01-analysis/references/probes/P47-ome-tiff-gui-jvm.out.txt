@@ -1,0 +1,9 @@
+R0 reference = dims(xyczt)=64x48x3x4x2 bitDepth=16 hyperstack=true composite=true cal=0.25/0.25/1.5 micron frameInterval=2.5 sec ranges=1000-4500,2000-5500,3000-6500 overlay=2 info=kept checksum=2.77903872E8
+S1 GraphicsEnvironment.isHeadless() = false
+S2 IJ.run(imp, Bio-Formats Exporter, save=[..] compression=Uncompressed) = exists=true size=9606596
+O1 BF.openImagePlus(ome.tif) composite = series=1 dims(xyczt)=64x48x3x4x2 bitDepth=16 hyperstack=true composite=true cal=0.25/0.25/1.5 micron frameInterval=2.5 sec ranges=1110-4429,2110-5429,3110-6429 overlay=0 info=other(386 chars) checksum=2.77903872E8
+O2 IJ.openImage(ome.tif) [IJ1 TIFF reader] = dims(xyczt)=64x48x3x4x2 bitDepth=16 hyperstack=true composite=true cal=0.25/0.25/1.5 micron frameInterval=2.5 sec ranges=1110-4429,2110-5429,3110-6429 overlay=0 info=other(386 chars) checksum=2.77903872E8
+O3 SCIFIO open(ome.tif) = X:64@0.25,Y:48@0.25,Channel:3@1.0,Z:4@1.5,Time:2@1.0
+M1 OME-XML in ImageDescription (first 300 chars) = <?xml version="1.0" encoding="UTF-8"?><!-- Warning: this comment is an OME-XML metadata block, which contains crucial dimensional parameters and other important metadata. Please edit cautiously (if at all), and back up the original data before doing so. For more information, see the OME-TIFF web sit
+M2 OME-XML mentions PhysicalSizeX / TimeIncrement / Channel count = PhysicalSizeX=0.25 unit=µm TimeIncrement=2.5 <Channel count=3 ROI elements=0
+Z0 done = halt(0)

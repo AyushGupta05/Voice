@@ -1,0 +1,214 @@
+# Authoritative upstream source and dependency manifest (F03).
+# Evidence: tag/SHA from shallow clones in C:\Users\arnav\Documents\dev\fiji-research-cache (cloned 2026-10-17);
+# installed artefact from C:\Users\arnav\Documents\dev\Fiji\jars (pinned by external/fiji.lock.json);
+# licence_declared = first lines of the repository's LICENSE file at that revision (VERIFIED) unless noted.
+# usage values: runtime (inside pinned Fiji, used as-is) | candidate (evaluated, not adopted) |
+#               reference (studied for design only) | prototype (used by existing prototype)
+schema_version: 1
+checked: 2026-10-17
+runtime_pin:
+  distribution: Fiji Windows x64 archive 20261013-1517
+  archive_url: https://downloads.imagej.net/fiji/archive/latest/20261013-1517/fiji-latest-win64-jdk.zip
+  archive_sha256: 9201287a86967d1dc93a5a8426ef8c5048c6186c50642c75164fb2c813794c54
+  file_inventory: external/fiji.lock.json        # 1,379 file hashes
+  lock_sha256: f66953972bb5ed85b8ab0273e4294af5b03136c28c9ef617e24556bca523bafa
+  launcher: fiji-windows-x64.exe (Jaunch; config/jaunch/)
+  java: Zulu 21.0.7 (java/win64/zulu21.42.19-ca-jdk21.0.7-win_x64)
+components:
+  - id: UP-01
+    name: ImageJ (ImageJ1)
+    repo: https://github.com/imagej/ImageJ
+    revision: {tag: v1.54p, sha: 03382be1a0b650010b077102b5e5b20eaa6a8967, date: 2025-02-17}
+    installed: jars/ij-1.54p.jar
+    licence_declared: "ImageJ Disclaimer (public domain, NIH employee work) — LICENSE.txt"
+    role: Core image model (ImagePlus/ImageProcessor), menus, macro interpreter, Recorder, ROI, measurements, AWT GUI
+    usage: [runtime, prototype, reference]
+  - id: UP-02
+    name: ImageJ2 aggregator
+    repo: https://github.com/imagej/imagej2
+    revision: {tag: imagej-2.18.0, sha: 1237c046e779b20fcae334ef5bacea1d0e92ffc1, date: 2026-06-27}
+    installed: jars/imagej-2.18.0.jar
+    licence_declared: BSD-2-Clause (ImageJ2 developers)
+    role: net.imagej.ImageJ gateway; aggregates ImageJ2 services
+    usage: [runtime, reference]
+  - id: UP-03
+    name: imagej-legacy
+    repo: https://github.com/imagej/imagej-legacy
+    revision: {tag: imagej-legacy-3.0.0, sha: fc31a5632ca2696ecef76ed729c5cab2a365c438, date: 2026-09-29}
+    installed: jars/imagej-legacy-3.0.0.jar
+    licence_declared: BSD-2-Clause (ImageJ2 developers)
+    role: Bridge between ImageJ1 and ImageJ2 (LegacyService, image synchronisation, legacy UI)
+    usage: [runtime, reference]
+  - id: UP-04
+    name: ij1-patcher
+    repo: https://github.com/imagej/ij1-patcher
+    revision: {tag: ij1-patcher-2.0.0, sha: 70e570dc3d455358b35690b4244571cc4e643b7a, date: 2025-07-17}
+    installed: jars/ij1-patcher-2.0.0.jar
+    licence_declared: BSD-2-Clause (ImageJ2 developers)
+    role: Runtime bytecode patching of ij.jar (hooks, headless support)
+    usage: [runtime, reference]
+  - id: UP-05
+    name: imagej-ui-swing
+    repo: https://github.com/imagej/imagej-ui-swing
+    revision: {tag: imagej-ui-swing-1.2.2, sha: 9815290ef2f28f3472ea8a9c4c63d2bd8f06ff78, date: 2025-06-13}
+    installed: jars/imagej-ui-swing-1.2.2.jar
+    licence_declared: BSD-2-Clause (ImageJ developers)
+    role: ImageJ2 Swing UI components (viewers, widgets, updater UI). Contains no UserInterface implementations (G3/A07 correction, 2026-10-17); those are in scijava-ui-swing (UP-24).
+    usage: [runtime, reference]
+  - id: UP-24
+    name: scijava-ui-swing
+    repo: https://github.com/scijava/scijava-ui-swing
+    revision: {tag: scijava-ui-swing-1.0.5, sha: 97fd87c16ebe99b0f50cafa45f184fb6f230444b (git ls-remote; not cloned)}
+    installed: jars/scijava-ui-swing-1.0.5.jar
+    licence_declared: BSD-2-Clause (per P70 jar metadata scan, A24)
+    role: SciJava UserInterface plugins SwingSDIUI and SwingMdiUI, SwingLookAndFeelService (FlatLaf options), CommandFinder, console, Watch Events
+    usage: [runtime, reference]
+  - id: UP-06
+    name: scijava-common
+    repo: https://github.com/scijava/scijava-common
+    revision: {tag: scijava-common-2.101.0, sha: d7219693a057c957e65d24f474ffaa27826854ee, date: 2026-09-29}
+    installed: jars/scijava-common-2.101.0.jar
+    licence_declared: BSD-2-Clause (SciJava developers)
+    role: Context, services, plugin index, modules/commands, @Parameter, events, script service
+    usage: [runtime, reference]
+  - id: UP-07
+    name: ImgLib2
+    repo: https://github.com/imglib/imglib2
+    revision: {tag: imglib2-8.0.0, sha: 820302c5ebd534b968ddec2e41402789c827e91c, date: 2025-11-25}
+    installed: jars/imglib2-8.0.0.jar
+    licence_declared: BSD-2-Clause (ImgLib2 authors)
+    role: Generic n-dimensional image data structures and algorithms
+    usage: [runtime, reference]
+  - id: UP-08
+    name: imagej-common
+    repo: https://github.com/imagej/imagej-common
+    revision: {tag: imagej-common-2.1.2, sha: 116286e0da3848ef55232a2612bfaeb419d1f268, date: 2026-10-07}
+    installed: jars/imagej-common-2.1.2.jar
+    licence_declared: BSD-2-Clause (ImageJ2 developers)
+    role: Dataset, ImgPlus, axes, display model
+    usage: [runtime, reference]
+  - id: UP-09
+    name: ImageJ Ops
+    repo: https://github.com/imagej/imagej-ops
+    revision: {tag: imagej-ops-2.2.0, sha: 5a90b5f09d33d4bf15df6089daeaf3487839d33b, date: 2024-08-29}
+    installed: jars/imagej-ops-2.2.0.jar
+    licence_declared: BSD-2-Clause (ImageJ2 developers)
+    role: Typed, discoverable image-processing operations (ImageJ2)
+    usage: [runtime, reference]
+  - id: UP-10
+    name: SCIFIO
+    repo: https://github.com/scifio/scifio
+    revision: {tag: scifio-0.49.2, sha: 8269fc4deacb6961384a889b40983e2ff4bf7acf, date: 2026-10-13}
+    installed: jars/scifio-0.49.2.jar
+    licence_declared: BSD-2-Clause (SCIFIO developers)
+    role: ImageJ2 image I/O framework
+    usage: [runtime, reference]
+  - id: UP-11
+    name: Bio-Formats
+    repo: https://github.com/ome/bioformats
+    revision: {tag: v8.5.0, sha: 89f6e87d4970d62b8b172984bfa40b7b958b6229, date: unknown}
+    installed: jars/formats-api-8.5.0.jar, jars/formats-bsd-8.5.0.jar, jars/formats-gpl-8.5.0.jar
+    licence_declared: "Split: formats-bsd BSD-2, formats-gpl GPL-2+ (per A24 — verify there)"
+    role: Proprietary/scientific microscopy format reading and metadata (OME model)
+    usage: [runtime, reference]
+    note: not cloned; SHA from git ls-remote
+  - id: UP-12
+    name: Fiji
+    repo: https://github.com/fiji/fiji
+    revision: {branch: main, sha: ddc9a45d6042ed664d33ad95847096318c365aa4, date: 2026-10-06}
+    installed: jars/fiji-2.18.1-SNAPSHOT.jar (pom-scijava parent 45.1.0)
+    licence_declared: GPL-3.0 text in LICENSE.txt; pom declares "GNU General Public License v3+"; LICENSES lists component exceptions
+    role: Distribution assembly, menu organisation, plugins, update sites, launcher config
+    usage: [runtime, prototype, reference]
+    note: installed version is a SNAPSHOT; main is close to but not proven identical to the installed assembly
+  - id: UP-13
+    name: imagej-updater
+    repo: https://github.com/imagej/imagej-updater
+    revision: {tag: imagej-updater-2.0.3, sha: 4819c3c4dd8e48dceca266f8b9253d938b596e33, date: 2025-11-11}
+    installed: jars/imagej-updater-2.0.3.jar
+    licence_declared: BSD-2-Clause
+    role: Update sites, db.xml.gz, plugin installation
+    usage: [runtime, reference]
+  - id: UP-14
+    name: script-editor
+    repo: https://github.com/scijava/script-editor
+    revision: {tag: script-editor-1.4.0, sha: 253ad6514a184cd8001a7de52c4e9ec3571cb3a2, date: 2026-10-04}
+    installed: jars/script-editor-1.4.0.jar
+    licence_declared: BSD-2-Clause (SciJava developers)
+    role: Fiji Script Editor (macro/script editing and running)
+    usage: [runtime, reference]
+  - id: UP-15
+    name: imagej-plugins-commands
+    repo: https://github.com/imagej/imagej-plugins-commands
+    revision: {tag: imagej-plugins-commands-1.0.0, sha: e0cb358870a14921a79997c35913a8a300a40fd9, date: 2024-11-07}
+    installed: jars/imagej-plugins-commands-1.0.0.jar
+    licence_declared: BSD-2-Clause
+    role: ImageJ2 core commands
+    usage: [runtime, reference]
+  - id: UP-16
+    name: PyImageJ
+    repo: https://github.com/imagej/pyimagej
+    revision: {branch: main, sha: 8f9b8faf8b003a4986b0040b29c0746a4a0a7711, date: 2026-10-01, latest_release_tag: "1.8.0", main_version: 1.8.1.dev0}
+    installed: not installed
+    licence_declared: Apache-2.0 (LICENSE.txt)
+    role: Python ↔ ImageJ bridge via JPype/scyjava
+    usage: [candidate, reference]
+  - id: UP-17
+    name: faster-whisper
+    repo: https://github.com/SYSTRAN/faster-whisper
+    revision: {tag: v1.2.1, sha: 65882eee9f5cdbeeb2d877f1131d48cf241b327d, date: 2025-10-31}
+    installed: .venv-stt (Python 3.11.16), hash-locked speech/requirements.lock.txt
+    licence_declared: MIT (SYSTRAN)
+    role: Local speech-to-text (CTranslate2)
+    usage: [prototype, candidate]
+  - id: UP-18
+    name: faster-whisper tiny.en model
+    repo: https://huggingface.co/Systran/faster-whisper-tiny.en
+    revision: {sha: 0d3d19a32d3338f10357c0889762bd8d64bbdeba}
+    installed: external/models/tiny.en (git-ignored; hashes in external/stt-model.sha256.json)
+    licence_declared: MIT (model card)
+    role: Speech model weights
+    usage: [prototype]
+  - id: UP-19
+    name: whisper.cpp
+    repo: https://github.com/ggml-org/whisper.cpp
+    revision: {branch: master, sha: 0c7be696371069e0baa2515ed7aa08d5a5473aa6, date: 2026-10-12, latest_release_tag: v1.9.5}
+    installed: not installed
+    licence_declared: MIT (The ggml authors)
+    role: Native C/C++ Whisper inference
+    usage: [candidate, reference]
+  - id: UP-20
+    name: ImageJ tutorials
+    repo: https://github.com/imagej/tutorials
+    revision: {branch: master, sha: 586267dc1e84d722b1765eddb5cb69c3ea28c0b6, date: 2023-03-20}
+    installed: n/a
+    licence_declared: no top-level LICENSE file found at this revision (UNKNOWN)
+    role: Worked examples of ImageJ2/SciJava API use
+    usage: [reference]
+  - id: UP-21
+    name: napari
+    repo: https://github.com/napari/napari
+    revision: {note: not cloned; studied via documentation in A06}
+    licence_declared: BSD-3-Clause (per project docs; see A06/A24)
+    usage: [reference]
+  - id: UP-22
+    name: CellProfiler
+    repo: https://github.com/cellprofiler/cellprofiler
+    revision: {note: not cloned; studied via documentation in A06}
+    licence_declared: BSD-3-Clause (per project docs; see A06/A24)
+    usage: [reference]
+  - id: UP-23
+    name: fiji-llm
+    repo: https://github.com/fiji/fiji-llm
+    revision: {branch: main, sha: 3e564f2b0de1afd84e2222b7c58bd2c82df7637c, date: 2026-10-12, latest_release_tag: fiji-llm-0.1.0 (8ff214bd)}
+    installed: not installed (distributed via the unlisted "Fiji-chat" update site, https://sites.imagej.net/Fiji-chat/)
+    licence_declared: BSD-2-Clause (GitHub API; LICENSE.txt)
+    role: Official Fiji LLM integration — in-JVM chat UI, embedded Jetty MCP server (127.0.0.1:9090), SciJava AiToolPlugin tool registry (command search/run, macro/script run, Results/ROI read, UI/dialog inspection, environment snapshots)
+    usage: [reference, candidate]
+    note: discovered by G6 (A06); cloned 2026-10-17 into the research cache
+bundled_in_runtime_of_note:   # VERIFIED by filename in Fiji/jars; relevance assessed in A21
+  - flatlaf-3.6.1.jar          # modern Swing look-and-feel
+  - javafx-base/controls/graphics/media-23.0.2.jar
+  - appose-0.12.0.jar, imglib2-appose-0.5.0-ctr.jar, scripting-appose-python-0.1.0.jar   # Java↔Python IPC with shared memory
+  - groovy-4.0.28.jar, jython-slim-2.7.4.jar
+  - TrackMate-8.1.6.jar, bigdataviewer-core-10.6.11.jar, weka-dev-3.9.6.jar

@@ -1,0 +1,13 @@
+fresh table: size=0 heading37=null
+  after Measure #1: size=1 heading37=MaxThr
+  after Measure #2: size=1 heading37=MaxThr
+  after Measure #3: size=1 heading37=MaxThr
+after rt.reset(): size=0 heading37=null
+  after Measure #1: size=1
+  after Measure #2: size=1
+  after Measure #3: size=1
+after Clear Results: size=0 heading37=null
+  after Measure #1: size=1
+  after Measure #2: size=1
+  after Measure #3: size=1
+after changing measurement flags then Measure: size=1 headings=Area	Mean	Min	Max

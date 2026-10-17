@@ -1,0 +1,38 @@
+Fidelis
+Copyright 2026 Arnav Chitriv and Fidelis contributors
+
+This product includes original software developed for the Fidelis project
+(Reinvent the Wheel: A Tools for Science Hack, London, 16-18 October 2026).
+
+LICENCE SCOPE
+-------------
+The Apache License, Version 2.0 (see LICENSE) applies ONLY to the original work
+of the Fidelis authors in this repository: source code, scripts, tests,
+configuration and project documentation.
+
+It does NOT apply to, and does not relicense, any of the following:
+
+1. Fiji, ImageJ, ImageJ2, SciJava, ImgLib2, SCIFIO, Bio-Formats or any Fiji
+   plugin. No such upstream software is included in this repository. Fidelis
+   uses an external, separately obtained Fiji installation, which remains under
+   its own licences (the Fiji bundle is declared GPL-3.0-or-later, with
+   component-specific licences and exceptions).
+2. The upstream licence and notice texts copied under third_party/. Each is
+   preserved verbatim and remains under its own terms.
+3. Third-party dependencies (Python, npm, speech libraries and models), which
+   are installed separately and keep their own licences. See
+   third_party/NOTICE.md and the package inventories in third_party/.
+4. fixtures/invert-command.wav, a short test stimulus synthesised with Microsoft
+   Windows speech synthesis (System.Speech). No rights in the synthesised voice
+   output are claimed or licensed by the Fidelis authors.
+5. Screenshots of the Fiji user interface and probe outputs that reproduce
+   metadata from third-party software (for example, plugin indexes and licence
+   scans) in docs/. They depict or describe third-party
+   software and are included for analysis and attribution only.
+
+"Fiji" and "ImageJ" are names of their respective projects. Fidelis is an
+independent project and is not endorsed by the Fiji or ImageJ developers.
+
+This notice is a good-faith description of licence scope. It is not legal
+advice. Open licensing questions are tracked as decision DEC-005 in the project
+documentation.

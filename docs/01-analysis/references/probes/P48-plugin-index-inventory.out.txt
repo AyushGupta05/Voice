@@ -1,0 +1,44 @@
+jars scanned: 662
+sciJava plugin entries: 1950
+   225 org.scijava.command.Command
+   201 org.scijava.convert.Converter
+   115 org.scijava.service.Service
+    40 net.imagej.ops.Ops$Math$Add
+    40 net.imagej.ops.Ops$Math$Subtract
+    40 net.imagej.ops.Ops$Math$Multiply
+    40 net.imagej.ops.Ops$Math$Divide
+    39 sc.fiji.labkit.pixel_classification.pixel_feature.filter.FeatureOp
+    38 net.imagej.ops.Ops$Map
+    32 org.scijava.module.process.PreprocessorPlugin
+    29 io.scif.Format
+    26 org.scijava.tool.Tool
+    25 org.scijava.options.OptionsPlugin
+    25 net.imagej.ops.Namespace
+    24 org.scijava.widget.InputWidget
+    21 fiji.plugin.trackmate.action.TrackMateActionFactory
+    18 org.scijava.console.ConsoleArgument
+    17 net.imagej.threshold.ThresholdMethod
+    16 io.scif.codec.Codec
+    14 org.scijava.ui.behaviour.io.gui.CommandDescriptionProvider
+    13 org.scijava.search.SearchActionFactory
+    13 net.imagej.operator.CalculatorOp
+    12 net.imagej.types.DataType
+    12 org.scijava.script.ScriptLanguage
+    11 io.scif.Translator
+    10 net.imagej.ui.swing.overlay.JHotDrawAdapter
+     8 fiji.plugin.trackmate.features.track.TrackAnalyzer
+     8 org.scijava.ui.viewer.DisplayViewer
+     8 io.scif.ome.translators.ToOMETranslator
+     7 fiji.plugin.trackmate.detection.SpotDetectorFactory
+     7 fiji.plugin.trackmate.tracking.SpotTrackerFactory
+     7 org.scijava.ui.swing.script.SyntaxHighlighter
+     6 fiji.plugin.trackmate.features.edges.EdgeAnalyzer
+     6 org.scijava.app.App
+     6 net.imagej.ops.Ops$Logic$Equal
+     6 net.imagej.ops.Ops$Logic$NotEqual
+     6 net.imagej.ops.Ops$Image$DistanceTransform
+     6 net.imagej.ops.Ops$Create$KernelGabor
+     6 net.imagej.ops.Ops$Join
+     6 org.scijava.search.Searcher
+jars with plugins.config: 96 lines: 438
+Command headless attr: {('org.scijava.command.Command', ''): 104, ('org.scijava.command.DynamicCommand', ''): 1, ('org.scijava.command.Command', 'True'): 120, ('org.scijava.command.Command', 'False'): 1, ('io.scif.cli.SCIFIOToolCommand', ''): 5}

@@ -1,0 +1,18 @@
+  stroke before setGroup=java.awt.Color[r=255,g=0,b=0]
+  stroke after setGroup(7)=java.awt.Color[r=255,g=211,b=0]
+polygon: type=2 subPixel=true bytes=180
+  orig float x=[10.25, 30.5, 20.75] y=[5.125, 6.5, 25.875]
+  dec  float x=[10.25, 30.5, 20.75] y=[5.125, 6.5, 25.875]
+  dec name=tri CZT=2,3,4 hasHyperStackPosition=true stroke=java.awt.Color[r=255,g=211,b=0] width=1.5 prop k=v group=7
+int polygon: subPixel=false bytes=140 dec subPixel=false dec x=[10, 30, 20]
+double rect: orig floatBounds=java.awt.geom.Rectangle2D$Double[x=1.5,y=2.25,w=10.5,h=4.75] subPixel=true dec floatBounds=java.awt.geom.Rectangle2D$Double[x=1.5,y=2.25,w=10.5,h=4.75] dec intBounds=java.awt.Rectangle[x=1,y=2,width=11,height=5]
+line: dec x1d,y1d,x2d,y2d=0.5,0.5,10.25,3.75
+points: orig getPosition()=5 hasHyperStackPosition=false
+points setPosition(0,5,0) round trip: Z=5 hasHyperStackPosition=true
+single point setPosition(5): orig=5 decoded=0
+points: dec type=10 n=2 x=[1.5, 4.25] position=0
+shape (rect minus oval): type=9 dec class=ShapeRoi dec type=9 mask count255=88 orig count255=88
+mask of square (0.6..2.4): bounds=java.awt.Rectangle[x=0,y=0,width=3,height=3] mask 3x3 count255=1 contains(1,1)=true contains(0,0)=false containsPoint(0.7,0.7)=false containsPoint(1.5,1.5)=false intPolygon(0..3).containsPoint(1.5,1.5)=true
+Roi.getMask() for plain rectangle is null: true
+RoiManager(true) threw java.awt.HeadlessException: null
+getRoiManager threw java.awt.HeadlessException: null
