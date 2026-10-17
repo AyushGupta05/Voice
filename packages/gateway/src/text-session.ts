@@ -3,6 +3,7 @@ import { ResponsesBackend, type BackendClient } from './backend.js';
 import type { Runtime } from './runtime.js';
 import type { Context } from './bridge.js';
 import type { TranscriptFragment } from './live.js';
+import { fastRoute } from './fast-path.js';
 
 type Active = { id: string; controller: AbortController; answered: boolean };
 /** One researcher-owned text conversation. No provider requests occur until submit. */
@@ -30,6 +31,17 @@ export class TextConversation {
   try{
    const context=await this.runtime.call('qupath_context',{},active.controller.signal) as Context;
    active.controller.signal.throwIfAborted();
+   // Spoken display-only commands with one unambiguous meaning skip the model entirely.
+   const route=spoken?fastRoute(text,context):undefined;
+   if(route){
+    const result=await this.runtime.call(route.tool,route.arguments,active.controller.signal) as Record<string,unknown>|undefined;
+    active.controller.signal.throwIfAborted();
+    const failed=!result||typeof result!=='object'||'error' in result;
+    const reply=failed?'That did not work; check QuPath.':route.reply;
+    active.answered=true;this.append('assistant',`${reply} (${route.tool} ${JSON.stringify(route.arguments)})`);
+    this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});
+    return;
+   }
    await this.backend.run({id:active.id,spoken,
     acknowledge:text=>{if(this.active===active&&!active.controller.signal.aborted)this.emit({type:'text_ack',taskId:active.id,text});},offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
     conversation:()=>({fragments:structuredClone(this.fragments),truncated:this.truncated}),
