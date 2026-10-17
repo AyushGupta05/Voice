@@ -69,13 +69,16 @@ public final class LumaBridge implements PlugIn {
         String env = System.getenv("LUMA_ROOT"); if (env != null && !env.isBlank()) return env;
         return rootFromJar();
     }
-    /** The repository that built this jar: plugins/luma-fiji-bridge.jar is a symlink to <root>/dist/luma-fiji-bridge.jar. */
+    /** The repository that built this jar: <root>/dist/luma-fiji-bridge.jar (symlinked) or a copy at <root>/.local/fiji/Fiji.app/plugins/luma-fiji-bridge.jar. */
     static String rootFromJar() {
         try {
             var location = LumaBridge.class.getProtectionDomain().getCodeSource().getLocation();
             var jar = Path.of(location.toURI()).toRealPath();
-            var root = jar.getParent() == null ? null : jar.getParent().getParent();
-            if (root != null && jar.getParent().getFileName().toString().equals("dist") && Files.isRegularFile(root.resolve(".local/state/bridge-token"))) return root.toString();
+            var candidates = new ArrayList<Path>();
+            var parent = jar.getParent();
+            if (parent != null && parent.getFileName().toString().equals("dist")) candidates.add(parent.getParent());
+            if (parent != null && parent.getFileName().toString().equals("plugins")) { var up = parent; for (int i = 0; i < 4 && up != null; i++) up = up.getParent(); candidates.add(up); }
+            for (var root : candidates) if (root != null && Files.isRegularFile(root.resolve(".local/state/bridge-token"))) return root.toString();
         } catch (Exception ignored) { /* not launched from a repository checkout */ }
         return null;
     }
