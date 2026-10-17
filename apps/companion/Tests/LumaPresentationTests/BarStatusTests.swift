@@ -22,7 +22,7 @@ final class BarStatusTests: XCTestCase {
         XCTAssertEqual(status().title, BarStatus.idleInvitation)
         XCTAssertEqual(status().note, ""); XCTAssertTrue(status().ready)
         XCTAssertEqual(status(connected: false).title, BarStatus.idleInvitation)
-        XCTAssertEqual(status(connected: false).note, "Connecting to Luma"); XCTAssertFalse(status(connected: false).ready)
+        XCTAssertEqual(status(connected: false).note, "Connecting to Penny"); XCTAssertFalse(status(connected: false).ready)
         XCTAssertEqual(status(events: false).note, "Reconnecting"); XCTAssertFalse(status(events: false).ready)
         XCTAssertEqual(status(bridge: false).note, "Open QuPath")
         XCTAssertTrue(status(bridge: false).ready, "Voice can start before QuPath is open")

@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model = CompanionModel()
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         panel = CompanionPanel(contentRect: NSRect(x: screen.midX - 210, y: screen.maxY - 72, width: 420, height: 56), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.title = "Luma"
+        panel.title = "Penny"
         panel.contentView = NSHostingView(rootView: CompanionSurface(model: model))
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
         panel.level = .floating; panel.isMovableByWindowBackground = true
@@ -42,12 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.resizePanel(expanded: self.model.expanded)
             }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Luma scientific companion")
+        statusItem.button?.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Penny scientific companion")
         statusItem.button?.target = self; statusItem.button?.action = #selector(togglePanel)
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show Luma", action: #selector(showPanel), keyEquivalent: "l").target = self
+        menu.addItem(withTitle: "Show Penny", action: #selector(showPanel), keyEquivalent: "l").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Luma", action: #selector(quit), keyEquivalent: "q").target = self
+        menu.addItem(withTitle: "Quit Penny", action: #selector(quit), keyEquivalent: "q").target = self
         // Right click opens the menu; a normal click toggles the companion.
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem.menu = nil
@@ -57,8 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func togglePanel() {
         if NSApp.currentEvent?.type == .rightMouseUp {
             let menu = NSMenu()
-            menu.addItem(withTitle: "Show Luma", action: #selector(showPanel), keyEquivalent: "").target = self
-            menu.addItem(withTitle: "Quit Luma", action: #selector(quit), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Show Penny", action: #selector(showPanel), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Quit Penny", action: #selector(quit), keyEquivalent: "").target = self
             statusItem.menu = menu; statusItem.button?.performClick(nil); statusItem.menu = nil
         } else if panel.isVisible { panel.orderOut(nil) } else { showPanel() }
     }

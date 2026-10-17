@@ -6,7 +6,7 @@ The user separately authorized this disposable test on 17 October 2026: syntheti
 node --import tsx script/synthetic-import-smoke.ts --authorized-synthetic-imports
 ```
 
-Requires the default local Apple Silicon QuPath/JDK bootstrap, a built bridge and a usable normal desktop session. The script creates a fresh private directory under `.local/synthetic-import-fixtures`, prepares a distinct development app and launches it normally with LaunchServices. Preferences are entirely in memory; tokens, user directory and caches are separate. Normal QuPath/Luma processes and credentials are untouched. No provider or voice connection is used.
+Requires the default local Apple Silicon QuPath/JDK bootstrap, a built bridge and a usable normal desktop session. The script creates a fresh private directory under `.local/synthetic-import-fixtures`, prepares a distinct development app and launches it normally with LaunchServices. Preferences are entirely in memory; tokens, user directory and caches are separate. Normal QuPath/Penny processes and credentials are untouched. No provider or voice connection is used.
 
 The official QuPath startup-script hook creates an actual QuPathGUI session with a 512 × 512 synthetic in-memory image. A test-only socket uses the unchanged production Java HTTP handler on a separate OS-assigned loopback port; the normal fixed-port auto-extension is disabled only in this test app. This is real QuPath import execution, but does not verify normal extension discovery, native image-file opening or foreground usability.
 

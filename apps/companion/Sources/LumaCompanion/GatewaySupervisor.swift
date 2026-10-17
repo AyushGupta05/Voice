@@ -14,7 +14,7 @@ final class GatewaySupervisor {
         nextAttempt = Date().addingTimeInterval(5)
         guard let node = Bundle.main.object(forInfoDictionaryKey: "LumaNode") as? String,
               FileManager.default.isExecutableFile(atPath: node) else {
-            throw CompanionError.message("Rebuild Luma to configure the local Node.js executable.")
+            throw CompanionError.message("Rebuild Penny to configure the local Node.js executable.")
         }
         try FileManager.default.createDirectory(at: root.appendingPathComponent(".local"), withIntermediateDirectories: true)
         let log = root.appendingPathComponent(".local/gateway.log")

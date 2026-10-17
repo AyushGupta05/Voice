@@ -195,7 +195,7 @@ private struct CursorBuddy: View {
         .fixedSize()
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: label)
         .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { breathe = true } }
-        .accessibilityLabel(label.isEmpty ? "Luma cursor" : "Luma is pointing at \(label)")
+        .accessibilityLabel(label.isEmpty ? "Penny cursor" : "Penny is pointing at \(label)")
     }
 }
 

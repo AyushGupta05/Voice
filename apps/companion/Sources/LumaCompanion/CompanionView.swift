@@ -35,7 +35,7 @@ struct CompanionView: View {
                 Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(mint)
                 Text("Voice connection").font(.system(size: 24, weight: .semibold))
                 Text(model.voiceReason).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(model.textReady ? "Type in Luma to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
+                Text(model.textReady ? "Type in Penny to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
                 Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
             }.padding(28).frame(width: 360)
         }
@@ -50,7 +50,7 @@ struct CompanionView: View {
                 Text(model.bridgeConnected ? "\(model.appName) connected" : model.connected ? "Waiting for \(model.appName)" : "Gateway offline").font(.system(size: 10, weight: .medium)).foregroundStyle(secondaryText)
             }
             Button { NSApp.hide(nil) } label: { Image(systemName: "minus").font(.system(size: 11)).foregroundStyle(secondaryText) }
-                .buttonStyle(.plain).help("Hide Luma; reopen from the menu bar")
+                .buttonStyle(.plain).help("Hide Penny; reopen from the menu bar")
         }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 20)
     }
     private var contextCard: some View {
@@ -108,7 +108,7 @@ struct CompanionView: View {
                 Spacer(minLength: 0)
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "cursorarrow.rays").foregroundStyle(mint)
-                    Text("Select something in \(model.appName). Luma follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(secondaryText).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                    Text("Select something in \(model.appName). Penny follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(secondaryText).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 }.padding(14).background(mint.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
                 Spacer(minLength: 0)
             }
@@ -148,7 +148,7 @@ struct CompanionView: View {
         VStack(spacing: 12) {
             Divider().overlay(hairline)
             HStack(spacing: 10) {
-                TextField("Ask Luma to do something…", text: $model.input).font(.system(size: 12)).textFieldStyle(.plain).onSubmit { model.sendText() }
+                TextField("Ask Penny to do something…", text: $model.input).font(.system(size: 12)).textFieldStyle(.plain).onSubmit { model.sendText() }
                 if model.textBusy {
                     Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 10)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).help("Stop unstarted work; completed actions remain")
                 }

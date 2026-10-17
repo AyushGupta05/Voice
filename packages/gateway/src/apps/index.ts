@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 export type { AppId, AppProfile, FastRoute, PrepareInput } from './profile.js';
 
-/** Every application Luma can drive, by id. */
+/** Every application Penny can drive, by id. */
 export const profiles: Record<AppId, AppProfile> = { qupath, fiji };
 export const appIds = Object.keys(profiles) as AppId[];
 /** LUMA_APP selects the application. The companion starts its gateway with `open -n`, where the shell environment does

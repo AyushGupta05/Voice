@@ -1,4 +1,4 @@
-# Luma contributor and agent guide
+# Penny contributor and agent guide
 
 Read README.md, docs/CAPABILITIES.md and docs/BUILD-JOURNAL.md before changing behavior or reporting completion. The product is a real QuPath companion inspired by Clicky: short, action-first, voice-driven, and it acts immediately. Do not replace QuPath with a mock scientific viewer.
 

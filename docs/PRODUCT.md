@@ -4,7 +4,7 @@
 
 Researchers already know the question they want to ask. They should not need to memorize a scientific application's interface or scripting language to carry it out.
 
-Luma bridges that learning gap: a small conversational companion sits beside QuPath, understands the selected image and objects, and performs real operations. Voice is the primary interaction; text and a visible action history make the work inspectable.
+Penny bridges that learning gap: a small conversational companion sits beside QuPath, understands the selected image and objects, and performs real operations. Voice is the primary interaction; text and a visible action history make the work inspectable.
 
 ## Accepted direction
 

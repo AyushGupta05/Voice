@@ -1,15 +1,15 @@
 # Foreground demo
 
-Luma keeps QuPath as the scientific application. Its companion surface is a 420 × 56 px Dynamic-Island-style bar at the top of the screen with four phases:
+Penny keeps QuPath as the scientific application. Its companion surface is a 420 × 56 px Dynamic-Island-style bar at the top of the screen with four phases:
 
 | Phase | What you see | Driven by |
 |---|---|---|
-| Idle | Mic glyph, "Hey Luma · tap to talk" (or the connection/setup reason when not ready) | voice off |
+| Idle | Mic glyph, "Hey Penny · tap to talk" (or the connection/setup reason when not ready) | voice off |
 | Listening | Animated waveform from your microphone level and the live partial transcript; the mic glyph becomes Stop | `voice_state: listening`, `voice_transcript` |
-| Executing | The phrase Luma is saying while it acts ("Detecting cells.") with a shimmer, then the one-sentence result for a few seconds | `text_ack`, `task_state`, `text_result` |
+| Executing | The phrase Penny is saying while it acts ("Detecting cells.") with a shimmer, then the one-sentence result for a few seconds | `text_ack`, `task_state`, `text_result` |
 | Speaking | Small animated dots while the reply plays | `voice_speaking` |
 
-Click the status or chevron to expand the details panel: conversation, measured results and action history. Workflow scripts render as monospaced blocks with Copy; class summaries render as a count/percent table. Stop cancels unstarted agent work; completed actions remain. Luma's own cursor flies to what it talks about and outlines matched cells or controls.
+Click the status or chevron to expand the details panel: conversation, measured results and action history. Workflow scripts render as monospaced blocks with Copy; class summaries render as a count/percent table. Stop cancels unstarted agent work; completed actions remain. Penny's own cursor flies to what it talks about and outlines matched cells or controls.
 
 Actions execute immediately by default (`LUMA_APPROVALS=auto`); every action is journaled and hierarchy changes take a checkpoint first. `LUMA_APPROVALS=review` restores approval cards.
 
@@ -22,7 +22,7 @@ Actions execute immediately by default (`LUMA_APPROVALS=auto`); every action is 
 
 ## Opening an image end to end
 
-Say or type: "Open the OS-2 slide" (or give the exact path). QuPath's native image-type dialog may appear; Luma points at the right choice and Apply. Verify the window title and `context.image` before calling it done.
+Say or type: "Open the OS-2 slide" (or give the exact path). QuPath's native image-type dialog may appear; Penny points at the right choice and Apply. Verify the window title and `context.image` before calling it done.
 
 Then try: "Zoom in a little" (instant route), "Highlight the middle of this slide", "Add a tumor annotation on the right".
 

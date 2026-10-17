@@ -2,7 +2,7 @@
 
 Snapshot: 17 October 2026, 10:10 BST. The [build journal](BUILD-JOURNAL.md) records later changes; run the diagnostic commands below for the current machine.
 
-Luma operates the existing QuPath application through a separate extension, local gateway, MCP and floating companion. The downloaded original application and upstream source stay intact. The agent has no human approval credential.
+Penny operates the existing QuPath application through a separate extension, local gateway, MCP and floating companion. The downloaded original application and upstream source stay intact. The agent has no human approval credential.
 
 ## What is proven
 
@@ -24,7 +24,7 @@ The actual read-only MCP smoke reports source agreement separately. It now repor
 The user confirmed the Mac was unlocked this morning. The prior public OS-2 state was saved through QuPath's native save dialog to a separate private recovery file before normal quit; the source slide was not overwritten. The new normal QuPath and companion-owned gateway loaded successfully. Use these steps again for future updates:
 
 1. Manually unlock the Mac. Finish, save or explicitly discard work through QuPath's normal interface; resolve any pending/running scientific actions. Do not force-close an app to update an extension.
-2. Quit this development instance of QuPath and Luma normally. Luma stops only a gateway it owns. An externally started gateway must be handled by its owner after its work has finished.
+2. Quit this development instance of QuPath and Penny normally. Penny stops only a gateway it owns. An externally started gateway must be handled by its owner after its work has finished.
 3. Rebuild and launch the separate development applications:
 
 ```sh

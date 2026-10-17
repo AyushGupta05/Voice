@@ -55,7 +55,7 @@ final class DesktopControl {
         return false
     }
 
-    static let permissionMessage = "Luma is not trusted for Accessibility. Open System Settings → Privacy & Security → Accessibility, enable Luma, then try again. In-app qupath_ui/qupath_ui_action still work without it."
+    static let permissionMessage = "Penny is not trusted for Accessibility. Open System Settings → Privacy & Security → Accessibility, enable Penny, then try again. In-app qupath_ui/qupath_ui_action still work without it."
 
     private func untrusted() -> [String: Any] { ["trusted": false, "error": Self.permissionMessage] }
 

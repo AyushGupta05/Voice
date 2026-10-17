@@ -41,6 +41,6 @@ Notes
 - After opening, read `fiji_context` and report the title and size; the sample names differ from the window titles.
 - `Blobs` and `Particles` use an inverting LUT: pixel 0 displays white. `Edit ▷ Options ▷ Appearance` “Interpolate zoomed images” and `Image ▷ Lookup Tables ▷ Invert LUT` change display only.
 - Samples are small (the largest, Nile Bend, is 4200×4200 RGB ≈ 53 MB), so every recipe in [macros](macros.md) runs in seconds.
-- Local demo data for Luma lives in `.local/data` (see docs/DATASETS.md); open it with `fiji_open_path`.
+- Local demo data for Penny lives in `.local/data` (see docs/DATASETS.md); open it with `fiji_open_path`.
 
 Source: `IJ_Props.txt` inside the installed `ij-1.54p.jar` (menu labels and file names), verified headless on 17 Oct 2026; ImageJ User Guide § 26.3 Open Samples; imagej.net `plugins/samples.md`.

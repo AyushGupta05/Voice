@@ -55,6 +55,6 @@ Sources checked on 17 October 2026:
 
 ## Companion path
 
-After local activation, rebuild/restart Luma through its normal launcher. The text field sends researcher messages to the same gateway Runtime as MCP. New requests supersede older work, and Stop cancels unstarted work while preserving completed actions and human-review proposals. Full answers are selectable in session history; internal context reads do not clutter the visible history. The native interface still shows the separate voice funding gate.
+After local activation, rebuild/restart Penny through its normal launcher. The text field sends researcher messages to the same gateway Runtime as MCP. New requests supersede older work, and Stop cancels unstarted work while preserving completed actions and human-review proposals. Full answers are selectable in session history; internal context reads do not clutter the visible history. The native interface still shows the separate voice funding gate.
 
 `npm run smoke:companion-text -- --public-fixture` makes real credit-checked requests through an isolated authenticated WebSocket server using production conversation routing and the restricted public-fixture Runtime. It is separate from offline CI and does not click or visually inspect the native interface.

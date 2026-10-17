@@ -271,13 +271,13 @@ final class CompanionModel: ObservableObject {
             if let text = event["text"] as? String, !text.isEmpty { executingText = text; textBusy = true; resultText = "" }
         case "text_result":
             if let text = event["text"] as? String {
-                activities.insert(Activity(title: "Luma", detail: text, icon: "sparkle"), at: 0)
+                activities.insert(Activity(title: "Penny", detail: text, icon: "sparkle"), at: 0)
                 activities = Array(activities.prefix(40))
                 showResult(text)
             }
         case "text_progress":
             if let text = event["text"] as? String {
-                activities.insert(Activity(title: "Luma", detail: text, icon: "clock"), at: 0)
+                activities.insert(Activity(title: "Penny", detail: text, icon: "clock"), at: 0)
                 activities = Array(activities.prefix(40))
             }
         case "text_error":
@@ -466,7 +466,7 @@ final class CompanionModel: ObservableObject {
             do {
                 try await self.audio.start { [weak self] data, level in Task { @MainActor in
                     guard let self, self.voiceSessionID == sessionID else { return }
-                    // Without echo cancellation, send silence while Luma speaks so its own voice is not transcribed.
+                    // Without echo cancellation, send silence while Penny speaks so its own voice is not transcribed.
                     let muted = self.voiceSpeaking && !self.audio.echoCancelled
                     self.microphoneLevel = muted ? 0 : level
                     self.micChunks += 1; self.micPeak = max(self.micPeak, level)

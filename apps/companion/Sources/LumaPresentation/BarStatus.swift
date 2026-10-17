@@ -1,10 +1,10 @@
 /// The visual phase of the floating bar. Exactly three phases exist; everything else is a sub-look of one of them.
 public enum BarPhase: Equatable {
-    /// Nothing is happening; invite the researcher to talk ("Hey Luma").
+    /// Nothing is happening; invite the researcher to talk ("Hey Penny").
     case idle
     /// Voice is on (or starting); show the waveform and the live partial transcript.
     case listening
-    /// Luma is doing something, has just finished (result with a check mark) or is talking back (dots).
+    /// Penny is doing something, has just finished (result with a check mark) or is talking back (dots).
     case executing
 }
 
@@ -22,9 +22,9 @@ public struct BarStatus: Equatable {
     public let ready: Bool
     /// Executing: the title is a finished result (check mark) rather than work in progress (spinner).
     public let showsResult: Bool
-    /// Executing: Luma is talking; show subtle dots next to the title.
+    /// Executing: Penny is talking; show subtle dots next to the title.
     public let speaking: Bool
-    public static let idleInvitation = "Hey Luma"
+    public static let idleInvitation = "Hey Penny"
     public static let workingTitle = "Working in QuPath"
     public static let speakingTitle = "Speaking"
 
@@ -47,7 +47,7 @@ public struct BarStatus: Equatable {
             self.init(.listening, transcript.isEmpty ? "Listening" : transcript,
                       note: transcript.isEmpty ? (capturing ? "Say what you need" : "Connecting speech") : "", ready: capturing)
         } else {
-            let note = !connected ? "Connecting to Luma" : !eventsReady ? "Reconnecting"
+            let note = !connected ? "Connecting to Penny" : !eventsReady ? "Reconnecting"
                 : !voiceReady ? (voiceReason.isEmpty ? "Voice is unavailable" : voiceReason)
                 : !bridgeConnected ? "Open \(appName)" : ""
             self.init(.idle, Self.idleInvitation, note: note, ready: connected && eventsReady && voiceReady)

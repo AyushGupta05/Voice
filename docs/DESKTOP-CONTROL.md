@@ -1,6 +1,6 @@
 # Desktop control (any window on screen)
 
-Luma's in-app bridge (`qupath_ui` / `qupath_ui_action`) sees JavaFX controls inside QuPath only. The desktop layer lets the agent operate everything else the researcher can see: OS open/save panels, native alerts and sheets, third-party plugin windows, custom panes and, if asked, any other application. The companion cursor flies to the target before every action so the researcher can follow along.
+Penny's in-app bridge (`qupath_ui` / `qupath_ui_action`) sees JavaFX controls inside QuPath only. The desktop layer lets the agent operate everything else the researcher can see: OS open/save panels, native alerts and sheets, third-party plugin windows, custom panes and, if asked, any other application. The companion cursor flies to the target before every action so the researcher can follow along.
 
 ## Pieces
 
@@ -14,12 +14,12 @@ Luma's in-app bridge (`qupath_ui` / `qupath_ui_action`) sees JavaFX controls ins
 
 ## Permission setup
 
-1. Launch Luma (`./script/build_and_run.sh`). The first `qupath_desktop_*` call asks macOS for the Accessibility permission once.
-2. Open **System Settings → Privacy & Security → Accessibility** and enable **Luma**.
-3. If Luma is not listed, drag `dist/Luma.app` into the list. The app is signed ad hoc with a stable designated requirement (`identifier "science.luma.companion"`), so the grant survives rebuilds; a resign with a different identifier would need re-granting.
+1. Launch Penny (`./script/build_and_run.sh`). The first `qupath_desktop_*` call asks macOS for the Accessibility permission once.
+2. Open **System Settings → Privacy & Security → Accessibility** and enable **Penny**.
+3. If Penny is not listed, drag `dist/Luma.app` into the list. The app is signed ad hoc with a stable designated requirement (`identifier "science.luma.companion"`), so the grant survives rebuilds; a resign with a different identifier would need re-granting.
 4. Until it is granted every desktop tool returns `trusted:false` with the instruction above and performs nothing. The in-app tools keep working.
 
-The permission covers both Accessibility reads/actions and posting synthetic input. Luma never asks for Screen Recording; `qupath_snapshot` captures the viewer through QuPath itself.
+The permission covers both Accessibility reads/actions and posting synthetic input. Penny never asks for Screen Recording; `qupath_snapshot` captures the viewer through QuPath itself.
 
 ## How the agent uses it
 
@@ -40,7 +40,7 @@ Not yet verified in the real app: acting (press/type) on QuPath through the comp
 ## Safety notes
 
 - The desktop tools are `code` risk: they run through `Runtime.decide()` like every other action, with an audit record, and `LUMA_APPROVALS=review` puts a card in front of them.
-- They are not sandboxed to QuPath: a shortcut or click goes to whatever is in front. The companion raises the target window first and the cursor shows the target, but the researcher should keep QuPath visible while Luma operates and can press Stop at any time.
+- They are not sandboxed to QuPath: a shortcut or click goes to whatever is in front. The companion raises the target window first and the cursor shows the target, but the researcher should keep QuPath visible while Penny operates and can press Stop at any time.
 - No undo. Hierarchy checkpoints do not cover file dialogs, plugin windows or other applications.
 - Nothing is typed from the gateway's own memory: text comes from the model's tool call, which is logged. Do not put secrets in `qupath_desktop_type`.
 - Elements expire after 30 s so a stale inspection can never click a control that has moved.

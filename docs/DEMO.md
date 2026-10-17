@@ -2,14 +2,14 @@
 
 ## The story
 
-A researcher keeps using QuPath exactly as before. They talk to Luma the way they'd talk to a colleague sitting next to them, and Luma acts in the real application: it moves the viewer, points at things with its own cursor, proposes analyses for approval and reads back real numbers. Nothing is mocked; the counts come from QuPath.
+A researcher keeps using QuPath exactly as before. They talk to Penny the way they'd talk to a colleague sitting next to them, and Penny acts in the real application: it moves the viewer, points at things with its own cursor, proposes analyses for approval and reads back real numbers. Nothing is mocked; the counts come from QuPath.
 
 ## Preparation
 
-1. Follow [SETUP.md](SETUP.md); launch the development QuPath and Luma (`./script/run-qupath.sh`, `./script/build_and_run.sh --verify`).
-2. Enable voice once: `npm run enable:speech -- --authorized-aws-speech` (read-only AWS checks), then restart Luma. `/health` reports `voice.enabled: true`.
-3. Ask Luma to open the public OS-2 slide ("Open the OS-2 slide") and choose **Brightfield H-DAB** in QuPath's native image-type dialog. Luma points at the Apply button.
-4. Click the mic in Luma's top bar. The bar says "Voice on"; Luma's cursor rides beside your pointer while it listens.
+1. Follow [SETUP.md](SETUP.md); launch the development QuPath and Penny (`./script/run-qupath.sh`, `./script/build_and_run.sh --verify`).
+2. Enable voice once: `npm run enable:speech -- --authorized-aws-speech` (read-only AWS checks), then restart Penny. `/health` reports `voice.enabled: true`.
+3. Ask Penny to open the public OS-2 slide ("Open the OS-2 slide") and choose **Brightfield H-DAB** in QuPath's native image-type dialog. Penny points at the Apply button.
+4. Click the mic in Penny's top bar. The bar says "Voice on"; Penny's cursor rides beside your pointer while it listens.
 
 ## The three-minute flow (verified 17 October 2026)
 
@@ -18,7 +18,7 @@ Everything below ran end to end on this slide. Times are from the end of your se
 | You say | What happens | Measured |
 |---|---|---|
 | "Open the OS-2 slide." | Finds the file by name, opens it, and settles QuPath's "Set image type" dialog itself (H-DAB) | voice ~3 s |
-| "Zoom in a little." | Instant route, no model round. Luma says "Zooming in." as the viewer moves | voice 0.4 s, action 8 ms after transcript |
+| "Zoom in a little." | Instant route, no model round. Penny says "Zooming in." as the viewer moves | voice 0.4 s, action 8 ms after transcript |
 | "Create a small tumour region in the centre of the slide and analyse the cells in it." | "Drawing the region." then detection and threshold classification run in one request | 294 cells, 23 positive |
 | "Show me the positive cells." | Each positive cell is outlined, the cursor points at the group: "Here: positive cells." | voice ~3.9 s |
 | "What percentage of the cells are positive?" | QuPath-computed class summary: "7.8% of the cells are positive." | voice ~3.9 s |
@@ -27,11 +27,11 @@ Everything below ran end to end on this slide. Times are from the end of your se
 | "Save this procedure as a workflow so I can use it on other samples." | "Saving the workflow." QuPath's history (image type, stains, detection, classification) written as Groovy to `.local/workflows/` | voice ~3.8 s |
 | "Add a tumor annotation on the right." | One `qupath_annotate` with class Tumor, placed from the viewer's visible area | action 2.6 s |
 
-Start a request with "Luma" (or "Hey Luma"); once you are talking to it, follow-ups within 30 seconds need no name, and short commands ("zoom in", "undo that", "stop") always work. Overheard conversation is ignored. You can interrupt Luma at any time by speaking to it; it stops talking and stops the running task. Actions execute immediately by default (`LUMA_APPROVALS=auto`); every one is journaled and hierarchy changes get a checkpoint first. Set `LUMA_APPROVALS=review` before launching if you want approval cards for data changes.
+Start a request with "Penny" (or "Hey Penny"); once you are talking to it, follow-ups within 30 seconds need no name, and short commands ("zoom in", "undo that", "stop") always work. Overheard conversation is ignored. You can interrupt Penny at any time by speaking to it; it stops talking and stops the running task. Actions execute immediately by default (`LUMA_APPROVALS=auto`); every one is journaled and hierarchy changes get a checkpoint first. Set `LUMA_APPROVALS=review` before launching if you want approval cards for data changes.
 
 ## Taking audience requests
 
-Luma has 33 tools covering context, objects, measurements, navigation, display, highlights, analysis, checkpoints, live menus, JavaFX dialogs and reviewed Groovy. For anything unfamiliar it searches the bundled QuPath documentation and the pinned QuPath source before acting. Good audience prompts: "What stains does this image have?", "Show me the biggest cell", "Hide the annotations", "What's the mean nucleus area here?", "Open the Measure menu". Data changes and native dialogs always come back as approval cards. If something needs a plugin that isn't installed, Luma says so.
+Penny has 33 tools covering context, objects, measurements, navigation, display, highlights, analysis, checkpoints, live menus, JavaFX dialogs and reviewed Groovy. For anything unfamiliar it searches the bundled QuPath documentation and the pinned QuPath source before acting. Good audience prompts: "What stains does this image have?", "Show me the biggest cell", "Hide the annotations", "What's the mean nucleus area here?", "Open the Measure menu". Data changes and native dialogs always come back as approval cards. If something needs a plugin that isn't installed, Penny says so.
 
 ## What to say honestly
 

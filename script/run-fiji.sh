@@ -39,6 +39,7 @@ export LUMA_ROOT="$PWD"
 printf fiji > .local/state/app
 # Fiji must run on the Java it ships with (Azul Zulu 21 under Fiji.app/java): its launcher refuses other
 # installations ("No matching Java installations found") and exits, which looked like a crash. Never pass --java-home.
-# Jaunch passes -D options straight to the JVM; the SciJava LumaBridgeService auto-starts the bridge at startup.
-nohup "$LAUNCHER" -Dluma.root="$PWD" "$@" > .local/fiji.log 2>&1 &
+# Jaunch passes -D options to the JVM and single-dash -run to ImageJ, which starts the "Luma Bridge" command at startup
+# (SciJava services are created lazily, so the service alone does not start it).
+nohup "$LAUNCHER" -Dluma.root="$PWD" -run "Luma Bridge" silent "$@" > .local/fiji.log 2>&1 &
 echo "Started Fiji (pid $!); bridge on 127.0.0.1:49557, log in .local/fiji.log"

@@ -16,8 +16,8 @@ struct CompanionSurface: View {
     }
 }
 
-/// Dynamic-Island style bar with exactly three looks: Idle ("Hey Luma", mic) → Listening (waveform + partial transcript)
-/// → Executing (acknowledgement phrase + spinner, then the result sentence with a check; dots while Luma talks).
+/// Dynamic-Island style bar with exactly three looks: Idle ("Hey Penny", mic) → Listening (waveform + partial transcript)
+/// → Executing (acknowledgement phrase + spinner, then the result sentence with a check; dots while Penny talks).
 /// Phase selection lives in `BarStatus`; this view only renders it.
 private struct VoiceBar: View {
     @ObservedObject var model: CompanionModel
@@ -69,7 +69,7 @@ private struct VoiceBar: View {
         }.buttonStyle(.plain)
             .disabled(!voiceOn && !(status.phase == .idle && status.ready))
             .accessibilityLabel(voiceOn ? "Stop voice" : "Start voice")
-            .help(voiceOn ? "Stop microphone" : status.phase == .idle && !status.ready ? status.note : "Talk to Luma")
+            .help(voiceOn ? "Stop microphone" : status.phase == .idle && !status.ready ? status.note : "Talk to Penny")
     }
 
     @ViewBuilder private func centre(_ status: BarStatus) -> some View {
@@ -137,7 +137,7 @@ private struct VoiceBar: View {
                 .buttonStyle(.plain).accessibilityLabel("Stop task").help("Stop unstarted work; completed actions remain")
         }
         Button { model.toggleDetails() } label: { Image(systemName: model.expanded ? "chevron.up" : "chevron.down").font(.system(size: 11, weight: .semibold)).frame(width: 24, height: 30) }
-            .buttonStyle(.plain).accessibilityLabel(model.expanded ? "Collapse Luma" : "Expand Luma")
+            .buttonStyle(.plain).accessibilityLabel(model.expanded ? "Collapse Penny" : "Expand Penny")
     }
 }
 
@@ -206,7 +206,7 @@ struct ShimmerText: View {
     }
 }
 
-/// Three small dots that pulse in sequence while Luma speaks.
+/// Three small dots that pulse in sequence while Penny speaks.
 struct SpeakingDots: View {
     var color: Color
     var animated: Bool

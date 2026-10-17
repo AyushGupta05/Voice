@@ -1,4 +1,4 @@
-# Set up Luma
+# Set up Penny
 
 ## What works today
 
@@ -34,13 +34,13 @@ Packaging refuses to overwrite a launcher whose exact executable is running. To 
 
 The launch script reuses this project's already-running default instance without opening another or changing tokens/artifacts. After normal exit it refreshes the separate launcher's configuration/resources before opening it. It builds a missing bridge JAR; changed Java source still requires `./script/build-bridge.sh`. If exact process inventory fails, startup stops without changing anything. Custom prepared bundles are not launched through this script; avoid starting another instance on port 49556.
 
-`script/build_and_run.sh` builds and ad-hoc signs `dist/Luma.app`, then launches it. The native app reuses an authenticated running gateway or starts and owns a Node child, so the gateway survives the launching shell. Normal Quit terminates only its own child. The Codex Run action calls this script. Left-click its waveform menu-bar icon to show/hide Luma; right-click for Quit. Close QuPath normally before rebuilding/restarting its adapter.
+`script/build_and_run.sh` builds and ad-hoc signs `dist/Luma.app`, then launches it. The native app reuses an authenticated running gateway or starts and owns a Node child, so the gateway survives the launching shell. Normal Quit terminates only its own child. The Codex Run action calls this script. Left-click its waveform menu-bar icon to show/hide Penny; right-click for Quit. Close QuPath normally before rebuilding/restarting its adapter.
 
-Open an image in QuPath. The image-type prompt is part of the real application; choose the interpretation appropriate to the dataset. Luma then follows the active image and selection. The quick actions focus, change detection display and save hierarchy checkpoints.
+Open an image in QuPath. The image-type prompt is part of the real application; choose the interpretation appropriate to the dataset. Penny then follows the active image and selection. The quick actions focus, change detection display and save hierarchy checkpoints.
 
 ## Optional AWS-credit text control
 
-The local quick actions/MCP need no model account. For text-agent control, read [AWS-TEXT.md](AWS-TEXT.md), authenticate an existing AWS profile with eligible credits and existing model access, then run `npm run enable:text`. Rebuild/restart Luma with `./script/build_and_run.sh --verify`. Type a request in the companion; risky scientific changes still wait for an exact human approval. Stop cancels unstarted work; it does not roll back completed operations or decide pending proposals. GPT-Live voice remains separately funding-blocked.
+The local quick actions/MCP need no model account. For text-agent control, read [AWS-TEXT.md](AWS-TEXT.md), authenticate an existing AWS profile with eligible credits and existing model access, then run `npm run enable:text`. Rebuild/restart Penny with `./script/build_and_run.sh --verify`. Type a request in the companion; risky scientific changes still wait for an exact human approval. Stop cancels unstarted work; it does not roll back completed operations or decide pending proposals. GPT-Live voice remains separately funding-blocked.
 
 The configuration expires after 24 hours. Re-running activation rechecks funding for the same account and preserves all budget reservations. Do not delete the ledger to reset usage.
 
@@ -81,7 +81,7 @@ Alternatively run `npm run mcp` from the repo root. The MCP reads the authentica
 
 Run `npm run doctor` for read-only setup, source-pin, running-schema and connection diagnostics. It prints no tokens or image names, installs nothing and returns a nonzero status when a core check fails. Voice readiness remains false under the current funding policy. File checks confirm existence, not a fresh build.
 
-The doctor also compares the loaded Java extension's cached source identity and declared operations with `.local/bridge-build.json` and the completed JAR hash. It can therefore distinguish a reachable old bridge from the current built extension, independently of gateway schema agreement. A mismatch never closes QuPath: save/quit it normally, rebuild if needed, then relaunch and restart Luma after gateway changes. `adapterReadiness` is also included in new context responses. It compares completed build outputs, not unbuilt source edits; build explicitly after changing Java. Manual builds without the generated stamp remain usable but unverified by this diagnostic.
+The doctor also compares the loaded Java extension's cached source identity and declared operations with `.local/bridge-build.json` and the completed JAR hash. It can therefore distinguish a reachable old bridge from the current built extension, independently of gateway schema agreement. A mismatch never closes QuPath: save/quit it normally, rebuild if needed, then relaunch and restart Penny after gateway changes. `adapterReadiness` is also included in new context responses. It compares completed build outputs, not unbuilt source edits; build explicitly after changing Java. Manual builds without the generated stamp remain usable but unverified by this diagnostic.
 
 Run `npm run smoke` to test a real MCP client through the gateway and active QuPath session. This smoke test is read-only. It compares the MCP catalog with the running gateway and reports source schema agreement separately: a successful read-only smoke does not mean newer source tools or Java operations have been loaded.
 
@@ -107,6 +107,6 @@ The gateway and QuPath API design are portable. The companion and bootstrap are 
 
 ## Updating the loaded adapter and reference tools
 
-QuPath loads the bridge at application startup. After Java adapter changes, save your work and quit the project instance normally, then rebuild/relaunch through the existing scripts. Restart Luma and reconnect an MCP client after tool-registry changes. A new source checkout or compiled jar does not replace classes already loaded in a running QuPath process. Never force-close unsaved research work to update the adapter.
+QuPath loads the bridge at application startup. After Java adapter changes, save your work and quit the project instance normally, then rebuild/relaunch through the existing scripts. Restart Penny and reconnect an MCP client after tool-registry changes. A new source checkout or compiled jar does not replace classes already loaded in a running QuPath process. Never force-close unsaved research work to update the adapter.
 
 `npm run smoke:api` checks the pinned reference corpus independently of QuPath. The api_search/api_read tools use the configured commit’s Java blobs; they can work without an open image. Missing source returns setup guidance while the other local tools remain available. See [API-LOOKUP.md](API-LOOKUP.md).

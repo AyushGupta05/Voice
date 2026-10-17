@@ -1,14 +1,14 @@
 # QuPath workflow coverage
 
-Every common QuPath 0.7 workflow, the route Luma's agent takes for it, and how far that route has been verified. Routes are tried in this order: a **structured tool** (exact JSON, validated, checkpointed, result includes a `highlight` so the cursor shows what happened), then a **menu command** (`qupath_commands` → `qupath_run_command`, driving its dialog with `qupath_ui` → `qupath_ui_action`), then **Groovy** (`qupath_run_script` with a recipe from [skills/qupath/references/recipes.md](../skills/qupath/references/recipes.md), verified against the pinned QuPath source with `qupath_api_search`). The agent never says "QuPath can't do that" before checking `qupath_commands` and `qupath_knowledge`.
+Every common QuPath 0.7 workflow, the route Penny's agent takes for it, and how far that route has been verified. Routes are tried in this order: a **structured tool** (exact JSON, validated, checkpointed, result includes a `highlight` so the cursor shows what happened), then a **menu command** (`qupath_commands` → `qupath_run_command`, driving its dialog with `qupath_ui` → `qupath_ui_action`), then **Groovy** (`qupath_run_script` with a recipe from [skills/qupath/references/recipes.md](../skills/qupath/references/recipes.md), verified against the pinned QuPath source with `qupath_api_search`). The agent never says "QuPath can't do that" before checking `qupath_commands` and `qupath_knowledge`.
 
 Menu paths are the exact `qupath_commands` form (`Menu > Submenu > Command`), which matches the official [command reference](https://qupath.readthedocs.io/en/0.7/docs/reference/commands.html) with `-->` replaced by `>`. The audit of the local official docs that produced this table found that the docs script only stains, channel names, pixel size, GeoJSON/image export, the measurement exporter and deep-learning extensions; everything else is dialog-only there, so the Groovy below comes from the pinned source, not the docs.
 
-Status key: **real-app** = exercised against the running QuPath through the gateway; **contract** = compiled against QuPath 0.7 and covered by an isolated Java/gateway test, not yet run in the live application; **untested** = route exists (menu path or API verified in source) but has not been executed by Luma.
+Status key: **real-app** = exercised against the running QuPath through the gateway; **contract** = compiled against QuPath 0.7 and covered by an isolated Java/gateway test, not yet run in the live application; **untested** = route exists (menu path or API verified in source) but has not been executed by Penny.
 
 ## Images and projects
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Find a slide by name | `qupath_find_images` | real-app |
 | Open an image or `.qpproj` | `qupath_open_path` (native reader/type dialogs via `qupath_ui` → `qupath_ui_action` Apply) | real-app |
@@ -23,7 +23,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Image type and stains
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Set image type | `qupath_image_type` | real-app |
 | Set stain vectors (preset or explicit) | `qupath_set_stains {preset: "H_DAB"}` or explicit `stains` | contract |
@@ -33,7 +33,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Annotations and objects
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Draw a rectangle/ellipse region | `qupath_annotate` (position/size inferred from the viewer) | real-app |
 | Full-image annotation | `qupath_run_command "Objects > Annotations... > Create full image annotation"`; Groovy `createFullImageAnnotation(true)` | untested |
@@ -55,7 +55,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Detection
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Cell / nucleus detection (watershed) | `qupath_detect_cells` (validated parameters, `qupath_analysis_catalog` for defaults) | real-app (899 cells) |
 | Positive cell detection | `qupath_detect_positive_cells` (`PositiveCellDetection`: thresholdCompartment, thresholdPositive1/2/3, singleThreshold) | contract |
@@ -66,7 +66,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Classification
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Threshold one measurement → Positive/Negative | `qupath_classify {measurement, threshold}` | real-app |
 | Intensity classes Negative/1+/2+/3+ (H-score style) | `qupath_classify {measurement, thresholds: [t1, t2, t3]}` (`PathObjectTools.setIntensityClassifications`, keeps base class) | contract |
@@ -81,7 +81,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## TMA, tiles and features
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | TMA dearray | `qupath_run_plugin {plugin: "tma_dearray", parameters: {coreDiameterMM, labelsHorizontal, labelsVertical, ...}}` | contract |
 | Specify / edit / relabel / delete TMA grid | `qupath_run_command "TMA > Specify TMA grid"`, `"TMA > Add... > ..."`, `"TMA > Relabel TMA grid"`, `"TMA > Delete TMA grid"` | untested |
@@ -93,7 +93,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Measurements, maps and export
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Read measurements / distributions | `qupath_measurements`, `qupath_measurement_summary`, `qupath_analysis_catalog` | real-app |
 | Measurement tables | `qupath_run_command "Measure > Show annotation measurements"` / `"... > Show detection measurements"` | real-app (command discovery), untested (dispatch) |
@@ -106,7 +106,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Viewer and display
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Navigate / zoom / point at things | `qupath_focus`, `qupath_highlight` (zooms to fit off-screen targets, `focused`) | real-app |
 | Show / hide annotations, detections, names, fills, grid, TMA grid, pixel classification; opacity; cell display mode; show one class | `qupath_overlays` | real-app (basic), contract (new toggles) |
@@ -118,7 +118,7 @@ Status key: **real-app** = exercised against the running QuPath through the gate
 
 ## Scripting and workflows
 
-| Workflow | Luma route | Status |
+| Workflow | Penny route | Status |
 |---|---|---|
 | Workflow history / generated script | `qupath_workflow_steps` | real-app |
 | Save a reusable workflow script | `qupath_save_workflow {name}` → `.local/workflows/*.groovy` | real-app |

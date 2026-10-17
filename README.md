@@ -1,8 +1,8 @@
-# Luma
+# Penny
 
 **Make scientific software conversational.**
 
-Luma is a native companion for QuPath, inspired by [Clicky](https://github.com/farzaa/clicky). It bridges a researcher's intent and the application's actual state through a reusable agent interface. The researcher keeps using the original scientific software.
+Penny is a native companion for QuPath, inspired by [Clicky](https://github.com/farzaa/clicky). It bridges a researcher's intent and the application's actual state through a reusable agent interface. The researcher keeps using the original scientific software.
 
 Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16–18 October 2026.
 
@@ -19,7 +19,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Voice is live and feels live.** Click the mic, talk, and QuPath moves. Amazon Transcribe hears you, the credit-checked OpenAI agent on Bedrock acts through the 33 tools, and a natural Polly voice answers. Simple view commands ("zoom in a little") run with no model round: spoken reply 0.4 s after you stop talking. Everything else gets an immediate spoken acknowledgment ("Zooming in.", "Ready for your approval.") while the action runs, then one short sentence with real numbers. Luma's own cursor flies to what it's talking about and outlines the matched cells or controls, Clicky-style. The full demo flow (region → detect 294 cells → classify 19 positive → "show me the positive cells") was driven by voice with human approvals on 17 October. Not GPT-Live; AWS credits only, with every request reserved against a $200 cap. [AWS speech](docs/AWS-SPEECH.md) · [Demo guide](docs/DEMO.md) · [Funding decision](docs/FUNDING.md)
+**Voice is live and feels live.** Click the mic, talk, and QuPath moves. Amazon Transcribe hears you, the credit-checked OpenAI agent on Bedrock acts through the 33 tools, and a natural Polly voice answers. Simple view commands ("zoom in a little") run with no model round: spoken reply 0.4 s after you stop talking. Everything else gets an immediate spoken acknowledgment ("Zooming in.", "Ready for your approval.") while the action runs, then one short sentence with real numbers. Penny's own cursor flies to what it's talking about and outlines the matched cells or controls, Clicky-style. The full demo flow (region → detect 294 cells → classify 19 positive → "show me the positive cells") was driven by voice with human approvals on 17 October. Not GPT-Live; AWS credits only, with every request reserved against a $200 cap. [AWS speech](docs/AWS-SPEECH.md) · [Demo guide](docs/DEMO.md) · [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 
@@ -33,9 +33,9 @@ python3 script/setup.py
 
 The bootstrap verifies pinned official downloads and keeps the JDK, QuPath, upstream source and documentation in `.local`. It installs nothing globally. The local QuPath launcher needs the full JDK because its stock runtime omits the extension's HTTP module.
 
-QuPath's downloaded application and source remain unmodified. Luma uses a separate development launcher, Java extension, gateway and floating companion. Run `npm run verify:qupath` to compare the entire stock bundle with the verified package and check the launcher's specific additions. See [application preservation](docs/ARCHITECTURE.md#preserving-qupath).
+QuPath's downloaded application and source remain unmodified. Penny uses a separate development launcher, Java extension, gateway and floating companion. Run `npm run verify:qupath` to compare the entire stock bundle with the verified package and check the launcher's specific additions. See [application preservation](docs/ARCHITECTURE.md#preserving-qupath).
 
-Open an image in QuPath and select an object or region. Use Luma's quick actions, or connect an MCP client using the [setup guide](docs/SETUP.md). Risky actions appear in the companion for review.
+Open an image in QuPath and select an object or region. Use Penny's quick actions, or connect an MCP client using the [setup guide](docs/SETUP.md). Risky actions appear in the companion for review.
 
 ## Understand and extend it
 

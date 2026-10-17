@@ -23,7 +23,7 @@ export function spokenReply(text:string){
 export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<void>;stop:()=>void};
 const wordCount=(text:string)=>text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean).length;
 /** Short commands worth acting on even as one or two words; anything else that short is treated as room chatter. */
-const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?luma\b.*|stop|cancel|undo(?: that)?|go back|redo|yes|no|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
+const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|stop|cancel|undo(?: that)?|go back|redo|yes|no|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
 /** The microphone stays open for 30 minutes, so fragments like "OK." or "Bye." must not become model requests. */
 export function isAddressedToLuma(text:string){
  const clean=text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -32,14 +32,14 @@ export function isAddressedToLuma(text:string){
  // Single stray words ("OK.", "Bye.", "Really.") are chatter; two or more words are treated as a request.
  return wordCount(clean)>=2;
 }
-/** "Hey Luma", "Luma," or "…, Luma" anywhere in the sentence; the match is stripped from the request. */
-const WAKE_WORD=/(?:^|[\s,.;:!?-])(?:hey |ok |okay |hi )?(?:luma|looma|lumo|luna)\b[,.:!?]?\s*/i;
-/** How long after Luma last heard a request or spoke that follow-ups need no wake word. */
+/** "Hey Penny", "Penny," or "…, Penny" anywhere in the sentence; the match is stripped from the request. */
+const WAKE_WORD=/(?:^|[\s,.;:!?-])(?:hey |ok |okay |hi )?(?:penny|pennie|penne|penni|luma|looma|lumo|luna)\b[,.:!?]?\s*/i;
+/** How long after Penny last heard a request or spoke that follow-ups need no wake word. */
 export const ATTENTION_MS=30_000;
 export const wakeWordRequired=()=>process.env.LUMA_WAKE_WORD!=='off';
 /**
- * Decide whether a final transcript is for Luma. With the wake word required (default, for rooms with other
- * people talking), a sentence is accepted when it names Luma, is a short command, or arrives while Luma is
+ * Decide whether a final transcript is for Penny. With the wake word required (default, for rooms with other
+ * people talking), a sentence is accepted when it names Penny, is a short command, or arrives while Penny is
  * attentive (within ATTENTION_MS of the last request or reply). Returns the request text with the wake word removed.
  */
 export function addressed(text:string,options:{wakeWord:boolean;attentive:boolean}):{accept:boolean;request:string;reason:string}{
@@ -52,7 +52,7 @@ export function addressed(text:string,options:{wakeWord:boolean;attentive:boolea
  const clean=trimmed.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
  if(SHORT_COMMANDS.test(clean))return{accept:true,request,reason:'short command'};
  if(options.attentive)return{accept:true,request,reason:'attentive'};
- return{accept:false,request,reason:'not addressed to Luma (say "Luma, …")'};
+ return{accept:false,request,reason:'not addressed to Penny (say "Penny, …")'};
 }
 export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
@@ -65,7 +65,7 @@ export class SpeechSession{
   if(!Number.isInteger(maximumMs)||maximumMs<1||maximumMs>1_800_000)throw new Error('Voice lifetime must not exceed 30 minutes.');
   this.wakeWord=options.wakeWord??wakeWordRequired();
  }
- /** Luma is attentive right after a request or its own reply, so natural follow-ups need no wake word. */
+ /** Penny is attentive right after a request or its own reply, so natural follow-ups need no wake word. */
  private attentive(){return Date.now()<this.attentiveUntil;}
  private engage(){this.attentiveUntil=Date.now()+ATTENTION_MS;}
  private event(event:Record<string,unknown>){if(!this.closed)this.emit({...event,sessionId:this.id});}
@@ -95,7 +95,7 @@ export class SpeechSession{
   if(this.closed||this.seen.has(value.id))return;
   const text=value.text.trim();if(!text)return;if(text.length>4000){this.stop('Spoken request is too long.');return;}
   if(!value.partial)this.log(`heard: ${JSON.stringify(text)}`);
-  // Barge-in only on speech meant for Luma: room chatter while Luma talks must not cut it off.
+  // Barge-in only on speech meant for Penny: room chatter while Penny talks must not cut it off.
   const forLuma=!this.wakeWord||this.attentive()||WAKE_WORD.test(text);
   if(!this.hearing&&forLuma&&(wordCount(text)>=2||!this.speech)){this.hearing=true;this.interrupt();}
   this.event({type:'voice_transcript',text,partial:value.partial,addressed:forLuma});

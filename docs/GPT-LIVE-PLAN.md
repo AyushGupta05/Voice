@@ -6,7 +6,7 @@ The transport and provider-injected backend described in this plan now have loca
 
 The requested GPT-Live frontend handles continuous conversation. A backend agent owns scientific instructions, tools, task progress and QuPath context. Both use the existing gateway approval path. Spoken “yes” must never become an automatic approval-token action.
 
-Client delegation fits the adapter architecture: Luma controls which observations and tool outcomes reach the voice frontend, and can keep using a separately configured OpenAI backend. A backend served by Bedrock would not make the separate GPT-Live frontend credit-covered.
+Client delegation fits the adapter architecture: Penny controls which observations and tool outcomes reach the voice frontend, and can keep using a separately configured OpenAI backend. A backend served by Bedrock would not make the separate GPT-Live frontend credit-covered.
 
 ## Implemented protocol responsibilities
 

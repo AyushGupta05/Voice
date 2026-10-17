@@ -254,7 +254,7 @@ Change the view of the active image: direction in/out (one ImageJ zoom step), fi
 
 ## fiji_highlight
 
-Visibly point at what you are talking about, like a presenter: ROI Manager entries/particles (rois manager, optionally indices), the active ROI (active), both (all) or an image-pixel rectangle. Luma flies its cursor there with a short label; the view zooms to targets that would otherwise be invisible. Display only.
+Visibly point at what you are talking about, like a presenter: ROI Manager entries/particles (rois manager, optionally indices), the active ROI (active), both (all) or an image-pixel rectangle. Penny flies its cursor there with a short label; the view zooms to targets that would otherwise be invisible. Display only.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -383,7 +383,7 @@ Run a SciJava script (groovy, python, javascript or ijm) in Fiji; returns its ou
 
 ## fiji_recorder
 
-Read the Macro Recorder text if it is open, otherwise Luma’s own journal of the IJ.run calls it made (steps and an equivalent macro). Read only.
+Read the Macro Recorder text if it is open, otherwise Penny’s own journal of the IJ.run calls it made (steps and an equivalent macro). Read only.
 
 Input: `{}`.
 
@@ -391,7 +391,7 @@ Input: `{}`.
 
 ## fiji_save_workflow
 
-Save the recorded steps as a reusable ImageJ macro (.ijm) in Luma’s workflow folder so the same procedure can run on other images. Returns the path, step count and macro text. Pick a short descriptive name yourself.
+Save the recorded steps as a reusable ImageJ macro (.ijm) in Penny’s workflow folder so the same procedure can run on other images. Returns the path, step count and macro text. Pick a short descriptive name yourself.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -507,7 +507,7 @@ Input: `{}`.
 
 ## fiji_knowledge
 
-Search Luma’s Fiji guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements, stacks or macros.
+Search Penny’s Fiji guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements, stacks or macros.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -517,7 +517,7 @@ Search Luma’s Fiji guidance and the locally downloaded official ImageJ documen
 
 ## fiji_find_images
 
-Find images on this computer by a loose name ("the blobs tif", "embryos"): searches Luma’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.
+Find images on this computer by a loose name ("the blobs tif", "embryos"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -538,7 +538,7 @@ Read a recorded action (completed, failed, denied or expired) by ID. Decisions a
 
 ## fiji_desktop_inspect
 
-List the windows and actionable elements of Fiji (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Luma lacks the Accessibility permission, which only the researcher can grant.
+List the windows and actionable elements of Fiji (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Penny lacks the Accessibility permission, which only the researcher can grant.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -550,14 +550,14 @@ List the windows and actionable elements of Fiji (default), the frontmost app or
 
 ## fiji_desktop_act
 
-Operate one element id from the latest fiji_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Luma moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.
+Operate one element id from the latest fiji_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Penny moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
 | `id` | Yes | string; min 1 characters; max 200 characters |  |
 | `action` | Yes | "press", "setValue", "focus", "select", "toggle", "type" |  |
 | `value` | No | string; max 4096 characters | Text for setValue/type. |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="fiji-desktop-type"></a>
 
@@ -570,7 +570,7 @@ Type text into whatever currently has keyboard focus (Fiji is brought forward fi
 | `text` | Yes | string; min 1 characters; max 4096 characters |  |
 | `submit` | No | boolean | Press Return after typing. |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="fiji-desktop-key"></a>
 
@@ -582,13 +582,13 @@ Press keyboard shortcuts in order, e.g. ["cmd+shift+g"] to open the path sheet i
 |---|---|---|---|
 | `keys` | Yes | array of (string; min 1 characters; max 40 characters); min 1 items; max 10 items |  |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="fiji-desktop-click"></a>
 
 ## fiji_desktop_click
 
-Click at exact global screen coordinates (top-left origin, from a frame returned by fiji_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Luma flies its cursor there, then moves the real mouse and clicks. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Prefer fiji_desktop_act with an id whenever one exists.
+Click at exact global screen coordinates (top-left origin, from a frame returned by fiji_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Penny flies its cursor there, then moves the real mouse and clicks. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Prefer fiji_desktop_act with an id whenever one exists.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -598,6 +598,6 @@ Click at exact global screen coordinates (top-left origin, from a frame returned
 | `button` | No | "left", "right" |  |
 | `modifiers` | No | array of ("cmd", "shift", "alt", "ctrl"); max 4 items |  |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 See [analysis semantics and verification limits](CAPABILITIES.md), [setup](SETUP.md) and [scientific task guidance](../skills/fiji/SKILL.md).

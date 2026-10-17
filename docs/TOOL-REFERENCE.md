@@ -221,7 +221,7 @@ Center the real viewer on an object, current selection or image-pixel coordinate
 
 ## qupath_highlight
 
-Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Luma flies its cursor there with a short label. When most targets are off screen the viewer first zooms to fit them (focus; force with true/false; returns focused). select also selects the matched objects in QuPath. Display only.
+Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Penny flies its cursor there with a short label. When most targets are off screen the viewer first zooms to fit them (focus; force with true/false; returns focused). select also selects the matched objects in QuPath. Display only.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -338,7 +338,7 @@ Input: `{}`.
 
 ## qupath_save_workflow
 
-Save the recorded analysis steps as a reusable Groovy script in Luma's workflow folder, so the same procedure can be applied to other samples. Returns the path, step names and script. Pick a short descriptive name yourself.
+Save the recorded analysis steps as a reusable Groovy script in Penny's workflow folder, so the same procedure can be applied to other samples. Returns the path, step names and script. Pick a short descriptive name yourself.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -491,7 +491,7 @@ Edit existing objects with QuPath's own tools: merge (union of selected annotati
 
 ## qupath_export_measurements
 
-Write a CSV measurement table (QuPath's Measure > Export measurements columns) for the objects in scope to Luma's export folder (.local/exports). kind picks annotation/cell/detection rows. Returns the path, row and column counts. No research data is sent anywhere.
+Write a CSV measurement table (QuPath's Measure > Export measurements columns) for the objects in scope to Penny's export folder (.local/exports). kind picks annotation/cell/detection rows. Returns the path, row and column counts. No research data is sent anywhere.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -505,7 +505,7 @@ Write a CSV measurement table (QuPath's Measure > Export measurements columns) f
 
 ## qupath_export_annotations
 
-Write the objects in scope as a GeoJSON FeatureCollection (full-resolution image pixels) to Luma's export folder; QuPath and QuPath's importer can read it back. Default kind annotation. Returns the path and count.
+Write the objects in scope as a GeoJSON FeatureCollection (full-resolution image pixels) to Penny's export folder; QuPath and QuPath's importer can read it back. Default kind annotation. Returns the path and count.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -519,7 +519,7 @@ Write the objects in scope as a GeoJSON FeatureCollection (full-resolution image
 
 ## qupath_export_image
 
-Save the current view, the selected region or the whole image as PNG in Luma's export folder. rendered true (default) writes what the viewer shows including overlays; false writes raw pixels. Downsample is chosen automatically (max 4096 px) unless given. Returns the path and output size.
+Save the current view, the selected region or the whole image as PNG in Penny's export folder. rendered true (default) writes what the viewer shows including overlays; false writes raw pixels. Downsample is chosen automatically (max 4096 px) unless given. Returns the path and output size.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -576,7 +576,7 @@ Brightness/contrast and channels (display only): pick a channel by name or index
 
 ## qupath_plugins
 
-List the QuPath analysis plugins Luma can run directly (tiles, superpixels, tissue detection, TMA dearray, intensity/shape/smoothed features, positive cell detection, cell membrane detection, Delaunay clusters, annotation dilate/fill/refine/split, …) or, with plugin, read that plugin's parameters, defaults, units, ranges and choices for the current image. Read only.
+List the QuPath analysis plugins Penny can run directly (tiles, superpixels, tissue detection, TMA dearray, intensity/shape/smoothed features, positive cell detection, cell membrane detection, Delaunay clusters, annotation dilate/fill/refine/split, …) or, with plugin, read that plugin's parameters, defaults, units, ranges and choices for the current image. Read only.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -714,7 +714,7 @@ Read a pending/completed/denied action by ID. Approvals can only be decided by t
 
 ## qupath_desktop_inspect
 
-List the windows and actionable elements of QuPath (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Luma lacks the Accessibility permission, which only the researcher can grant.
+List the windows and actionable elements of QuPath (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Penny lacks the Accessibility permission, which only the researcher can grant.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -726,14 +726,14 @@ List the windows and actionable elements of QuPath (default), the frontmost app 
 
 ## qupath_desktop_act
 
-Operate one element id from the latest qupath_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Luma moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.
+Operate one element id from the latest qupath_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Penny moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
 | `id` | Yes | string; min 1 characters; max 200 characters |  |
 | `action` | Yes | "press", "setValue", "focus", "select", "toggle", "type" |  |
 | `value` | No | string; max 4096 characters | Text for setValue/type. |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="qupath-desktop-type"></a>
 
@@ -746,7 +746,7 @@ Type text into whatever currently has keyboard focus (QuPath is brought forward 
 | `text` | Yes | string; min 1 characters; max 4096 characters |  |
 | `submit` | No | boolean | Press Return after typing. |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "science.luma.qupath" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="qupath-desktop-key"></a>
 
@@ -758,13 +758,13 @@ Press keyboard shortcuts in order, e.g. ["cmd+shift+g"] to open the path sheet i
 |---|---|---|---|
 | `keys` | Yes | array of (string; min 1 characters; max 40 characters); min 1 items; max 10 items |  |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "science.luma.qupath" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 <a id="qupath-desktop-click"></a>
 
 ## qupath_desktop_click
 
-Click at exact global screen coordinates (top-left origin, from a frame returned by qupath_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Luma flies its cursor there, then moves the real mouse and clicks. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Prefer qupath_desktop_act with an id whenever one exists.
+Click at exact global screen coordinates (top-left origin, from a frame returned by qupath_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Penny flies its cursor there, then moves the real mouse and clicks. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, "Set image type"-style native sheets, third-party plugin windows, alerts and any other window on screen. Prefer qupath_desktop_act with an id whenever one exists.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -774,6 +774,6 @@ Click at exact global screen coordinates (top-left origin, from a frame returned
 | `button` | No | "left", "right" |  |
 | `modifiers` | No | array of ("cmd", "shift", "alt", "ctrl"); max 4 items |  |
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "science.luma.qupath" (default), "frontmost" or "none". |
-| `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
+| `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
 See [analysis semantics and verification limits](CAPABILITIES.md), [setup](SETUP.md) and [scientific task guidance](../skills/qupath/SKILL.md).

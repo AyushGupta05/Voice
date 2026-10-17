@@ -43,7 +43,7 @@ Fiji is ImageJ plus a curated set of plugins kept current by its updater. Three 
 
 ## Not installed by default: update sites
 
-`Help ▷ Update...` → `Manage Update Sites` → tick the site → Apply changes → restart Fiji. This is the researcher's action (restarting closes their images); Luma says exactly which site and offers the equivalent that is installed meanwhile.
+`Help ▷ Update...` → `Manage Update Sites` → tick the site → Apply changes → restart Fiji. This is the researcher's action (restarting closes their images); Penny says exactly which site and offers the equivalent that is installed meanwhile.
 
 | Wanted | Update site | Adds |
 |---|---|---|

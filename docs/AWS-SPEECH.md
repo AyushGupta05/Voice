@@ -1,6 +1,6 @@
 # AWS speech route
 
-Luma's production voice uses **Amazon Transcribe streaming → OpenAI `gpt-oss-120b` on Bedrock → Amazon Polly**, paid only from AWS promotional credits. The user approved this route on 17 October 2026. It is **not GPT-Live**: no AWS-credit-covered OpenAI realtime endpoint exists for this account (see [FUNDING.md](FUNDING.md)). Treat it as a speech-to-text and text-to-speech wrapper around the same tool-using agent that powers typed requests.
+Penny's production voice uses **Amazon Transcribe streaming → OpenAI `gpt-oss-120b` on Bedrock → Amazon Polly**, paid only from AWS promotional credits. The user approved this route on 17 October 2026. It is **not GPT-Live**: no AWS-credit-covered OpenAI realtime endpoint exists for this account (see [FUNDING.md](FUNDING.md)). Treat it as a speech-to-text and text-to-speech wrapper around the same tool-using agent that powers typed requests.
 
 ## Flow
 
@@ -12,8 +12,8 @@ mic (AVAudioEngine, voice processing / echo cancellation)
   → short final answer → Polly generative voice (default Danielle; `LUMA_VOICE=Amy:neural` etc.) 16 kHz PCM → resampled to 24 kHz → companion playback
 ```
 
-- **Wake word and attention:** the mic stays open for 30 minutes in rooms where other people talk, so a sentence reaches the agent only when it names Luma ("Hey Luma, analyse the cells here"; "Luma" alone answers "Yes?"), is a short command ("zoom in", "undo that", "stop"), or arrives within 30 s of Luma's last request or reply (natural follow-ups). Everything else is logged as `ignored` and shown dimmed; single stray words are always ignored. `LUMA_WAKE_WORD=off` accepts any two-word-plus utterance (quiet room, solo use). Transcribe spellings "Luna/Looma/Lumo" count as the name.
-- **Barge-in:** the first partial transcript of a new utterance meant for Luma interrupts current playback and stops the running agent task. An action already executing in QuPath is not rolled back; say "undo that" to restore the checkpoint.
+- **Wake word and attention:** the mic stays open for 30 minutes in rooms where other people talk, so a sentence reaches the agent only when it names Penny ("Hey Penny, analyse the cells here"; "Penny" alone answers "Yes?"), is a short command ("zoom in", "undo that", "stop"), or arrives within 30 s of Penny's last request or reply (natural follow-ups). Everything else is logged as `ignored` and shown dimmed; single stray words are always ignored. `LUMA_WAKE_WORD=off` accepts any two-word-plus utterance (quiet room, solo use). Transcribe spellings "Luna/Looma/Lumo" count as the name.
+- **Barge-in:** the first partial transcript of a new utterance meant for Penny interrupts current playback and stops the running agent task. An action already executing in QuPath is not rolled back; say "undo that" to restore the checkpoint.
 - **Spoken style:** spoken requests add `spokenStyle` (`backend.ts`) to the instructions, asking for one short sentence without coordinates or IDs. Full details still appear in the companion. `spokenReply()` trims anything longer than 240 characters to its first sentence.
 - **Bounds:** sessions last at most 30 minutes, 200 turns and 400 spoken replies (acknowledgments included); each Transcribe session reserves twice its worst case (1800 s at the observed rate is about $0.30, so $0.60, still under the $1 per-request cap). Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
 
@@ -66,7 +66,7 @@ This makes read-only AWS calls and writes `.local/state/speech-funding.json` (it
 Amazon Transcribe mishears domain words ("stroma" → "Ostroma") unless given a custom vocabulary. Create one once (digits are not allowed in phrases):
 
 ```sh
-aws transcribe create-vocabulary --region us-east-1 --vocabulary-name luma-pathology --language-code en-GB --phrases QuPath Luma annotation annotations tumour tumor stroma Ki-sixty-seven DAB haematoxylin hematoxylin eosin H-DAB brightfield fluorescence immunohistochemistry nucleus nuclei nuclear cells cell detection detections classifier classification threshold positive negative superpixels tiles TMA dearray GeoJSON Groovy workflow measurement measurements histogram zoom overlay overlays slide annotate highlight checkpoint undo stricter looser percentage pixel micron microns H-score
+aws transcribe create-vocabulary --region us-east-1 --vocabulary-name luma-pathology --language-code en-GB --phrases QuPath Penny annotation annotations tumour tumor stroma Ki-sixty-seven DAB haematoxylin hematoxylin eosin H-DAB brightfield fluorescence immunohistochemistry nucleus nuclei nuclear cells cell detection detections classifier classification threshold positive negative superpixels tiles TMA dearray GeoJSON Groovy workflow measurement measurements histogram zoom overlay overlays slide annotate highlight checkpoint undo stricter looser percentage pixel micron microns H-score
 ```
 
 When `aws transcribe get-vocabulary --vocabulary-name luma-pathology` reports `READY` (a few minutes), write `.local/state/speech-vocabulary.json` containing `{"name":"luma-pathology","languageCode":"en-GB"}`. Each new voice session passes it as `VocabularyName`; no restart is needed after the file exists. Custom vocabularies are free.

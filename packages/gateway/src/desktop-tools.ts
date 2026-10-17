@@ -27,14 +27,14 @@ export function desktopToolsFor(app: DesktopApp): Tool[] {
   const p = app.toolPrefix;
   const WHEN = `Use the in-app ${p}_ui / ${p}_ui_action first; they see ${app.uiToolkit} controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, ${app.nativeDialogExample}, third-party plugin windows, alerts and any other window on screen.`;
   const bundle = { type: 'string', maxLength: 200, description: `Bundle id to bring forward first: "${app.bundleId}" (default), "frontmost" or "none".` };
-  const label = { type: 'string', maxLength: 80, description: 'Two to six words shown beside Luma’s cursor while it flies to the target.' };
+  const label = { type: 'string', maxLength: 80, description: 'Two to six words shown beside Penny’s cursor while it flies to the target.' };
   return [
-    tool('desktop_inspect', `List the windows and actionable elements of ${app.displayName} (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). ${WHEN} Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Luma lacks the Accessibility permission, which only the researcher can grant.`, desktopOperation('inspect'), 'read', {
+    tool('desktop_inspect', `List the windows and actionable elements of ${app.displayName} (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). ${WHEN} Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Penny lacks the Accessibility permission, which only the researcher can grant.`, desktopOperation('inspect'), 'read', {
       apps: { type: 'array', items: { type: 'string', maxLength: 200 }, maxItems: 8, description: `Bundle ids, or "frontmost". Default ["${app.bundleId}"].` },
       windowTitleContains: { type: 'string', maxLength: 200 },
       maxElements: { type: 'integer', minimum: 1, maximum: 2000 },
     }),
-    tool('desktop_act', `Operate one element id from the latest ${p}_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Luma moves the real mouse to the element and clicks or types. The cursor flies there first. ${WHEN} Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.`, desktopOperation('act'), 'code', {
+    tool('desktop_act', `Operate one element id from the latest ${p}_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Penny moves the real mouse to the element and clicks or types. The cursor flies there first. ${WHEN} Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.`, desktopOperation('act'), 'code', {
       id: { type: 'string', minLength: 1, maxLength: 200 },
       action: { type: 'string', enum: ['press', 'setValue', 'focus', 'select', 'toggle', 'type'] },
       value: { type: 'string', maxLength: 4096, description: 'Text for setValue/type.' },
@@ -49,7 +49,7 @@ export function desktopToolsFor(app: DesktopApp): Tool[] {
       keys: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 40 }, minItems: 1, maxItems: 10 },
       app: bundle, label,
     }, ['keys']),
-    tool('desktop_click', `Click at exact global screen coordinates (top-left origin, from a frame returned by ${p}_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Luma flies its cursor there, then moves the real mouse and clicks. ${WHEN} Prefer ${p}_desktop_act with an id whenever one exists.`, desktopOperation('click'), 'code', {
+    tool('desktop_click', `Click at exact global screen coordinates (top-left origin, from a frame returned by ${p}_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Penny flies its cursor there, then moves the real mouse and clicks. ${WHEN} Prefer ${p}_desktop_act with an id whenever one exists.`, desktopOperation('click'), 'code', {
       x: number, y: number,
       count: { type: 'integer', minimum: 1, maximum: 3, description: '2 for a double-click.' },
       button: { type: 'string', enum: ['left', 'right'] },

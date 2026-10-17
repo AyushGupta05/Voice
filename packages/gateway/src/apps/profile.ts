@@ -10,7 +10,7 @@ export type FastRoute = { tool: string; arguments: Record<string, unknown>; repl
 export type PrepareInput = { name: string; args: Arguments; context: Context; adapter: Adapter; check: () => void };
 
 /**
- * Everything that differs between the scientific applications Luma drives. The generic gateway (runtime, backend,
+ * Everything that differs between the scientific applications Penny drives. The generic gateway (runtime, backend,
  * server, MCP, knowledge, readiness) reads the active profile; nothing application-specific lives outside `apps/`.
  */
 export type AppProfile = {
