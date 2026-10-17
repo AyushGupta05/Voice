@@ -15,7 +15,7 @@ flowchart LR
 
 ## Boundaries
 
-The extension owns application state and runs JavaFX mutations on the UI thread. The gateway owns provider credentials, tool validation, approvals and conversation execution. The companion owns microphone capture, audio playback and presentation. MCP clients call the same tool executor as voice so validation and approval behavior cannot drift.
+The extension owns application state and runs JavaFX mutations on the UI thread. The gateway owns provider credentials, tool validation, approvals and conversation execution. The companion owns microphone capture, audio playback and presentation. MCP clients discover the authenticated running gateway’s catalog and call its shared tool executor. The stdio process does not independently apply potentially newer source schemas. This keeps discovery and argument validation aligned with the running gateway during staged builds; Java-extension readiness is checked separately. Cached clients need rediscovery/reconnection after registry changes. The MCP credential cannot decide approvals.
 
 No arbitrary shell tool is exposed. General Groovy execution is available only as an explicit approval-gated escape hatch. QuPath plugins and scripts can access local files and run code; approval must show the exact source and be scoped to one invocation.
 

@@ -77,13 +77,13 @@ Keep the gateway and QuPath running. Configure a desktop MCP client to run Node 
 }
 ```
 
-Alternatively run `npm run mcp` from the repo root. The MCP exposes tools, a `qupath://guide` resource and a `qupath-researcher` prompt. It has no approval tool. Approve or decline proposals in the companion. `qupath_action_status` retrieves the eventual outcome.
+Alternatively run `npm run mcp` from the repo root. The MCP reads the authenticated running gateway’s `/tools` catalog on each `tools/list` request, preserving its actual descriptions and argument schemas. It does not advertise newer source-only tools or fall back to them when the gateway is unavailable. The gateway validates calls using the same running registry. Clients that cache tool discovery should reconnect after a gateway upgrade. The MCP exposes a `qupath://guide` resource and a `qupath-researcher` prompt. It has no approval tool. Approve or decline proposals in the companion. `qupath_action_status` retrieves the eventual outcome.
 
 Run `npm run doctor` for read-only setup, source-pin, running-schema and connection diagnostics. It prints no tokens or image names, installs nothing and returns a nonzero status when a core check fails. Voice readiness remains false under the current funding policy. File checks confirm existence, not a fresh build.
 
 The doctor also compares the loaded Java extension's cached source identity and declared operations with `.local/bridge-build.json` and the completed JAR hash. It can therefore distinguish a reachable old bridge from the current built extension, independently of gateway schema agreement. A mismatch never closes QuPath: save/quit it normally, rebuild if needed, then relaunch and restart Luma after gateway changes. `adapterReadiness` is also included in new context responses. It compares completed build outputs, not unbuilt source edits; build explicitly after changing Java. Manual builds without the generated stamp remain usable but unverified by this diagnostic.
 
-Run `npm run smoke` to test a real MCP client through the gateway and active QuPath session. This smoke test is read-only.
+Run `npm run smoke` to test a real MCP client through the gateway and active QuPath session. This smoke test is read-only. It compares the MCP catalog with the running gateway and reports source schema agreement separately: a successful read-only smoke does not mean newer source tools or Java operations have been loaded.
 
 ## Local command-line inspection
 

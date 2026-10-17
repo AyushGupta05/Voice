@@ -11,7 +11,7 @@ Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md)
 5. Update task guidance, capability status and any protocol/setup changes. Run `npm run docs:generate` after tool-schema changes; `npm run docs:check` detects a stale [tool reference](TOOL-REFERENCE.md).
 6. Run focused checks and autoreview. Verify the visible application when UI or scientific outcomes change.
 
-The same tool list feeds MCP and the realtime transport. Do not duplicate provider-specific scientific tool implementations.
+The running gateway’s tool list feeds MCP discovery and the conversation transport. MCP must advertise its authenticated `/tools` response, not a potentially newer source registry, and must leave argument validation to that gateway. Do not duplicate provider-specific scientific tool implementations.
 
 ## Validation layers
 
@@ -26,7 +26,7 @@ The same tool list feeds MCP and the realtime transport. Do not duplicate provid
 - `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
 - `./script/build-bridge.sh`: compile against the pinned real QuPath API.
 - `./script/build_and_run.sh --verify`: build/sign/launch the native companion and confirm its process.
-- `npm run smoke`: actual MCP SDK client through the running gateway to QuPath. Read-only.
+- `npm run smoke`: actual MCP SDK client through the running gateway to QuPath. Read-only; validates against the live catalog and reports source agreement separately. MCP unit contracts use the real SDK with an isolated synthetic loopback gateway to exercise legacy schemas, malformed discovery, rediscovery and approval-credential separation.
 - `node --import tsx script/integration.ts --public-fixture`: specifically authorized destructive test on a clean, disposable OS-2 sample session. It checks exact metadata and an empty hierarchy, simulates companion approvals only for a fixed test sequence, and restores the empty baseline. Never use it on research data or generalize it into an agent auto-approval feature.
 
 The current real fixture checks image-type dialog control, annotation creation, exact focus coordinates, actual detection, measured values, threshold classification, comparison, a viewer screenshot and hierarchy recovery. A passing fixture verifies software behavior, not scientific validity.
