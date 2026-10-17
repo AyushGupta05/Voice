@@ -41,6 +41,8 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 
 | Start here | Purpose |
 |---|---|
+| [Documentation map](docs/README.md) | Find guides by role and distinguish source schemas, live capabilities and dated evidence |
+| [Complete MCP handbook](docs/mcp/README.md) | All 32 tools, practical examples, end-to-end workflows, approvals and coverage limits |
 | [Current readiness and safe next steps](docs/READINESS.md) | Verified results, loaded-build checks and remaining activation work |
 | [Foreground demo](docs/LIVE-DEMO.md) | Compact bar, safe reload and real image-opening verification |
 | [Product brief](docs/PRODUCT.md) | Problem, accepted direction and scope |

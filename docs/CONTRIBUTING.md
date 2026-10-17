@@ -34,6 +34,8 @@ The current real fixture checks image-type dialog control, annotation creation, 
 
 ## Documentation expectations
 
+A [documentation map](README.md) organizes the guides by reader and task. The [MCP handbook](mcp/README.md) adds practical semantics and examples for every tool; its [coverage ledger and maintenance checklist](mcp/COVERAGE.md) connect claims to exact tests and dated evidence. Update those alongside generated schemas when adding or changing a tool.
+
 A new contributor should be able to answer what an operation does, why its parameters matter, what it reads/writes, how it fails, what needs approval, what can be undone, and how it was tested. Keep those answers next to the implementation or in the appropriate linked guide.
 
 Record evidence separately from claims. Mark a feature implemented, locally protocol-tested, real-app-tested or blocked. A successful build cannot substitute for a rendered or end-to-end check.
