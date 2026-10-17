@@ -103,6 +103,7 @@ final class Observers {
         Doc doc = cur == null ? null : eng.registry.byImp(cur);
         if (op != null) {
             if (op.request.kind() != sc.fidelis.engine.api.Enums.ActionKind.CODE || op.actionId == null) return; // typed: recorded by its runner
+            eng.results.noteChildCommand(label, options); // a macro's Clear Results restarts the table it captures
             Map<String, Object> params = new java.util.LinkedHashMap<>();
             params.put("parentActionId", op.actionId);
             if (options != null) params.put("options", options.strip());
@@ -119,7 +120,7 @@ final class Observers {
                 OperationState.COMPLETED, null);
         eng.recordObserved(rec);
         // rows of the previous native command are captured now; a table restart by this command is noted (#5)
-        eng.results.beforeNative(label, doc == null ? null : doc.id, rec.actionId());
+        eng.results.beforeNative(label, options, doc == null ? null : doc.id, rec.actionId());
         ij.plugin.frame.RoiManager rm = ij.plugin.frame.RoiManager.getRawInstance();
         int managerBefore = rm == null ? -1 : rm.getCount();
         // results rows, new images, ROI Manager entries and so on appear after the command finishes

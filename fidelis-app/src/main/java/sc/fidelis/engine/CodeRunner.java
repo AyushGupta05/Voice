@@ -105,6 +105,7 @@ final class CodeRunner {
         String actionId = eng.history.nextId();
         op.actionId = actionId;
         Map<String, String> gBefore = Globals.capture();
+        eng.results.beginTyped(); // rows a native command left are settled under it before the macro runs
         int resultsBefore = Results.tableSize();
         // a targeted macro runs on its document: typed actions never rely on IJ1's implicit current image
         Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
@@ -196,8 +197,8 @@ final class CodeRunner {
                 Globals.delta(gBefore, gAfter), state, error == null ? null : error.message());
         eng.history.add(rec);
         int rows = Results.tableSize() - resultsBefore;
-        if (rows > 0) eng.results.capture(resultsBefore, null, actionId);
-        else eng.results.markSeen();
+        // rows from resultsBefore on are the macro's (from row 0 when it ran Clear Results: noted by the observer)
+        eng.results.capture(resultsBefore, null, actionId);
         List<DocumentId> added = new ArrayList<>();
         for (Doc d : change.added()) added.add(d.id);
         List<DocumentId> removed = new ArrayList<>();

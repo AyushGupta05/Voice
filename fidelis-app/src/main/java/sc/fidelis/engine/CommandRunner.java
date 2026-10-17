@@ -198,6 +198,7 @@ final class CommandRunner {
         if (singleBlack != null) ij.Prefs.blackBackground = singleBlack;
         State before = checkDoc == null ? null : State.of(checkDoc.imp, hashAll);
         State beforeTarget = doc == null ? null : (doc == checkDoc ? before : State.of(doc.imp, false));
+        eng.results.beginTyped(); // rows a native command left are settled under it before this action runs
         int resultsBefore = Results.tableSize();
         Set<Integer> idsBefore = Registry.liveIds();
         int roiCountBefore = doc == null ? 0 : doc.roiList.size();
@@ -291,6 +292,7 @@ final class CommandRunner {
         op.actionId = actionId;
         Map<String, String> gBefore = Globals.capture();
         State before = doc == null ? null : State.of(doc.imp, doc.imp.getStackSize() > 1);
+        eng.results.beginTyped();
         int resultsBefore = Results.tableSize();
         Execution ex = execute(op, en.label(), imp, null);
         Registry.Change change = eng.reconcile();
@@ -509,20 +511,17 @@ final class CommandRunner {
         }
 
         if (state != OperationState.COMPLETED) {
-            eng.results.markSeen();
+            // rows the command added before it failed are in IJ1's table: the mirror shows them, attributed to it
+            eng.results.capture(resultsBefore, doc == null ? null : doc.id, actionId);
             if (snap != null && state != OperationState.ROLLED_BACK) { /* kept: image changed, snapshot still valid */ }
             return new Outcome(state, error, digest(en, doc, before, after, change, resultsBefore, resultsAfter, gDelta, ex, false),
                     rec, null);
         }
 
-        // success: capture results and register the undo snapshot's survival
-        int captured = 0;
+        // success: capture results and register the undo snapshot's survival.
         // A command that clears the system table first (Analyze Particles with clear=true) restarts its rows at 0.
-        int rowsFrom = Boolean.TRUE.equals(typed.get("clear")) ? 0 : resultsBefore;
-        if ("RESULTS_ROWS".equals(en.family()) && resultsAfter > rowsFrom) {
-            captured = eng.results.capture(rowsFrom, doc == null ? null : doc.id, actionId);
-        }
-        eng.results.markSeen();
+        int rowsFrom = Boolean.TRUE.equals(typed.get("clear")) || Results.restartsTable(en.label(), null) ? 0 : resultsBefore;
+        eng.results.capture(rowsFrom, doc == null ? null : doc.id, actionId);
         if (snap != null && before != null && after != null && before.hash().equals(after.hash())
                 && before.width() == after.width() && before.type() == after.type()) {
             eng.snapshots.release(snap); // a no-op leaves nothing to undo

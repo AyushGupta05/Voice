@@ -364,7 +364,7 @@ public final class DefaultEngine implements Engine {
             worker.execute(() -> {
                 try {
                     Registry.Change ch = reconcile();
-                    results.captureNative(doc == null ? null : doc.id, actionId);
+                    results.settleNative(); // under the native command that owns the new rows now
                     boolean roiChanged = false;
                     RoiManager rm = RoiManager.getRawInstance();
                     int managerAfter = rm == null ? -1 : rm.getCount();
