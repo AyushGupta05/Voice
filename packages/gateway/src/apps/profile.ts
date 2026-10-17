@@ -86,4 +86,4 @@ export function highlightAcknowledgment(args: Record<string, unknown>) {
 }
 /** Normalise a spoken command for whole-utterance matching: lowercase, letters only, politeness stripped. */
 export const cleanUtterance = (text: string) => text.toLowerCase().replace(/[^a-z' ]+/g, ' ').replace(/\s+/g, ' ').trim()
-  .replace(/^(?:(?:hey )?luma |okay |ok |please |can you |could you )+/, '').replace(/ please$/, '').trim();
+  .replace(/^(?:(?:hey )?(?:penny|luma) |okay |ok |please |can you |could you )+/, '').replace(/ please$/, '').trim();
