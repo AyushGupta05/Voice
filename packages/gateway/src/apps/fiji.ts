@@ -323,6 +323,32 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   if (/^undo(?: that| it)?$|^go back$/.test(said)) return { tool: 'fiji_undo', arguments: {}, reply: 'Undoing.' };
   return undefined;
 }
+/** Tuning knobs the bridge picks robustly itself (nuclear channel, stable channel, tissue mask, size floors). The model tends to
+ * fill every optional field (QA: tumour "Otsu, sigma 2, keepLargest 1" gave 13% instead of ~40%; tracking found nothing). */
+const expertArguments: Record<string, string[]> = {
+  fiji_tumor_region: ['channel', 'stain', 'sigma', 'method', 'minAreaFraction', 'keepLargest'],
+  fiji_track_objects: ['channel', 'method', 'dark', 'minSize', 'maxSize', 'maxDistance', 'maxGap', 'minLength', 'sigma'],
+  fiji_segment_cells: ['channel', 'method', 'sigma', 'minSize', 'watershed', 'dark', 'gaussian'],
+  fiji_split_objects: ['factor'],
+  fiji_filter_objects: ['fraction'],
+  fiji_colocalize: ['method', 'thresholdA', 'thresholdB'],
+  fiji_intensity_over_time: ['channel'],
+};
+/** Keeps an expert argument only when the researcher's words mention it: its name, its value, or (for segmentation) strictness. */
+function modelArguments(name: string, args: Record<string, unknown>, utterance: string): Record<string, unknown> {
+  const expert = expertArguments[name]; if (!expert) return args;
+  const said = utterance.toLowerCase(), numbers = new Set((said.match(/\d+(?:\.\d+)?/g) ?? []).map(Number));
+  const named: Record<string, RegExp> = { channel: /\b(channel|red|green|blue|dapi|hoechst|gfp|nuclear|c\d)\b/, minSize: /\b(size|smaller|bigger|larger|area|pixels?|microns?)\b/, maxSize: /\b(size|smaller|bigger|larger|area)\b/,
+    sigma: /\b(sigma|blur|smooth)/, method: /\b(otsu|li|huang|triangle|default|yen|moments|maxentropy|isodata|mean|minimum|intermodes|renyi|shanbhag|percentile|strict\w*|loose\w*|sensitiv\w*|threshold)\b/,
+    watershed: /\bwatershed\b/, dark: /\b(dark|bright|light) background\b/, maxDistance: /\b(distance|jump|far)\b/, minLength: /\b(length|frames?|short)\b/, keepLargest: /\b(largest|regions?|biggest)\b/, stain: /\b(h&e|he|ihc|dab|fluorescen\w*)\b/ };
+  const kept: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (!expert.includes(key)) { kept[key] = value; continue; }
+    const mentioned = (named[key]?.test(said) ?? said.includes(key.toLowerCase())) || typeof value === 'number' && numbers.has(value) || typeof value === 'string' && value.length > 1 && said.includes(value.toLowerCase());
+    if (mentioned) kept[key] = value;
+  }
+  return kept;
+}
 async function prepareAction(input: PrepareInput) {
   if (input.name === 'fiji_ui_action') await bindUiControl(input, 'Fiji');
 }
@@ -368,7 +394,7 @@ export const fiji: AppProfile = {
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools, unsuccessful,
   longRunningTools: new Set(['fiji_run_recipe', 'fiji_apply_analysis', 'fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
-  localTool: recipeTool,
+  localTool: recipeTool, modelArguments,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.
     const importing = name === 'fiji_open_path' || (name === 'fiji_run_command' && /import|^open\b/i.test(String(args.name ?? '')));

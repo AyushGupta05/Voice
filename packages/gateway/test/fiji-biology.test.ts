@@ -181,3 +181,12 @@ test('misheard image names still find the sample, and "find all the nuclei" is i
   assert.deepEqual(fiji.fastRoute!('Hey Fiji, find all the nuclei.', ctx), { tool: 'fiji_segment_cells', arguments: {}, reply: 'Finding the nuclei.' });
   assert.equal(fiji.fastRoute!('Find all the nuclei and tell me which are Ki67 positive', ctx), undefined);
 });
+
+test('expert arguments the researcher never said are dropped so the bridge defaults apply', () => {
+  const clean = fiji.modelArguments!;
+  assert.deepEqual(clean('fiji_tumor_region', { channel: 1, stain: 'he', sigma: 2, method: 'Otsu', minAreaFraction: 0.05, keepLargest: 1, name: 'Tumor' }, 'Open the H&E image and outline the tumour.'), { stain: 'he', name: 'Tumor' });
+  assert.deepEqual(clean('fiji_track_objects', { channel: 1, minSize: 0.5, minLength: 1 }, 'track the cells'), {});
+  assert.deepEqual(clean('fiji_segment_cells', { method: 'Li' }, 'make the threshold stricter'), { method: 'Li' });
+  assert.deepEqual(clean('fiji_segment_cells', { channel: 2, minSize: 50 }, 'segment the green channel, ignore anything smaller than 50 pixels'), { channel: 2, minSize: 50 });
+  assert.deepEqual(clean('fiji_measure', { scope: 'manager' }, 'measure'), { scope: 'manager' });
+});

@@ -59,6 +59,8 @@ export type AppProfile = {
   longRunningTools: Set<string>;
   /** Pre-dispatch checks for data/code tools; sets `context.reviewTarget` and throws to refuse. */
   prepareAction?(input: PrepareInput): Promise<void>;
+  /** Arguments the model filled in that the researcher never asked for, removed so the bridge's tested defaults apply. */
+  modelArguments?(name: string, args: Record<string, unknown>, utterance: string): Record<string, unknown>;
   /** Answers a tool that has no bridge operation of its own (`name` without the prefix), or returns undefined. A tool
    * that acts must do so through `runtime.call` of a real operation tool, so the decision, audit and checkpoint path
    * is the same as for a direct call. `root` is the repository root. */

@@ -4,7 +4,7 @@
 // @param method = kuwahara | kuwahara (Kuwahara Filter), anisotropic (Anisotropic Diffusion 2D), rof (ROF total-variation denoise) or median
 // @param size = 5 | kuwahara: odd sampling window, px; median: radius, px
 // @param strength = 25 | rof: theta (higher = smoother); anisotropic: number of iterations
-// @output A new image "<title>-denoised" (current channel, slice and frame); the original is unchanged. Reports a noise estimate (standard deviation of the difference from a 1-px median) before and after.
+// @output A new image "<title>-denoised" (current channel, slice and frame); the original is unchanged. Kuwahara and anisotropic diffusion do not take 32-bit images, so a 32-bit plane is converted to 16-bit (scaled by its display range) first and the result says so. Reports a noise estimate (standard deviation of the difference from a 1-px median) before and after.
 // @say Denoised with {method}; noise estimate went from {noiseBefore} to {noiseAfter}.
 method = toLowerCase(pennyParam("method", "kuwahara"));
 size = parseFloat(pennyParam("size", "5"));
@@ -17,9 +17,12 @@ run("Select None");
 run("Duplicate...", "title=[" + title + "-denoised]");
 out = getImageID();
 if (bitDepth() == 24) run("8-bit");
+// Kuwahara and anisotropic diffusion refuse 32-bit; the converted plane is also what the noise is measured on.
+converted = "none";
+if (bitDepth() == 32 && (method == "kuwahara" || method == "anisotropic")) { run("16-bit"); converted = "32-bit_to_16-bit"; }
 noiseBefore = noise(out);
 if (method == "kuwahara") { if (size % 2 == 0) size = size + 1; run("Kuwahara Filter", "sampling=" + size); }
-else if (method == "anisotropic") { if (bitDepth() == 32) run("16-bit"); run("Anisotropic Diffusion 2D", "number=" + round(strength) + " smoothings=1 keep=" + round(strength) + " a1=0.50 a2=0.90 dt=20 edge=5"); }
+else if (method == "anisotropic") { run("Anisotropic Diffusion 2D", "number=" + round(strength) + " smoothings=1 keep=" + round(strength) + " a1=0.50 a2=0.90 dt=20 edge=5"); }
 else if (method == "rof") { run("32-bit"); run("ROF Denoise", "theta=" + strength); }
 else if (method == "median") run("Median...", "radius=" + size);
 else { print("RESULT error=unknown_method method=" + method); exit; }
@@ -28,7 +31,7 @@ if (result != out) { selectImage(out); close(); selectImage(result); rename(titl
 noiseAfter = noise(out);
 selectImage(out);
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT method=" + method + " noiseBefore=" + d2s(noiseBefore, 3) + " noiseAfter=" + d2s(noiseAfter, 3) + " size=" + size + " strength=" + strength);
+print("RESULT method=" + method + " noiseBefore=" + d2s(noiseBefore, 3) + " noiseAfter=" + d2s(noiseAfter, 3) + " size=" + size + " strength=" + strength + " converted=" + converted);
 
 /** Noise estimate: standard deviation of the image minus its 1-px median (robust to smooth structure). */
 function noise(id) {

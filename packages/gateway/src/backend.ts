@@ -252,7 +252,8 @@ export class ResponsesBackend implements DelegationBackend {
         try {
           if (previous) { result = { status: 'duplicate', note: 'Already done in this request; continue with the next step.', previous: previous.output }; throw new Duplicate(); }
           if (this.client.supportsVision === false && call.name === snapshotTool) throw new Error('Viewer vision is unavailable in the configured text-only model. Focus the real viewer and use measured metadata.');
-          result = await this.runtime.call(call.name as string, JSON.parse(call.arguments as string), task.signal, current => {
+          const modelArgs = JSON.parse(call.arguments as string) as Record<string, unknown>;
+          result = await this.runtime.call(call.name as string, profile.modelArguments?.(call.name as string, modelArgs, utterance()) ?? modelArgs, task.signal, current => {
             if (revision !== this.userRevision(task)) throw new ConversationChanged('User input changed before dispatch.');
             if (current && current.contextKey !== (context as {contextKey: string}).contextKey) throw new ConversationChanged('Application context changed before dispatch.');
           });
