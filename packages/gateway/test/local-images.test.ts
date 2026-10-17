@@ -21,12 +21,12 @@ test('finds slides two levels deep in the given roots, largest first, and skips 
     await writeFile(join(root, 'deep', 'deeper', 'study.qpproj'), 'x');
     await writeFile(join(root, 'deep', 'deeper', 'deepest', 'hidden.svs'), 'x');
     await writeFile(join(root, 'notes.txt'), 'x');
-    const all = await findLocalImages(root, '', 20, [root]);
+    const all = await findLocalImages(root, '', 20, [root], false);
     assert.deepEqual(all.matches.map(m => [m.name, m.kind]), [['OS-2.ndpi', 'image'], ['CMU-1.svs', 'image'], ['study.qpproj', 'project']]);
-    const one = await findLocalImages(root, 'os-2', 20, [root]);
+    const one = await findLocalImages(root, 'os-2', 20, [root], false);
     assert.equal(one.matches.length, 1); assert.equal(one.matches[0].path, join(root, 'OS-2.ndpi'));
-    const limited = await findLocalImages(root, '', 1, [root]);
+    const limited = await findLocalImages(root, '', 1, [root], false);
     assert.equal(limited.matches.length, 1); assert.equal(limited.truncated, true);
-    assert.deepEqual((await findLocalImages(root, 'nothing-here', 20, [root, join(root, 'missing')])).matches, []);
+    assert.deepEqual((await findLocalImages(root, 'nothing-here', 20, [root, join(root, 'missing')], false)).matches, []);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

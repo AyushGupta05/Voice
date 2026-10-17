@@ -25,7 +25,7 @@ export function imageNameMatches(name: string, query: string) {
 export function searchRoots(root: string, home = homedir()) {
   return [join(root, '.local', 'data'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
 }
-export async function findLocalImages(root: string, query = '', limit = 20, roots = searchRoots(root)): Promise<{ matches: LocalImage[]; searched: string[]; truncated: boolean }> {
+export async function findLocalImages(root: string, query = '', limit = 20, roots = searchRoots(root), useSpotlight = true): Promise<{ matches: LocalImage[]; searched: string[]; truncated: boolean }> {
   const matches: LocalImage[] = [];
   const seen = new Set<string>();
   let truncated = false;
@@ -48,7 +48,7 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
   }
   for (const directory of roots) await visit(directory, 0);
   // Spotlight covers the rest of the home folder (any depth) for slides the researcher saved elsewhere.
-  for (const path of await spotlightImages(query)) {
+  for (const path of useSpotlight ? await spotlightImages(query) : []) {
     if (seen.has(path) || matches.length >= limit) { if (!seen.has(path)) truncated = true; continue; }
     let size = 0;
     try { size = (await stat(path)).size; } catch { continue; }
@@ -56,7 +56,7 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     matches.push({ path, name: basename(path), sizeBytes: size, kind: extension(path) === '.qpproj' ? 'project' : 'image' });
   }
   matches.sort((a, b) => b.sizeBytes - a.sizeBytes);
-  return { matches, searched: [...roots, 'Spotlight: home folder'], truncated };
+  return { matches, searched: useSpotlight ? [...roots, 'Spotlight: home folder'] : roots, truncated };
 }
 /** macOS Spotlight query for slide/project files by extension; silent on any failure (non-macOS, indexing off, timeout). */
 export async function spotlightImages(query: string, home = homedir(), timeoutMs = 3000): Promise<string[]> {
