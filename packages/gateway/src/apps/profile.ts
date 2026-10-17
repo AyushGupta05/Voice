@@ -138,7 +138,8 @@ export function failureReason(profile: Pick<AppProfile, 'unsuccessful'>, name: s
   };
   if (!result || typeof result !== 'object') return undefined;
   const envelope = result as { status?: unknown; error?: unknown; ok?: unknown; message?: unknown };
-  if (envelope.status === 'duplicate' || envelope.status === 'approval_required') return undefined;
+  // A plan that waits for the researcher (Fidelis) has not failed; a view operation reports it without an envelope.
+  if (envelope.status === 'duplicate' || envelope.status === 'approval_required' || envelope.status === 'awaiting_confirmation') return undefined;
   if (envelope.error != null) return short(envelope.error, 'it reported an error');
   if (typeof envelope.status === 'string' && envelope.status !== 'completed') return short(undefined, `it ended ${envelope.status}`);
   if (envelope.ok === false) return short(envelope.message, 'it reported failure');

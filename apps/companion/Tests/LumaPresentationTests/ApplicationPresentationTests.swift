@@ -43,6 +43,20 @@ final class ApplicationPresentationTests: XCTestCase {
         XCTAssertEqual(CompanionApplication(id: nil), .qupath)
     }
 
+    func testFidelisReadsItsDocumentAndPerDocumentRoiList() {
+        let context: [String: Any] = ["document": ["id": "doc-2", "title": "blobs.gif"], "roi": ["type": "oval"],
+                                      "counts": ["rois": 64, "resultsRows": 64], "pending": ["planId": "penny-plan-1"]]
+        let fidelis = CompanionApplication(id: "fidelis")
+        XCTAssertEqual(fidelis, .fidelis)
+        XCTAssertEqual(fidelis.imageName(context: context), "blobs.gif")
+        XCTAssertEqual(fidelis.selectionLabel(context: context), "Oval selected · 64 objects in this image · Plan waiting for Confirm")
+        XCTAssertEqual(fidelis.imageName(context: ["document": NSNull()]), "No image open")
+        XCTAssertEqual(fidelis.selectionLabel(context: ["document": NSNull(), "counts": ["rois": 3]]), "Select a region")
+        XCTAssertEqual(fidelis.knowledgeTool, "fidelis_knowledge")
+        XCTAssertEqual(fidelis.quickActions.map(\.tool), ["fidelis_zoom", "fidelis_highlight", "fidelis_undo"])
+        XCTAssertEqual(fidelis.quickActions[1].arguments["rois"] as? String, "all")
+    }
+
     func testMacroFailureInsideCompletedActionRemainsAFailure() {
         XCTAssertEqual(ToolFeedback.failure(["status": "completed", "result": ["ok": false, "error": "Macro failed at line 4."]]), "Macro failed at line 4.")
         XCTAssertNotNil(ToolFeedback.failure(["ok": false]))

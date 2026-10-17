@@ -628,3 +628,19 @@ test('a confirmed measurement without a local sentence is phrased by the model, 
     assert.equal(rounds, 1); assert.match(String(result()!.text), /segmentation mask/);
   } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
 });
+
+test('a view plan that waits for confirmation (confirm=always) is announced, not reported as a failure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-view-wait-'));
+  const bridge = await fakeBridge(root, (request, state) => {
+    if (request.operation !== 'display') throw new Error(`unexpected ${request.operation}`);
+    state.context = { ...state.context, contextKey: 'k-wait', pending: { planId: 'plan-display', reasons: ['fidelis.penny.confirm=always'] } };
+    return { status: 'awaiting_confirmation', planId: 'plan-display', operation: 'display', reasons: ['fidelis.penny.confirm=always'], steps: ['Set display range'] };
+  });
+  bridge.state.context = { ...bridge.state.context, document: { ...blobs.document, displayRange: [8, 248] } };
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  const { conversation: talk, result } = conversation(runtime);
+  try {
+    await talk.submit('Make it brighter.', true);
+    assert.equal(result()!.text, 'Ready to run 1 step; say yes to go ahead.'); assert.equal(result()!.outcome, undefined);
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});

@@ -90,8 +90,11 @@ export class TextConversation {
      return;
     }
     active.controller.signal.throwIfAborted();
+    // A plan that waits for the researcher's confirmation (Fidelis, even a view plan under fidelis.penny.confirm=always)
+    // is a real answer, not a failure: the profile's sentence says so.
+    const waiting=result?profile.pausesRequest?.(route.tool,result)!==undefined:false;
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
-    const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
+    const failed=!waiting&&(!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed'));
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);

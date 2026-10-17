@@ -72,6 +72,8 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
   `outcome: "awaiting_confirmation"` to the audit journal, `fidelis_action_status` and the tool envelope, so no reader
   reports the plan as run. Under `LUMA_APPROVALS=review` the "Running it now." after approval is skipped when the plan
   waits. Acknowledgments never claim a waiting plan ran (`fidelis_run_macro` says "Preparing the macro.").
+- A waiting plan is an answer, not a failure, on the instant path too (a view plan under `fidelis.penny.confirm=always`
+  answers without a decision envelope).
 - With `context.pending` set, a whole-utterance "yes", "yes please", "go ahead", "do it", "run it" or "confirm" runs
   `fidelis_confirm {planId}` at once, and "no", "cancel", "stop that", "don't run it", "never mind" runs
   `fidelis_cancel_plan {planId}`. Without a pending plan these words go to the model. A bare "okay" never confirms, and
@@ -149,7 +151,11 @@ while port 49558 is taken; creates the bridge token if missing; builds with
 background, logging build and run output to `.local/fidelis.log`. `run.py --prop KEY=VALUE` (repeatable) is the new
 JVM system-property pass-through; it behaves the same on Windows and macOS.
 
-### Companion sockets
+### Companion sockets and presentation
+
+The Swift companion's `CompanionApplication` gains a `fidelis` case: the image name comes from `context.document.title`,
+the selection label from `roi`, the per-document ROI count and a waiting plan, and the quick actions are Fit image
+(`fidelis_zoom {fit}`), Highlights (`fidelis_highlight {rois: "all"}`) and Undo (`fidelis_undo`).
 
 The gateway's `/events` socket now attaches a client for desktop (Accessibility) requests only when its `hello` does
 not say `desktop: false`, so the Fidelis workspace (`{type: "hello", clientId: "fidelis-…", client: "fidelis-workspace",
@@ -174,5 +180,6 @@ stop it there first." (or "in the Fidelis workspace").
   `context.adapter` and `/health`, instant routes and their context binding, local sentences, the
   awaiting-confirmation stop, "yes"/"no" handling, the researcher-only and plan-bound confirm, and a command whose
   dialog is filled and pressed. Desktop-socket attachment and the voice-holder message are tested in
-  `packages/gateway/test/server.test.ts`.
+  `packages/gateway/test/server.test.ts`; the companion presentation in
+  `apps/companion/Tests/LumaPresentationTests` (`swift test --filter LumaPresentationTests`).
 - Not yet tested with the real Fidelis bridge; no voice run against Fidelis yet.
