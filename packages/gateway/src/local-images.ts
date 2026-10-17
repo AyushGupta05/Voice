@@ -132,7 +132,8 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     if (matches.length) return { matches, searched: roots, truncated: scored.length > limit };
   }
   // Spotlight covers the rest of the home folder (any depth) for slides the researcher saved elsewhere.
-  for (const path of useSpotlight ? await spotlightImages(query) : []) {
+  // Spotlight (up to 3 s) only when the usual folders found nothing: "open the hela cells image" must feel instant.
+  for (const path of useSpotlight && !matches.some(match => match.kind !== 'folder') ? await spotlightImages(query) : []) {
     if (seen.has(path) || matches.length >= pool) { if (!seen.has(path)) truncated = true; continue; }
     let size = 0;
     try { size = (await stat(path)).size; } catch { continue; }

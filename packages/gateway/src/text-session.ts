@@ -12,6 +12,8 @@ export class TextConversation {
  private readonly backend: ResponsesBackend;
  private readonly fragments: TranscriptFragment[]=[];
  private truncated=false;
+ /** The researcher's word for the current objects ("nuclei" after "find the nuclei"), echoed in later instant answers. */
+ private objectWord:'cells'|'nuclei'='cells';
  private readonly startedAt=Date.now();
  constructor(private runtime:Runtime, client:BackendClient, model:string,private emit:(event:Record<string,unknown>)=>void){
   this.backend=new ResponsesBackend(runtime,client,model,(id,text,outcome?:'failed')=>{
@@ -75,7 +77,8 @@ export class TextConversation {
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
     // Echo the researcher's word: "Finding the nuclei." is answered with nuclei, not cells.
-    const echo=(sentence:string)=>/\bnuclei\b/i.test(route!.reply)?sentence.replace(/\bcells\b/g,'nuclei').replace(/\bcell\b/g,'nucleus'):sentence;
+    if(/\b(?:segment|find|detect|count)/i.test(text)||route.tool.endsWith('_segment_cells'))this.objectWord=/\bnucle/i.test(text)||/\bnuclei\b/i.test(route.reply)?'nuclei':'cells';
+    const echo=(sentence:string)=>this.objectWord==='nuclei'?sentence.replace(/\bcells\b/g,'nuclei').replace(/\bcell\b/g,'nucleus'):sentence;
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);

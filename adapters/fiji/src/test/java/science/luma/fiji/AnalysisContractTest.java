@@ -28,7 +28,7 @@ public final class AnalysisContractTest {
         ij.Prefs.blackBackground = true;
         journal = new Journal(); ops = new Operations(journal); analysis = new Analysis(ops, journal);
         try {
-            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); globalManagerIndices(); centroidScope(); perImageManager(); emptyExistingObjects(); errors(); samples();
+            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); globalManagerIndices(); centroidScope(); retainedManagerMetadata(); perImageManager(); emptyExistingObjects(); errors(); samples();
         } catch (Throwable error) { error.printStackTrace(); System.exit(1); }
         System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats, filter_objects, split_objects): passed");
         System.exit(0);
@@ -309,6 +309,58 @@ public final class AnalysisContractTest {
             expect(num(edt(() -> analysis.regionStats(args)), "n") == 1, "selection count agrees with mask-based segmentation scope");
         }
         System.out.println("PASS filled-mask centroid scope on asymmetric and holed objects, calibrated in mm");
+    }
+    static void retainedManagerMetadata() throws Exception {
+        var manager = ops.manager(); manager.reset();
+        var foreignStack = new ImageStack(240, 160); foreignStack.addSlice(new ByteProcessor(240, 160)); foreignStack.addSlice(new ByteProcessor(240, 160));
+        var imageA = new ImagePlus("retained A", foreignStack); imageA.setDimensions(1, 2, 1); activate(imageA);
+        String[] labels = {"0002-0050-0050", "0001-0040-0040", "hyper manager label"};
+        String[] names = {"unpositioned internal", "linear internal", "hyper internal"};
+        for (int i = 0; i < 3; i++) {
+            var roi = new Roi(5 + i * 20, 5, 10, 10); roi.setName(names[i]); roi.setProperty("retention-case", String.valueOf(i)); Operations.tag(roi, imageA);
+            if (i == 1) roi.setPosition(1); else if (i == 2) roi.setPosition(1, 2, 1);
+            var insertion = (Roi) roi.clone(); insertion.setName(labels[i]); manager.add((ImagePlus) null, insertion, -1); manager.setRoi(roi, i);
+        }
+        var checkpoints = new Checkpoints();
+        var captured = edt(() -> checkpoints.capture(imageA, "A metadata", manager, Operations.results(), ops.counts(imageA)));
+        var checkpoint = checkpoints.require((String) captured.get("id"));
+        var field = PipelineContractTest.nuclei("retained B");
+        var stack = new ImageStack(240, 160); stack.addSlice(field.getProcessor().duplicate()); stack.addSlice(field.getProcessor().duplicate());
+        var imageB = new ImagePlus("retained B", stack); imageB.setDimensions(1, 2, 1); imageB.setCalibration(field.getCalibration().copy()); activate(imageB);
+        edt(() -> { imageB.setPosition(1, 2, 1); return Map.of(); });
+        var args = new JsonObject(); args.addProperty("watershed", false);
+        var segmentation = edt(() -> ops.segmentCells(args));
+        var excluded = (Map<?, ?>) segmentation.get("excluded");
+        expect(num(segmentation, "count") == 9 && ((Number) excluded.get("tiny")).intValue() == 3 && imageB.getCurrentSlice() == 2, "segmentation on B/Z2 exercises foreign retention and artifact-drop reconstruction");
+        assertRetentionMetadata(manager, imageA, labels, names);
+        var filter = new JsonObject(); filter.addProperty("minArea", 20);
+        edt(() -> analysis.filterObjects(filter)); assertRetentionMetadata(manager, imageA, labels, names);
+        var split = new JsonObject(); split.addProperty("x", 48); split.addProperty("y", 130);
+        expect(num(edt(() -> analysis.splitObjects(split)), "split") == 1, "split also retains foreign metadata");
+        assertRetentionMetadata(manager, imageA, labels, names);
+        var imageBEntries = Operations.captureManagerRois(manager).stream().filter(entry -> Operations.belongsTo(entry.roi(), imageB.getID())).toList();
+        for (var roi : manager.getRoisAsArray()) if (String.valueOf(imageA.getID()).equals(roi.getProperty(Operations.ROI_IMAGE_PROPERTY))) { roi.setPosition(2); roi.setName("changed after checkpoint"); }
+        edt(() -> { Checkpoints.restore(checkpoint, imageA, manager); return Map.of(); });
+        assertRetentionMetadata(manager, imageA, labels, names);
+        for (int i = 0; i < imageBEntries.size(); i++) {
+            var expected = imageBEntries.get(i); var actual = manager.getRoi(i);
+            expect(expected.label().equals(manager.getName(i)) && java.util.Objects.equals(expected.roi().getName(), actual.getName()) && expected.roi().getPosition() == actual.getPosition() && expected.roi().getCPosition() == actual.getCPosition() && expected.roi().getZPosition() == actual.getZPosition() && expected.roi().getTPosition() == actual.getTPosition(), "checkpoint restoration leaves other image's labels and planes unchanged");
+            expect(String.valueOf(imageB.getID()).equals(actual.getProperty(Operations.ROI_IMAGE_PROPERTY)), "checkpoint preserves other-image ownership");
+        }
+        System.out.println("PASS exact retained ROI metadata through B/Z2 segmentation, artifact drop, filter, split and own/foreign checkpoint restoration");
+    }
+    private static void assertRetentionMetadata(ij.plugin.frame.RoiManager manager, ImagePlus owner, String[] labels, String[] names) {
+        int found = 0;
+        for (int i = 0; i < manager.getCount(); i++) {
+            var roi = manager.getRoi(i); String key = roi.getProperty("retention-case"); if (key == null) continue;
+            int which = Integer.parseInt(key); found++;
+            expect(labels[which].equals(manager.getName(i)) && names[which].equals(roi.getName()), "retained numeric/custom manager label and independent ROI name unchanged");
+            expect(String.valueOf(owner.getID()).equals(roi.getProperty(Operations.ROI_IMAGE_PROPERTY)), "retained image ownership unchanged");
+            if (which == 0) expect(roi.getPosition() == 0 && !roi.hasHyperStackPosition(), "unpositioned ROI remains position0 while B is on Z2");
+            else if (which == 1) expect(roi.getPosition() == 1 && !roi.hasHyperStackPosition(), "linear Z1 ROI remains linear Z1");
+            else expect(roi.hasHyperStackPosition() && roi.getCPosition() == 1 && roi.getZPosition() == 2 && roi.getTPosition() == 1, "explicit C/Z/T position unchanged");
+        }
+        expect(found == 3, "all three retained metadata cases survive");
     }
     /** After the researcher removes every current-image object, "how many are left?" must answer zero without starting over. */
     static void emptyExistingObjects() throws Exception {

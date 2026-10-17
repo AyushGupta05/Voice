@@ -83,6 +83,21 @@ final class Operations {
     static void tag(Roi roi, ImagePlus owner) { if (roi != null && owner != null) roi.setProperty(ROI_IMAGE_PROPERTY, String.valueOf(owner.getID())); }
     /** Untagged entries (added by the researcher) belong to every image; tagged ones only to theirs. */
     static boolean belongsTo(Roi roi, int imageId) { String tag = roi == null ? null : roi.getProperty(ROI_IMAGE_PROPERTY); return tag == null || tag.isBlank() || tag.equals(String.valueOf(imageId)); }
+    /** An existing manager entry: its list label and ROI name/plane/properties are independent and must round-trip unchanged. */
+    record ManagerRoi(Roi roi, String label) {
+        void appendTo(RoiManager manager) {
+            int index = manager.getCount();
+            var insertion = (Roi) roi.clone(); insertion.setName(label);
+            // addRoi infers a missing plane; rename can infer one from numeric labels. These two APIs do neither.
+            manager.add((ImagePlus) null, insertion, -1); manager.setRoi(roi, index);
+        }
+    }
+    static ManagerRoi captureManagerRoi(RoiManager manager, int index) { return new ManagerRoi((Roi) manager.getRoi(index).clone(), manager.getName(index)); }
+    static List<ManagerRoi> captureManagerRois(RoiManager manager) {
+        var entries = new ArrayList<ManagerRoi>();
+        if (manager != null) for (int i = 0; i < manager.getCount(); i++) entries.add(captureManagerRoi(manager, i));
+        return entries;
+    }
     Map<String, Object> counts(ImagePlus imp) {
         var result = new LinkedHashMap<String, Object>();
         var overlay = imp == null ? null : imp.getOverlay();
@@ -518,10 +533,10 @@ final class Operations {
         for (int r = table.size() - 1; r >= first; r--) if (!keep.contains(r - first)) table.deleteRows(r, r);
         var manager = managerOrNull(); int added = ((Number) result.get("addedToManager")).intValue(); int managerBefore = ((Number) result.get("managerTotal")).intValue() - added;
         if (manager != null && added == count) {
-            var rois = manager.getRoisAsArray(); manager.reset();
-            for (int i = 0; i < managerBefore; i++) manager.addRoi(rois[i]);
-            for (int k : keep) manager.addRoi(rois[managerBefore + k]);
-            for (int i = rois.length - 1; i >= managerBefore + count && i < rois.length; i--) manager.addRoi(rois[i]);
+            var rois = captureManagerRois(manager); manager.reset();
+            for (int i = 0; i < managerBefore; i++) rois.get(i).appendTo(manager);
+            for (int k : keep) rois.get(managerBefore + k).appendTo(manager);
+            for (int i = rois.size() - 1; i >= managerBefore + count && i < rois.size(); i--) rois.get(i).appendTo(manager);
         }
         double total = 0; for (int r = first; r < table.size() && areaColumn >= 0; r++) total += table.getValueAsDouble(areaColumn, r);
         result.put("count", keep.size()); result.put("totalArea", total); result.put("averageSize", keep.isEmpty() ? 0.0 : total / keep.size());
@@ -622,9 +637,8 @@ final class Operations {
             // Replace this image's analysis; keep other images' objects available when the researcher switches back.
             var existing = managerOrNull();
             if (existing != null && existing.getCount() > 0) {
-                var others = new ArrayList<Roi>();
-                for (var roi : existing.getRoisAsArray()) if (!belongsTo(roi, imp.getID())) others.add(roi);
-                existing.reset(); for (var roi : others) existing.addRoi(roi);
+                var others = captureManagerRois(existing).stream().filter(entry -> !belongsTo(entry.roi(), imp.getID())).toList();
+                existing.reset(); for (var entry : others) entry.appendTo(existing);
                 steps.add("replace this image's ROI Manager objects"); macro.add("roiManager(\"reset\");");
             }
             if (results().size() > 0) { results().reset(); steps.add("clear results"); macro.add("run(\"Clear Results\");"); }

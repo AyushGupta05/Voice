@@ -20,7 +20,7 @@ final class Checkpoints {
     static final String SCOPE = "pixels, ROI, overlay, this image's ROI Manager entries, analysis parameters and the Results table; not files, windows, display settings or other images";
 
     record Checkpoint(String id, String label, int imageId, String title, ImageStack stack, int channel, int slice, int frame,
-                      Roi roi, Overlay overlay, Roi[] managerRois, ResultsTable results, Map<String, Object> counts, long bytes, String at, Pipeline pipeline) {}
+                      Roi roi, Overlay overlay, List<Operations.ManagerRoi> managerRois, ResultsTable results, Map<String, Object> counts, long bytes, String at, Pipeline pipeline) {}
 
     private final LinkedHashMap<String, Checkpoint> checkpoints = new LinkedHashMap<>();
 
@@ -36,15 +36,12 @@ final class Checkpoints {
     synchronized Map<String, Object> capture(ImagePlus imp, String label, RoiManager manager, ResultsTable results, Map<String, Object> counts, Pipeline pipeline) {
         long bytes = pixelBytes(imp);
         if (bytes > MAX_BYTES) return skipped(label, counts, "image pixels are " + (bytes >> 20) + " MiB, above the 512 MiB checkpoint cap");
-        ImageStack stack; Roi roi; Overlay overlay; Roi[] rois; ResultsTable table;
+        ImageStack stack; Roi roi; Overlay overlay; List<Operations.ManagerRoi> rois; ResultsTable table;
         try {
             stack = imp.getStack().duplicate();
             roi = imp.getRoi() == null ? null : (Roi) imp.getRoi().clone();
             overlay = imp.getOverlay() == null ? null : imp.getOverlay().duplicate();
-            var managed = manager == null ? new Roi[0] : manager.getRoisAsArray();
-            var mine = new ArrayList<Roi>();
-            for (var entry : managed) if (Operations.belongsTo(entry, imp.getID())) mine.add((Roi) entry.clone());
-            rois = mine.toArray(Roi[]::new);
+            rois = Operations.captureManagerRois(manager).stream().filter(entry -> Operations.belongsTo(entry.roi(), imp.getID())).toList();
             table = results == null ? null : (ResultsTable) results.clone();
         } catch (OutOfMemoryError | RuntimeException error) {
             return skipped(label, counts, "copying failed: " + error.getClass().getSimpleName());
@@ -99,11 +96,10 @@ final class Checkpoints {
         imp.setOverlay(checkpoint.overlay() == null ? null : checkpoint.overlay().duplicate());
         if (manager != null) {
             // Only this image's entries are replaced; other images' ROIs stay in the manager untouched.
-            var others = new ArrayList<Roi>();
-            for (var roi : manager.getRoisAsArray()) if (!Operations.belongsTo(roi, imp.getID())) others.add(roi);
+            var others = Operations.captureManagerRois(manager).stream().filter(entry -> !Operations.belongsTo(entry.roi(), imp.getID())).toList();
             manager.reset();
-            for (var roi : others) manager.addRoi(roi);
-            for (var roi : checkpoint.managerRois()) manager.addRoi((Roi) roi.clone());
+            for (var entry : others) entry.appendTo(manager);
+            for (var entry : checkpoint.managerRois()) entry.appendTo(manager);
         }
         if (checkpoint.results() != null) {
             var table = (ResultsTable) checkpoint.results().clone();

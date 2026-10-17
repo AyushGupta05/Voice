@@ -3,6 +3,15 @@ import {AudioQueue,SpeechSession,spokenReply,isAddressedToLuma,addressed} from '
 // Session-level tests exercise request handling without the wake word; the gate itself is tested directly below.
 process.env.LUMA_WAKE_WORD='off';
 import type {SpeechProvider,SpeechCallbacks} from '../src/aws-speech.js';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {TextConversation} from '../src/text-session.js';
+import {Runtime} from '../src/runtime.js';
+import {Knowledge} from '../src/knowledge.js';
+import {fiji} from '../src/apps/fiji.js';
+import type {AppProfile} from '../src/apps/profile.js';
+import type {BackendClient} from '../src/backend.js';
 const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function fixture(options:{wakeWord?:boolean}={}){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
  const provider:SpeechProvider={transcribe:async(_audio,s,c)=>{callbacks=c;signal=s;c.inputReady();await new Promise<void>(resolve=>{finish=resolve;s.addEventListener('abort',resolve as ()=>void,{once:true});});},speak:async()=>new Uint8Array([0,0,100,0])};
@@ -111,4 +120,67 @@ test('a session with the wake word required ignores overheard talk but engages a
  assert.deepEqual(submitted,['zoom in a little','now show me the positive cells']);
  assert.equal(events.filter(e=>e.type==='voice_ignored').length,1);
  session.stop();
+});
+
+async function until(predicate:()=>boolean){const deadline=Date.now()+2000;while(!predicate()){assert(Date.now()<deadline,'Expected speech conversation event.');await tick();}}
+async function imageSpeechFixture(options:{lookup?:(query:unknown)=>Promise<unknown>;autoApprove?:boolean;client?:BackendClient}={}){
+ const directory=await mkdtemp(join(tmpdir(),'penny-spoken-open-'));const events:any[]=[];const lookups:unknown[]=[];const operations:Array<{name:string;args:unknown}>=[];
+ let callbacks!:SpeechCallbacks,modelCalls=0;
+ const profile:AppProfile={...fiji,settleDialogs:undefined,localTool:input=>input.name==='find_images'?
+  (lookups.push(input.args.query),options.lookup?.(input.args.query)??Promise.resolve({matches:[{kind:'image',name:'hela-cells.tif',path:'/synthetic/hela-cells.tif'}]})):
+  fiji.localTool?.(input)};
+ const runtime=new Runtime({execute:async(name,args)=>{
+  operations.push({name,args});
+  if(name==='context')return{contextKey:'synthetic'};
+  if(name==='open_path')return{image:{title:'hela-cells.tif',width:672,height:512,path:'/synthetic/hela-cells.tif'}};
+  throw new Error(`Unexpected operation ${name}.`);
+ }},new Knowledge(profile),directory,{profile,autoApprove:options.autoApprove??true});
+ const conversation=new TextConversation(runtime,{complete:async(request,signal)=>{modelCalls++;return options.client?.complete(request,signal)??{output:[],output_text:'I could not find that image.'};}},'synthetic',event=>events.push(event));
+ const provider:SpeechProvider={transcribe:async(_audio,signal,value)=>{callbacks=value;value.inputReady();await new Promise<void>(resolve=>signal.addEventListener('abort',()=>resolve(),{once:true}));},speak:async()=>new Uint8Array([0,0])};
+ const session=new SpeechSession(provider,conversation,event=>events.push(event),()=>{});
+ session.start();await tick();
+ return{session,events,lookups,operations,runtime,get modelCalls(){return modelCalls;},say:(text:string)=>callbacks.transcript({id:'open',text,partial:false}),clean:async()=>{session.stop();await session.settled();await rm(directory,{recursive:true,force:true});}};
+}
+
+test('a recognized spoken image name uses TextConversation image lookup and opens the exact file without a model round',async()=>{
+ const f=await imageSpeechFixture({lookup:async()=>({matches:[{kind:'folder',path:'/synthetic/folder'},{kind:'project',path:'/synthetic/project'},{kind:'image',name:'hela-cells.tif',path:'/synthetic/hela-cells.tif'}]})});
+ try{
+  f.say('Penny, open the hela cells image.');await until(()=>f.events.some(event=>event.type==='text_result'));
+  assert.deepEqual(f.lookups,['hela cells']);assert.equal(f.modelCalls,0);
+  assert.deepEqual(f.operations.filter(operation=>operation.name==='open_path'),[{name:'open_path',args:{path:'/synthetic/hela-cells.tif'}}]);
+  const result=f.events.find(event=>event.type==='text_result');assert.equal(result.fastPath,true);assert.equal(result.text,'Opened hela cells, 672 by 512.');assert.equal(result.outcome,undefined);
+  assert.equal([...f.runtime.actions.values()][0]?.decidedBy,'policy');
+ }finally{await f.clean();}
+});
+
+test('spoken image lookup with no image match or a lookup failure falls back to the model without an empty-path open',async()=>{
+ for(const lookup of [async()=>({matches:[{kind:'folder',path:'/synthetic/folder'}]}),async()=>{throw new Error('Local image discovery unavailable.');}]){
+  const f=await imageSpeechFixture({lookup});
+  try{
+   f.say('Penny, open the missing image.');await until(()=>f.events.some(event=>event.type==='text_result'));
+   assert.equal(f.lookups.length,1);assert.equal(f.modelCalls,1);assert(!f.operations.some(operation=>operation.name==='open_path'));
+   const result=f.events.find(event=>event.type==='text_result');assert.equal(result.text,'I could not find that image.');assert.equal(result.fastPath,undefined);
+  }finally{await f.clean();}
+ }
+});
+
+test('barge-in while a spoken image lookup is pending prevents late image opening and model fallback',async()=>{
+ let release!:(value:unknown)=>void;
+ const f=await imageSpeechFixture({lookup:()=>new Promise(resolve=>{release=resolve;})});
+ try{
+  f.say('Penny, open the hela cells image.');await until(()=>f.lookups.length===1);f.session.interrupt();
+  release({matches:[{kind:'image',path:'/synthetic/hela-cells.tif'}]});await tick();await tick();
+  assert.equal(f.modelCalls,0);assert(!f.operations.some(operation=>operation.name==='open_path'));
+  assert(!f.events.some(event=>event.type==='text_result'||event.type==='text_error'));assert.equal(f.runtime.actions.size,0);
+ }finally{await f.clean();}
+});
+
+test('spoken image opening under review policy keeps the exact path pending for a human rather than using the instant route',async()=>{
+ const f=await imageSpeechFixture({autoApprove:false,client:{complete:async()=>({output:[{type:'function_call',call_id:'review-open',name:'fiji_open_path',arguments:'{"path":"/synthetic/hela-cells.tif"}'}]})}});
+ try{
+  f.say('Penny, open the hela cells image.');await until(()=>f.events.some(event=>event.type==='text_progress'));
+  assert.equal(f.lookups.length,0);assert.equal(f.modelCalls,1);assert(!f.operations.some(operation=>operation.name==='open_path'));
+  const action=[...f.runtime.actions.values()][0];assert.equal(action?.status,'pending');assert.deepEqual(action?.arguments,{path:'/synthetic/hela-cells.tif'});
+  f.session.interrupt();await tick();assert.equal(action.status,'pending');assert(!f.events.some(event=>event.type==='text_result'));
+ }finally{await f.clean();}
 });

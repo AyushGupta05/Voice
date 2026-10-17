@@ -8,6 +8,7 @@ The current Fiji profile has 68 tools and 57 bridge operations. An isolated copy
 - Segmentation summaries use the selected source channel's original pixels. Folder replay preserves the source channel/plane and generalisable corrections; hand edits and a source-only selection are explicitly reported as not replayed.
 - Checkpoints restore the active image's structured workflow parameters alongside pixels, ROIs and results. Files, closed images and arbitrary script effects remain outside recovery.
 - Spoken Stop cancels the current conversation and pending reply audio. Short refinements are accepted; long actions acknowledge before execution; failures carry explicit outcome metadata and appear as errors in the native bar.
+- One-step image opening resolves local matches; instant descriptions report the current dimensions, channel colours, stack/time metadata and exact calibration. Spoken names shorten file accessions while the application retains the original image identity.
 - Native builds and offline UI contracts pass. Foreground inspection and a fresh physical microphone/speaker check require an unlocked Mac; synthetic audio through actual Transcribe/Fiji/Polly is recorded separately.
 
 ## QuPath capability matrix

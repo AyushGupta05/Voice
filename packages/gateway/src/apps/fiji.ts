@@ -292,24 +292,26 @@ export function describeImage(context: unknown): string | undefined {
   const cal = image.calibration as { pixelWidth?: unknown; unit?: unknown } | undefined, unit = typeof cal?.unit === 'string' ? cal.unit : 'pixel', px = finite(cal?.pixelWidth);
   const parts: string[] = [];
   const rgb = image.type === 'COLOR_RGB' || depth === 24;
-  parts.push(`${friendlyName(String(image.title ?? 'This image'), image.path)}: ${width} by ${height}${rgb ? ', RGB colour, like a stained section' : depth ? `, ${depth}-bit` : ''}`);
+  parts.push(`${friendlyName(String(image.title ?? 'This image'), image.path)}: ${width} by ${height}${rgb ? ', RGB colour' : depth ? `, ${depth}-bit` : ''}`);
   if (channels.length > 1) {
     const colours = channels.map(channel => lutWords[String(channel.lut)] ?? String(channel.lut ?? 'grey'));
     const list = colours.length > 2 ? `${colours.slice(0, -1).join(', ')} and ${colours.at(-1)}` : colours.join(' and ');
-    parts.push(`${channels.length} channels, ${list}${colours.includes('blue') ? '; blue is usually the nuclear stain' : ''}`);
+    parts.push(`${channels.length} channels, ${list}`);
   } else if (!rgb) parts.push('one channel');
   if (frames > 1) parts.push(`a time-lapse of ${frames} frames`);
   if (slices > 1) parts.push(`a ${slices}-slice z-stack`);
-  if (px !== undefined && !/^pixels?$/i.test(unit)) parts.push(`${round(px)} ${unit === 'micron' ? 'microns' : unit} per pixel`);
+  if (px !== undefined && !/^pixels?$/i.test(unit)) parts.push(`${px} ${unit === 'micron' ? 'microns' : unit} per pixel`);
   const objects = finite(c?.counts?.roiManagerForImage ?? c?.counts?.roiManager);
   if (objects) parts.push(`${objects} objects outlined`);
-  return `${parts.join('; ')}.`;
+  const sentence = `${parts.join('; ')}.`;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const said = cleanUtterance(text);
   // "Open the hela cells image" opens the best local match in one step (the host resolves imageQuery); digits come from the raw words.
-  const raw = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
-  const opening = raw.match(/^(?:(?:hey )?(?:fiji|penny)\s+)?(?:please |can you |could you )?(?:open|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
+  // Transcribe often writes "open" as "opened" and plurals as possessives ("cell's").
+  const raw = text.toLowerCase().replace(/'s\b/g, 's').replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
+  const opening = raw.match(/^(?:(?:hey )?(?:fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
   if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:blobs|a|an|new)\b/.test(opening[1]) && opening[1].length >= 2)
     return { tool: 'fiji_open_path', arguments: {}, reply: 'Opening it.', imageQuery: opening[1] };
   const image = (context as { image?: { slices?: unknown; position?: { slice?: unknown } } } | undefined)?.image;

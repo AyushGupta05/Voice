@@ -394,10 +394,7 @@ final class Macros {
             if (manager != null) {
                 if (manager != current) manager.reset();
                 for (int i = 0; i < rois.length; i++) {
-                    // addRoi infers a missing plane from the current image; rename may infer one from a numeric label.
-                    // This insertion path keeps the list label separate, then restores the exact original ROI metadata.
-                    var insertion = (Roi) rois[i].clone(); insertion.setName(labels[i]);
-                    manager.add((ImagePlus) null, insertion, -1); manager.setRoi(rois[i], i);
+                    new Operations.ManagerRoi(rois[i], labels[i]).appendTo(manager);
                 }
                 manager.setSelectedIndexes(selected);
             }

@@ -843,15 +843,16 @@ final class Analysis {
     /** Rewrites this image's ROI Manager entries and its overlay with the given objects, numbered in order; other images' entries stay, first and unchanged. */
     private static void replaceManager(ImagePlus imp, RoiManager manager, Roi[] processed, List<Roi> rois) {
         var replaced = Collections.newSetFromMap(new IdentityHashMap<Roi, Boolean>()); replaced.addAll(Arrays.asList(processed));
-        var others = new ArrayList<Roi>();
-        for (var roi : manager.getRoisAsArray()) if (!replaced.contains(roi)) others.add(roi);
+        var others = new ArrayList<Operations.ManagerRoi>();
+        var current = manager.getRoisAsArray();
+        for (int i = 0; i < current.length; i++) if (!replaced.contains(current[i])) others.add(Operations.captureManagerRoi(manager, i));
         manager.reset();
-        for (var roi : others) manager.addRoi(roi);
+        for (var entry : others) entry.appendTo(manager);
         var overlay = new Overlay();
         for (int i = 0; i < rois.size(); i++) {
             Roi roi = rois.get(i); roi.setName(String.format(Locale.ROOT, "Cell %d", i + 1));
             if (roi.getStrokeColor() == null) roi.setStrokeColor(Color.CYAN);
-            manager.addRoi(roi);
+            if (replaced.contains(roi)) new Operations.ManagerRoi(roi, roi.getName()).appendTo(manager); else manager.addRoi(roi);
             var copy = (Roi) roi.clone(); overlay.add(copy);
         }
         imp.setOverlay(overlay);
