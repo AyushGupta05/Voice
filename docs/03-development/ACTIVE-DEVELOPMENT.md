@@ -91,7 +91,7 @@ Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIE
 | M2 Modern workspace (hosted canvas, menus, panels) | **Done** on the stub engine; real-engine wiring pending M1 | 130 tests pass; screenshots `fidelis-agent-ui/fidelis-app/build/shots/w2–w4.png` inspected by agent and lead; DPI scale 1.5 crisp |
 | M3 ROIs and results | Not started | |
 | M4 Macros and history | Not started | |
-| M5 Speech and NL | **Core done** (services + tests); UI wiring pending (M2) | 129 tests pass on the integration branch; eval 103/103, 0 unsafe; fixture transcribes; live microphone unverified (needs a person) |
+| M5 Speech and NL | **Done except live-microphone verification** | 159 tests pass on the integration branch; eval 124/124 incl. the 10 J-12 demo phrases, 0 unsafe; worker restarts after a kill; fixture transcribes; live microphone needs a person |
 | M6 End-to-end demo (J-12 cell counting) | Not started | |
 | M7 Hardening | Not started | |
 
