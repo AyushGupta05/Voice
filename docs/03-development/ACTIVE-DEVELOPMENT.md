@@ -70,6 +70,18 @@ Rules: never write outside your ownership; never run two Fiji JVMs from the same
 always `--isolated-home` / test.py; never modify `C:\Users\arnav\Documents\dev\Fiji`; commit on your
 own branch only; the lead merges.
 
+## Active agents (started 2026-10-17 ~12:20, all Sonnet 5.5 high effort, background)
+
+| Agent | Status | Branch | Task |
+|---|---|---|---|
+| A1 Engine | running | `agent/engine` | E1–E7: DefaultEngine, catalogue/schemas, R1 execution with postconditions and dialog watch, observation, ROI Manager singleton bridge, globals, snapshot undo, history/macro export, engine tests |
+| A2 UI | running | `agent/ui` | Workspace per D12 W-1 with hosted real IJ1 canvases (EXP-01 S3), Fiji menu bar from `Menus.getMenuBar()`, tool palette, command bar + proposal sheet, parameters/ROI/results/history/log/activity panels, status read-out, themes, `--screenshot` flag, UI test |
+| A3 Voice/NL | running | `agent/voice` | `speech/server.py` persistent worker + `WhisperSpeechService`; `DefaultNlService` (grammar + catalogue retrieval + deterministic validator/policy); eval set ≥30 cases; tests |
+| A4 Verify | running | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
+| Spike (prior session) | running | `spike/architecture-gate` | EXP-02…05 (do not touch) |
+
+Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
+
 ## Milestones
 
 | Milestone | Status | Evidence |
