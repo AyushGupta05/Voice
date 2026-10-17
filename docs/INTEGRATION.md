@@ -55,9 +55,14 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 ### Verification status (bridge, 17 Oct 2026, macOS arm64)
 
-- Engine change for review (Arnav): `DefaultEngine.runOp` refuses a request whose reserved `expectedHistorySize` no
-  longer matches the history (PRECONDITION_FAILED, `STATE_CHANGED`), `Options.RESERVED` lists the key, and
-  `CommandRunner.runLegacy` ignores reserved keys instead of refusing them; opt-in, requests without the key unchanged.
+- Engine changes for review (Arnav), all opt-in (requests without the new keys behave as before):
+  `DefaultEngine.runOp` refuses a request whose reserved `expectedHistorySize` no longer matches the history
+  (PRECONDITION_FAILED, `STATE_CHANGED`) and `Options.RESERVED` lists the key; `CommandRunner.runLegacy` ignores
+  reserved keys instead of refusing them; `DirectOps` applies an explicit TargetScope plane to threshold/display
+  operations and accepts `ROI_LIST_ADD {fromDocument, replace}` (copy another document's ROI list).
+- segment_cells now works on a duplicate (`<title>-mask`) and copies the objects to the original's ROI list, so the
+  original keeps its pixels and `measure {scope:"rois"}` reads the real signal (the gateway's request; it matches
+  stand-alone Penny Fiji). `context.document.binary` is true for a mask.
 - Implemented: the 28 operations of the contract plus `dialog` and `dialog_action` (any catalogue command through Penny,
   its original Fiji dialog filled or cancelled through the bridge).
 - Protocol-tested (`python3 -I fidelis-app/tools/test.py --select-class …`, JUnit in a live Fiji JVM with the product
@@ -66,14 +71,15 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   confirmation, discarded plans, `confirm=always`, highlight geometry),
   `PennyCatalogueTest` (5: every hard-coded catalogue id with its schema, recipe provenance, explicit `true` defaults,
   the value-aware `black` rule, operation names), `FidelisBridgeJourneyTest` (6: the Blobs voice journey over HTTP; the
-  exported macro replayed in plain ImageJ gives the same 67 objects and 21886 px²; `undo {steps: undoSteps}` restores the
-  original pixels; segmenting again with Li replaces the Otsu segmentation and matches Li on a fresh copy, 68; per-ROI
+  exported macro replayed in plain ImageJ gives the same 67 objects and 21886 px²;  segment_cells leaves the original untouched and makes a binary mask; Li after Otsu matches Li on a
+  fresh copy, 68; per-ROI
   measurements on a 3-slice stack use each ROI's plane, 62.0 and 162.0 as read from the pixels; a second Analyze Particles
   replaces the ROI list), `FidelisCatalogueWalkTest` (3: 36 catalogue commands across File/Edit/Image/Process/Analyze/
   Plugins complete, stop at their dialog and cancel cleanly, or are refused with a reason, none hangs; Variance… filled and
   pressed OK through `dialog_action`; `commands` finds TrackMate, Bio-Formats Importer, Coloc 2, 3D Objects Counter,
-  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 25 tests, 0 failed (FidelisBridgeTest
-  gained the execution-binding test: a workspace action queued before step 3 stops the plan there). With the NL, UI-confirmation
+  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 27 tests, 0 failed (FidelisBridgeTest
+  includes the execution-binding test, a workspace action queued before step 3 stops the plan there, and the
+  competing-analysis test, a workspace Analyze Particles right after Penny's stops the plan before it copies objects). With the NL, UI-confirmation
   and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
   installed on this Mac). Full suite (`test.py`, all classes, before the last two bridge fixes): 412 tests, 6 failed, none
   in or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
@@ -92,10 +98,14 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   the code, accepted and fixed with tests. The third reported 5 (3 P1: segmentation replacement must check the undo
   history, the context binding must hold at execution, reads must not call ImageJ's side-effecting getters; 2 P2: ROI
   planes resolved against the starting plane, `object_stats` with an empty latest population); all accepted and fixed
-  (pre-step foreign-operation wait and history check, plane pinning, `LiveRead`, the replacement allow-list). The fourth
+  (pre-step foreign-operation wait and history check, plane pinning, `LiveRead`, a replacement allow-list later superseded
+  when segment_cells moved to a duplicate). The fourth
   reported 5 (2 P1: the approval must hold when the engine dequeues a step, and the history cursor must be taken before
   submission; 3 P2: dialog answers bound to their dialog, the cancel marker set before the press, the smoke exit status);
   all accepted and fixed, the first with an opt-in engine check (`expectedHistorySize`, subcode `STATE_CHANGED`) that
-  the engine owner should review.
+  the engine owner should review. The fifth reported 6 (3 P1: the step baseline taken before validation, undo
+  snapshot identities for the automatic replacement, plane binding of threshold/display steps; 3 P2: statistics after a
+  competing action, failures without a record, queued EDT edits after a timeout); all accepted and fixed (the
+  replacement finding was resolved by segmenting a duplicate, which needs no undo at all).
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.
