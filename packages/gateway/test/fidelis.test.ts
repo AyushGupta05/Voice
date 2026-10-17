@@ -15,6 +15,7 @@ import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/brid
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
 import { Runtime } from '../src/runtime.js';
+import { SpeechSession } from '../src/speech-session.js';
 import { Knowledge } from '../src/knowledge.js';
 import { TextConversation } from '../src/text-session.js';
 import { toolTask, toolUtterance, conversationEnvelope } from '../src/tool-request.js';
@@ -259,7 +260,8 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(fidelis.acknowledgmentFor('fidelis_context', {}, {}), undefined);
   assert.equal(describeDocument({ document: { title: 'hela-cells.tif', width: 672, height: 512, channels: 3, slices: 1, frames: 1, bitDepth: 16, unit: 'micron', pixelWidth: 0.08, pixelHeight: 0.08 }, counts: { rois: 12 } }),
     'Hela cells: 672 by 512, 16-bit; 3 channels; 0.08 microns per pixel; 12 objects outlined.');
-  for (const yes of ['Yes.', 'yes please', 'Okay, go ahead and run it.', 'confirm', 'yeah do it']) assert.equal(researcherAssents(yes), true, yes);
+  for (const yes of ['Yes.', 'yes please', 'Okay, go ahead, run it.', 'confirm', 'yeah do it', 'Yes, go ahead, thanks.']) assert.equal(researcherAssents(yes), true, yes);
+  for (const qualified of ['yes, if you use the original pixels', 'confirm whether the image is calibrated', 'go ahead and measure it first']) assert.equal(researcherAssents(qualified), false, qualified);
   for (const other of ['okay', 'no', "yes but don't", 'Yes, but don\u2019t run it yet.', 'yes dont', 'yes wait', 'yes, later', 'invert it with a macro', '', undefined]) assert.equal(researcherAssents(other), false, String(other));
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', minSize: 40, watershed: false, channel: 2 }, 'find the nuclei'), {}, 'unrequested tuning is dropped');
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', channel: 2 }, 'segment the green channel with triangle'), { method: 'Triangle', channel: 2 });
@@ -544,4 +546,35 @@ test('readiness uses the operations a newer bridge reports in context.adapter wi
     assert.equal(bridge.healthHeaders.length, 0, 'no /health request');
     assert.equal(context.adapterReadiness.status, 'restart_required'); assert.deepEqual(context.adapterReadiness.missingOperations, ['dialog', 'dialog_action']);
   } finally { await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('a spoken "cancel" consumed as barge-in still discards a waiting plan, and never reaches the model', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-stopword-'));
+  const bridge = await fakeBridge(root, engine());
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  let modelRounds = 0;
+  const { conversation: talk, result } = conversation(runtime, { complete: async () => { modelRounds++; throw new Error('no model round expected'); } });
+  try {
+    // The voice transport hands the stop word to control() after interrupting; with nothing pending it does nothing.
+    await talk.control('Cancel that.');
+    assert.equal(modelRounds, 0); assert.ok(!bridge.requests.some(request => request.operation === 'cancel_plan'));
+    bridge.state.context = { ...bridge.state.context, contextKey: 'k-wait', pending: { planId: 'plan-run_macro', reasons: ['code'] } };
+    await talk.control('Cancel that.');
+    const cancel = bridge.requests.find(request => request.operation === 'cancel_plan')!;
+    assert.deepEqual(cancel.arguments, { planId: 'plan-run_macro' }); assert.equal(cancel.expectedContext, 'k-wait');
+    assert.equal(result()!.text, 'Cancelled; nothing ran.'); assert.equal(modelRounds, 0);
+    // QuPath and Fiji conversations ignore control words, as before.
+    const fijiRuntime = new Runtime({ execute: async () => { throw new Error('no bridge call expected'); } }, new Knowledge(fiji), join(root, '.local/fiji-state'), { profile: fiji });
+    const fijiTalk = new TextConversation(fijiRuntime, { complete: async () => { throw new Error('no model round expected'); } }, 'synthetic', () => {});
+    await fijiTalk.control('stop');
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+  // The speech session routes a final "cancel" to control(), not to submit().
+  const controls: string[] = [], submits: string[] = []; let callbacks!: { transcript: (value: { id: string; text: string; partial: boolean }) => void; listening: () => void; inputReady: () => void };
+  const session = new SpeechSession({ transcribe: async (_audio, signal, c) => { callbacks = c as typeof callbacks; c.inputReady(); await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true })); }, speak: async () => new Uint8Array([0, 0]) },
+    { submit: async text => { submits.push(text); }, stop: () => {}, control: async text => { controls.push(text); } }, () => {}, () => {}, 1_800_000, { wakeWord: false });
+  session.start(); await new Promise(resolve => setImmediate(resolve));
+  callbacks.transcript({ id: 'c1', text: 'Cancel that.', partial: false });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(controls, ['Cancel that.']); assert.deepEqual(submits, []);
+  session.stop(); await session.settled();
 });

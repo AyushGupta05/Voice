@@ -76,10 +76,13 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
   `fidelis_confirm {planId}` at once, and "no", "cancel", "stop that", "don't run it", "never mind" runs
   `fidelis_cancel_plan {planId}`. Without a pending plan these words go to the model. A bare "okay" never confirms.
 - Only the researcher confirms: `fidelis_confirm` is refused ("Only the researcher can confirm this plan: say "yes" or
-  press Confirm in Fidelis.") unless the latest words of the conversation task are an unambiguous assent ("yes…",
-  "go ahead…", "confirm…", with no negation or qualification such as "but", "wait", "don't", typographic apostrophes
-  included), so neither the model on its own nor a direct `/tools/call` or MCP client can confirm. A typed "yes"
+  press Confirm in Fidelis.") unless the latest words of the conversation task are, as a whole, an assent in the same
+  grammar as the instant route ("yes", "yes please", "okay, go ahead, run it", "confirm"); "yes, if…" or "confirm
+  whether…" are not. Neither the model on its own nor a direct `/tools/call` or MCP client can confirm. A typed "yes"
   reaches the model, which may then confirm; the Fidelis card's own Confirm never passes through Penny.
+- Spoken "stop", "cancel" or "cancel that" is consumed by the voice transport as barge-in; for Fidelis
+  (`controlRoutes`) it is then offered to the instant routes only, so it cancels a waiting plan and otherwise does
+  nothing more (it never reaches the model).
 - The assent belongs to the plan that was pending when those words arrived (the request's first observation): if
   another plan replaced it since, the confirm is refused ("The plan changed after you said yes; check the new plan and
   say yes again."). The gateway fills `planId` from that plan and refuses one that is no longer pending, or "Nothing is

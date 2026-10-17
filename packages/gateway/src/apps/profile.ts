@@ -62,6 +62,9 @@ export type AppProfile = {
   /** Instant routes are dispatched bound to the context they were chosen from: a changed contextKey refuses the route
    * before dispatch, and view operations carry it as `expectedContext` (a "no" meant for one plan never cancels another). */
   bindInstantRoutes?: boolean;
+  /** Spoken stop words ("stop", "cancel that"), which the voice transport consumes as barge-in, are also offered to this
+   * profile's instant routes (Fidelis: cancel a waiting plan); without a route nothing else happens. */
+  controlRoutes?: boolean;
   fastRoute(text: string, context: unknown): FastRoute | undefined;
   acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined;
   /** `context` is the application observation the call was dispatched from, when the host has it. */

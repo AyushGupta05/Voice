@@ -27,7 +27,10 @@ export class TextConversation {
   const offset=Date.now()-this.startedAt;this.fragments.push({role,text,startMs:offset,endMs:offset});
   while(this.fragments.length>128||this.fragments.reduce((sum,item)=>sum+item.text.length,0)>24_000){this.fragments.shift();this.truncated=true;}
  }
- async submit(text:unknown,spoken=false){
+ /** A spoken stop word the voice transport consumed as barge-in ("stop", "cancel that"): offered to the profile's instant
+  * routes when it declares `controlRoutes` (Fidelis cancels a waiting plan), never to the model. */
+ async control(text:string){if(this.runtime.profile.controlRoutes)await this.submit(text,true,{instantOnly:true});}
+ async submit(text:unknown,spoken=false,options:{instantOnly?:boolean}={}){
   if(typeof text!=='string'||!text.trim()||text.length>4000)throw new Error('Enter a message of 1–4000 characters.');
   this.active?.controller.abort();
   const active:Active={id:randomUUID(),controller:new AbortController(),answered:false};this.active=active;
@@ -115,6 +118,8 @@ export class TextConversation {
     this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true,...(failed?{outcome:'failed'}:{})});
     return;
    }
+   // A control word without an instant route ends here: nothing is sent to the model.
+   if(options.instantOnly)return;
    await this.backend.run({id:active.id,spoken,
     acknowledge:text=>{if(this.active===active&&!active.controller.signal.aborted)this.emit({type:'text_ack',taskId:active.id,text});},offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
     conversation:()=>({fragments:structuredClone(this.fragments),truncated:this.truncated}),

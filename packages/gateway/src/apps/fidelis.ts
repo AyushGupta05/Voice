@@ -201,7 +201,7 @@ export function describeDocument(context: unknown): string | undefined {
   const sentence = `${parts.join('; ')}.`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
-const confirmWords = /^(?:(?:yes|yeah|yep|yup|sure)(?: please)?(?: (?:go ahead|do it|run it|go|confirm|proceed|thanks|thank you))?|go ahead|go for it|do it|run it|confirm(?: it| that| the plan)?|confirmed|proceed|confirm and run)$/;
+const confirmWords = /^(?:(?:yes|yeah|yep|yup|sure)(?: please)?(?: (?:go ahead|do it|run it|go|confirm|proceed))?(?: (?:go ahead|do it|run it))?(?: thanks| thank you)?|(?:go ahead|go for it|do it|run it|proceed)(?: (?:go ahead|do it|run it))?(?: please)?|confirm(?: it| that| the plan)?|confirmed|confirm and run)$/;
 const cancelWords = /^(?:no|nope|nah|no thanks|no thank you|cancel(?: it| that| this| the plan)?|no cancel(?: it| that)?|stop(?: that| it)?|don't(?: run it| do it| do that)?|do not run it|no don't|never ?mind|forget it)$/;
 /** Whole-utterance instant routes: confirm or cancel a pending plan, open, describe, zoom, count, brightness, find the nuclei, slices, undo and redo. */
 /** Typographic apostrophes and quotes as ASCII, so "don’t" reads like "don't" (cleanUtterance keeps only ASCII ones). */
@@ -309,12 +309,10 @@ function modelArguments(name: string, args: Record<string, unknown>, utterance: 
   }
   return kept;
 }
-/** The researcher's own latest words assent to a plan ("yes", "go ahead, run it"); any negation or qualification
- * ("but", "wait", "don’t", "dont") refuses, so only an unambiguous assent confirms. */
+/** The researcher's own latest words are, as a whole, an assent to the plan ("yes", "yes please", "okay, go ahead, run
+ * it", "confirm"): the same grammar as the instant "yes" route. Anything more ("yes, if…", "confirm whether…") is not. */
 export function researcherAssents(utterance: string | undefined): boolean {
-  const said = cleanUtterance(asciiApostrophes(utterance ?? ''));
-  return /^(?:yes|yeah|yep|yup|sure|go ahead|go for it|do it|run it|confirm|confirmed|proceed)\b/.test(said)
-    && !/\b(?:no|not|nope|don't|dont|do not|doesn't|won't|wont|can't|cant|shouldn't|cancel|stop|wait|never|hold|but|except|instead|unless|later)\b/.test(said);
+  return confirmWords.test(cleanUtterance(asciiApostrophes(utterance ?? '')));
 }
 /** `fidelis_confirm` runs an explicit plan, which only the researcher may approve (docs/FIDELIS-PROTOCOL.md,
  * Confirmation): it is refused unless the latest words of the conversation task are the researcher's assent, so neither
@@ -340,7 +338,7 @@ export const fidelis: AppProfile = {
   // Fidelis is built by its own tools; there is no separate bridge artifact or build manifest (bridgeIdentity 'operations').
   launcherScript: './script/run-fidelis.sh', bridgeJar: 'fidelis-app/build/fidelis-app.jar', buildManifest: '', buildScript: 'python3 -I fidelis-app/tools/build.py --no-tests',
   doctorArtifacts: [['fidelis-app/build/fidelis-app.jar', 'Fidelis build'], ['.local/fiji/Fiji.app/jars', 'Fiji runtime for Fidelis']],
-  bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true,
+  bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true, controlRoutes: true,
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),

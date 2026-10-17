@@ -20,7 +20,9 @@ export function spokenReply(text:string){
  const sentence=clean.match(/^.{1,200}?[.!?](?:\s|$)/u)?.[0]?.trim();
  return sentence?sentence+' More details are on screen.':'The result is ready on screen.';
 }
-export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<void>;stop:()=>void};
+export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<void>;stop:()=>void;
+ /** A stop word after its barge-in, for a profile whose instant routes act on it (Fidelis: "cancel" discards a waiting plan). Never reaches the model. */
+ control?:(text:string)=>Promise<void>};
 const wordCount=(text:string)=>text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean).length;
 /** Short commands worth acting on even as one or two words; anything else that short is treated as room chatter. */
 const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|(?:stop|cancel)(?: (?:that|it))?|undo(?: that)?|go back|redo|yes|no|stricter|tighter|looser|brighter|lighter|darker|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
@@ -110,7 +112,7 @@ export class SpeechSession{
   this.engage();
   // Stop is a transport control, not a scientific request. Interruption above already stopped the task
   // and playback; sending it to the model could start fresh work or synthesize an obsolete result.
-  if(STOP_COMMAND.test(decision.request))return;
+  if(STOP_COMMAND.test(decision.request)){void this.conversation.control?.(decision.request).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});return;}
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
   void this.conversation.submit(decision.request,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }
