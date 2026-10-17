@@ -77,7 +77,7 @@ own branch only; the lead merges.
 | A1 Engine | running | `agent/engine` | E1–E7: DefaultEngine, catalogue/schemas, R1 execution with postconditions and dialog watch, observation, ROI Manager singleton bridge, globals, snapshot undo, history/macro export, engine tests |
 | A2 UI | **merged** 13:15 (cb016b9) | `agent/ui` | Workspace per D12 W-1 with hosted real IJ1 canvases (EXP-01 S3), Fiji menu bar from `Menus.getMenuBar()`, tool palette, command bar + proposal sheet, parameters/ROI/results/history/log/activity panels, status read-out, themes, `--screenshot` flag, UI test |
 | A3 Voice/NL | **merged** 13:05 (7f046e0, 2b42cdc, db9093b) | `agent/voice` | `speech/server.py` persistent worker + `WhisperSpeechService`; `DefaultNlService` (grammar + catalogue retrieval + deterministic validator/policy); eval set ≥30 cases; tests |
-| A4 Verify | running | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
+| A4 Verify | **merged** 13:40 (395275b) | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
 | Spike (prior session) | **finished** 12:50 | `spike/architecture-gate` (pushed) | EXP-01…05 PASS/INCONCLUSIVE per `spikes/arch-gate/README.md`; EXP-06 script only (NOT RUN) |
 
 Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
@@ -111,9 +111,19 @@ Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIE
 - Shutdown: close images, then `context.dispose()` (1.45 s) or `IJ.getInstance().quit()` (0.44 s); never bare `System.exit` with documents open.
 - Native canvas paint 0.14–1.7 ms median at 2048²; IJ1 caches the converted image.
 
+## Scientific baselines (A4; `verification/baselines/**`, `docs/03-development/VERIFICATION-RESULTS.md`)
+
+J-12 reference values from the pinned Fiji (GUI mode authoritative; headless cross-check exact on E1/E3/E5/E6):
+- Blobs (Otsu dark): Area 65024, Mean 155.9435746801181, IntDen 10140075; Analyze Particles 71 particles, 61.15 % area.
+- two-squares: Area 4096, Mean 30.87890625; 2 particles (192, 304).
+- BBBC001 A03f00d0: 345 particles (manual counts 350/362, reported only). BBBC004 1GRAY: 300 (ground truth 300, reported only).
+Fixtures are cached (git-ignored) in `fixtures/cache/` (copy from `fidelis-agent-verify` or run `verification/fetch_fixtures.py`).
+
 ## Known failures / open issues
 
-- Test JVM exit: fixed by `ExitListener` (dispose with bound, then halt); verify after rebuild.
+- Lock-file hash: the prototype's `verify_runtime` returns the SHA-256 of `external/fiji.lock.json` *as checked out* — `f6695397…` in the original CRLF checkout, `9403b619…` in fresh LF clones. The runtime inventory check itself passes in both; the documentation's `f6695397…` denotes the same pin. Baselines are keyed by `9403b619…`.
+- Threshold polarity matters: on Blobs (inverting LUT) `Otsu dark` → 71 particles, plain `Otsu` → 66. The UI must show the overlay before the user commits.
+- Test JVM exit: fixed by `ExitListener`.
 
 ## Contract changes
 
