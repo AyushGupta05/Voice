@@ -213,31 +213,29 @@ public final class Pipeline {
         var image = imp == null ? null : imp.getWindow();
         if (window != null && image != null) {
             var screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            var b = image.getBounds(); int w = window.getWidth(), h = window.getHeight(), gap = 10;
-            int clampY = Math.max(screen.y, Math.min(b.y, screen.y + screen.height - h)), clampX = Math.max(screen.x, Math.min(b.x, screen.x + screen.width - w));
-            // Beside the image if there is room (right, left), else below or above it; never on top of the cells.
-            java.awt.Point[] candidates = { new java.awt.Point(b.x + b.width + gap, clampY), new java.awt.Point(b.x - w - gap, clampY),
-                new java.awt.Point(clampX, b.y + b.height + gap), new java.awt.Point(clampX, b.y - h - gap) };
-            java.awt.Point chosen = null;
-            for (var c : candidates) if (screen.contains(new java.awt.Rectangle(c.x, c.y, w, h))) { chosen = c; break; }
-            if (chosen == null) {
-                // No full-size free side: shrink into the widest free column beside the image (charts and tables reflow).
-                int right = screen.x + screen.width - (b.x + b.width + gap), left = b.x - gap - screen.x;
-                int room = Math.max(right, left);
+            var taken = new ArrayList<java.awt.Rectangle>(); taken.add(image.getBounds());
+            for (var other : java.awt.Window.getWindows()) if (other != window && other != image && other.isShowing() && isSideWindow(other)) taken.add(other.getBounds());
+            var spot = freeSpot(image.getBounds(), window.getWidth(), window.getHeight(), taken, screen);
+            if (spot == null) {
+                // No full-size free slot: shrink into the widest free column beside the image (charts and tables reflow).
+                var b = image.getBounds(); int gap = 10;
+                int room = Math.max(screen.x + screen.width - (b.x + b.width + gap), b.x - gap - screen.x);
                 if (room >= 260) {
-                    int width = Math.min(w, room), height = Math.max(160, h * width / Math.max(1, w));
-                    window.setSize(width, height);
-                    chosen = new java.awt.Point(right >= left ? b.x + b.width + gap : b.x - gap - width, Math.max(screen.y, Math.min(b.y, screen.y + screen.height - height)));
+                    int width = Math.min(window.getWidth(), room), height = Math.max(160, window.getHeight() * width / Math.max(1, window.getWidth()));
+                    spot = freeSpot(b, width, height, taken, screen);
+                    if (spot != null) window.setSize(width, height);
                 }
             }
-            if (chosen == null) {
-                // No free side: the screen corner farthest from the image, overlapping it as little as possible.
-                java.awt.Point[] corners = { new java.awt.Point(screen.x + screen.width - w, screen.y + screen.height - h), new java.awt.Point(screen.x, screen.y + screen.height - h),
-                    new java.awt.Point(screen.x + screen.width - w, screen.y), new java.awt.Point(screen.x, screen.y) };
-                double least = Double.MAX_VALUE;
-                for (var c : corners) { var overlap = new java.awt.Rectangle(c.x, c.y, w, h).intersection(b); double a = overlap.isEmpty() ? 0 : (double) overlap.width * overlap.height; if (a < least) { least = a; chosen = c; } }
+            if (spot == null) {
+                // Nowhere free: the screen corner overlapping the image least.
+                var b = image.getBounds(); int w = window.getWidth(), h = window.getHeight(); double least = Double.MAX_VALUE;
+                for (var c : new java.awt.Point[]{ new java.awt.Point(screen.x + screen.width - w, screen.y + screen.height - h), new java.awt.Point(screen.x, screen.y + screen.height - h),
+                        new java.awt.Point(screen.x + screen.width - w, screen.y), new java.awt.Point(screen.x, screen.y) }) {
+                    var overlap = new java.awt.Rectangle(c.x, c.y, w, h).intersection(b); double area = overlap.isEmpty() ? 0 : (double) overlap.width * overlap.height;
+                    if (area < least) { least = area; spot = new java.awt.Rectangle(c.x, c.y, w, h); }
+                }
             }
-            window.setLocation(chosen);
+            window.setLocation(spot.x, spot.y);
         }
         if (image != null) {
             // After the new window's own activation event has run, hand "current image" back to the researcher's image.
@@ -264,32 +262,45 @@ public final class Pipeline {
         var taken = new ArrayList<java.awt.Rectangle>(); taken.add(image.getBounds());
         var movers = new ArrayList<java.awt.Window>();
         for (var window : java.awt.Window.getWindows()) {
-            if (window == image || !window.isShowing() || window instanceof java.awt.Dialog && ((java.awt.Dialog) window).isModal()) continue;
-            if (window instanceof ij.gui.ImageWindow && !(window instanceof ij.gui.PlotWindow)) continue; // other images stay put
-            if (window instanceof ij.ImageJ) continue; // the toolbar
-            String title = window instanceof java.awt.Frame f ? f.getTitle() : "";
-            boolean side = window instanceof RoiManager || window instanceof ij.text.TextWindow || window instanceof ij.gui.PlotWindow
-                || window instanceof javax.swing.JFrame && title.startsWith("Size distribution") || title.equals("Console") || title.equals("Log");
-            if (!side) continue;
-            if (window.getBounds().intersects(image.getBounds())) movers.add(window); else taken.add(window.getBounds());
+            if (window == image || !window.isShowing() || !isSideWindow(window)) continue;
+            if (window.getBounds().intersects(image.getBounds()) || taken.stream().skip(1).anyMatch(t -> t.intersects(window.getBounds()))) movers.add(window); else taken.add(window.getBounds());
         }
         for (var window : movers) {
-            var b = image.getBounds(); int w = window.getWidth(), h = window.getHeight(), gap = 10;
-            java.awt.Rectangle spot = null;
-            // Columns right and left of the image, top to bottom, skipping places already used.
-            outer:
-            for (int x : new int[]{b.x + b.width + gap, b.x - w - gap}) {
-                for (int y = Math.max(screen.y, b.y); y + h <= screen.y + screen.height; y += 24) {
-                    var candidate = new java.awt.Rectangle(x, y, w, h);
-                    if (!screen.contains(candidate)) break;
-                    boolean free = true; for (var t : taken) if (t.intersects(candidate)) { free = false; break; }
-                    if (free) { spot = candidate; break outer; }
-                }
-            }
+            var spot = freeSpot(image.getBounds(), window.getWidth(), window.getHeight(), taken, screen);
             if (spot != null) { window.setLocation(spot.x, spot.y); taken.add(spot); }
             else if (window instanceof java.awt.Frame frame) frame.setState(java.awt.Frame.ICONIFIED);
         }
         if (!movers.isEmpty()) image.toFront();
+    }
+    /** ImageJ's side windows: ROI Manager, tables (Results, Summary, Log), plots and Penny's chart — not images, the toolbar or modal dialogs. */
+    static boolean isSideWindow(java.awt.Window window) {
+        if (window instanceof java.awt.Dialog dialog && dialog.isModal()) return false;
+        if (window instanceof ij.gui.ImageWindow && !(window instanceof ij.gui.PlotWindow)) return false;
+        if (window instanceof ij.ImageJ) return false;
+        String title = window instanceof java.awt.Frame f ? f.getTitle() : "";
+        return window instanceof RoiManager || window instanceof ij.text.TextWindow || window instanceof ij.gui.PlotWindow
+            || window instanceof javax.swing.JFrame && (title.startsWith("Size distribution") || title.startsWith("Penny")) || title.equals("Console") || title.equals("Log")
+            || window instanceof ij.plugin.frame.Editor;
+    }
+    /** First free slot in the columns right then left of the image, top to bottom, not covering anything in `taken`. */
+    static java.awt.Rectangle freeSpot(java.awt.Rectangle image, int w, int h, List<java.awt.Rectangle> taken, java.awt.Rectangle screen) {
+        int gap = 10;
+        for (int x : new int[]{image.x + image.width + gap, image.x - w - gap}) {
+            for (int y = Math.max(screen.y, image.y); y + h <= screen.y + screen.height; y += 12) {
+                var candidate = new java.awt.Rectangle(x, y, w, h);
+                if (!screen.contains(candidate)) break;
+                boolean free = true; for (var t : taken) if (t.intersects(candidate)) { free = false; break; }
+                if (free) return candidate;
+            }
+        }
+        // Below, then above the image.
+        for (int y : new int[]{image.y + image.height + gap, image.y - h - gap}) {
+            var candidate = new java.awt.Rectangle(Math.max(screen.x, Math.min(image.x, screen.x + screen.width - w)), y, w, h);
+            if (!screen.contains(candidate)) continue;
+            boolean free = true; for (var t : taken) if (t.intersects(candidate)) { free = false; break; }
+            if (free) return candidate;
+        }
+        return null;
     }
     /** After "apply this to the folder": a per-image summary table and the generated macro, side by side with the image. */
     @SuppressWarnings("unchecked")
