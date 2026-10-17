@@ -31,13 +31,15 @@ import sc.fidelis.engine.api.TargetScope;
 final class ScreenshotRun {
     private ScreenshotRun() {}
 
-    static void schedule(Workspace w, Path out, Runnable exit) {
-        Timer t = new Timer(3000, e -> new Thread(() -> run(w, out, exit), "fidelis-screenshot").start());
+    static void schedule(Workspace w, Workspace.Options opts, Runnable exit) {
+        Path out = opts.screenshot();
+        Timer t = new Timer(3000, e -> new Thread(() -> run(w, opts, exit), "fidelis-screenshot").start());
         t.setRepeats(false);
         t.start();
     }
 
-    private static void run(Workspace w, Path out, Runnable exit) {
+    private static void run(Workspace w, Workspace.Options opts, Runnable exit) {
+        Path out = opts.screenshot();
         try {
             Path repo = Path.of(System.getProperty("fidelis.repo.dir", "."));
             var engine = w.engine();
@@ -77,8 +79,21 @@ final class ScreenshotRun {
                 w.docks().applyDefaultDividers();
                 w.frame().toFront();
             });
-            Thread.sleep(1800);
             SwingUtilities.invokeAndWait(() -> reportPopupRealisation(w));
+            if (opts.instruction() != null) {
+                SwingUtilities.invokeAndWait(() -> ctx.commandBar().interpret(opts.instruction(), Origin.NL_TYPED));
+                Thread.sleep(1500);
+            }
+            if (opts.search() != null) {
+                SwingUtilities.invokeAndWait(() -> {
+                    ctx.commandBar().focusField();
+                    ctx.commandBar().setText(opts.search());
+                });
+                Thread.sleep(800);
+                SwingUtilities.invokeAndWait(() -> System.out.println("[fidelis] search '" + opts.search() + "': popup visible="
+                        + ctx.commandBar().popupVisible() + " rows=" + ctx.commandBar().visibleRowLabels()));
+            }
+            Thread.sleep(1800);
             BufferedImage[] img = new BufferedImage[1];
             SwingUtilities.invokeAndWait(() -> img[0] = capture(w));
             Files.createDirectories(out.toAbsolutePath().getParent());
@@ -116,6 +131,15 @@ final class ScreenshotRun {
             Graphics2D cg = (Graphics2D) g.create(p.x, p.y, v.canvas().getWidth(), v.canvas().getHeight());
             v.canvas().paint(cg);
             cg.dispose();
+        }
+        // heavyweight popups (command results, menus) are separate native windows: paint them in place
+        java.awt.Point rootOrigin = root.getLocationOnScreen();
+        for (java.awt.Window pw : java.awt.Window.getWindows()) {
+            if (!pw.isShowing() || pw == w.frame() || !(pw instanceof javax.swing.JWindow)) continue;
+            java.awt.Point po = pw.getLocationOnScreen();
+            Graphics2D pg = (Graphics2D) g.create(po.x - rootOrigin.x, po.y - rootOrigin.y, pw.getWidth(), pw.getHeight());
+            pw.printAll(pg);
+            pg.dispose();
         }
         g.dispose();
         return img;

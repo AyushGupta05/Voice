@@ -213,7 +213,7 @@ public final class CommandBar extends JPanel {
     }
 
     private void showPopup() {
-        int w = Math.max(field.getWidth(), 520);
+        int w = Math.min(Math.max(field.getWidth() / 2, 520), 680);
         list.setPreferredSize(null);
         int rows = Math.min(model.size(), 9);
         popup.setPreferredSize(new Dimension(w, rows * 24 + 4));
@@ -311,9 +311,36 @@ public final class CommandBar extends JPanel {
 
     // ---- speech -------------------------------------------------------------------------------
 
+    /** Attach a speech service that became available after start-up (call on the EDT). */
+    void attachSpeech(SpeechService s) {
+        bindSpeech(s);
+        updateMic();
+    }
+
+    private String lastTranscriptId;
+
+    /** Put a transcript in the field for review; nothing runs from speech directly. Duplicates are ignored. */
+    private void deliver(SpeechService.Transcript t) {
+        if (t != null && t.id() != null && t.id().equals(lastTranscriptId)) return;
+        if (t != null) lastTranscriptId = t.id();
+        if (t == null || !t.speechDetected() || t.text() == null || t.text().isBlank()) {
+            ctx.notice("No speech detected", false);
+            return;
+        }
+        suppressSearch = false;
+        field.setText(t.text().trim());
+        spoken = true;
+        focusField();
+        ctx.notice("Transcript ready: review it, then press Enter to interpret", false);
+    }
+
     private void bindSpeech(SpeechService s) {
         speech = s;
         if (s == null) return;
+        if (s instanceof sc.fidelis.speech.WhisperSpeechService w) {
+            // auto-stopped recordings (30 s limit) deliver their transcript only through this callback
+            w.onTranscript(t -> SwingUtilities.invokeLater(() -> deliver(t)));
+        }
         speechState = s.state();
         s.addListener(new SpeechService.Listener() {
             @Override
@@ -329,19 +356,17 @@ public final class CommandBar extends JPanel {
     private void toggleMic() {
         if (speech == null) return;
         if (speechState == SpeechService.State.READY) {
-            speech.startRecording();
+            try {
+                speech.startRecording();
+            } catch (IllegalStateException ex) {
+                ctx.notice("Cannot record: " + ex.getMessage(), true);
+            }
         } else if (speechState == SpeechService.State.RECORDING) {
             speech.stopRecording().whenComplete((t, ex) -> SwingUtilities.invokeLater(() -> {
                 if (ex != null) {
                     ctx.notice("Transcription failed: " + (ex.getCause() != null ? ex.getCause() : ex), true);
-                } else if (t == null || !t.speechDetected() || t.text() == null || t.text().isBlank()) {
-                    ctx.notice("No speech detected", false);
                 } else {
-                    suppressSearch = false;
-                    field.setText(t.text().trim());
-                    spoken = true;
-                    focusField();
-                    ctx.notice("Transcript ready: review it, then press Enter to interpret", false);
+                    deliver(t);
                 }
             }));
         }
@@ -412,6 +437,10 @@ public final class CommandBar extends JPanel {
 
     JToggleButton micButton() {
         return mic;
+    }
+
+    boolean popupVisible() {
+        return popup.isVisible();
     }
 
     List<String> visibleRowLabels() {

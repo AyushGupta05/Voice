@@ -127,6 +127,11 @@ final class ProposalSheet extends JPanel {
         }
         int n = p.requests() == null ? 0 : p.requests().size();
         for (int i = 0; i < n; i++) body.add(step(p, i, n));
+        if (n > 0 && affectedByGlobals(p)) {
+            body.add(line("Settings that affect this result (current values)", null, true));
+            for (Map.Entry<String, String> g : ctx.engine.globals().entrySet())
+                body.add(mono("    " + g.getKey() + " = " + g.getValue()));
+        }
         if (p.questions() != null) {
             for (String q : p.questions()) body.add(line("? " + q, Theme.warning(), false));
         }
@@ -140,6 +145,16 @@ final class ProposalSheet extends JPanel {
         if (ready && !irreversible) setDefaultIfAttached(confirm);
         edit.setEnabled(n > 0 && p.requests().get(0).kind() == sc.fidelis.engine.api.Enums.ActionKind.COMMAND);
         relayout();
+    }
+
+    /** True when a step reads result-affecting globals (or is a bare Measure, which uses the current measurement set). */
+    private boolean affectedByGlobals(NlService.Proposal p) {
+        for (ActionRequest r : p.requests()) {
+            if (r.commandId() == null) continue;
+            if (r.commandId().endsWith(">Measure") && r.params().isEmpty()) return true;
+            if (ctx.engine.schema(r.commandId()).map(s -> !s.hiddenGlobals().isEmpty()).orElse(false)) return true;
+        }
+        return false;
     }
 
     private void setDefaultIfAttached(JButton b) {
@@ -229,6 +244,11 @@ final class ProposalSheet extends JPanel {
                 cancel.setText("Close");
             }
         }));
+    }
+
+    @Override
+    public java.awt.Dimension getMaximumSize() {
+        return new java.awt.Dimension(Integer.MAX_VALUE, getPreferredSize().height);
     }
 
     String instructionText() {

@@ -53,12 +53,37 @@ public final class Workspace {
         System.out.println("[fidelis] display scale (default transform) = "
                 + java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
                         .getDefaultConfiguration().getDefaultTransform().getScaleX());
-        Runnable quit = () -> new Thread(() -> Bootstrap.exit(ij, 0), "fidelis-quit").start();
+        final java.util.concurrent.atomic.AtomicReference<sc.fidelis.speech.SpeechService> speechRef = new java.util.concurrent.atomic.AtomicReference<>();
+        Runnable quit = () -> new Thread(() -> {
+            sc.fidelis.speech.SpeechService sp = speechRef.get();
+            if (sp instanceof AutoCloseable c) {
+                try {
+                    c.close();
+                } catch (Exception ignored) {
+                    // exiting anyway
+                }
+            }
+            Bootstrap.exit(ij, 0);
+        }, "fidelis-quit").start();
         Engine engine = EngineProvider.get(quit);
+        if (ServiceRegistry.nl() == null) ServiceRegistry.registerNl(new sc.fidelis.nl.DefaultNlService(engine));
         Workspace w = create(engine, quit, o.size());
+        // The speech service spawns a Python process: construct it off the EDT, attach when it exists
+        if (ServiceRegistry.speech() == null) {
+            new Thread(() -> {
+                try {
+                    sc.fidelis.speech.SpeechService sp = new sc.fidelis.speech.WhisperSpeechService();
+                    speechRef.set(sp);
+                    ServiceRegistry.registerSpeech(sp);
+                    SwingUtilities.invokeLater(() -> w.commandBar().attachSpeech(sp));
+                } catch (Throwable t) {
+                    System.err.println("[fidelis] speech service not started: " + t);
+                }
+            }, "fidelis-speech-init").start();
+        }
         w.frame.setVisible(true);
         for (String p : o.open()) w.ctx.openPath(Path.of(p));
-        if (o.screenshot() != null) ScreenshotRun.schedule(w, o.screenshot(), () -> Bootstrap.exit(ij, 0));
+        if (o.screenshot() != null) ScreenshotRun.schedule(w, o, () -> Bootstrap.exit(ij, 0));
     }
 
     /** Build a workspace around {@code engine} without showing it (tests show it themselves). */
@@ -256,11 +281,13 @@ public final class Workspace {
     }
 
     /** Command-line options of the workspace (handled in {@link #launch}). */
-    record Options(Path screenshot, java.util.List<String> open, Dimension size) {
+    record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search) {
         static Options parse(String[] args) {
             Path shot = null;
             java.util.List<String> open = new java.util.ArrayList<>();
             Dimension size = null;
+            String instruction = null;
+            String search = null;
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
                     case "--screenshot" -> {
@@ -268,6 +295,12 @@ public final class Workspace {
                     }
                     case "--open" -> {
                         if (i + 1 < args.length) open.add(args[++i]);
+                    }
+                    case "--instruction" -> {
+                        if (i + 1 < args.length) instruction = args[++i];
+                    }
+                    case "--search" -> {
+                        if (i + 1 < args.length) search = args[++i];
                     }
                     case "--size" -> {
                         if (i + 1 < args.length) {
@@ -284,7 +317,7 @@ public final class Workspace {
                 shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
-            return new Options(shot, open, size);
+            return new Options(shot, open, size, instruction, search);
         }
     }
 }
