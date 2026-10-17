@@ -61,6 +61,12 @@ final class ScreenshotJ12 {
         Path blobs = repo.resolve(BLOBS);
         if (!Files.isRegularFile(blobs)) throw new IllegalStateException("fixture not cached: " + blobs);
         int docs0 = engine.documents().size();
+        if (name.equals("j12-open")) { // only open the image; the typed instructions do the rest
+            ctx.openPath(blobs).get();
+            waitUntil(() -> engine.documents().size() > docs0 && engine.focused().isPresent(), 30);
+            waitUntil(() -> w.documents().focusedView() != null, 10);
+            return;
+        }
         ctx.openPath(blobs).get();
         waitUntil(() -> engine.documents().size() > docs0 && engine.focused().isPresent(), 30);
         waitUntil(() -> w.documents().focusedView() != null, 10);
@@ -168,12 +174,20 @@ final class ScreenshotJ12 {
      * wait for the engine, print the engine's numbers and screenshot the result.
      */
     static void instructionFlow(Workspace w, UiContext ctx, Workspace.Options opts, Path out) throws Exception {
+        String[] all = opts.instruction().split("\\|\\|");
+        for (int i = 0; i < all.length; i++) {
+            // several instructions (separated by ||) run one after the other; only the first and the last are photographed
+            instructionOne(w, ctx, all[i].trim(), opts, i == 0 || i == all.length - 1 ? out : null);
+        }
+    }
+
+    private static void instructionOne(Workspace w, UiContext ctx, String text, Workspace.Options opts, Path out) throws Exception {
         ProposalSheet[] sheet = new ProposalSheet[1];
-        SwingUtilities.invokeAndWait(() -> sheet[0] = ctx.commandBar().interpret(opts.instruction(), Origin.NL_TYPED));
+        SwingUtilities.invokeAndWait(() -> sheet[0] = ctx.commandBar().interpret(text, Origin.NL_TYPED));
         waitUntil(() -> sheet[0].proposal() != null, 60);
         Thread.sleep(400);
         var p = sheet[0].proposal();
-        System.out.println("[fidelis] instruction '" + opts.instruction() + "' -> status " + (p == null ? "none" : p.status())
+        System.out.println("[fidelis] instruction '" + text + "' -> status " + (p == null ? "none" : p.status())
                 + ", " + (p == null || p.requests() == null ? 0 : p.requests().size()) + " step(s), confirm enabled=" + sheet[0].confirmEnabled());
         if (p != null && p.requests() != null) {
             for (int i = 0; i < p.requests().size(); i++) {
@@ -185,7 +199,7 @@ final class ScreenshotJ12 {
             if (p.questions() != null && !p.questions().isEmpty()) System.out.println("[fidelis]   questions: " + p.questions());
         }
         int histBefore = w.engine().history().size();
-        shoot(w, out);
+        if (out != null) shoot(w, out);
         if (!opts.confirm()) return;
         if (!sheet[0].confirmEnabled()) throw new IllegalStateException("proposal cannot be confirmed");
         SwingUtilities.invokeAndWait(sheet[0]::confirmNow);
@@ -201,10 +215,12 @@ final class ScreenshotJ12 {
         reportNumbers(w);
         SwingUtilities.invokeAndWait(() -> {
             w.docks().showHistory();
+            w.docks().showResults();
             w.docks().applyDefaultDividers();
             w.frame().toFront();
         });
         Thread.sleep(1200);
+        if (out == null) return;
         String name = out.getFileName().toString();
         String exec = name.contains("proposal") ? name.replace("proposal", "executed") : name.replaceFirst("(\\.png)?$", "-executed.png");
         shoot(w, out.resolveSibling(exec));

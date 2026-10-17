@@ -129,8 +129,10 @@ final class ProposalSheet extends JPanel {
         for (int i = 0; i < n; i++) body.add(step(p, i, n));
         if (n > 0 && affectedByGlobals(p)) {
             body.add(line("Settings that affect this result (current values)", null, true));
+            StringBuilder gl = new StringBuilder();
             for (Map.Entry<String, String> g : ctx.engine.globals().entrySet())
-                body.add(mono("    " + g.getKey() + " = " + g.getValue()));
+                gl.append(gl.length() == 0 ? "" : "   ").append(g.getKey()).append(" = ").append(g.getValue());
+            body.add(mono("    " + gl));
         }
         if (p.questions() != null) {
             for (String q : p.questions()) body.add(line("? " + q, Theme.warning(), false));
@@ -173,13 +175,21 @@ final class ProposalSheet extends JPanel {
         String ac = schema.map(s -> s.consequence().name().substring(0, 3)).orElse("");
         box.add(line("Step " + (i + 1) + " of " + n + "   " + label + "     " + path + (ac.isEmpty() ? "" : "     " + ac), null, true));
         Map<String, String> prov = p.slotProvenance() != null && i < p.slotProvenance().size() ? p.slotProvenance().get(i) : Map.of();
+        // Parameters the user or the plan chose are listed one per line; values left at the Fiji defaults share one line,
+        // so the sheet stays short enough to leave the image visible (the macro line below is the exact command).
+        StringBuilder defaults = new StringBuilder();
         for (Map.Entry<String, Object> e : r.params().entrySet()) {
-            Optional<CommandSchema.ParameterSchema> ps = schema.flatMap(s -> s.parameter(e.getKey()));
-            String unit = ps.map(CommandSchema.ParameterSchema::unit).filter(u -> u != null && !u.isBlank()).map(u -> " " + u).orElse("");
-            String mark = ps.map(CommandSchema.ParameterSchema::consequential).orElse(false) ? "   (affects the result)" : "";
             String src = prov.get(e.getKey());
+            if ("DEFAULT".equals(src)) {
+                defaults.append(defaults.length() == 0 ? "" : "  ").append(e.getKey()).append('=').append(e.getValue());
+                continue;
+            }
+            Optional<CommandSchema.ParameterSchema> ps = schema.flatMap(s -> s.parameter(e.getKey()));
+            String unit = ps.map(CommandSchema.ParameterSchema::unit).filter(u -> u != null && !u.isBlank() && !u.equalsIgnoreCase("n/a")).map(u -> " " + u).orElse("");
+            String mark = ps.map(CommandSchema.ParameterSchema::consequential).orElse(false) ? "   (affects the result)" : "";
             box.add(mono("    " + e.getKey() + " = " + e.getValue() + unit + (src != null ? "   [" + src + "]" : "") + mark));
         }
+        if (defaults.length() > 0) box.add(mono("    at Fiji defaults: " + defaults));
         if (p.macroPreview() != null && i < p.macroPreview().size()) box.add(mono("    " + p.macroPreview().get(i)));
         return box;
     }

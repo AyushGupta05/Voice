@@ -98,11 +98,19 @@ public final class ResultsPanel extends JPanel {
             } else {
                 col.setMinWidth(15);
                 col.setMaxWidth(Integer.MAX_VALUE);
-                col.setPreferredWidth(i == 0 ? 36 : i == 1 ? 110 : 84);
+                col.setPreferredWidth(i == 0 ? 36 : fit(i, 60));
             }
         }
         header.setText("Results — " + rows.size() + " row(s), full precision");
         copy.setEnabled(!rows.isEmpty());
+    }
+
+    /** Width that shows every value of column {@code c} in full (full precision must never be clipped). */
+    private int fit(int c, int minimum) {
+        java.awt.FontMetrics fm = table.getFontMetrics(table.getFont());
+        int w = fm.stringWidth(String.valueOf(model.getColumnName(c))) + 16;
+        for (int r = 0; r < model.getRowCount(); r++) w = Math.max(w, fm.stringWidth(String.valueOf(model.getValueAt(r, c))) + 16);
+        return Math.max(minimum, w);
     }
 
     public String tsv() {
