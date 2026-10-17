@@ -8,6 +8,10 @@ const client=new Client({name:'luma-integration-smoke',version:'0.1.0'});
 try {
  await client.connect(transport);
  const inventory=await client.listTools();assert.equal(inventory.tools.length,23);
+ const checkpoint=inventory.tools.find(tool=>tool.name==='qupath_checkpoint')!;
+ assert.equal(checkpoint.annotations?.idempotentHint,false,'Creating checkpoints can evict old recovery state; clients must not treat it as idempotent');
+ assert.equal(checkpoint.annotations?.readOnlyHint,false,'Checkpoint creation changes volatile server state');
+ assert.equal(checkpoint.annotations?.destructiveHint,true,'Checkpoint eviction can remove a recovery point');
  const read=async(name:string,args={})=>{
   const response=await client.callTool({name,arguments:args});assert(!response.isError,JSON.stringify(response));
   const content=response.content as Array<{type:string;text?:string}>;

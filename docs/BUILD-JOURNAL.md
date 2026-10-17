@@ -96,3 +96,13 @@ Read-only discovery observed 232 installed menu commands across 13 menu families
 The Mac is locked, so additional native UI inspection waits for manual unlock. Code, protocol and synthetic-audio work continue. An isolated synthetic 48 kHz stereo to 24 kHz mono conversion probe produced the expected signal level without opening audio hardware. Native capture/playback wiring and funded end-to-end voice remain unfinished.
 
 The next increment will make tool documentation reproducible from its schemas and add focused offline native PCM checks. Existing published milestones are 31338fe and 6d222af in the approved personal fork. No project API/cloud spend.
+
+## 17 October 2026, 02:58 BST — reproducible reference and offline audio
+
+Added a schema-derived reference covering all 23 tools and parameters. `npm run docs:generate` regenerates it; `npm run check` now rejects a stale reference. `npm run doctor` checks setup artifacts, pinned upstream revisions, local knowledge, authenticated bridge reachability, matching running schemas and the disabled production voice gate. It passes here and correctly fails for an absent setup, with no credential or image-name output.
+
+Extracted bounded signed PCM16 conversion into a small native module. Four offline Swift tests pass, including invalid device values that previously could trap integer conversion. Capture startup failure now removes its installed tap. No microphone or speakers were opened; hardware audio and new UI checks remain deferred.
+
+One accepted review finding refined checkpoint MCP metadata: eviction means creation is neither idempotent, read-only nor additive-only. The actual MCP smoke asserts all three hints and passes. Final structured autoreview for this increment exited 0 clean. The existing 36 gateway tests and documentation consistency check pass. Production voice is disabled; project API/cloud spend remains $0.
+
+Next: add bounded public-only CI using free standard GitHub runners, with no provider secrets, cache or artifact storage. Official billing documentation was checked; the approved fork is public. No workflow has been published yet.

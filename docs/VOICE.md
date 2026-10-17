@@ -46,7 +46,7 @@ Evidence is written to `.local/evidence/voice-protocol.json`. Never present this
 
 ## Remaining activation work
 
-A verified credit-covered provider factory, native capture/playback wiring, supported backend model configuration, real usage accounting and a bounded live public-slide session are still required. The native `AudioIO` component has not had a funded end-to-end hardware voice test. Do not turn local protocol success into a claim that voice is ready or that every scientific result is validated.
+A verified credit-covered provider factory, native capture/playback wiring, supported backend model configuration, real usage accounting and a bounded live public-slide session are still required. The native `AudioIO` component uses a separately tested PCM codec: signed little-endian samples, clipping, non-finite input, bounded complete chunks and RMS metering have four offline tests (`./script/test-audio.sh`). Capture startup failure removes its tap. These checks do not exercise a microphone, speakers, echo handling, playback queue recovery or a funded end-to-end hardware session. Do not turn local protocol success into a claim that voice is ready or that every scientific result is validated.
 
 Sources reviewed on 17 October 2026:
 

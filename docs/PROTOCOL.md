@@ -4,6 +4,8 @@
 
 The Swift companion talks to the gateway on `127.0.0.1:49555`. The gateway talks to QuPath on `127.0.0.1:49556`. All requests use random per-install bearer tokens from `.local/state`. Browser Origin headers are rejected. Neither service exposes a network-wide listener or a CORS policy.
 
+MCP annotations distinguish scientific read/view/data/code policy from cache side effects: creating a hierarchy checkpoint is not idempotent and is not advertised as read-only or additive-only, because it adds volatile recovery state and can evict an older snapshot. It still requires no scientific mutation approval.
+
 The MCP stdio process is a client of the existing gateway, not a second independent action runtime. A voice session, MCP client and companion therefore share approvals and action history.
 
 ## Gateway HTTP

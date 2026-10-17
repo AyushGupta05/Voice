@@ -59,3 +59,11 @@ TypeScript compilation and **36 focused gateway/backend/protocol tests passed**.
 The Mac became locked during later native UI checks. Those checks remain deferred pending manual unlock; no lock bypass was attempted. The unexecuted disposable approval-card proposal was cleared by restarting the project's idle owned gateway after confirming that nothing was running. The public slide remained at its empty hierarchy baseline.
 
 Production voice is still disabled and project API/cloud spend remains $0. The protocol review does not establish funded activation, hardware audio quality or scientific validation.
+
+## Contributor and native PCM increment, 17 October 2026, 02:58 BST
+
+Structured autoreview exited 0 clean for the PCM core, setup diagnostics, generated tool reference and MCP checkpoint annotations. One accepted finding was fixed before the clean rerun: checkpoint eviction must be conservatively marked destructive in MCP metadata, as well as non-read-only and non-idempotent. Actual MCP smoke verifies those annotations without creating a checkpoint.
+
+Four offline Swift tests pass for known signed little-endian values, clipping/non-finite samples, malformed/oversized chunks, synthetic signal round-trip and RMS level. The native target compiles with the extracted codec. This is not microphone, speaker, echo, real-time callback or playback-queue testing. Capture startup cleanup is implemented but still needs a hardware lifecycle test.
+
+All 36 gateway/backend/protocol tests, TypeScript compilation and generated-reference consistency pass. The doctor passes on this setup and returns exit 1 with actionable failures for an absent root. It reads local configuration and authenticated observation endpoints without printing tokens or image names. A local Markdown check resolved 63 file/anchor targets. These diagnostics and generated documentation do not replace real application/scientific verification.

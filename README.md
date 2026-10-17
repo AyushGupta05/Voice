@@ -40,6 +40,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 |---|---|
 | [Product brief](docs/PRODUCT.md) | Problem, accepted direction and scope |
 | [Setup](docs/SETUP.md) | Install, launch, MCP configuration and troubleshooting |
+| [Tool reference](docs/TOOL-REFERENCE.md) | Current schemas, parameters and approval requirements |
 | [Capability matrix](docs/CAPABILITIES.md) | Implemented, verified and blocked behavior |
 | [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
 | [Voice integration](docs/VOICE.md) | Implemented protocols, backend interface and remaining activation work |
@@ -60,6 +61,6 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 - `script/`: reproducible setup, build, launch, smoke and guarded fixture checks.
 - `docs/`: architecture, evidence, contributor and pitch material.
 
-`npm run check` runs focused tests and type checking. `npm run smoke` exercises a real MCP client through the running gateway and QuPath without changing data. See the contributor guide before running real mutation fixtures.
+`npm run doctor` checks local setup and connections without changing the application. `npm run check` runs focused tests, type checking and tool-reference consistency. `npm run smoke` exercises a real MCP client through the running gateway and QuPath without changing data. See the contributor guide before running real mutation fixtures.
 
 Original project code retains the existing Apache-2.0 license. QuPath and the JDK retain their upstream licenses. This repository does not relicense upstream QuPath source. Public sample imagery has separate provenance in the dataset guide.

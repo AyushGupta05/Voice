@@ -1,7 +1,8 @@
 import AVFoundation
 import Foundation
+import LumaAudioCore
 
-/// PCM16 mono at 24 kHz, matching the documented OpenAI realtime format.
+/// PCM16 mono at 24 kHz, matching the documented OpenAI voice format.
 /// Production capture is only started after a funded session is accepted.
 final class AudioIO {
     private let capture = AVAudioEngine()
@@ -29,28 +30,17 @@ final class AudioIO {
                 consumed = true; status.pointee = .haveData; return buffer
             }
             guard error == nil, let samples = output.floatChannelData?[0] else { return }
-            var pcm = Data(capacity: Int(output.frameLength) * 2)
-            var energy: Float = 0
-            for index in 0..<Int(output.frameLength) {
-                let sample = max(-1, min(1, samples[index]))
-                energy += sample * sample
-                var value = Int16(sample * 32767).littleEndian
-                withUnsafeBytes(of: &value) { pcm.append(contentsOf: $0) }
-            }
-            onChunk(pcm, sqrt(energy / Float(max(1, output.frameLength))))
+            guard let chunk = try? PCM16.encode(UnsafeBufferPointer(start: samples, count: Int(output.frameLength))) else { return }
+            onChunk(chunk.data, chunk.rms)
         }
         tapping = true
-        capture.prepare(); try capture.start()
+        do { capture.prepare(); try capture.start() }
+        catch { stopCapture(); throw error }
     }
     func play(pcm: Data) {
-        guard pcm.count >= 2, pcm.count % 2 == 0, let buffer = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(pcm.count / 2)), let channel = buffer.floatChannelData?[0] else { return }
+        guard let samples = try? PCM16.decode(pcm), let buffer = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(samples.count)), let channel = buffer.floatChannelData?[0] else { return }
         buffer.frameLength = buffer.frameCapacity
-        pcm.withUnsafeBytes { bytes in
-            for index in 0..<pcm.count / 2 {
-                let sample = bytes.loadUnaligned(fromByteOffset: index * 2, as: Int16.self)
-                channel[index] = Float(Int16(littleEndian: sample)) / 32768
-            }
-        }
+        samples.withUnsafeBufferPointer { channel.update(from: $0.baseAddress!, count: $0.count) }
         if !playback.isRunning { try? playback.start() }
         player.scheduleBuffer(buffer)
         if !player.isPlaying { player.play() }

@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { tools, validateTool } from './tools.js';
 const root=resolve(process.env.LUMA_ROOT??process.cwd());
 const server=new Server({name:'luma-qupath',version:'0.1.0'},{capabilities:{tools:{},resources:{},prompts:{}}});
-server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:tools.map(({name,description,inputSchema,risk})=>({name,description,inputSchema:inputSchema as {type:'object'},annotations:{readOnlyHint:risk==='read',destructiveHint:risk==='data'||risk==='code',idempotentHint:risk==='read',openWorldHint:risk==='code'}}))}));
+server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:tools.map(({name,description,inputSchema,risk})=>({name,description,inputSchema:inputSchema as {type:'object'},annotations:{readOnlyHint:risk==='read'&&name!=='qupath_checkpoint',destructiveHint:risk==='data'||risk==='code'||name==='qupath_checkpoint',idempotentHint:risk==='read'&&name!=='qupath_checkpoint',openWorldHint:risk==='code'}}))}));
 server.setRequestHandler(CallToolRequestSchema,async request=>{
   try {
     const args=request.params.arguments??{};validateTool(request.params.name,args);

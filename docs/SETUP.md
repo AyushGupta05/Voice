@@ -63,6 +63,8 @@ Keep the gateway and QuPath running. Configure a desktop MCP client to run Node 
 
 Alternatively run `npm run mcp` from the repo root. The MCP exposes tools, a `qupath://guide` resource and a `qupath-researcher` prompt. It has no approval tool. Approve or decline proposals in the companion. `qupath_action_status` retrieves the eventual outcome.
 
+Run `npm run doctor` for read-only setup, source-pin, running-schema and connection diagnostics. It prints no tokens or image names, installs nothing and returns a nonzero status when a core check fails. Voice readiness remains false under the current funding policy. File checks confirm existence, not a fresh build.
+
 Run `npm run smoke` to test a real MCP client through the gateway and active QuPath session. This smoke test is read-only.
 
 ## Local command-line inspection

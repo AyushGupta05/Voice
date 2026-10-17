@@ -8,14 +8,16 @@ Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md)
 2. Implement the QuPath operation in `LumaExtension.java`. Use actual image/object APIs and JavaFX ownership. Validate prerequisites and return verifiable results with units.
 3. For data changes, preserve recoverable hierarchy state and require explicit approval. State what cannot be recovered.
 4. Add a meaningful gateway or adapter test for the failure that matters: stale selection, invalid parameter, cancelled analysis, missing measurement, duplicate approval, unavailable plugin or changed dialog.
-5. Update task guidance, capability status and any protocol/setup changes.
+5. Update task guidance, capability status and any protocol/setup changes. Run `npm run docs:generate` after tool-schema changes; `npm run docs:check` detects a stale [tool reference](TOOL-REFERENCE.md).
 6. Run focused checks and autoreview. Verify the visible application when UI or scientific outcomes change.
 
 The same tool list feeds MCP and the realtime transport. Do not duplicate provider-specific scientific tool implementations.
 
 ## Validation layers
 
-- `npm run check`: TypeScript compilation and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
+- `npm run doctor`: read-only setup/connection diagnostics; it does not replace an MCP or analysis test.
+- `./script/test-audio.sh`: four offline native PCM tests; no microphone, playback or provider session.
+- `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
 - `./script/build-bridge.sh`: compile against the pinned real QuPath API.
 - `./script/build_and_run.sh --verify`: build/sign/launch the native companion and confirm its process.
 - `npm run smoke`: actual MCP SDK client through the running gateway to QuPath. Read-only.
