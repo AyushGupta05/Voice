@@ -36,7 +36,8 @@ export function isAddressedToLuma(text:string){
 const WAKE_WORD=/(?:^|[\s,.;:!?-])(?:hey |ok |okay |hi )?(?:penny|pennie|penne|penni|luma|looma|lumo|luna)\b[,.:!?]?\s*/i;
 /** How long after Penny last heard a request or spoke that follow-ups need no wake word. */
 export const ATTENTION_MS=30_000;
-export const wakeWordRequired=()=>process.env.LUMA_WAKE_WORD!=='off';
+/** Off by default: the researcher expects to just talk. LUMA_WAKE_WORD=on requires "Penny, …" (busy rooms); stray single words are always ignored. */
+export const wakeWordRequired=()=>process.env.LUMA_WAKE_WORD==='on';
 /**
  * Decide whether a final transcript is for Penny. With the wake word required (default, for rooms with other
  * people talking), a sentence is accepted when it names Penny, is a short command, or arrives while Penny is
