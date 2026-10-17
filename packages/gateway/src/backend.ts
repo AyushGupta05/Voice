@@ -1,8 +1,8 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Runtime, Action } from './runtime.js';
 import type { DelegationBackend, DelegatedTask } from './live.js';
 import { activeProfile, type AppProfile } from './apps/index.js';
 import { failureReason } from './apps/profile.js';
+import { toolTask, toolUtterance } from './tool-request.js';
 
 type InputItem = Record<string, unknown>;
 /** Final answers to spoken requests are read aloud; exact details remain in the companion and the application. */
@@ -13,13 +13,14 @@ export function acknowledgmentFor(name: string, args: Record<string, unknown>, c
  * '' means nothing more to say; undefined means the model must phrase (or continue) the answer. */
 export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.localSentenceFor(name, args, result); }
 /** A request whose wording asks for more than this call delivers must go back to the model. */
-export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile()): boolean { return profile.requestContinuesAfter(name, utterance); }
+export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile(), result?: unknown): boolean { return profile.requestContinuesAfter(name, utterance, result); }
 /** Wording that already tells the researcher something did not work (or asks them), so it is not a false success. */
 export const admitsFailure = (text: string) => /(?:\bnot\b|n't\b|\bno\b|\bnothing\b|fail|unable|error|cannot|refus|blocked|missing|\?)/i.test(text);
 /** The reply after a failed last action: never a success phrase. */
 export const failureSentence = (reason: string) => `That did not work: ${reason.replace(/[.\s]+$/, '')}.`;
-/** The conversation task whose work is running, so tool events can say whose call they were (server.ts). */
-export const toolTask = new AsyncLocalStorage<string>();
+/** The conversation task whose work is running, so tool events can say whose call they were (server.ts). Lives in
+ * tool-request.ts with the utterance store, so the bridge adapter can read both without importing the backend. */
+export { toolTask };
 class ConversationChanged extends Error {}
 class Duplicate extends Error {}
 /** Two argument sets are the same request when every value matches, numbers within 5% (a redrawn region at a
@@ -158,7 +159,11 @@ export class ResponsesBackend implements DelegationBackend {
     if (!model.trim()) throw new Error('An explicitly selected backend model is required.');
     if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 4096) throw new Error('Invalid backend output limit.');
   }
-  run(task: DelegatedTask) { return toolTask.run(task.id, () => this.runTask(task)); }
+  run(task: DelegatedTask) {
+    // Bridges that take the conversation envelope (Fidelis) record the task, how it was asked and the latest words.
+    const utterance = () => task.conversation().fragments.filter(fragment => fragment.role === 'user').at(-1)?.text ?? '';
+    return toolTask.run(task.id, () => toolUtterance.run({ spoken: task.spoken === true, utterance }, () => this.runTask(task)));
+  }
   private async runTask(task: DelegatedTask) {
     if (this.memories.filter(memory => memory.status === 'running').length >= 4) throw new Error('Finish or interrupt an existing backend task before starting more work.');
     const history: InputItem[] = [];
@@ -302,7 +307,7 @@ export class ResponsesBackend implements DelegationBackend {
       // saving the final model round. Failures, approvals, snapshots and open-ended reads go back to the model.
       if (task.spoken && roundComplete && !humanReviewed && executed.length === functions.length && executed.length) {
         const said = utterance();
-        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
+        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said, call.result) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
         if (sentences.every(sentence => sentence !== undefined)) {
           const text = sentences.filter(Boolean).join(' ');
           if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true, 'failed'); return; }

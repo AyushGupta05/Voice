@@ -168,7 +168,7 @@ test('an unidentified companion still loses its conversation on disconnect and a
 
 test('health reports the application profile and /tools lists that profile\'s tools',async()=>{
   const {Runtime}=await import('../src/runtime.js');const {Knowledge}=await import('../src/knowledge.js');const {profiles}=await import('../src/apps/index.js');
-  for(const profile of [profiles.qupath,profiles.fiji]){
+  for(const profile of [profiles.qupath,profiles.fiji,profiles.fidelis]){
     const root=await mkdtemp(join(tmpdir(),`luma-health-${profile.id}-`));
     const runtime=new Runtime({execute:async operation=>operation==='context'?{contextKey:'fixture',application:profile.displayName}:{}},new Knowledge(profile),join(root,'.local/state'),{profile});
     const gateway=await startServer(root,0,{runtime});

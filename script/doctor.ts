@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Knowledge } from '../packages/gateway/src/knowledge.js';
-import {bridgeReadiness} from '../packages/gateway/src/bridge-readiness.js';
+import {bridgeReadiness,bridgeReady} from '../packages/gateway/src/bridge-readiness.js';
+import {bridgeHealth} from '../packages/gateway/src/bridge.js';
 import { activeProfile } from '../packages/gateway/src/apps/index.js';
 
 type Check = { name: string; status: 'pass' | 'fail' | 'note'; detail: string };
@@ -35,8 +36,14 @@ try {
   add('gateway',health.application==='Luma','Authenticated Luma gateway is reachable.','Unexpected service on the gateway port.');
   add('gateway application',health.app?.id===profile.id,`The running gateway drives ${app}.`,`The running gateway drives ${String(health.app?.id??'an older build without an app field')}, not ${profile.id}; restart it with LUMA_APP=${profile.id}.`);
   add(`${app} bridge`,!health.bridgeError&&!!health.context,'Real application context is reachable.',`Bridge unavailable or busy. Start ${app} with ${profile.launcherScript} and inspect local logs.`);
-  const loadedBridge=await bridgeReadiness(root,health.context,profile);
-  add(`loaded ${app} build`,loadedBridge.status==='matches_build',loadedBridge.message,loadedBridge.message);
+  // A profile without a bridge build identity (Fidelis) declares its operations on the bridge's own /health: read it directly.
+  let identity:unknown=health.context;
+  if(profile.bridgeIdentity==='operations'&&health.context){
+    let bridgeToken:string|undefined;try{bridgeToken=(await readFile(resolve(root,'.local/state/bridge-token'),'utf8')).trim();}catch{bridgeToken=undefined;}
+    identity={...health.context,adapter:(await bridgeHealth(profile.bridgePort,bridgeToken))?.adapter};
+  }
+  const loadedBridge=await bridgeReadiness(root,identity,profile);
+  add(`loaded ${app} build`,bridgeReady(loadedBridge),loadedBridge.message,loadedBridge.message);
   if(health.context&&!health.context.image)checks.push({name:'active image',status:'note',detail:'Open an image and select a region for scientific tools.'});
   const schemaResponse=await fetch('http://127.0.0.1:49555/tools',{headers,signal:AbortSignal.timeout(2000)});
   if(!schemaResponse.ok)throw new Error('Tool schema request failed.');

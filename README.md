@@ -178,6 +178,11 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 - Speak naturally: the wake word is optional by default. `LUMA_WAKE_WORD=on` requires "Penny, …" in a noisy room; follow-ups within 30 s and short controls such as "stop", "undo", "stricter" and "brighter" work without repeating the name.
 - The real-gateway correction workflow passed on an isolated installed Fiji: 12 objects → split 13 → remove under 20 µm² 10 → replay three fields with 10 objects each. Counts use image-owned detections; selection/corner queries preserve the segmentation, and undo restores workflow parameters. See [voice workflow evidence](docs/qa/PENNY-VOICE-WORKFLOW.md).
 
+## Fidelis profile (integration in progress)
+
+- `LUMA_APP=fidelis` (written to `.local/state/app` by `./script/run-fidelis.sh`, which builds and launches the Fidelis workstation with its Penny bridge on port 49558) drives Fidelis through 31 tools over the 28 operations of the [bridge contract](docs/FIDELIS-PROTOCOL.md). Every change goes through the Fidelis engine and its History; explicit plans wait for Confirm or a spoken "yes".
+- Protocol-tested against a fake bridge only; the Java bridge is being written in parallel. See [the integration notes](docs/INTEGRATION.md).
+
 ## QuPath profile
 
 - A compact bar at the top of the screen shows short status text. Expand it for conversation, measured results and action history. The companion follows the active QuPath image and selection.

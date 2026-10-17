@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ResponsesBackend, failureSentence, toolTask, type BackendClient } from './backend.js';
+import { toolUtterance, type ToolUtterance } from './tool-request.js';
 import { failureReason } from './apps/profile.js';
 import type { Runtime } from './runtime.js';
 import type { Context } from './bridge.js';
@@ -33,9 +34,12 @@ export class TextConversation {
   this.append('user',text.trim());this.emit({type:'task_state',state:'working',taskId:active.id});
   try{
    const {profile}=this.runtime;
-   const context=await toolTask.run(active.id,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal)) as Context;
+   // The conversation envelope (task, spoken, these words) for bridges that record it (Fidelis); the backend sets its own.
+   const request:ToolUtterance={spoken,utterance:()=>text.trim()};
+   const context=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal))) as Context;
    active.controller.signal.throwIfAborted();
-   const image=context.image as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;
+   // QuPath and Fiji report the open image as `image`, Fidelis as `document`.
+   const image=(context.image??context.document) as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;
    const identity=image?['id','path','name','title'].map(key=>[key,image[key as keyof typeof image]] as const).find(([,value])=>typeof value==='string'||typeof value==='number'):undefined;
    const imageKey=identity?`${profile.id}:${identity[0]}:${String(identity[1])}`:undefined;
    if(imageKey!==this.objectImage){this.objectWord='cells';this.objectImage=imageKey;}
@@ -68,7 +72,7 @@ export class TextConversation {
     const acknowledged=(risk==='data'||risk==='code')&&profile.longRunningTools.has(route.tool);
     if(acknowledged)this.emit({type:'text_ack',taskId:active.id,text:route.reply});
     let result:Record<string,unknown>|undefined;
-    try{result=await toolTask.run(active.id,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal)) as Record<string,unknown>|undefined;}
+    try{result=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal))) as Record<string,unknown>|undefined;}
     catch(error){
      active.controller.signal.throwIfAborted();
      // The bridge's refusals are short, speakable sentences ("No cell under the pointer; point at it."): say them.
