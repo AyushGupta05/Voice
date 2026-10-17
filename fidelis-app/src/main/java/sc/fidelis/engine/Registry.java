@@ -107,6 +107,7 @@ final class Registry {
         liveSet.addAll(live);
         List<Doc> removed = new ArrayList<>();
         List<Doc> added = new ArrayList<>();
+        repairOverwrittenWindows();
         synchronized (this) {
             for (Doc d : new ArrayList<>(byId.values())) {
                 if (!liveSet.contains(d.imp)) {
@@ -128,6 +129,10 @@ final class Registry {
                 ignored.add(imp); // plots, histograms and other special windows are not documents
                 continue;
             }
+            // ImagePlus.show() registers the window in WindowManager inside the ImageWindow constructor, before the
+            // window is shown and before show() stores it in the image: re-hosting it now would let show() overwrite
+            // the host afterwards. It is adopted once shown (ImageJ then notifies imageOpened, which reconciles again).
+            if (!w.isShowing()) continue;
             Doc d = new Doc(new DocumentId("doc-" + docSeq.incrementAndGet()), imp, null, null);
             try {
                 d.win = Edt.call(() -> host(imp));
@@ -145,6 +150,28 @@ final class Registry {
         Change ch = new Change(added, removed);
         if (!ch.isEmpty()) events.emit(EngineEvent.DocumentsChanged::new);
         return ch;
+    }
+
+    /**
+     * Point a document's image back at its host window when an {@code ImagePlus.show()} that was still running on another
+     * thread when the image was adopted stored its own (meanwhile closed) window in the image afterwards. Without this
+     * {@code imp.close()} closes that stale window and the host stays registered in WindowManager for ever.
+     */
+    private void repairOverwrittenWindows() {
+        for (Doc d : all()) {
+            ImageWindow host = d.win;
+            ImageWindow now = d.imp.getWindow();
+            if (host == null || now == null || now == host || !now.isClosed() || !host.isDisplayable()) continue;
+            System.err.println("[fidelis-engine] " + d.id + ": ImageJ replaced the host window of '" + d.imp.getTitle()
+                    + "' after adoption; restored");
+            Edt.run(() -> {
+                d.imp.setWindow(host);
+                if (now.isDisplayable()) {
+                    now.setVisible(false);
+                    now.dispose();
+                }
+            });
+        }
     }
 
     DocumentInfo info(Doc d) {
