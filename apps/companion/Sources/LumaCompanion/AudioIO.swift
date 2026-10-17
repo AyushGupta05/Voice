@@ -1,5 +1,8 @@
 import AVFoundation
 import Foundation
+import os
+
+private let audioLog = Logger(subsystem: "science.luma.companion", category: "audio")
 import LumaAudioCore
 
 /// PCM16 mono at 24 kHz at the local speech transport boundary.
@@ -20,11 +23,11 @@ final class AudioIO {
         })
     }
     private func startCapture(onChunk: @escaping (Data, Float) -> Void) throws {
-        do { try configure(voiceProcessing: true, onChunk: onChunk); echoCancelled = true }
+        do { try configure(voiceProcessing: true, onChunk: onChunk); echoCancelled = true; audioLog.info("Capture started with voice processing") }
         catch {
             // Some devices refuse the voice-processing aggregate (-10875). Use a fresh plain engine instead.
             stopCapture(); engine = AVAudioEngine(); player = AVAudioPlayerNode(); engine.attach(player)
-            try configure(voiceProcessing: false, onChunk: onChunk); echoCancelled = false
+            try configure(voiceProcessing: false, onChunk: onChunk); echoCancelled = false; audioLog.error("Voice processing refused (\(error.localizedDescription)); capturing without echo cancellation")
         }
     }
     private func configure(voiceProcessing: Bool, onChunk: @escaping (Data, Float) -> Void) throws {
@@ -59,9 +62,10 @@ final class AudioIO {
         guard let samples = try? PCM16.decode(pcm), let buffer = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: AVAudioFrameCount(samples.count)), let channel = buffer.floatChannelData?[0] else { return }
         buffer.frameLength = buffer.frameCapacity
         samples.withUnsafeBufferPointer { channel.update(from: $0.baseAddress!, count: $0.count) }
-        guard engine.isRunning else { return }
+        guard engine.isRunning else { audioLog.error("Dropped \(samples.count) reply samples: audio engine not running"); return }
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in completion?() }
         if !player.isPlaying { player.play() }
+        audioLog.info("Scheduled \(samples.count) reply samples (echoCancelled=\(self.echoCancelled), volume=\(self.player.volume))")
     }
     func interruptPlayback() { player.stop() }
     private func stopCapture() { player.stop(); engine.stop(); if tapping { engine.inputNode.removeTap(onBus: 0); tapping = false } }

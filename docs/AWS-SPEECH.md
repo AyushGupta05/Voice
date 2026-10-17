@@ -25,7 +25,8 @@ Measured with `smoke:voice-pipeline` on the public OS-2 slide (individual runs, 
 | End of speech → final transcript | 0.6–0.7 s (Transcribe endpointing) |
 | One Bedrock `gpt-oss-120b` round (us-east-1, from Europe) | ~1.1 s; `gpt-oss-20b` was not faster |
 | Transcript → visible QuPath action | 1.3–2.3 s (one model round) |
-| End of speech → first spoken audio | 1.7 s with a cached acknowledgment; previously 4.2–10.5 s |
+| End of speech → first spoken audio | 0.4 s on the instant route; 1.7 s with a cached acknowledgment; previously 4.2–10.5 s |
+| End of speech → approval card for a data action | ~2.4 s, spoken "Ready for your approval." |
 
 What makes it feel live:
 
@@ -33,7 +34,8 @@ What makes it feel live:
 2. **Pre-synthesized phrases.** Common acknowledgments are synthesized once per gateway when listening starts, then served from memory.
 3. **Warm connections.** Bedrock and Polly clients are reused per credential identity, saving about 0.3 s of TLS per request.
 4. **Shared credit proofs.** A proof is reused for 20 s or less, and the speech proof is warmed while the agent works.
-5. **No wasted rounds.** The agent is not offered `qupath_context`, because fresh context is injected every round. It is told never to claim an action no tool result shows. An earlier run said "Zoomed out" without acting; that is now prevented.
+5. **Instant routes.** `fast-path.ts` executes a few unambiguous whole-utterance display commands (zoom in/out, show/hide cells or annotations, fill cells) directly, with no model round. Anything with a target, a filter or a data change still goes to the agent.
+6. **No wasted rounds.** The agent is not offered `qupath_context`, because fresh context is injected every round. It is told never to claim an action no tool result shows. An earlier run said "Zoomed out" without acting; that is now prevented.
 
 ## Funding guards
 

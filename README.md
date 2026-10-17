@@ -11,7 +11,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 ## Current prototype
 
 - A compact bar at the top of the screen shows short status text. Expand it for conversation, measured results and action history; approvals expand automatically. The companion follows the active QuPath image and selection.
-- **32 implemented MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
+- **33 implemented MCP tools** expose context, objects, measurements, navigation, display, highlights, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
 - Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
 - MCP discovery reflects the authenticated running gateway; a built update needs a normal reload before its new tools are available.
 - Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
@@ -19,7 +19,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Voice works through AWS speech, paid from credits only.** Amazon Transcribe hears you, the same credit-checked OpenAI agent on Bedrock acts in QuPath, and Amazon Polly speaks one short reply. You can interrupt at any time. In a real end-to-end run with synthesized microphone audio, "Zoom in on the centre of this slide" moved the actual QuPath viewer and the spoken reply started 4.3 s after speech ended. A real microphone/speaker session in the foreground is the next check. This route is not GPT-Live; no credit-covered OpenAI realtime endpoint exists. Every request reserves its priced worst case against a $200 lifetime cap. [AWS speech](docs/AWS-SPEECH.md) · [Funding decision](docs/FUNDING.md)
+**Voice is live and feels live.** Click the mic, talk, and QuPath moves. Amazon Transcribe hears you, the credit-checked OpenAI agent on Bedrock acts through the 33 tools, and a natural Polly voice answers. Simple view commands ("zoom in a little") run with no model round: spoken reply 0.4 s after you stop talking. Everything else gets an immediate spoken acknowledgment ("Zooming in.", "Ready for your approval.") while the action runs, then one short sentence with real numbers. Luma's own cursor flies to what it's talking about and outlines the matched cells or controls, Clicky-style. The full demo flow (region → detect 294 cells → classify 19 positive → "show me the positive cells") was driven by voice with human approvals on 17 October. Not GPT-Live; AWS credits only, with every request reserved against a $200 cap. [AWS speech](docs/AWS-SPEECH.md) · [Demo guide](docs/DEMO.md) · [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 

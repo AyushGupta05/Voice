@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 import Foundation
 
@@ -231,6 +232,9 @@ final class CompanionModel: ObservableObject {
             activities.insert(Activity(title: "Text task stopped", detail: event["message"] as? String ?? "Inspect the application before retrying.", isError: true), at: 0)
         case "task_state": textBusy = event["state"] as? String == "working"
         case "audio":
+            if event["epoch"] as? Int != playbackEpoch || playbackSuppressed {
+                Logger(subsystem: "science.luma.companion", category: "audio").notice("Ignored reply audio: epoch \(String(describing: event["epoch"])) vs \(self.playbackEpoch), suppressed=\(self.playbackSuppressed)")
+            }
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID, voiceSessionID != nil,
                   let epoch = event["epoch"] as? Int, epoch == playbackEpoch, !playbackSuppressed,
                   event["sampleRate"] as? Int == 24000, let base64 = event["audio"] as? String,
