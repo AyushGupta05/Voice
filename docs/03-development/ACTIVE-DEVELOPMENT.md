@@ -74,10 +74,10 @@ own branch only; the lead merges.
 
 | Agent | Status | Branch | Task |
 |---|---|---|---|
-| A1 Engine | running | `agent/engine` | E1–E7: DefaultEngine, catalogue/schemas, R1 execution with postconditions and dialog watch, observation, ROI Manager singleton bridge, globals, snapshot undo, history/macro export, engine tests |
-| A2 UI | **merged** 13:15 (cb016b9) | `agent/ui` | Workspace per D12 W-1 with hosted real IJ1 canvases (EXP-01 S3), Fiji menu bar from `Menus.getMenuBar()`, tool palette, command bar + proposal sheet, parameters/ROI/results/history/log/activity panels, status read-out, themes, `--screenshot` flag, UI test |
+| A1 Engine | **merged** 14:05 (c52dc86); wired into the UI (c2f7bb6); defects found by the verification suite fixed by the lead (eaddf4a) | `agent/engine` | E1–E7: DefaultEngine, catalogue/schemas, R1 execution with postconditions and dialog watch, observation, ROI Manager singleton bridge, globals, snapshot undo, history/macro export, engine tests |
+| A2 UI | **merged** 13:15 (cb016b9) and U2 follow-up 14:20 (57b8081: Threshold and B&C panels, before/after compare, stack/channel sliders, scenario screenshots) | `agent/ui` | Workspace per D12 W-1 with hosted real IJ1 canvases (EXP-01 S3), Fiji menu bar from `Menus.getMenuBar()`, tool palette, command bar + proposal sheet, parameters/ROI/results/history/log/activity panels, status read-out, themes, `--screenshot` flag, UI test |
 | A3 Voice/NL | **merged** 13:05 (7f046e0, 2b42cdc, db9093b) | `agent/voice` | `speech/server.py` persistent worker + `WhisperSpeechService`; `DefaultNlService` (grammar + catalogue retrieval + deterministic validator/policy); eval set ≥30 cases; tests |
-| A4 Verify | **merged** 13:40 (395275b) | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
+| A4 Verify | **merged** 13:40 (395275b) and T6 follow-up 14:20 (ef9ba1e: GUI smoke, workspace journey, Results TSV round trip, E7 replay) | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
 | Spike (prior session) | **finished** 12:50 | `spike/architecture-gate` (pushed) | EXP-01…05 PASS/INCONCLUSIVE per `spikes/arch-gate/README.md`; EXP-06 script only (NOT RUN) |
 
 Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
@@ -87,13 +87,15 @@ Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIE
 | Milestone | Status | Evidence |
 |---|---|---|
 | M0 Integration baseline (branch, toolchain, contract, launch) | **Done** 2026-10-17 | build OK; smoke OK; 2 JUnit tests pass |
-| M1 Real Fiji execution (engine) | Not started | |
-| M2 Modern workspace (hosted canvas, menus, panels) | **Done** on the stub engine; real-engine wiring pending M1 | 130 tests pass; screenshots `fidelis-agent-ui/fidelis-app/build/shots/w2–w4.png` inspected by agent and lead; DPI scale 1.5 crisp |
-| M3 ROIs and results | Not started | |
-| M4 Macros and history | Not started | |
-| M5 Speech and NL | **Done except live-microphone verification** | 159 tests pass on the integration branch; eval 124/124 incl. the 10 J-12 demo phrases, 0 unsafe; worker restarts after a kill; fixture transcribes; live microphone needs a person |
-| M6 End-to-end demo (J-12 cell counting) | Not started | |
+| M1 Real Fiji execution (engine) | **Done** 2026-10-17 14:50 | `DefaultEngine` runs real `IJ.run` on the worker with postconditions, dialog capture and rollback; `EngineParityTest` on FX-001 and FX-003 equals the pinned-Fiji GUI baseline at every J-12 step (E1 pixels, E5 doubles, E4 ROI vertices, E6 globals) |
+| M2 Modern workspace (hosted canvas, menus, panels) | **Done on the real engine** | `Bootstrap` registers `DefaultEngine` with `EngineProvider`; `WorkspaceJourneyTest` drives J-12 through the workspace on the product engine and matches the baseline incl. the Results panel's TSV (bit-exact doubles); screenshot `fidelis-app/build/shots/real-blobs.png` inspected (status bar "Engine: ready", no "development stub") |
+| M3 ROIs and results | **Done** | Analyze Particles fills the engine ROI list (71 on Blobs, 2 on two-squares, vertices exact) and the Results rows mirror IJ1's table at full precision; ROI panel, Threshold panel (IJ1 overlay), B&C panel verified by A2's tests |
+| M4 Macros and history | **Done** | History is authoritative; `exportMacro()` output of the J-12 session replayed in the pinned reference Fiji (separate JVM, fresh fixture copy) reproduces the live session exactly (`MacroReplayTest`, E7); undo/redo from snapshots tested |
+| M5 Speech and NL | **Done except live-microphone verification** | eval 124/124 incl. the 10 J-12 demo phrases, 0 unsafe; worker restarts after a kill; fixture transcribes ("Invert the image." in 272 ms); live microphone needs a person |
+| M6 End-to-end demo (J-12 cell counting) | **In progress** | J-12 verified end to end through the workspace on the real engine (tests above); still to do: demo runbook, a `--scenario j12` screenshot of the Blobs count, the spoken-instruction path through the real engine, BBBC001 through the real engine |
 | M7 Hardening | Not started | |
+
+Full suite on the integration branch at eaddf4a: **211 tests, 0 failed, 1 skipped** (`FX-030` until its baseline, generated at 14:55). Runtime ~5 min; the replay test launches the reference Fiji twice.
 
 ## Working capabilities (verified by running)
 
@@ -124,14 +126,20 @@ Fixtures are cached (git-ignored) in `fixtures/cache/` (copy from `fidelis-agent
 - Lock-file hash: the prototype's `verify_runtime` returns the SHA-256 of `external/fiji.lock.json` *as checked out* — `f6695397…` in the original CRLF checkout, `9403b619…` in fresh LF clones. The runtime inventory check itself passes in both; the documentation's `f6695397…` denotes the same pin. Baselines are keyed by `9403b619…`.
 - Threshold polarity matters: on Blobs (inverting LUT) `Otsu dark` → 71 particles, plain `Otsu` → 66. The UI must show the overlay before the user commits.
 - Test JVM exit: fixed by `ExitListener`.
+- Strict no-op rule: the engine treats unchanged pixels after `Invert`, `Gaussian Blur...`, `Unsharp Mask...`, `Smooth`, `Sharpen`, `Find Edges` as a silent failure (ROLLED_BACK). `Subtract Background...` was removed from that set because the pinned Fiji leaves FX-001 unchanged at J-12 step s02. A blur of a flat image therefore reports a failure rather than an identity; revisit under M7.
+- Adoption race (fixed eaddf4a): asynchronous re-hosting of an image IJ1 opened raced a macro's `open(); run(...)` and the command hit another image. Adoption now happens synchronously before any native command (Executer listener) under an adoption lock; keep that invariant.
+- Results semantics (changed eaddf4a): the engine's `results()` mirrors the IJ1 table (a `clear` rebuilds it) instead of accumulating a log.
+- Shared test JVM: the engine is one per JVM (`sc.fidelis.testkit.ProductEngine`); tests count relative to existing documents and `IjState.reset()` closes IJ1 text windows with `close()` (not `dispose()`), otherwise `IJ.isResultsWindow()` stays true and `Set Measurements...` writes headings into an empty table.
+- `verify_runtime`/baseline key: `9403b619…` (LF checkout); see above.
 
 ## Contract changes
 
-- (none since baseline)
+- (none to `sc.fidelis.engine.api` since baseline.) Additive implementation methods: `DefaultEngine.exportMacroSince(int)` (session slice for verification).
+- Requested by A2, not yet done: `SET_DISPLAY_RANGE` optional `channel` (1-based, composites); `NEW_IMAGE` optional `channels`/`frames`. Both are parameter conventions, not interface changes.
 
 ## Demo readiness
 
-Not yet. Fallback: the prototype (`README.md`, "What works today").
+J-12 (open Blobs → Subtract Background → Gaussian Blur → Otsu dark threshold → Convert to Mask → Watershed → Set Measurements → Measure → Analyze Particles → save) runs end to end through the workspace on the real engine and is verified by `WorkspaceJourneyTest`, `EngineParityTest` and `MacroReplayTest`. Still open for the demo: runbook, the spoken-instruction path through the real engine, BBBC001 image through the real engine, a demo screenshot. Fallback: the prototype (`README.md`, "What works today").
 
 ## Resume procedure
 

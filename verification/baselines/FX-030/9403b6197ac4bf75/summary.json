@@ -7,7 +7,7 @@
    "reference_mode_rationale": "authoritative: GUI because Open.../Threshold.../Watershed are not headless_probe=pass and Analyze Particles... add fails headless",
    "run": {
     "exit_code": 0,
-    "seconds": 6.99,
+    "seconds": 5.76,
     "timed_out": false,
     "complete": true,
     "fixture_sha256": "f71cd6ae30ba4f162671a420055dd71eec6be8cd011475fae930930cccbcf578",
@@ -394,7 +394,7 @@
    "reference_mode_rationale": "cross-check: headless-safe prefix; Analyze Particles without `add`",
    "run": {
     "exit_code": 0,
-    "seconds": 6.55,
+    "seconds": 5.33,
     "timed_out": false,
     "complete": true,
     "fixture_sha256": "f71cd6ae30ba4f162671a420055dd71eec6be8cd011475fae930930cccbcf578",
