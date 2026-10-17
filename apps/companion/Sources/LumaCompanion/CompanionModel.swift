@@ -444,7 +444,8 @@ final class CompanionModel: ObservableObject {
     /// The gateway closes a session itself at the speech stream's time limit or when the stream closes; neither is a user stop.
     static func isGatewayEndedSession(_ reason: String) -> Bool {
         let lower = reason.lowercased()
-        return lower.contains("time limit") || lower.contains("speech stream closed")
+        // Restarts and reconnects end sessions from the gateway side too; none of these is the researcher pressing Stop.
+        return lower.contains("time limit") || lower.contains("speech stream closed") || lower.contains("gateway closing") || lower.contains("disconnected")
     }
     /// User stop or a local failure (microphone, audio backlog, socket): voice stays off until the next Start.
     private func stopVoice() {
@@ -488,8 +489,9 @@ final class CompanionModel: ObservableObject {
     }
     private func enqueueAudio(_ data: Data, sessionID: String) {
         guard audioPendingBytes + data.count <= 48000 else {
-            stopVoice()
-            activities.insert(Activity(title: "Voice stopped", detail: "Audio could not be sent in time. Try another session.", isError: true), at: 0)
+            // A stalled socket, not a user decision: reset and let the reconnect re-arm voice.
+            resetVoice()
+            activities.insert(Activity(title: "Voice restarting", detail: "Audio could not be sent in time; reconnecting.", isError: true), at: 0)
             return
         }
         audioPending.append(data); audioPendingBytes += data.count
@@ -503,7 +505,9 @@ final class CompanionModel: ObservableObject {
                     let payload = try JSONSerialization.data(withJSONObject: ["type": "audio", "sessionId": sessionID, "audio": chunk.base64EncodedString()])
                     try await connection.send(.string(String(decoding: payload, as: UTF8.self)))
                 } catch {
-                    if self.voiceSessionID == sessionID { self.stopVoice() }
+                    // The socket went away (gateway restart/reconnect): drop this session but keep voice wanted,
+                    // so armVoiceIfWanted() starts a fresh one when the gateway is back.
+                    if self.voiceSessionID == sessionID { self.resetVoice() }
                     return
                 }
             }
