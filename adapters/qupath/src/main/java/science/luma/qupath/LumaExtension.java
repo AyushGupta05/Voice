@@ -176,6 +176,7 @@ public final class LumaExtension implements QuPathExtension {
             case "project_images" -> projectImages(args);
             case "select" -> select(args);
             case "focus" -> focus(args);
+            case "highlight" -> highlight(args);
             case "overlays" -> overlays(args);
             case "snapshot" -> snapshot();
             case "commands" -> commands(args);
@@ -345,6 +346,75 @@ public final class LumaExtension implements QuPathExtension {
         if (args.has("downsample")) { double d = number(args,"downsample",1); if (d < 0.05 || d > 256) throw new IllegalArgumentException("downsample must be 0.05–256"); viewer.setDownsampleFactor(d, -1, -1); }
         viewer.setCenterPixelLocation(x,y);
         return Map.of("x", x, "y", y, "downsample", viewer.getDownsampleFactor(), "pointer", pointer(x,y));
+    }
+    /** Display-only: screen rectangles for objects, an image region or a visible control, for the companion's highlight overlay. */
+    private Object highlight(JsonObject args) {
+        String label = string(args, "label", "");
+        if (label.length() > 80) label = label.substring(0, 80);
+        int limit = Math.max(1, Math.min(120, args.has("limit") ? args.get("limit").getAsInt() : 40));
+        if (args.has("nodeId")) {
+            var reference = uiNodes.get(args.get("nodeId").getAsString()); var node = reference == null ? null : reference.get();
+            if (node == null || node.getScene() == null || !node.isVisible()) throw new IllegalStateException("Control is no longer visible. Inspect UI again.");
+            var b = node.localToScreen(node.getBoundsInLocal());
+            if (b == null) throw new IllegalStateException("Control is not on screen.");
+            return Map.of("highlight", Map.of("label", label, "total", 1, "shown", 1, "truncated", false, "kind", "control",
+                "targets", List.of(Map.of("x", b.getMinX(), "y", b.getMinY(), "width", b.getWidth(), "height", b.getHeight(), "shape", "rect")),
+                "pointer", Map.of("screenX", b.getMinX() + b.getWidth() / 2, "screenY", b.getMinY() + b.getHeight() / 2), "coordinateSystem", "javafx-screen-top-left"));
+        }
+        var viewer = qupath.getViewer(); var hierarchy = image().getHierarchy();
+        var view = viewer.getView(); var viewBounds = view.localToScreen(view.getBoundsInLocal());
+        if (viewBounds == null) throw new IllegalStateException("The QuPath viewer is not on screen.");
+        var targets = new ArrayList<Map<String, Object>>();
+        int total;
+        if (args.has("width") && args.has("height")) {
+            double x = number(args, "x", 0), y = number(args, "y", 0), w = number(args, "width", 0), h = number(args, "height", 0);
+            if (w <= 0 || h <= 0) throw new IllegalArgumentException("Region width and height must be positive.");
+            total = 1; var rect = screenRect(x, y, x + w, y + h, viewBounds);
+            if (rect != null) { rect.put("shape", "rect"); targets.add(rect); }
+        } else {
+            var plane = viewer.getImagePlane();
+            var matches = matching(args).stream().filter(o -> o.getROI() != null && o.getROI().getZ() == plane.getZ() && o.getROI().getT() == plane.getT()).toList();
+            total = matches.size();
+            for (var object : matches) {
+                if (targets.size() >= limit) break;
+                var roi = object.getROI();
+                var rect = screenRect(roi.getBoundsX(), roi.getBoundsY(), roi.getBoundsX() + roi.getBoundsWidth(), roi.getBoundsY() + roi.getBoundsHeight(), viewBounds);
+                if (rect == null) continue;
+                rect.put("shape", object.isCell() || object.isDetection() || roi.getRoiName().toLowerCase(Locale.ROOT).contains("ellipse") ? "ellipse" : "rect");
+                rect.put("id", object.getID().toString());
+                targets.add(rect);
+            }
+            if (args.has("select") && args.get("select").getAsBoolean()) hierarchy.getSelectionModel().setSelectedObjects(matches, matches.isEmpty() ? null : matches.getFirst());
+        }
+        Map<String, Object> pointer = Map.of();
+        if (!targets.isEmpty()) {
+            double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+            for (var t : targets) { double tx = (double) t.get("x"), ty = (double) t.get("y"); minX = Math.min(minX, tx); minY = Math.min(minY, ty); maxX = Math.max(maxX, tx + (double) t.get("width")); maxY = Math.max(maxY, ty + (double) t.get("height")); }
+            pointer = Map.of("screenX", (minX + maxX) / 2, "screenY", (minY + maxY) / 2);
+        }
+        var result = new LinkedHashMap<String, Object>();
+        result.put("label", label); result.put("total", total); result.put("shown", targets.size());
+        result.put("truncated", targets.size() < total); result.put("kind", "image"); result.put("targets", targets); result.put("pointer", pointer);
+        result.put("viewer", Map.of("x", viewBounds.getMinX(), "y", viewBounds.getMinY(), "width", viewBounds.getWidth(), "height", viewBounds.getHeight()));
+        result.put("coordinateSystem", "javafx-screen-top-left");
+        result.put("note", targets.size() < total ? "Only objects visible in the current viewer are outlined; zoom or focus to see others." : "");
+        return Map.of("highlight", result);
+    }
+    /** Image-pixel rectangle to screen rectangle, clipped to the visible viewer; null when fully off screen. Minimum 8 px so tiny cells stay visible. */
+    private Map<String, Object> screenRect(double x0, double y0, double x1, double y1, javafx.geometry.Bounds view) {
+        var viewer = qupath.getViewer();
+        var a = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(x0, y0), null, false);
+        var b = viewer.imagePointToComponentPoint(new java.awt.geom.Point2D.Double(x1, y1), null, false);
+        var sa = viewer.getView().localToScreen(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()));
+        var sb = viewer.getView().localToScreen(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()));
+        if (sa == null || sb == null) return null;
+        double left = sa.getX(), top = sa.getY(), right = sb.getX(), bottom = sb.getY();
+        if (right < view.getMinX() || bottom < view.getMinY() || left > view.getMaxX() || top > view.getMaxY()) return null;
+        left = Math.max(left, view.getMinX()); top = Math.max(top, view.getMinY()); right = Math.min(right, view.getMaxX()); bottom = Math.min(bottom, view.getMaxY());
+        double cx = (left + right) / 2, cy = (top + bottom) / 2, w = Math.max(8, right - left), h = Math.max(8, bottom - top);
+        var rect = new LinkedHashMap<String, Object>();
+        rect.put("x", cx - w / 2); rect.put("y", cy - h / 2); rect.put("width", w); rect.put("height", h);
+        return rect;
     }
     private Map<String, Object> pointer(double x, double y) {
         var viewer = qupath.getViewer();

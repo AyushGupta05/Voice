@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "application": "QuPath",
-  "toolCount": 32,
+  "toolCount": 33,
   "tools": [
     {
       "name": "qupath_context",
@@ -368,6 +368,77 @@
             "type": "number",
             "minimum": 0.05,
             "maximum": 256
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_highlight",
+      "description": "Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Luma flies its cursor there with a short label. Only objects visible in the current viewer are outlined, so focus first if needed. select also selects the matched objects in QuPath. Display only.",
+      "operation": "highlight",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "height": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside the cursor, e.g. \"49 positive cells\"."
+          },
+          "select": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
           }
         },
         "required": [],

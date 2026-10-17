@@ -18,6 +18,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_import_annotations`](#qupath-import-annotations) | data | Required |
 | [`qupath_select`](#qupath-select) | view | No |
 | [`qupath_focus`](#qupath-focus) | view | No |
+| [`qupath_highlight`](#qupath-highlight) | view | No |
 | [`qupath_overlays`](#qupath-overlays) | view | No |
 | [`qupath_snapshot`](#qupath-snapshot) | read | No |
 | [`qupath_commands`](#qupath-commands) | read | No |
@@ -180,6 +181,27 @@ Center the real viewer on an object, current selection or image-pixel coordinate
 | `x` | No | number |
 | `y` | No | number |
 | `downsample` | No | number; min 0.05; max 256 |
+
+<a id="qupath-highlight"></a>
+
+## qupath_highlight
+
+Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Luma flies its cursor there with a short label. Only objects visible in the current viewer are outlined, so focus first if needed. select also selects the matched objects in QuPath. Display only.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+| `x` | No | number |  |
+| `y` | No | number |  |
+| `width` | No | number; greater than 0 |  |
+| `height` | No | number; greater than 0 |  |
+| `nodeId` | No | string |  |
+| `label` | No | string; max 80 characters | Two to six words shown beside the cursor, e.g. "49 positive cells". |
+| `select` | No | boolean |  |
+| `limit` | No | integer; min 1; max 120 |  |
 
 <a id="qupath-overlays"></a>
 

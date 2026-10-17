@@ -195,7 +195,8 @@ final class CompanionModel: ObservableObject {
                 measurementReport = report
             }
             activities.insert(Activity(title: friendly(name), detail: summary(nested, toolName: name)), at: 0)
-            if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
+            if let highlight = nested["highlight"] as? [String: Any] { self.pointer.highlight(highlight) }
+            else if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
             activities = Array(activities.prefix(40))
             Task { await refresh() }
         case "action":
@@ -260,7 +261,7 @@ final class CompanionModel: ObservableObject {
             let state = event["state"] as? String
             if state == "connecting", let id = event["sessionId"] as? String { resetVoice(keepingRequest: true); voiceSessionID = id; voiceStarting = true }
             else if state == "ready_for_audio", let id = event["sessionId"] as? String, id == voiceSessionID { startMicrophone(sessionID: id) }
-            else if state == "listening", event["sessionId"] as? String == voiceSessionID { providerListening = true; voiceActive = capturing; voiceStarting = !capturing }
+            else if state == "listening", event["sessionId"] as? String == voiceSessionID { providerListening = true; voiceActive = capturing; voiceStarting = !capturing; pointer.follow(true) }
             else if state == "idle", event["sessionId"] == nil || event["sessionId"] as? String == voiceSessionID { resetVoice() }
         default: break
         }
@@ -346,6 +347,7 @@ final class CompanionModel: ObservableObject {
         if !keepingRequest { voiceRequestID = nil }
         voiceSessionID = nil; capturing = false; providerListening = false
         voiceActive = false; voiceStarting = false; voiceSpeaking = false; microphoneLevel = 0
+        pointer.follow(false)
         audioSending?.cancel(); audioSending = nil; audioPending.removeAll(); audioPendingBytes = 0
         audio.stop(); playbackEpoch = 0; playbackSuppressed = false
     }
@@ -355,7 +357,10 @@ final class CompanionModel: ObservableObject {
             do {
                 try await self.audio.start { [weak self] data, level in Task { @MainActor in
                     guard let self, self.voiceSessionID == sessionID else { return }
-                    self.microphoneLevel = level; self.enqueueAudio(data, sessionID: sessionID)
+                    // Without echo cancellation, send silence while Luma speaks so its own voice is not transcribed.
+                    let muted = self.voiceSpeaking && !self.audio.echoCancelled
+                    self.microphoneLevel = muted ? 0 : level
+                    self.enqueueAudio(muted ? Data(count: data.count) : data, sessionID: sessionID)
                 }}
                 guard self.voiceSessionID == sessionID else { return }
                 self.capturing = true; self.voiceActive = self.providerListening; self.voiceStarting = !self.providerListening
@@ -401,13 +406,18 @@ final class CompanionModel: ObservableObject {
     func friendly(_ name: String) -> String {
         let labels = ["qupath_project_images": "Project images", "qupath_analysis_catalog": "Analysis options", "qupath_measurement_summary": "Measured results", "qupath_open_path": "Open image or project", "qupath_open_project_image": "Open project image", "qupath_inspect_import": "Inspect annotation file", "qupath_import_annotations": "Import annotations"]
         if let label = labels[name] { return label }
-        return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated highlights", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
+        return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated overlays", "qupath_highlight": "Pointed it out", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
     }
     func summary(_ value: [String: Any], toolName: String? = nil) -> String {
         if toolName == "qupath_project_images" {
             return value["open"] as? Bool == false ? "No project is open" : "Project images matched: \(value["total"] ?? 0)"
         }
         if toolName == "qupath_analysis_catalog" { return "Measurement names: \(value["measurementNameCount"] ?? 0) · Classes: \(value["classificationCount"] ?? 0)" }
+        if let highlight = value["highlight"] as? [String: Any] {
+            let shown = highlight["shown"] as? Int ?? 0, total = highlight["total"] as? Int ?? shown
+            let label = (highlight["label"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Highlighted"
+            return shown < total ? "\(label) · \(shown) of \(total) visible" : label
+        }
         if toolName == "qupath_inspect_import" { return "\(value["annotations"] ?? 0) annotations validated for review. No objects imported." }
         if let imported = value["imported"] { return "\(imported) annotations imported" }
         if value["alreadyActive"] as? Bool == true { return "That image is already active" }
