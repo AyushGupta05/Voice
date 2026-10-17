@@ -173,7 +173,7 @@ final class CompanionModel: ObservableObject {
                let report = try? JSONDecoder().decode(MeasurementReport.self, from: data) {
                 measurementReport = report
             }
-            activities.insert(Activity(title: friendly(name), detail: summary(nested)), at: 0)
+            activities.insert(Activity(title: friendly(name), detail: summary(nested, toolName: name)), at: 0)
             if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
             activities = Array(activities.prefix(40))
             Task { await refresh() }
@@ -283,9 +283,18 @@ final class CompanionModel: ObservableObject {
         Task { do { try await socket.send(.string(text)) } catch { activities.insert(Activity(title: "Gateway disconnected", detail: "Reconnect to continue.", isError: true), at: 0) } }
     }
     func friendly(_ name: String) -> String {
-        ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated highlights", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
+        let labels = ["qupath_project_images": "Project images", "qupath_analysis_catalog": "Analysis options", "qupath_measurement_summary": "Measured results", "qupath_open_path": "Open image or project", "qupath_open_project_image": "Open project image", "qupath_inspect_import": "Inspect annotation file", "qupath_import_annotations": "Import annotations"]
+        if let label = labels[name] { return label }
+        return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated highlights", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
     }
-    func summary(_ value: [String: Any]) -> String {
+    func summary(_ value: [String: Any], toolName: String? = nil) -> String {
+        if toolName == "qupath_project_images" {
+            return value["open"] as? Bool == false ? "No project is open" : "Project images matched: \(value["total"] ?? 0)"
+        }
+        if toolName == "qupath_analysis_catalog" { return "Measurement names: \(value["measurementNameCount"] ?? 0) · Classes: \(value["classificationCount"] ?? 0)" }
+        if toolName == "qupath_inspect_import" { return "\(value["annotations"] ?? 0) annotations validated for review. No objects imported." }
+        if let imported = value["imported"] { return "\(imported) annotations imported" }
+        if value["alreadyActive"] as? Bool == true { return "That image is already active" }
         if value["dispatched"] as? Bool == true { return "Dispatched to QuPath. Inspect the application to confirm completion." }
         if value["completionVerified"] as? Bool == false { return "Operation finished. Inspect the result and log in QuPath." }
         if let total = value["total"] { return "\(total) objects in scope" }
