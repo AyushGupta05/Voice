@@ -13,7 +13,7 @@ approval: Development record (not a design approval)
 
 # Fidelis demo runbook (J-12 cell counting)
 
-Status 2026-10-17. Everything below was run on the integration branch `development/fidelis-workstation`
+Status 2026-10-17 16:30 (DEMO-RUNBOOK revised after U3/T7/E8/V5). Everything below was run on the integration branch `development/fidelis-workstation`
 (see `ACTIVE-DEVELOPMENT.md` for commit ids). The demo shows **one real Fiji engine, several ways to drive
 it**: the native image tools, the Fiji menus, typed commands, a spoken instruction, and the macro that
 the session generates and that classic Fiji replays.
@@ -97,6 +97,5 @@ python -I fidelis-app/tools/run.py --isolated-home -- --screenshot fidelis-app/b
 - Live microphone capture has not been verified by a person (the fixture WAV path is tested).
 - Only commands with a catalogued parameter schema (53 of 953) open as typed forms; the others run
   through Fiji's own dialog and are recorded with provenance LEGACY_DIALOG.
-- A blur or sharpen that leaves the pixels unchanged is reported as a failure and rolled back (strict
-  no-op rule; see `ACTIVE-DEVELOPMENT.md`).
+- A filter that leaves the pixels unchanged completes with a "no-op" note in History and nothing to undo.
 - Plots, histograms and other special IJ1 windows are shown as legacy windows, not as documents.
