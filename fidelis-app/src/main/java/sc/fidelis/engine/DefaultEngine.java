@@ -431,6 +431,18 @@ public final class DefaultEngine implements Engine {
             Outcome o = new Outcome(OperationState.CANCELLED, EngineError.of(ErrorCode.CANCELLED, "cancelled before start"), null, null, null);
             return finish(op, o, t0);
         }
+        // Opt-in binding to approved state (the Penny bridge): a request carrying expectedHistorySize runs only if no other
+        // action entered the history between its approval and the moment this worker dequeues it.
+        Object expected = op.request.params().get("expectedHistorySize");
+        if (expected instanceof Number n) {
+            int now = history.list().size();
+            if (n.longValue() != now) {
+                Outcome o = Outcome.failed(new EngineError(ErrorCode.PRECONDITION_FAILED, "the session changed after this action was approved"
+                        + " (history " + n.longValue() + " -> " + now + "); nothing was run", "STATE_CHANGED", Map.of(), true,
+                        List.of("review the action again")));
+                return finish(op, o, t0);
+            }
+        }
         Op.CURRENT.set(op);
         try {
             emitState(op, OperationState.VALIDATING, null);

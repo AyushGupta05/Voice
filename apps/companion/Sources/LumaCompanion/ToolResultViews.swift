@@ -1,9 +1,6 @@
 import SwiftUI
 import AppKit
 
-private let mint = Color(red: 0.64, green: 0.92, blue: 0.79)
-private let secondaryText = Color.white.opacity(0.5)
-
 /// Rich rendering for retained tool results in the session list. Display only; values come straight from QuPath.
 struct ToolResultView: View {
     let payload: [String: Any]
@@ -27,34 +24,37 @@ struct WorkflowResultView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let path {
                 HStack(spacing: 6) {
-                    Image(systemName: "doc.text").font(.system(size: 10)).foregroundStyle(mint)
-                    Text(path).font(.system(size: 10, design: .monospaced)).foregroundStyle(secondaryText).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                    Image(systemName: "doc.text").font(.system(size: 10)).foregroundStyle(PennyPalette.accent)
+                    Text(path).font(.system(size: 10, design: .monospaced)).foregroundStyle(PennyPalette.textSecondary).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                     Spacer(minLength: 0)
-                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }.buttonStyle(.plain).font(.system(size: 10, weight: .medium)).foregroundStyle(mint).help("Show the saved script in Finder")
+                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }.buttonStyle(.plain).font(.system(size: 10, weight: .medium)).foregroundStyle(PennyPalette.accent).help("Show the saved script in Finder")
                 }
             }
             if let script {
                 ZStack(alignment: .topTrailing) {
                     ScrollView([.vertical, .horizontal]) {
-                        Text(script).font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+                        Text(script).font(.system(size: 10, design: .monospaced)).foregroundStyle(PennyPalette.textPrimary).textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .topLeading).padding(10).padding(.trailing, 50)
-                    }.frame(maxHeight: 180).background(.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+                    }.frame(maxHeight: 180).background(PennyPalette.surfaceSunken, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(PennyPalette.border))
                     Button {
                         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(script, forType: .string)
                         copied = true
                         Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
                     } label: {
                         Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc").font(.system(size: 10, weight: .medium))
-                            .padding(.horizontal, 8).padding(.vertical, 4).background(.white.opacity(0.1), in: Capsule())
+                            .foregroundStyle(PennyPalette.textPrimary)
+                            .padding(.horizontal, 8).padding(.vertical, 4).background(PennyPalette.surface, in: Capsule())
+                            .overlay(Capsule().stroke(PennyPalette.border))
                     }.buttonStyle(.plain).padding(6).help("Copy the Groovy script")
                 }
             } else if !stepNames.isEmpty {
                 ForEach(Array(stepNames.enumerated()), id: \.offset) { index, name in
-                    Text("\(index + 1). \(name)").font(.system(size: 10, design: .monospaced)).foregroundStyle(secondaryText)
+                    Text("\(index + 1). \(name)").font(.system(size: 10, design: .monospaced)).foregroundStyle(PennyPalette.textSecondary)
                 }
             }
             if let hint = workflow["howToRun"] as? String ?? workflow["note"] as? String {
-                Text(hint).font(.system(size: 10)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
+                Text(hint).font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -72,7 +72,7 @@ struct ClassSummaryView: View {
                     Text("Class").gridColumnAlignment(.leading)
                     Text("Count").gridColumnAlignment(.trailing)
                     Text("%").gridColumnAlignment(.trailing)
-                }.font(.system(size: 9, weight: .semibold)).foregroundStyle(secondaryText)
+                }.font(.system(size: 9, weight: .semibold)).foregroundStyle(PennyPalette.textSecondary)
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     GridRow {
                         HStack(spacing: 6) {
@@ -80,14 +80,15 @@ struct ClassSummaryView: View {
                             Text(name(row)).lineLimit(1).truncationMode(.tail)
                         }
                         Text("\(count(row))").monospacedDigit()
-                        Text(percentText(row)).monospacedDigit().foregroundStyle(secondaryText)
+                        Text(percentText(row)).monospacedDigit().foregroundStyle(PennyPalette.textSecondary)
                     }.font(.system(size: 11))
                 }
             }
             if denominator > 0 {
-                Text("\(denominator) objects").font(.system(size: 10)).foregroundStyle(secondaryText)
+                Text("\(denominator) objects").font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary)
             }
-        }.padding(10).background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
+        }.padding(10).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(PennyPalette.border))
     }
     private func name(_ row: [String: Any]) -> String {
         row["classification"] as? String ?? row["class"] as? String ?? row["name"] as? String ?? row["label"] as? String ?? "Unclassified"
@@ -108,11 +109,11 @@ struct ClassSummaryView: View {
     }
     private func swatch(_ name: String) -> Color {
         let lower = name.lowercased()
-        if lower.contains("positive") { return Color(red: 0.95, green: 0.45, blue: 0.4) }
-        if lower.contains("negative") { return Color(red: 0.4, green: 0.6, blue: 0.95) }
-        if lower.contains("tumor") || lower.contains("tumour") { return Color.orange }
-        if lower.contains("stroma") { return Color.yellow }
-        if lower.contains("unclassified") { return secondaryText }
-        return mint
+        if lower.contains("positive") { return PennyPalette.swatchPositive }
+        if lower.contains("negative") { return PennyPalette.swatchNegative }
+        if lower.contains("tumor") || lower.contains("tumour") { return PennyPalette.swatchTumour }
+        if lower.contains("stroma") { return PennyPalette.swatchStroma }
+        if lower.contains("unclassified") { return PennyPalette.textSecondary }
+        return PennyPalette.accent
     }
 }

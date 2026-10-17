@@ -1,0 +1,931 @@
+{
+  "schemaVersion": 1,
+  "application": "Fidelis",
+  "app": "fidelis",
+  "toolCount": 33,
+  "tools": [
+    {
+      "name": "fidelis_context",
+      "description": "Read Fidelis’s live state: the focused document (id, title, size, channels/slices/frames, bit depth, calibration, path, unsaved changes, plane position, display range), open documents, the active ROI, counts (ROIs, Results rows, History steps), the last History step, the viewer, a plan waiting for confirmation (pending) or running. Refresh before resolving “this” or any change.",
+      "operation": "context",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_images",
+      "description": "List open Fidelis documents with ids, titles, sizes, which one is focused and whether each has unsaved changes.",
+      "operation": "images",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_open_path",
+      "description": "Open an exact local image path in Fidelis as a new document (recorded in History). Returns the document and a highlight.",
+      "operation": "open_path",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_activate_image",
+      "description": "Focus an open document by id (\"doc-3\"), ImageJ imageId or title. Display only.",
+      "operation": "activate_image",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^doc-[0-9]+$",
+            "maxLength": 40,
+            "description": "Fidelis document id exactly as fidelis_context/fidelis_images report it, e.g. \"doc-3\"."
+          },
+          "imageId": {
+            "type": "integer",
+            "description": "ImageJ image id (document.imageId), when no document id is known."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_commands",
+      "description": "Search every Fiji/ImageJ menu command and plugin in the Fidelis catalogue by name or menu path: returns commandId, label, menuPath, whether its schema is complete, its consequence and parameters (key, type, default, choices). Use before fidelis_command and pass the exact commandId.",
+      "operation": "commands",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_command",
+      "description": "Run one catalogue command or plugin on the focused document by its exact commandId from fidelis_commands, with only the params you change (missing keys come from the schema defaults). One History step. A command whose original dialog opens returns status \"dialog\" with a dialogId: answer it with fidelis_dialog_action. File choosers are refused: use fidelis_open_path.",
+      "operation": "command",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+:.+$",
+            "minLength": 5,
+            "maxLength": 300,
+            "description": "Exact catalogue id from fidelis_commands, e.g. \"ij1:Process>Filters>Gaussian Blur...\"."
+          },
+          "params": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "description": "Catalogue parameter keys (as the macro recorder writes them, e.g. {\"sigma\": 2}); only the ones you change, schema defaults fill the rest."
+          }
+        },
+        "required": [
+          "commandId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_dialog",
+      "description": "Read the original Fiji dialog Penny’s running plan waits on: dialogId, title, fields (id, key, label, type, value, choices) and buttons; pending false when none waits.",
+      "operation": "dialog",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_dialog_action",
+      "description": "Answer the waiting Fiji dialog by its dialogId: set fields by key (or id/label) and press a button (default \"OK\"; \"Cancel\" cancels the command). Returns the command’s result, the next dialog (new dialogId) or status cancelled. Never leave a dialog open.",
+      "operation": "dialog_action",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dialogId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The dialogId of the waiting dialog, from the command or fidelis_dialog result."
+          },
+          "fields": {
+            "type": "object",
+            "maxProperties": 60,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "press": {
+            "type": "string",
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "dialogId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_segment_cells",
+      "description": "Segment nuclei/cells on the focused document: blur, auto threshold (method, default Otsu), mask, fill holes, watershed, Analyze Particles into the ROI list and Results. Run again with another method to replace the previous segmentation from the original pixels. The document becomes the mask. Returns count, averageSize, unit, steps, undoSteps and a highlight. Leave tuning at defaults unless asked.",
+      "operation": "segment_cells",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "dark": {
+            "type": "boolean"
+          },
+          "minSize": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxSize": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "pixel": {
+            "type": "boolean"
+          },
+          "exclude": {
+            "type": "boolean"
+          },
+          "watershed": {
+            "type": "boolean"
+          },
+          "gaussian": {
+            "type": "boolean"
+          },
+          "sigma": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "replace": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_measure",
+      "description": "Measure with ImageJ: the requested Set Measurements keys (area, mean, min, max, integrated, shape, …) on the active ROI (scope roi; the whole image without one), the whole document (all) or every ROI-list entry (rois). Returns rows, lastRow, per-column min/max/mean/count summary and unit. Numbers come from here.",
+      "operation": "measure",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "measurements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "area",
+                "mean",
+                "min",
+                "max",
+                "standard",
+                "modal",
+                "centroid",
+                "center",
+                "perimeter",
+                "bounding",
+                "fit",
+                "shape",
+                "feret",
+                "integrated",
+                "median",
+                "skewness",
+                "kurtosis",
+                "area_fraction",
+                "stack"
+              ]
+            },
+            "maxItems": 19,
+            "uniqueItems": true
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "roi",
+              "all",
+              "rois"
+            ]
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_threshold",
+      "description": "Threshold the focused document: an auto method (Otsu, Default, Huang, Li, Triangle, Moments, MaxEntropy, Yen, …; dark for bright objects on dark) or explicit lower and upper. Returns lower, upper and method.",
+      "operation": "threshold",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "dark": {
+            "type": "boolean"
+          },
+          "lower": {
+            "type": "number"
+          },
+          "upper": {
+            "type": "number"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_analyze_particles",
+      "description": "Count and outline objects in the thresholded document (Analyze Particles): size and circularity ranges (\"50-Infinity\", \"0.50-1.00\"; pixel true for pixel units) or minSize/maxSize/minCircularity, exclude edges, include holes, show, add to the ROI list. Returns count, averageSize, unit and a highlight.",
+      "operation": "analyze_particles",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "string",
+            "pattern": "^[0-9]*\\.?[0-9]+-(?:[0-9]*\\.?[0-9]+|Infinity)$",
+            "maxLength": 40,
+            "description": "Area range in calibrated units² (pixels with pixel true), e.g. \"50-Infinity\"."
+          },
+          "pixel": {
+            "type": "boolean"
+          },
+          "circularity": {
+            "type": "string",
+            "pattern": "^[0-9]*\\.?[0-9]+-(?:[0-9]*\\.?[0-9]+|Infinity)$",
+            "maxLength": 40,
+            "description": "Circularity range 0–1, e.g. \"0.50-1.00\"."
+          },
+          "minSize": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxSize": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minCircularity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "show": {
+            "type": "string",
+            "enum": [
+              "Nothing",
+              "Overlay",
+              "Overlay Masks",
+              "Outlines",
+              "Bare Outlines",
+              "Ellipses",
+              "Masks",
+              "Count Masks"
+            ]
+          },
+          "display": {
+            "type": "boolean"
+          },
+          "exclude": {
+            "type": "boolean"
+          },
+          "clear": {
+            "type": "boolean"
+          },
+          "include": {
+            "type": "boolean"
+          },
+          "summarize": {
+            "type": "boolean"
+          },
+          "overlay": {
+            "type": "boolean"
+          },
+          "add": {
+            "type": "boolean"
+          },
+          "addToManager": {
+            "type": "boolean"
+          },
+          "composite": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_filter",
+      "description": "Apply an ImageJ filter to the focused document: gaussian/median/mean (sigma or radius), unsharp (radius, mask), subtract_background (rolling radius, light, sliding), enhance_contrast (saturated %, normalize, equalize), invert, smooth, sharpen, find_edges; stack for every slice. One History step.",
+      "operation": "filter",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "gaussian",
+              "median",
+              "mean",
+              "unsharp",
+              "subtract_background",
+              "enhance_contrast",
+              "invert",
+              "smooth",
+              "sharpen",
+              "find_edges"
+            ]
+          },
+          "sigma": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "radius": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "mask": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "rolling": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "light": {
+            "type": "boolean"
+          },
+          "sliding": {
+            "type": "boolean"
+          },
+          "saturated": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "normalize": {
+            "type": "boolean"
+          },
+          "equalize": {
+            "type": "boolean"
+          },
+          "stack": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_convert",
+      "description": "Convert the focused document to 8-bit, 16-bit, 32-bit or RGB.",
+      "operation": "convert",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "enum": [
+              "8-bit",
+              "16-bit",
+              "32-bit",
+              "RGB"
+            ]
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_duplicate",
+      "description": "Duplicate the focused document (whole stack) into a new document with an optional title. Returns the new document.",
+      "operation": "duplicate",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_select_roi",
+      "description": "Set the active selection in image pixels: rectangle or oval by x, y, width, height; polygon by points [[x,y],…]; none clears it. Infer the region from the document size, never ask for coordinates. Returns the ROI and a highlight.",
+      "operation": "select_roi",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rectangle",
+              "oval",
+              "polygon",
+              "none"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "height": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "minItems": 3,
+            "maxItems": 10000
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_rois",
+      "description": "List the focused document’s ROI-list entries (index, name, type, bounds), bounded by limit and offset; total is the full count.",
+      "operation": "rois",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_results",
+      "description": "Read Results table rows (bounded by limit and offset) with their column names and the total row count.",
+      "operation": "results",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_object_stats",
+      "description": "Summarise the objects of the latest Analyze Particles in the Results table without re-segmenting: n and area mean/median/min/max with the unit. Use for “how many / how big”.",
+      "operation": "object_stats",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_display",
+      "description": "Brightness/contrast of the focused document (display only): min/max of the display range, or auto from the plane’s raw values; channel for a composite.",
+      "operation": "display",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "auto": {
+            "type": "boolean"
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_stack",
+      "description": "Move through a stack or hyperstack: slice, channel, frame (1-based). Display only.",
+      "operation": "stack",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "slice": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "frame": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_zoom",
+      "description": "Change the focused document’s view: direction in/out (one zoom step), fit true to fit the window, or selection true to zoom to the active ROI. Display only.",
+      "operation": "zoom",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "fit": {
+            "type": "boolean"
+          },
+          "selection": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_highlight",
+      "description": "Point at what you are talking about: flash all ROI-list entries (rois all), the given indices (rois indices) or the active selection (rois active) on the Fidelis canvas, with a short label beside Penny’s cursor. Display only.",
+      "operation": "highlight",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rois": {
+            "type": "string",
+            "enum": [
+              "all",
+              "indices",
+              "active"
+            ]
+          },
+          "indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside the cursor, e.g. \"64 nuclei\"."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          }
+        },
+        "required": [
+          "rois"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_undo",
+      "description": "Undo the last Fidelis History step, or the last steps (1–20; a segmentation reports its undoSteps). Returns what was undone.",
+      "operation": "undo",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_redo",
+      "description": "Redo the last undone Fidelis History step, or steps (1–20).",
+      "operation": "redo",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_history",
+      "description": "Read Fidelis History, newest last: action id, label, command, origin (typed, spoken, menu), provenance and outcome of each step.",
+      "operation": "history",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_macro",
+      "description": "Export the recorded History as an ImageJ macro (the reproducible workflow) with its step count. Read only.",
+      "operation": "macro",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_run_macro",
+      "description": "Run ImageJ macro code in Fidelis for anything no catalogue command does. Always waits for the researcher’s confirmation: returns awaiting_confirmation and runs after fidelis_confirm.",
+      "operation": "run_macro",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_confirm",
+      "description": "Run the plan waiting for confirmation (context.pending) when the researcher’s latest words are “yes” / “go ahead”; refused otherwise, never confirm on your own. planId defaults to the pending plan. Returns that plan’s result.",
+      "operation": "confirm",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_cancel_plan",
+      "description": "Discard the plan waiting for confirmation (planId defaults to it); nothing runs.",
+      "operation": "cancel_plan",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_knowledge",
+      "description": "Search Penny’s Fidelis guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements or macros.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_find_images",
+      "description": "Find images on this computer by a loose name (\"the blobs tif\", \"embryos\"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fidelis_open_path when the researcher names an image instead of a path; never ask them for a folder.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_action_status",
+      "description": "Read a recorded action (completed, failed, denied or expired) by ID. Decisions are taken by policy or the researcher; there is no model approval tool.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

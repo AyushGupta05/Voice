@@ -1,8 +1,8 @@
 import Foundation
 
-/// The two gateway profiles expose different context fields and view operations.
+/// The gateway profiles expose different context fields and view operations.
 public enum CompanionApplication: String {
-    case qupath, fiji
+    case qupath, fiji, fidelis
 
     public init(id: String?) { self = Self(rawValue: id ?? "") ?? .qupath }
     public var knowledgeTool: String { "\(rawValue)_knowledge" }
@@ -14,6 +14,13 @@ public enum CompanionApplication: String {
                 CompanionQuickAction(title: "Highlights", icon: "circle.dotted", tool: "fiji_overlay", arguments: ["show": true]),
                 CompanionQuickAction(title: "Checkpoint", icon: "clock.arrow.circlepath", tool: "fiji_checkpoint", arguments: ["label": "Researcher checkpoint"])
             ]
+        case .fidelis:
+            // Fidelis keeps every step in its own History, so the third action is Undo rather than a Penny checkpoint.
+            return [
+                CompanionQuickAction(title: "Fit image", icon: "scope", tool: "fidelis_zoom", arguments: ["fit": true]),
+                CompanionQuickAction(title: "Highlights", icon: "circle.dotted", tool: "fidelis_highlight", arguments: ["rois": "all"]),
+                CompanionQuickAction(title: "Undo", icon: "arrow.uturn.backward", tool: "fidelis_undo", arguments: [:])
+            ]
         case .qupath:
             return [
                 CompanionQuickAction(title: "Focus here", icon: "scope", tool: "qupath_focus", arguments: [:]),
@@ -24,11 +31,27 @@ public enum CompanionApplication: String {
     }
 
     public func imageName(context: [String: Any]) -> String {
+        // Fidelis reports its focused document as `document`.
+        if self == .fidelis { return (context["document"] as? [String: Any])?["title"] as? String ?? "No image open" }
         let image = context["image"] as? [String: Any]
         return image?[self == .fiji ? "title" : "name"] as? String ?? "No image open"
     }
 
     public func selectionLabel(context: [String: Any]) -> String {
+        if self == .fidelis {
+            var parts: [String] = []
+            if let roi = context["roi"] as? [String: Any], !roi.isEmpty {
+                let name = (roi["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let type = roi["type"] as? String ?? "Region"
+                parts.append(name.isEmpty ? "\(type.capitalized) selected" : name)
+            }
+            // Fidelis keeps a ROI list per document, so its count always describes the focused image.
+            if let count = (context["counts"] as? [String: Any])?["rois"] as? Int, count > 0, context["document"] is [String: Any] {
+                parts.append("\(count) object\(count == 1 ? "" : "s") in this image")
+            }
+            if context["pending"] is [String: Any] { parts.append("Plan waiting for Confirm") }
+            return parts.isEmpty ? "Select a region" : parts.joined(separator: " · ")
+        }
         if self == .fiji {
             var parts: [String] = []
             if let roi = context["roi"] as? [String: Any], !roi.isEmpty {

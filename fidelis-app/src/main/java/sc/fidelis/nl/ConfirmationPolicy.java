@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import sc.fidelis.engine.api.ActionRequest;
 import sc.fidelis.engine.api.ActionRequest.Operations;
@@ -42,10 +43,22 @@ public final class ConfirmationPolicy {
     }
 
     private final Function<String, Optional<CommandSchema>> schemas;
+    private final Supplier<Map<String, String>> globals;
 
     /** @param schemas command id to schema; an unknown command is treated as the most consequential case */
     public ConfirmationPolicy(Function<String, Optional<CommandSchema>> schemas) {
+        this(schemas, null);
+    }
+
+    /**
+     * Value-aware variant (used by the Penny bridge, docs/FIDELIS-PROTOCOL.md): a {@code black} parameter equal to the
+     * current {@code blackBackground} global ({@code Engine.globals()}) states the mask polarity explicitly without
+     * changing the preference, so it is not a reason for explicit confirmation; a different value still is. Without
+     * {@code globals} (the other constructor) every {@code black} parameter counts as a change.
+     */
+    public ConfirmationPolicy(Function<String, Optional<CommandSchema>> schemas, Supplier<Map<String, String>> globals) {
         this.schemas = schemas;
+        this.globals = globals;
     }
 
     /** Without a catalogue every command step is treated as explicit (used when the service is not a DefaultNlService). */
@@ -70,7 +83,7 @@ public final class ConfirmationPolicy {
             if (r.kind() == ActionKind.CODE) reasons.add("step " + (i + 1) + " (" + name + ") is code");
             else if (cc.ordinal() >= ConsequenceClass.AC4_NON_UNDOABLE_DATA.ordinal())
                 reasons.add("step " + (i + 1) + " (" + name + ") is " + cc);
-            if (r.params().containsKey("black"))
+            if (r.params().containsKey("black") && changesBlackBackground(r.params().get("black")))
                 reasons.add("step " + (i + 1) + " (" + name + ") changes the global BlackBackground preference");
             Map<String, String> prov = i < p.slotProvenance().size() ? p.slotProvenance().get(i) : Map.of();
             if (r.kind() == ActionKind.COMMAND) {
@@ -87,6 +100,21 @@ public final class ConfirmationPolicy {
         }
         boolean explicit = !reasons.isEmpty();
         return new Decision(spoken || aboveAc1 || explicit, explicit, reasons);
+    }
+
+    private boolean changesBlackBackground(Object value) {
+        if (globals == null) return true;
+        Map<String, String> g;
+        try {
+            g = globals.get();
+        } catch (RuntimeException e) {
+            return true;
+        }
+        String current = g == null ? null : g.get("blackBackground");
+        if (current == null) return true;
+        Boolean requested = value instanceof Boolean b ? b
+                : "true".equalsIgnoreCase(String.valueOf(value)) ? Boolean.TRUE : "false".equalsIgnoreCase(String.valueOf(value)) ? Boolean.FALSE : null;
+        return requested == null || requested != Boolean.parseBoolean(current.trim());
     }
 
     private ConsequenceClass consequence(ActionRequest r) {

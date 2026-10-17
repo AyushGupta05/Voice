@@ -11,6 +11,8 @@ permissions:
 jobs:
   prototype:
     # Unit and failure-path tests only; real Fiji/speech integration tests need the pinned local runtime.
+    # Standard runners are free for public repos. Never consume billed private-repo minutes.
+    if: github.event.repository.private == false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

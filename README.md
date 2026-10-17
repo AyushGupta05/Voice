@@ -143,14 +143,15 @@ Fidelis is an independent project and is not endorsed by the Fiji or ImageJ deve
 
 ## Repositories
 
-This repository is Fidelis's **hackathon submission**. It is named `Voice` because it is a GitHub fork of the team's shared hackathon parent.
+This repository is the team's **hackathon submission**: Penny's voice integrated with the Fidelis workstation. It is named `Voice` after the team's shared hackathon repository.
 
 | Repository | Role |
 |---|---|
-| [`reverez/Voice`](https://github.com/reverez/Voice) | **This repository.** The Fidelis project (prototype, documentation, ongoing development). A fork of `Sleep-On-It/Voice`. |
+| [`Sleep-On-It/Voice`](https://github.com/Sleep-On-It/Voice) | **This repository.** Penny × Fidelis: the integrated voice companion and workstation (primary since 17 October 2026). |
+| [`reverez/Voice`](https://github.com/reverez/Voice) | The fork where the Fidelis workstreams were developed before the integration. |
 | [`Sleep-On-It/Voice`](https://github.com/Sleep-On-It/Voice) | Shared hackathon parent (initial commit with the Apache-2.0 licence only) |
 | [`Sleep-On-It/Fidelis`](https://github.com/Sleep-On-It/Fidelis) | The original Fidelis repository, formerly `reverez/click-to-batch`. Its branches and history are preserved there. |
-| [`AyushGupta05/Voice`](https://github.com/AyushGupta05/Voice) | **Luma**, a separate, independent submission (QuPath) by a teammate. It is unrelated to Fidelis. This repository has no dependency on it. |
+| [`AyushGupta05/Voice`](https://github.com/AyushGupta05/Voice) | Ayush's fork where Penny (formerly Luma) was built; its work is merged here and it is kept in sync as a secondary remote. |
 
 The Fidelis history is preserved here through an explicit, history-preserving merge (no rewriting). The merge commit's first parent is the Voice initial commit; its second parent carries the complete Fidelis history from `Sleep-On-It/Fidelis`.
 
@@ -177,6 +178,11 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 - Verified by voice-style turns on the Blobs sample: "segment the cells" → 67 cells outlined, "how many and the mean intensity" → 67 / 190 (from the original pixels), "make it stricter / looser" → instant re-segmentation with the new count (~40 ms, no model round), "go back", "save this as a macro" → `.ijm` written. See [DEMO-FIJI.md](docs/DEMO-FIJI.md), [FIJI-SETUP.md](docs/FIJI-SETUP.md) and the [bridge contract](docs/FIJI-PROTOCOL.md).
 - Speak naturally: the wake word is optional by default. `LUMA_WAKE_WORD=on` requires "Penny, …" in a noisy room; follow-ups within 30 s and short controls such as "stop", "undo", "stricter" and "brighter" work without repeating the name.
 - The real-gateway correction workflow passed on an isolated installed Fiji: 12 objects → split 13 → remove under 20 µm² 10 → replay three fields with 10 objects each. Counts use image-owned detections; selection/corner queries preserve the segmentation, and undo restores workflow parameters. See [voice workflow evidence](docs/qa/PENNY-VOICE-WORKFLOW.md).
+
+## Fidelis profile (integration in progress)
+
+- `LUMA_APP=fidelis` (written to `.local/state/app` by `./script/run-fidelis.sh`, which builds and launches the Fidelis workstation with its Penny bridge on port 49558) drives Fidelis through 33 tools over the 30 operations of the [bridge contract](docs/FIDELIS-PROTOCOL.md) (every Fiji menu command and plugin through the catalogue, original dialogs included). Every change goes through the Fidelis engine and its History; explicit plans wait for Confirm or the researcher's spoken "yes".
+- Protocol-tested against a fake bridge only; the Java bridge is being written in parallel. See [the integration notes](docs/INTEGRATION.md).
 
 ## QuPath profile
 

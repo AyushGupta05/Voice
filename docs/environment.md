@@ -21,6 +21,6 @@ The existing repository was found at C:/Users/arnav/Documents/dev/click-to-batch
 
 The API uses the existing .venv with Pillow added for input validation and test comparisons. The old click-to-batch editable Python distribution was removed and replaced with fidelis. No global Python packages were installed. The speech environment and downloaded model are ignored by Git.
 
-Frontend dependencies were retained from the scaffold; package identity and lock metadata were renamed to fidelis-frontend. VS Code backend tasks/debugger now use fidelis.main:app. Fidelis.code-workspace replaces click-to-batch.code-workspace.
+Frontend dependencies were retained from the scaffold; package identity and lock metadata were renamed to fidelis-frontend. VS Code backend tasks/debugger now use fidelis.main:app. Fidelis.code-workspace replaced click-to-batch.code-workspace (both, and the prototype's Windows-only .vscode/ tasks, were removed on 17 Oct 2026).
 
 No Maven compiler is needed for this integration because upstream Fiji binaries are reused. No GitHub remote rename, push or release was performed. No native microphone device, CUDA execution, fresh-machine installation, macOS or Linux configuration was tested.

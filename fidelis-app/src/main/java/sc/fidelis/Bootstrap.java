@@ -48,17 +48,41 @@ public final class Bootstrap {
             Runtime.getRuntime().halt(3);
         }
         if (Boolean.getBoolean("fidelis.smoke")) {
-            smoke(ij);
+            boolean pennyOk = !Boolean.getBoolean("fidelis.penny") || pennySmoke(ij);
+            smoke(ij, pennyOk);
             return;
         }
         // The real engine is created here and handed to the UI through EngineProvider; the UI falls back to
         // its development stub only when nothing was registered (a launch that bypasses Bootstrap).
-        sc.fidelis.ui.EngineProvider.register(sc.fidelis.engine.DefaultEngine.create(ij));
+        sc.fidelis.engine.DefaultEngine engine = sc.fidelis.engine.DefaultEngine.create(ij);
+        sc.fidelis.ui.EngineProvider.register(engine);
+        // Penny's local bridge (docs/FIDELIS-PROTOCOL.md): only when a Penny bridge token exists or -Dfidelis.penny=true.
+        sc.fidelis.penny.FidelisBridge.startIfConfigured(engine);
         SwingUtilities.invokeLater(() -> sc.fidelis.ui.Workspace.launch(ij, args));
     }
 
+    /**
+     * Smoke with {@code -Dfidelis.penny=true}: create the product engine, start the Penny bridge as a normal launch would
+     * and call its own {@code /health} and {@code context} over HTTP. Never runs in a plain smoke.
+     */
+    private static boolean pennySmoke(ImageJ ij) {
+        try {
+            sc.fidelis.engine.DefaultEngine engine = sc.fidelis.engine.DefaultEngine.create(ij);
+            boolean ready = engine.awaitReady(120, TimeUnit.SECONDS);
+            sc.fidelis.penny.FidelisBridge bridge = sc.fidelis.penny.FidelisBridge.startIfConfigured(engine);
+            boolean checked = bridge != null && bridge.selfCheck();
+            System.out.println("[fidelis] penny smoke: engine ready=" + ready + "; bridge " + (bridge == null ? "not started"
+                    : "on port " + bridge.port() + "; self-check " + (checked ? "OK" : "FAILED")));
+            sc.fidelis.penny.FidelisBridge.stopCurrent();
+            return ready && checked;
+        } catch (Exception e) {
+            System.out.println("[fidelis] penny smoke failed: " + e);
+            return false;
+        }
+    }
+
     /** M0 self-test: a real IJ1 command with verified output, then an orderly exit. */
-    private static void smoke(ImageJ ij) {
+    private static void smoke(ImageJ ij, boolean pennyOk) {
         ImagePlus imp = IJ.createImage("smoke", "8-bit ramp", 64, 64, 1);
         int before = imp.getProcessor().get(10, 10);
         IJ.run(imp, "Invert", "");
@@ -67,7 +91,8 @@ public final class Bootstrap {
         System.out.printf("[fidelis] smoke: Invert pixel(10,10) %d -> %d : %s%n", before, after, ok ? "OK" : "WRONG");
         imp.changes = false;
         imp.close();
-        exit(ij, ok ? 0 : 4);
+        if (!pennyOk) System.out.println("[fidelis] smoke: the Penny bridge check failed (exit 5)");
+        exit(ij, !ok ? 4 : pennyOk ? 0 : 5);
     }
 
     /**
@@ -77,6 +102,11 @@ public final class Bootstrap {
      * shutdown hook ({@code IJ1Helper.closeImageWindows} inside {@code invokeAndWait}; P85, EXP-04).
      */
     public static void exit(ImageJ ij, int code) {
+        try {
+            sc.fidelis.penny.FidelisBridge.stopCurrent();
+        } catch (Throwable e) {
+            System.err.println("[fidelis] stopping the Penny bridge: " + e);
+        }
         try {
             SwingUtilities.invokeAndWait(Bootstrap::closeAllImages);
         } catch (Exception e) {

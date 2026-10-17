@@ -39,9 +39,13 @@ import sc.fidelis.speech.SpeechService;
  * The command bar (docs D12 UI-11, D14 C-02, C-11): one field with two explicit outcomes, a ranked
  * list of catalogue commands and a final "Interpret as instruction" row; plus the microphone
  * toggle bound to {@link SpeechService}. Nothing is guessed silently: the user picks the row.
+ *
+ * <p>With a {@link LiveVoice} attached and reachable (Penny, docs/INTEGRATION.md "Voice in the workspace"), the Mic
+ * toggles Penny's continuous conversation instead of the local push-to-talk, and an "Ask Penny" row above the
+ * local "Interpret" row sends the text to Penny (the default for instruction-like text). Without it, nothing changes.
  */
 public final class CommandBar extends JPanel {
-    private enum Kind { COMMAND, INSTRUCTION }
+    private enum Kind { COMMAND, PENNY, INSTRUCTION }
 
     private record Row(Kind kind, CommandSchema.Summary summary, String text) {}
 
@@ -61,6 +65,9 @@ public final class CommandBar extends JPanel {
     private SpeechService.State speechState = SpeechService.State.UNAVAILABLE;
     private SpeechService.Listener speechListener;
     private volatile Timer interpretClock;
+    private LiveVoice live;
+    private final Runnable liveChanged = this::updateMic;
+    private long liveStart;
 
     CommandBar(UiContext ctx) {
         super(new BorderLayout(8, 0));
@@ -199,8 +206,11 @@ public final class CommandBar extends JPanel {
         List<CommandSchema.Summary> hits = ctx.engine.search(q, 8);
         model.clear();
         for (CommandSchema.Summary s : hits) model.addElement(new Row(Kind.COMMAND, s, q));
+        boolean penny = pennyAvailable();
+        if (penny) model.addElement(new Row(Kind.PENNY, null, q));
         model.addElement(new Row(Kind.INSTRUCTION, null, q));
-        list.setSelectedIndex(looksLikeInstruction(q, hits) ? model.size() - 1 : 0);
+        // instruction-like text goes to Penny when she is connected (the local interpreter stays one row below)
+        list.setSelectedIndex(looksLikeInstruction(q, hits) ? model.size() - (penny ? 2 : 1) : 0);
         showPopup();
     }
 
@@ -248,7 +258,7 @@ public final class CommandBar extends JPanel {
             // Enter before the list appeared: run the best command match, else interpret
             List<CommandSchema.Summary> hits = ctx.engine.search(text, 8);
             row = hits.isEmpty() || looksLikeInstruction(text, hits)
-                    ? new Row(Kind.INSTRUCTION, null, text) : new Row(Kind.COMMAND, hits.get(0), text);
+                    ? new Row(pennyAvailable() ? Kind.PENNY : Kind.INSTRUCTION, null, text) : new Row(Kind.COMMAND, hits.get(0), text);
         }
         hidePopup();
         if (row.kind() == Kind.COMMAND) {
@@ -256,6 +266,8 @@ public final class CommandBar extends JPanel {
             field.setText("");
             suppressSearch = false;
             ctx.runCommand(row.summary().commandId(), Origin.SEARCH);
+        } else if (row.kind() == Kind.PENNY) {
+            askPenny(text);
         } else {
             interpret(text, spoken ? Origin.NL_SPOKEN : Origin.NL_TYPED);
         }
@@ -272,8 +284,12 @@ public final class CommandBar extends JPanel {
                 main.setText(row.summary().label().trim());
                 main.setFont(main.getFont().deriveFont(Font.BOLD));
                 path.setText(row.summary().menuPath() + (row.summary().shortcut() != null ? "   " + row.summary().shortcut() : ""));
+            } else if (row.kind() == Kind.PENNY) {
+                main.setText("Ask Penny: “" + row.text() + "”");
+                main.setFont(main.getFont().deriveFont(Font.ITALIC));
+                path.setText("runs at once · undo in History");
             } else {
-                main.setText("Interpret as instruction: “" + row.text() + "”");
+                main.setText((pennyAvailable() ? "Interpret locally: “" : "Interpret as instruction: “") + row.text() + "”");
                 main.setFont(main.getFont().deriveFont(Font.ITALIC));
                 path.setText(ServiceRegistry.nl() == null ? "interpreter not available" : "preview before anything runs");
             }
@@ -284,6 +300,57 @@ public final class CommandBar extends JPanel {
             p.add(path, BorderLayout.EAST);
             return p;
         };
+    }
+
+    // ---- Penny (live voice) -------------------------------------------------------------------
+
+    /** Attach the live voice assistant (call on the EDT); null detaches. */
+    void setLiveVoice(LiveVoice v) {
+        detachLiveVoice();
+        live = v;
+        if (v != null) v.addChangeListener(liveChanged);
+        updateMic();
+    }
+
+    /** Stop following the live voice (a disposed workspace must not keep receiving its events, #16). */
+    void detachLiveVoice() {
+        if (live != null) live.removeChangeListener(liveChanged);
+        live = null;
+        updateMic();
+    }
+
+    LiveVoice liveVoice() {
+        return live;
+    }
+
+    private boolean pennyAvailable() {
+        return live != null && live.phase() != LiveVoice.Phase.UNAVAILABLE;
+    }
+
+    private boolean pennyActive() {
+        return live != null && (live.phase() == LiveVoice.Phase.STARTING || live.phase() == LiveVoice.Phase.LISTENING);
+    }
+
+    /** The Mic belongs to Penny while she is reachable, unless a local recording is still in progress. */
+    private boolean micRoutesToPenny() {
+        if (pennyActive()) return true;
+        boolean localBusy = speech != null && (speechState == SpeechService.State.RECORDING || speechState == SpeechService.State.TRANSCRIBING);
+        return pennyAvailable() && !localBusy;
+    }
+
+    /** Send the typed text to Penny; falls back to the local interpreter when she cannot take it. */
+    private void askPenny(String text) {
+        if (text.isEmpty()) return;
+        if (live != null && live.sendText(text, spoken)) {
+            suppressSearch = true;
+            field.setText("");
+            suppressSearch = false;
+            spoken = false;
+            ctx.notice("Sent to Penny: “" + text + "”", false);
+        } else {
+            ctx.notice("Penny is not connected: interpreting locally instead", true);
+            interpret(text, spoken ? Origin.NL_SPOKEN : Origin.NL_TYPED);
+        }
     }
 
     // ---- natural language ---------------------------------------------------------------------
@@ -385,6 +452,10 @@ public final class CommandBar extends JPanel {
     }
 
     void toggleMic() {
+        if (micRoutesToPenny()) {
+            live.toggle();
+            return;
+        }
         if (speech == null) return;
         if (speechState == SpeechService.State.READY) {
             try {
@@ -405,6 +476,11 @@ public final class CommandBar extends JPanel {
     }
 
     private void updateMic() {
+        if (micRoutesToPenny()) {
+            updatePennyMic();
+            return;
+        }
+        liveStart = 0;
         boolean engineReady = ctx.engine.state() == EngineState.READY;
         String tip;
         boolean enabled;
@@ -455,7 +531,40 @@ public final class CommandBar extends JPanel {
         }
     }
 
+    /** Mic bound to Penny: toggles the continuous conversation; the red indicator shows while her microphone is live. */
+    private void updatePennyMic() {
+        LiveVoice.Phase ph = live.phase();
+        boolean on = ph == LiveVoice.Phase.STARTING || ph == LiveVoice.Phase.LISTENING;
+        String tip = switch (ph) {
+            case LISTENING -> "Penny is listening: just talk. Press to stop the conversation.";
+            case STARTING -> "Starting Penny's microphone… press to cancel";
+            default -> "Talk to Penny (continuous conversation; press again to stop). Steps run at once and are undoable in History.";
+        };
+        mic.setEnabled(on || ctx.engine.state() == EngineState.READY);
+        mic.setSelected(on);
+        mic.setText(on ? "Stop" : "Mic");
+        mic.setToolTipText(tip);
+        mic.getAccessibleContext().setAccessibleDescription(tip);
+        boolean rec = ph == LiveVoice.Phase.LISTENING;
+        if (rec && liveStart == 0) liveStart = System.nanoTime();
+        if (!rec) liveStart = 0;
+        if (rec && !recordingClock.isRunning()) recordingClock.start();
+        else if (!rec) recordingClock.stop();
+        if (rec) updateRecordingText();
+        else {
+            recording.setRecording(false, "");
+            ctx.status().recording().setRecording(false, "");
+        }
+    }
+
     private void updateRecordingText() {
+        if (liveStart != 0) {
+            long s = (System.nanoTime() - liveStart) / 1_000_000_000L;
+            String t = String.format(java.util.Locale.ROOT, "Penny live %d:%02d", s / 60, s % 60);
+            recording.setRecording(true, t);
+            ctx.status().recording().setRecording(true, t);
+            return;
+        }
         long s = (System.nanoTime() - recordingStart) / 1_000_000_000L;
         String t = "Recording " + s + " s / 30 s";
         recording.setRecording(true, t);
@@ -479,7 +588,7 @@ public final class CommandBar extends JPanel {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < model.size(); i++) {
             Row r = model.get(i);
-            out.add(r.kind() == Kind.COMMAND ? r.summary().label() : "Interpret as instruction");
+            out.add(r.kind() == Kind.COMMAND ? r.summary().label() : r.kind() == Kind.PENNY ? "Ask Penny" : "Interpret as instruction");
         }
         return out;
     }

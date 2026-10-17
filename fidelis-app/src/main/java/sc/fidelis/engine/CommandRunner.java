@@ -283,7 +283,8 @@ final class CommandRunner {
     /** Commands without a catalogued schema run through their original dialog (FR-PROC-007). */
     private Outcome runLegacy(Op op, Catalogue.Entry en, Doc doc) {
         ActionRequest r = op.request;
-        if (!r.params().isEmpty())
+        // reserved metadata keys (transcriptRef, parentActionId, expectedHistorySize) are not options
+        if (r.params().keySet().stream().anyMatch(k -> !Options.RESERVED.contains(k)))
             return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, en.label()
                     + " has no catalogued parameters; submit it without params to use its original dialog", null,
                     Map.of(), true, List.of()));
