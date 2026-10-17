@@ -30,11 +30,13 @@ import sc.fidelis.testkit.ProductEngine;
 final class ConfirmationScenario {
     private static Workspace ws;
     private static Engine engine;
+    private static boolean blackBefore;
 
     private ConfirmationScenario() {}
 
     static void start() throws Exception {
         engine = ProductEngine.get();
+        blackBefore = ij.Prefs.blackBackground;
         ServiceRegistry.registerNl(new DefaultNlService(engine));
         SwingUtilities.invokeAndWait(() -> {
             Theme.install();
@@ -48,6 +50,14 @@ final class ConfirmationScenario {
         SwingUtilities.invokeAndWait(() -> {
             if (ws != null) ws.frame().dispose();
         });
+        // leave the shared JVM as found: no documents, the original global preference, no Results rows
+        for (var d : new java.util.ArrayList<>(engine.documents())) {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("discard", true);
+            engine.submit(ActionRequest.session(Origin.MENU, Operations.CLOSE, p, TargetScope.of(d.id()))).get(30, TimeUnit.SECONDS);
+        }
+        ij.Prefs.blackBackground = blackBefore;
+        ij.measure.ResultsTable.getResultsTable().reset();
     }
 
     private static void waitFor(String what, BooleanSupplier c, int seconds) throws InterruptedException {
