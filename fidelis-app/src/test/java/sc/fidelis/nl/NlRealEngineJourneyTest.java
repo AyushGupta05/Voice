@@ -1,7 +1,6 @@
 package sc.fidelis.nl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -225,6 +224,7 @@ class NlRealEngineJourneyTest {
             assertTrue(created.succeeded(), String.valueOf(created.error()));
             DocumentId ramp = created.digest().added().get(0);
             String before = PixelHash.sha256(engine.imagePlus(ramp));
+            int historyBefore = engine.history().size();
             // independent expectation: 255 - v for every pixel of the ramp
             byte[] src = (byte[]) engine.imagePlus(ramp).getProcessor().getPixelsCopy();
             byte[] inv = new byte[src.length];
@@ -242,7 +242,7 @@ class NlRealEngineJourneyTest {
             assertEquals(Origin.NL_SPOKEN, r.proposal().requests().get(0).origin());
             assertTrue(r.requiresConfirmation(), "FR-SPEECH-004");
             assertEquals(before, PixelHash.sha256(engine.imagePlus(ramp)), "nothing may execute before the confirmation");
-            assertFalse(engine.history().stream().anyMatch(h -> "Invert".equals(h.label())), "no history before the confirmation");
+            assertEquals(historyBefore, engine.history().size(), "no history entry before the confirmation");
 
             // simulated confirm: the UI submits the requests
             for (ActionRequest req : r.proposal().requests()) {
