@@ -1,16 +1,17 @@
 import { qupath } from './qupath.js';
 import { fiji } from './fiji.js';
+import { fidelis } from './fidelis.js';
 import type { AppId, AppProfile } from './profile.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 export type { AppId, AppProfile, FastRoute, PrepareInput } from './profile.js';
 
 /** Every application Penny can drive, by id. */
-export const profiles: Record<AppId, AppProfile> = { qupath, fiji };
+export const profiles: Record<AppId, AppProfile> = { qupath, fiji, fidelis };
 export const appIds = Object.keys(profiles) as AppId[];
 /** LUMA_APP selects the application. The companion starts its gateway with `open -n`, where the shell environment does
  * not reach, so when the variable is unset and a root is known (LUMA_ROOT, as the companion and launchers set it) the
- * launcher-written `<root>/.local/state/app` file ("qupath" or "fiji") is read. With neither, QuPath. Test processes set
+ * launcher-written `<root>/.local/state/app` file ("qupath", "fiji" or "fidelis") is read. With neither, QuPath. Test processes set
  * no LUMA_ROOT, so the suite never follows whichever application was launched last. */
 export function selectApp(setting: string | undefined = process.env.LUMA_APP, root: string | undefined = process.env.LUMA_ROOT): AppId {
   let value = setting?.trim() ?? '';

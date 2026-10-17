@@ -1,8 +1,8 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Runtime, Action } from './runtime.js';
 import type { DelegationBackend, DelegatedTask } from './live.js';
 import { activeProfile, type AppProfile } from './apps/index.js';
 import { failureReason } from './apps/profile.js';
+import { toolTask, toolUtterance } from './tool-request.js';
 
 type InputItem = Record<string, unknown>;
 /** Final answers to spoken requests are read aloud; exact details remain in the companion and the application. */
@@ -11,15 +11,16 @@ export const spokenStyle = '\nThis request was spoken and your answers are read 
 export function acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.acknowledgmentFor(name, args, context); }
 /** The spoken sentence for a successful tool call, built from its real result with no model round.
  * '' means nothing more to say; undefined means the model must phrase (or continue) the answer. */
-export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.localSentenceFor(name, args, result); }
+export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile(), context?: unknown): string | undefined { return profile.localSentenceFor(name, args, result, context); }
 /** A request whose wording asks for more than this call delivers must go back to the model. */
-export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile()): boolean { return profile.requestContinuesAfter(name, utterance); }
+export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile(), result?: unknown): boolean { return profile.requestContinuesAfter(name, utterance, result); }
 /** Wording that already tells the researcher something did not work (or asks them), so it is not a false success. */
 export const admitsFailure = (text: string) => /(?:\bnot\b|n't\b|\bno\b|\bnothing\b|fail|unable|error|cannot|refus|blocked|missing|\?)/i.test(text);
 /** The reply after a failed last action: never a success phrase. */
 export const failureSentence = (reason: string) => `That did not work: ${reason.replace(/[.\s]+$/, '')}.`;
-/** The conversation task whose work is running, so tool events can say whose call they were (server.ts). */
-export const toolTask = new AsyncLocalStorage<string>();
+/** The conversation task whose work is running, so tool events can say whose call they were (server.ts). Lives in
+ * tool-request.ts with the utterance store, so the bridge adapter can read both without importing the backend. */
+export { toolTask };
 class ConversationChanged extends Error {}
 class Duplicate extends Error {}
 /** Two argument sets are the same request when every value matches, numbers within 5% (a redrawn region at a
@@ -128,7 +129,7 @@ export class ResponsesBackend implements DelegationBackend {
       // retained action ID so a later recording warning is not frozen out of history.
       if (!output || typeof output.actionId !== 'string') continue;
       const current = this.runtime.actions.get(output.actionId);
-      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, result: current.result, error: current.error, auditWarning: current.auditWarning };
+      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, ...(current.outcome ? { outcome: current.outcome } : {}), result: current.result, error: current.error, auditWarning: current.auditWarning };
     }
     this.trimMemory();
     const entries = this.memories.filter(memory => memory.id !== excludeId);
@@ -158,7 +159,11 @@ export class ResponsesBackend implements DelegationBackend {
     if (!model.trim()) throw new Error('An explicitly selected backend model is required.');
     if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 4096) throw new Error('Invalid backend output limit.');
   }
-  run(task: DelegatedTask) { return toolTask.run(task.id, () => this.runTask(task)); }
+  run(task: DelegatedTask) {
+    // Bridges that take the conversation envelope (Fidelis) record the task, how it was asked and the latest words.
+    const utterance = () => task.conversation().fragments.filter(fragment => fragment.role === 'user').at(-1)?.text ?? '';
+    return toolTask.run(task.id, () => toolUtterance.run({ spoken: task.spoken === true, utterance, observed: () => task.context }, () => this.runTask(task)));
+  }
   private async runTask(task: DelegatedTask) {
     if (this.memories.filter(memory => memory.status === 'running').length >= 4) throw new Error('Finish or interrupt an existing backend task before starting more work.');
     const history: InputItem[] = [];
@@ -263,8 +268,9 @@ export class ResponsesBackend implements DelegationBackend {
             if (task.spoken && task.acknowledge) { spokenSoFar.push('Ready for your approval.'); task.acknowledge('Ready for your approval.'); }
             humanReviewed = true;
             const decision = await awaitHuman(this.runtime, String(result.actionId), task.signal);
-            if (task.spoken && task.acknowledge && decision.status === 'completed' && profile.longRunningTools.has(call.name as string)) { spokenSoFar.push('Running it now.'); task.acknowledge('Running it now.'); }
-            result = { actionId: decision.id, tool: decision.tool, status: decision.status, result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
+            // A reviewed plan that now waits for the researcher's confirmation did not run: no "Running it now.".
+            if (task.spoken && task.acknowledge && decision.status === 'completed' && !decision.outcome && profile.longRunningTools.has(call.name as string)) { spokenSoFar.push('Running it now.'); task.acknowledge('Running it now.'); }
+            result = { actionId: decision.id, tool: decision.tool, status: decision.status, ...(decision.outcome ? { outcome: decision.outcome } : {}), result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
             // A profile may finish a reviewed result the way it finishes an immediate one (e.g. a Fiji recipe's RESULT summary).
             result = profile.finalizeDecision?.(call.name as string, remembered.output, result) ?? result;
           }
@@ -297,12 +303,18 @@ export class ResponsesBackend implements DelegationBackend {
           history.push({ type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(result ?? null) });
         }
         this.trimMemory();
+        // A plan that waits for the researcher's confirmation ends the request here: nothing later in it may run first.
+        const paused = profile.pausesRequest?.(call.name as string, result);
+        if (paused) {
+          for (const remaining of functions.slice(index + 1)) history.push({ type: 'function_call_output', call_id: remaining.call_id, output: JSON.stringify({ status: 'cancelled_before_execution', reason: 'An earlier step waits for the researcher\'s confirmation.' }) });
+          finish(paused, true); return;
+        }
       }
       // Spoken requests finish from the real results when every call succeeded and needs no model phrasing,
       // saving the final model round. Failures, approvals, snapshots and open-ended reads go back to the model.
       if (task.spoken && roundComplete && !humanReviewed && executed.length === functions.length && executed.length) {
         const said = utterance();
-        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
+        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said, call.result) ? undefined : profile.localSentenceFor(call.name, call.args, call.result, context));
         if (sentences.every(sentence => sentence !== undefined)) {
           const text = sentences.filter(Boolean).join(' ');
           if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true, 'failed'); return; }

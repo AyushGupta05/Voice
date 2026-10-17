@@ -7,10 +7,15 @@ import { validateTool, type Arguments, type Tool } from './tools.js';
 import type { Knowledge } from './knowledge.js';
 import { findLocalImages } from './local-images.js';
 import { activeProfile, type AppProfile } from './apps/index.js';
+import { conversationEnvelope, withConversation, type ConversationEnvelope } from './tool-request.js';
 
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
   createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string; decidedBy?: 'human' | 'policy';
+  /** The bridge accepted the request but did not run it to the end: its plan waits for the researcher
+   * (`awaiting_confirmation`), its command's original dialog waits (`dialog`) or was cancelled (`cancelled`). `status`
+   * stays `completed` (the request itself completed); readers must not report the action as run. */
+  outcome?: 'awaiting_confirmation' | 'dialog' | 'cancelled';
 };
 /** Approval policy. The researcher asked for a fully agentic companion, so the default executes data/code actions
  * immediately; hierarchy checkpoints, the audit journal and Stop remain. LUMA_APPROVALS=review restores human review cards. */
@@ -27,6 +32,9 @@ export class Runtime extends EventEmitter {
   readonly profile: AppProfile;
   private operationQueue: Promise<unknown> = Promise.resolve();
   private readonly expirations = new Map<string, Promise<void>>();
+  /** The conversation (task, spoken, utterance) each proposed action came from, so a decision taken later outside that
+   * task (a human review click) still reaches a bridge that records it with the same envelope. Not audited. */
+  private readonly origins = new Map<string, ConversationEnvelope>();
   constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string, options: RuntimeOptions = {}) { super(); this.autoApprove = options.autoApprove === true; this.profile = options.profile ?? activeProfile(); }
   async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
     signal?.throwIfAborted(); beforeDispatch?.();
@@ -72,12 +80,14 @@ export class Runtime extends EventEmitter {
         await this.audit(action); throw error;
       }
       this.actions.set(action.id,action);
+      const origin = conversationEnvelope();
+      if (Object.keys(origin).length) { this.origins.set(action.id, origin); if (this.origins.size > 256) this.origins.delete(this.origins.keys().next().value!); }
       this.prune();
       if (this.autoApprove) {
         // Same recorded decision path as a human click, taken by policy; no pending card is shown.
         const settled = await this.decide(action.id, true, 'policy');
         const dialog = settled.status === 'completed' ? await this.profile.settleDialogs?.(this, name, args, signal) : undefined;
-        return { status: settled.status, actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
+        return { status: settled.status, ...(settled.outcome ? { outcome: settled.outcome } : {}), actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
           ...(dialog ?? {}),
           recovery: 'Hierarchy changes can be restored from the checkpoint; files, image settings and script effects cannot.' };
       }
@@ -118,9 +128,13 @@ export class Runtime extends EventEmitter {
     return this.serial(async () => {
       try {
         const spec = validateTool(action.tool, action.arguments, this.profile);
-        action.result = await this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget });
+        action.result = await withConversation(this.origins.get(action.id), () => this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget }));
         action.status = 'completed';
-        this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
+        // A plan that waits for confirmation is recorded (audit, action status, envelope) as not run.
+        const outcome = this.profile.outcomeOf?.(action.tool, action.result) ?? (this.profile.pausesRequest?.(action.tool, action.result) ? 'awaiting_confirmation' : undefined);
+        if (outcome) action.outcome = outcome;
+        // A decision taken outside the task (a review click) still attributes its tool event to that task.
+        withConversation(this.origins.get(action.id), () => this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result}));
       } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); console.error(`[tool ${new Date().toISOString()}] ${action.tool} failed: ${action.error}`); }
       await this.terminal(action);
       return action;
@@ -143,6 +157,7 @@ export class Runtime extends EventEmitter {
   }
   private get auditWarning(){return `Local audit update could not be recorded. Use the actual status/result below; no operation was retried. Inspect ${this.profile.displayName} before any new action. Persistence is unconfirmed.`;}
   private async terminal(action:Action) {
+    this.origins.delete(action.id);
     try { await this.audit(action); } catch { action.auditWarning=this.auditWarning; }
     // Recording failure cannot erase a completed operation or strand its waiter.
     this.emit('action',action);

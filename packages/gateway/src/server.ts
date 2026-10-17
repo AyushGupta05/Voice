@@ -116,8 +116,13 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
     });
     return session;
   };
+  /** What each socket said it is in its hello (`client`, e.g. "fidelis-workspace"), for messages naming another client. */
+  const clientNames=new Map<WebSocket,string>();
+  const holderName=(peer:WebSocket)=>{const name=clientNames.get(peer);return name==='fidelis-workspace'?'the Fidelis workspace':name?`the ${name} client`:'the Luma companion';};
   wss.on('connection',ws=>{
-    peers.add(ws);desktop.attach(ws);
+    // Desktop (Accessibility) requests go only to sockets whose hello offers them (below): the Fidelis workspace says
+    // desktop:false, so connecting after the Swift companion cannot take desktop control away from it.
+    peers.add(ws);
     const send=(event:Record<string,unknown>)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));};
     let session=createSession();session.ws=ws;sessions.set(ws,session);
     ws.on('message',raw=>{
@@ -130,6 +135,8 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
         if(event.type==='hello'){
           if(typeof event.clientId!=='string'||!/^[A-Za-z0-9-]{8,64}$/.test(event.clientId))throw new Error('A hello needs a stable clientId of 8-64 letters, digits or dashes.');
           if(session.clientId)return;
+          if(typeof event.client==='string'&&/^[A-Za-z0-9 ._-]{1,40}$/.test(event.client))clientNames.set(ws,event.client);
+          if(event.desktop!==false)desktop.attach(ws);
           const previous=detached.get(event.clientId);
           if(previous&&ws.readyState===WebSocket.OPEN){
             // Reattach: the throwaway conversation of this socket is dropped; the surviving one replays what was missed.
@@ -141,7 +148,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
         }
         else if(event.type==='start_voice') {
           if(typeof event.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(event.requestId))throw new Error('A voice request identity is required.');
-          if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',requestId:event.requestId,message:'Voice is already active in another companion.'});return;}
+          if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',requestId:event.requestId,message:`Voice is already active in ${holderName(voiceOwner.peer)}; stop it there first.`});return;}
           // Claim before any funding await; simultaneous starts cannot open two streams.
           const owner={peer:ws,requestId:event.requestId};voiceOwner=owner;
           try{
@@ -162,7 +169,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
       })().catch(error=>send({type:'error',message:error.message,...(typeof requestId==='string'?{requestId}:{})}));
     });
     const disconnected=()=>{
-      voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;peers.delete(ws);desktop.detach(ws);
+      voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;peers.delete(ws);desktop.detach(ws);clientNames.delete(ws);
       const current=sessions.get(ws);if(!current)return;sessions.delete(ws);
       if(current.ws!==ws)return;
       current.ws=undefined;

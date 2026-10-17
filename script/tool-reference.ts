@@ -40,14 +40,16 @@ function parameterTable(schema: Schema): string {
   return output;
 }
 /** Where each application's generated reference lives; QuPath keeps the original file names. */
-const outputs: Record<AppProfile['id'], { markdown: string; json: string; source: string }> = {
+const outputs: Record<AppProfile['id'], { markdown: string; json: string; source: string; note?: string }> = {
   qupath: { markdown: 'TOOL-REFERENCE.md', json: 'tool-schemas.json', source: 'packages/gateway/src/apps/qupath-tools.ts' },
   fiji: { markdown: 'TOOL-REFERENCE-FIJI.md', json: 'tool-schemas-fiji.json', source: 'packages/gateway/src/apps/fiji-tools.ts' },
+  fidelis: { markdown: 'TOOL-REFERENCE-FIDELIS.md', json: 'tool-schemas-fidelis.json', source: 'packages/gateway/src/apps/fidelis-tools.ts',
+    note: 'Every change runs through the Fidelis engine and is recorded in Fidelis History. An explicit plan (code, steps History cannot undo, global settings) returns `{status: "awaiting_confirmation", planId, reasons, steps}` without running; it runs after the researcher presses Confirm or says "yes" (`fidelis_confirm`). See [the bridge contract](FIDELIS-PROTOCOL.md).' },
 };
 function reference(profile: AppProfile): string {
   const { tools } = profile; const out = outputs[profile.id];
   const others = appIds.filter(id => id !== profile.id).map(id => `[${profiles[id].displayName}](${outputs[id].markdown})`).join(', ');
-  let output = `# MCP tool reference (${profile.displayName})\n\nGenerated from \`${out.source}\`; this profile is active when \`LUMA_APP=${profile.id}\`${profile.id === 'qupath' ? ' (the default)' : ''}. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](${out.json}) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions. Other applications: ${others}.\n\nAll inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately. Data and code tools go through the recorded decision path: executed at once under the default \`LUMA_APPROVALS=auto\` policy, shown as human review cards under \`review\`. The approval control is absent from the MCP tool list.\n\n`;
+  let output = `# MCP tool reference (${profile.displayName})\n\nGenerated from \`${out.source}\`; this profile is active when \`LUMA_APP=${profile.id}\`${profile.id === 'qupath' ? ' (the default)' : ''}. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](${out.json}) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions. Other applications: ${others}.\n\nAll inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately. Data and code tools go through the recorded decision path: executed at once under the default \`LUMA_APPROVALS=auto\` policy, shown as human review cards under \`review\`. The approval control is absent from the MCP tool list.${out.note ? ` ${out.note}` : ''}\n\n`;
   output += '| Tool | Risk | Decision path |\n|---|---|---|\n';
   for (const tool of tools) output += `| [\`${tool.name}\`](#${tool.name.replaceAll('_', '-')}) | ${tool.risk} | ${['data', 'code'].includes(tool.risk) ? 'Yes' : 'No'} |\n`;
   for (const tool of tools) {
