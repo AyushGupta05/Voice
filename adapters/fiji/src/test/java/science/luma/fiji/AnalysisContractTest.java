@@ -174,7 +174,17 @@ public final class AnalysisContractTest {
         System.out.println("  split: " + split);
         expect(((Number) split.get("split")).intValue() == 1 && manager.getCount() == 8, "touching pair split into two: " + manager.getCount());
         expect(imp.getOverlay() != null && imp.getOverlay().size() == 8, "overlay follows the ROI Manager");
-        System.out.println("PASS filter_objects (3 specks removed) and split_objects (touching pair -> 2)");
+        var pointedSplit = new JsonObject(); pointedSplit.addProperty("x", 40); pointedSplit.addProperty("y", 40);
+        var none = edt(() -> analysis.splitObjects(pointedSplit));
+        expect("pointer".equals(none.get("scope")) && ((Number) none.get("split")).intValue() == 0, "a single round cell under the pointer is not split: " + none);
+        var between = new JsonObject(); between.addProperty("x", 260); between.addProperty("y", 122);
+        var merged = edt(() -> analysis.mergeObjects(between));
+        System.out.println("  merge: " + merged);
+        expect(((Number) merged.get("merged")).intValue() == 2 && manager.getCount() == 7, "the split pair merged back into one: " + manager.getCount());
+        var remove = new JsonObject(); remove.addProperty("x", 40); remove.addProperty("y", 40);
+        var removed = edt(() -> analysis.filterObjects(remove));
+        expect(((Number) removed.get("removed")).intValue() == 1 && manager.getCount() == 6, "remove-at-pointer deletes only that cell: " + removed);
+        System.out.println("PASS filter_objects (3 specks removed) and split_objects (touching pair -> 2), split/merge/remove at the pointer");
     }
     static void errors() throws Exception {
         ops.manager().reset();

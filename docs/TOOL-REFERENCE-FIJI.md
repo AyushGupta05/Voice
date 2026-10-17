@@ -27,6 +27,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_object_stats`](#fiji-object-stats) | read | No |
 | [`fiji_filter_objects`](#fiji-filter-objects) | data | Yes |
 | [`fiji_split_objects`](#fiji-split-objects) | data | Yes |
+| [`fiji_merge_objects`](#fiji-merge-objects) | data | Yes |
 | [`fiji_filter`](#fiji-filter) | data | Yes |
 | [`fiji_convert`](#fiji-convert) | data | Yes |
 | [`fiji_duplicate`](#fiji-duplicate) | data | Yes |
@@ -310,13 +311,17 @@ Summarise the objects in the ROI Manager: count, area/intensity/circularity mean
 
 Remove unwanted detections from the ROI Manager and overlay without re-segmenting: remove "tiny" (default: area below fraction 0.35 of the median), "huge" (above 3× median), or explicit minArea/maxArea (calibrated units²) and minCircularity. The answer to “remove the tiny ones / the debris / the specks”. Returns before, removed, kept and a highlight.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `remove` | No | "tiny", "small", "huge", "large", "none" |
-| `fraction` | No | number; max 1; greater than 0 |
-| `minArea` | No | number; min 0 |
-| `maxArea` | No | number; greater than 0 |
-| `minCircularity` | No | number; min 0; max 1 |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `remove` | No | "tiny", "small", "huge", "large", "none" |  |
+| `fraction` | No | number; max 1; greater than 0 |  |
+| `minArea` | No | number; min 0 |  |
+| `maxArea` | No | number; greater than 0 |  |
+| `minCircularity` | No | number; min 0; max 1 |  |
+| `at` | No | "pointer" | pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”. |
+| `x` | No | number |  |
+| `y` | No | number |  |
+| `count` | No | integer; min 1; max 20 |  |
 
 <a id="fiji-split-objects"></a>
 
@@ -324,11 +329,28 @@ Remove unwanted detections from the ROI Manager and overlay without re-segmentin
 
 Separate touching or merged cells: watershed inside oversized objects (area above factor × median, default 1.5), inside objects within the active selection, or the given ROI Manager indices; pieces replace the merged object. The answer to “those cells are touching, separate them”. Returns before, after, split and a highlight of the new pieces.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `factor` | No | number; min 1; max 10 |
-| `indices` | No | array of (integer; min 0); max 1000 items |
-| `all` | No | boolean |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `factor` | No | number; min 1; max 10 |  |
+| `indices` | No | array of (integer; min 0); max 1000 items |  |
+| `all` | No | boolean |  |
+| `at` | No | "pointer" | pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”. |
+| `x` | No | number |  |
+| `y` | No | number |  |
+
+<a id="fiji-merge-objects"></a>
+
+## fiji_merge_objects
+
+Join over-split objects into one cell: the two (or count) objects under/nearest the pointer (at pointer, or image x, y), those inside the active selection, or the given indices. The answer to “these are one cell / merge these”. Returns before, after, merged and a highlight.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `at` | No | "pointer" | pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”. |
+| `x` | No | number |  |
+| `y` | No | number |  |
+| `count` | No | integer; min 2; max 20 |  |
+| `indices` | No | array of (integer; min 0); min 2 items; max 1000 items |  |
 
 <a id="fiji-filter"></a>
 

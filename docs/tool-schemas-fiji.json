@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fiji",
   "app": "fiji",
-  "toolCount": 62,
+  "toolCount": 63,
   "tools": [
     {
       "name": "fiji_context",
@@ -596,6 +596,24 @@
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "at": {
+            "type": "string",
+            "enum": [
+              "pointer"
+            ],
+            "description": "pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”."
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
           }
         },
         "required": [],
@@ -625,6 +643,59 @@
           },
           "all": {
             "type": "boolean"
+          },
+          "at": {
+            "type": "string",
+            "enum": [
+              "pointer"
+            ],
+            "description": "pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”."
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_merge_objects",
+      "description": "Join over-split objects into one cell: the two (or count) objects under/nearest the pointer (at pointer, or image x, y), those inside the active selection, or the given indices. The answer to “these are one cell / merge these”. Returns before, after, merged and a highlight.",
+      "operation": "merge_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "enum": [
+              "pointer"
+            ],
+            "description": "pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”."
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 20
+          },
+          "indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 2,
+            "maxItems": 1000
           }
         },
         "required": [],

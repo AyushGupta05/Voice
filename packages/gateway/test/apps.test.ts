@@ -26,7 +26,7 @@ const protocol: Record<string, 'read' | 'view' | 'data' | 'code'> = {
   commands: 'read', run_command: 'code', ui: 'read', ui_action: 'code', run_macro: 'code', run_script: 'code', recorder: 'read', save_workflow: 'code', save_image: 'code', export_results: 'code',
   checkpoint: 'data', checkpoints: 'read', compare: 'read', restore: 'data', close: 'data', snapshot: 'read', log: 'read', status: 'read', plugins: 'read', undo: 'data',
   track_objects: 'data', intensity_over_time: 'data', tumor_region: 'data', colocalize: 'read', classify_intensity: 'data', object_stats: 'read',
-  make_macro: 'code', workflows: 'read', run_workflow: 'code', capture_macro: 'code', filter_objects: 'data', split_objects: 'data',
+  make_macro: 'code', workflows: 'read', run_workflow: 'code', capture_macro: 'code', filter_objects: 'data', split_objects: 'data', merge_objects: 'data',
 };
 
 test('LUMA_APP selects the profile, QuPath by default, and refuses unknown applications', () => {
@@ -132,7 +132,7 @@ test('Fiji fast routes cover zoom, fit, overlay, slices and undo, and nothing el
   assert.deepEqual(fiji.fastRoute('get rid of the big clumps', segmented)?.arguments, { remove: 'huge' });
   assert.deepEqual(fiji.fastRoute('Those cells are touching, separate them.', segmented), { tool: 'fiji_split_objects', arguments: {}, reply: 'Separating them.' });
   assert.deepEqual(fiji.fastRoute('show me the size distribution', segmented), { tool: 'fiji_object_stats', arguments: { plot: true }, reply: 'Plotting the sizes.' });
-  assert.deepEqual(fiji.fastRoute('How many cells are left?', segmented), { tool: 'fiji_object_stats', arguments: {}, reply: 'Counting.' });
+  assert.deepEqual(fiji.fastRoute('How many cells are left?', segmented), { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' });
   assert.deepEqual(fiji.fastRoute('so how many are there now', segmented)?.tool, 'fiji_object_stats');
   for (const other of ['Remove the tiny ones.', 'separate them', 'how many cells are left']) assert.equal(fiji.fastRoute(other, context), undefined, `${other}: nothing segmented, no route`);
   assert.equal(fiji.fastRoute('remove the tiny ones and then count them', segmented), undefined, 'a chained request goes to the model');

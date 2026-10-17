@@ -34,10 +34,10 @@ public final class LumaBridge implements PlugIn {
         Map.entry("run_command", "running the command"), Map.entry("run_macro", "running a macro"), Map.entry("run_script", "running a script"), Map.entry("restore", "going back"), Map.entry("undo", "going back"),
         Map.entry("save_workflow", "saving the macro"), Map.entry("save_image", "saving the image"), Map.entry("export_results", "exporting results"), Map.entry("duplicate", "duplicating"), Map.entry("close", "closing"));
     static final Set<String> VIEW = Set.of("activate_image", "select_roi", "zoom", "highlight", "overlay", "display", "stack");
-    static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo", "track_objects", "intensity_over_time", "tumor_region", "classify_intensity", "filter_objects", "split_objects");
+    static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo", "track_objects", "intensity_over_time", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
     static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results", "make_macro", "run_workflow", "capture_macro");
     /** Data/code operations that change an image's pixels, ROIs, overlay, manager or results and therefore get a checkpoint first. */
-    static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script", "track_objects", "tumor_region", "classify_intensity", "filter_objects", "split_objects");
+    static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script", "track_objects", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
     private static final Object LOCK = new Object();
     private static LumaBridge current;
 
@@ -138,6 +138,8 @@ public final class LumaBridge implements PlugIn {
             respond(exchange, 200, Map.of("result", result == null ? Map.of() : result));
         } catch (Exception error) {
             var cause = error instanceof ExecutionException ? error.getCause() : error;
+            // Unexpected failures (not argument/state refusals) go to .local/fiji.log with their stack so bridge bugs are diagnosable.
+            if (!(cause instanceof IllegalArgumentException || cause instanceof IllegalStateException)) { System.err.println("[Luma] operation failed: " + cause); cause.printStackTrace(); }
             respond(exchange, cause instanceof IllegalArgumentException ? 400 : 409, Map.of("error", Objects.toString(cause.getMessage(), cause.getClass().getSimpleName())));
         } finally { exchange.close(); }
     }
@@ -269,6 +271,7 @@ public final class LumaBridge implements PlugIn {
             case "object_stats" -> analysis.regionStats(args);
             case "filter_objects" -> analysis.filterObjects(args);
             case "split_objects" -> analysis.splitObjects(args);
+            case "merge_objects" -> analysis.mergeObjects(args);
             case "workflows" -> macros.workflows(args);
             default -> throw new IllegalArgumentException("Unknown operation: " + operation);
         };
@@ -333,6 +336,7 @@ public final class LumaBridge implements PlugIn {
         var table = Operations.results();
         result.put("measurements", Map.of("rows", table.size(), "columns", List.of(table.getHeadings()), "lastRow", table.size() == 0 ? Map.of() : Operations.row(table, table.size() - 1)));
         result.put("viewer", imp == null ? null : Viewer.viewerJson(imp));
+        result.put("pointer", Viewer.pointer(imp));
         result.put("counts", ops.counts(imp));
         result.put("lastDispatch", lastDispatch);
         result.put("analysisRunning", analysisRunning.get());

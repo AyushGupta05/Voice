@@ -63,6 +63,28 @@ final class Viewer {
         } catch (RuntimeException error) { return Map.of(); }
     }
 
+    /** Where the researcher is pointing: the live mouse position mapped into image pixels when it is over the canvas, plus the canvas's last known cursor location. */
+    static Map<String, Object> pointer(ImagePlus imp) {
+        var result = new java.util.LinkedHashMap<String, Object>();
+        Point screen = null;
+        try { var info = java.awt.MouseInfo.getPointerInfo(); if (info != null) screen = info.getLocation(); } catch (RuntimeException ignored) { /* no pointer device */ }
+        result.put("screenX", screen == null ? null : screen.x); result.put("screenY", screen == null ? null : screen.y);
+        ImageCanvas ic = imp == null ? null : imp.getCanvas();
+        boolean over = false; Integer x = null, y = null;
+        if (ic != null && ic.isShowing() && screen != null) {
+            try {
+                Point origin = ic.getLocationOnScreen(); Dimension size = ic.getSize();
+                int sx = screen.x - origin.x, sy = screen.y - origin.y;
+                over = sx >= 0 && sy >= 0 && sx < size.width && sy < size.height;
+                if (over) { x = ic.offScreenX(sx); y = ic.offScreenY(sy); }
+            } catch (RuntimeException ignored) { /* canvas not realised */ }
+        }
+        result.put("x", x); result.put("y", y); result.put("overCanvas", over);
+        if (ic != null) { Point last = ic.getCursorLoc(); if (last != null && last.x >= 0 && last.y >= 0 && last.x < imp.getWidth() && last.y < imp.getHeight()) { result.put("lastX", last.x); result.put("lastY", last.y); } }
+        result.put("note", over ? "pointer is over the image canvas; x/y are image pixels" : "pointer is not over the canvas; lastX/lastY (if present) are the last image pixels the mouse hovered");
+        return result;
+    }
+
     /** Zooms so the rectangle fills the window when it would otherwise be invisible. Returns true when the view moved. */
     static boolean follow(ImagePlus imp, Rectangle target) {
         var view = view(imp);

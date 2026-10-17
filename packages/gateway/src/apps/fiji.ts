@@ -13,7 +13,7 @@ const acknowledgments: Record<string, string> = {
   fiji_activate_image: 'Switching image.', fiji_project_stack: 'Projecting.', fiji_convert: 'Converting.', fiji_save_image: 'Saving.', fiji_export_results: 'Exporting.',
   fiji_results: 'Checking.', fiji_roi_manager: 'Checking.', fiji_images: 'Checking.',
   fiji_track_objects: 'Tracking them.', fiji_intensity_over_time: 'Following the intensity.', fiji_tumor_region: 'Outlining the tumour.',
-  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Plotting the sizes.', fiji_filter_objects: 'Removing them.', fiji_split_objects: 'Separating them.',
+  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Plotting the sizes.', fiji_filter_objects: 'Removing them.', fiji_split_objects: 'Separating them.', fiji_merge_objects: 'Merging them.',
   fiji_make_macro: 'Writing the macro.', fiji_workflows: 'Checking.', fiji_run_workflow: 'Running it on every image.', fiji_capture_macro: 'Saving the macro.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
@@ -164,6 +164,11 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
     if (split === undefined || before === undefined || after === undefined) return undefined;
     return split ? `Separated ${plural(split, 'clump')}: ${before} to ${after} cells.` : `Nothing looked merged; still ${plural(after, 'cell')}.`;
   }
+  if (name === 'fiji_merge_objects') {
+    const merged = finite(inner.merged), after = finite(inner.after);
+    if (merged === undefined || after === undefined) return undefined;
+    return `Merged ${merged} into one; ${plural(after, 'cell')} now.`;
+  }
   if (name === 'fiji_make_macro' || name === 'fiji_capture_macro') {
     if (inner.ok !== true || inner.error != null) return undefined;
     const file = fileName(inner.path) ?? text(inner.name);
@@ -226,13 +231,22 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   }
   // Corrections to a segmentation act on the ROI Manager directly, instantly, without re-segmenting.
   const objects = finite((context as { counts?: { roiManager?: unknown } } | undefined)?.counts?.roiManager) ?? 0;
+  const pointer = (context as { pointer?: { overCanvas?: unknown; lastX?: unknown } } | undefined)?.pointer;
+  const pointing = pointer?.overCanvas === true || finite(pointer?.lastX) !== undefined;
+  const deictic = /\b(this|these|that|those|here|this one|that one)\b/.test(said);
+  if (objects > 0 && pointing && deictic && !/\b(and then|then|after that|channels?)\b/.test(said)) {
+    // "These should be separate / are one cell / remove this one" act on the cells under the researcher's pointer.
+    if (/\b(one cell|same cell|single cell|merge|join|combine|together|shouldn'?t be (?:split|separate))\b/.test(said) && !/\bseparate\b(?!.*shouldn)/.test(said)) return { tool: 'fiji_merge_objects', arguments: { at: 'pointer' }, reply: 'Merging them.' };
+    if (/\b(separate|split|divide|break up|pull apart|two cells|not one)\b/.test(said)) return { tool: 'fiji_split_objects', arguments: { at: 'pointer' }, reply: 'Separating them.' };
+    if (/\b(remove|delete|drop|get rid of|not a cell|isn'?t a cell|ignore)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { at: 'pointer' }, reply: 'Removing it.' };
+  }
   if (objects > 0 && !/\b(and then|then|after that|channels?)\b/.test(said)) {
     if (/\b(remove|drop|delete|get rid of|filter out|exclude|ignore|lose)\b.*\b(tiny|small|little|specks?|debris|dots?|noise|junk|fragments?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' };
     if (/\b(remove|drop|delete|get rid of|filter out|exclude)\b.*\b(huge|big|giant|large|clumps?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'huge' }, reply: 'Removing the big ones.' };
     if (/\b(separate|split|divide|break up|pull apart)\b/.test(said) && /\b(them|touching|merged|stuck|clump\w*|together|cells?|nuclei|blobs?|those)\b/.test(said)) return { tool: 'fiji_split_objects', arguments: {}, reply: 'Separating them.' };
     if (/\b(size|area) (distribution|histogram)\b|\bhistogram\b|\bdistribution of (sizes?|areas?)\b/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: true }, reply: 'Plotting the sizes.' };
     // "How many are left?" reads the ROI Manager; re-segmenting would discard the researcher's corrections.
-    if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: {}, reply: 'Counting.' };
+    if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' };
   }
   const overlay = said.match(/^(show|hide) (?:the )?(?:overlay|outlines)$/);
   if (overlay) return { tool: 'fiji_overlay', arguments: { show: overlay[1] === 'show' }, reply: overlay[1] === 'show' ? 'Showing the overlay.' : 'Hiding the overlay.' };
@@ -284,7 +298,7 @@ export const fiji: AppProfile = {
   launcherScript: './script/run-fiji.sh', bridgeJar: 'dist/luma-fiji-bridge.jar', buildManifest: '.local/fiji-bridge-build.json', buildScript: 'script/build-fiji-bridge.sh',
   doctorArtifacts: [['dist/luma-fiji-bridge.jar', 'Fiji bridge build'], ['.local/fiji/Fiji.app/Contents/MacOS/ImageJ-macosx', 'Fiji launcher']],
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
-  longRunningTools: new Set(['fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
+  longRunningTools: new Set(['fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.

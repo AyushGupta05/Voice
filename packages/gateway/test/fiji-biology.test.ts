@@ -148,3 +148,12 @@ test('segmentation corrections from the Hey Fiji demo take the instant route onl
   assert.equal(fiji.localSentenceFor!('fiji_filter_objects', {}, { status: 'completed', result: { before: 82, removed: 9, kept: 73 } }), 'Removed 9 tiny ones; 73 cells left.');
   assert.equal(fiji.localSentenceFor!('fiji_split_objects', {}, { status: 'completed', result: { before: 73, after: 79, split: 5 } }), 'Separated 5 clumps: 73 to 79 cells.');
 });
+
+test('pointing at cells routes "these should be separate", "one cell" and "remove this one" to the pointer', () => {
+  const ctx = { image: { slices: 1 }, counts: { roiManager: 40 }, pointer: { overCanvas: true, x: 120, y: 80 } };
+  assert.deepEqual(fiji.fastRoute!('These should be separate.', ctx), { tool: 'fiji_split_objects', arguments: { at: 'pointer' }, reply: 'Separating them.' });
+  assert.equal(fiji.fastRoute!('These two are one cell', ctx)?.tool, 'fiji_merge_objects');
+  assert.equal(fiji.fastRoute!('Remove this one, it is not a cell', ctx)?.tool, 'fiji_filter_objects');
+  assert.deepEqual(fiji.fastRoute!('Remove this one', { ...ctx, pointer: { overCanvas: false } }), undefined);
+  assert.equal(fiji.localSentenceFor!('fiji_merge_objects', {}, { status: 'completed', result: { before: 41, after: 40, merged: 2 } }), 'Merged 2 into one; 40 cells now.');
+});

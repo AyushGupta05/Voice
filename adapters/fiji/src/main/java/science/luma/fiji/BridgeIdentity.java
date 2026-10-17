@@ -16,7 +16,7 @@ final class BridgeIdentity {
         "run_macro", "run_script", "recorder", "save_workflow", "save_image", "export_results", "checkpoint",
         "checkpoints", "compare", "restore", "close", "snapshot", "log", "plugins", "undo", "status",
         "track_objects", "intensity_over_time", "tumor_region", "colocalize", "classify_intensity", "object_stats",
-        "make_macro", "workflows", "run_workflow", "capture_macro", "filter_objects", "split_objects");
+        "make_macro", "workflows", "run_workflow", "capture_macro", "filter_objects", "split_objects", "merge_objects");
     private static final Map<String, Object> DESCRIPTION = Map.of("adapterVersion", VERSION, "protocolVersion", PROTOCOL_VERSION,
         "sourceSha256", sourceDigest(), "operations", OPERATIONS);
     private static String sourceDigest() {

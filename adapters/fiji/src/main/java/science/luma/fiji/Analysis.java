@@ -526,18 +526,40 @@ final class Analysis {
         result.put("unit", cal.getUnit()); result.put("areaUnit", cal.getUnit() + "^2"); result.put("channel", channel);
         result.put("highlight", Viewer.roiHighlight(imp, largestRois, largestRois.size() == 1 ? "Largest object" : largestRois.size() + " largest objects", 5));
         if (Operations.bool(args, "plot", true) && Operations.guiVisible()) {
-            showHistogram(area, cal.getUnit()); result.put("plot", "Size distribution");
+            showHistogram(imp, area, cal.getUnit()); result.put("plot", "Size distribution");
             // The plot window must not become the active image: the next "segment"/"count" still means the cells' image.
             if (imp.getWindow() != null) { WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
         }
         return result;
     }
     /** "Show me the size distribution": an ImageJ histogram plot window of object areas, drawn from the same values as the result. */
-    static void showHistogram(double[] area, String unit) {
+    static void showHistogram(ImagePlus imp, double[] area, String unit) {
         int bins = Math.max(5, Math.min(30, (int) Math.round(Math.sqrt(area.length))));
         var plot = new ij.gui.Plot("Size distribution", "Area (" + (unit == null || unit.isBlank() ? "pixel" : unit) + "²)", "Objects");
         plot.addHistogram(area, (Arrays.stream(area).max().orElse(1) - Arrays.stream(area).min().orElse(0)) / bins);
         plot.show();
+        // The plot window would otherwise become the current image, and the next request would act on the plot.
+        if (imp.getWindow() != null) { ij.WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
+    }
+    /** The image pixel the researcher means by "this/these": explicit x/y, else the live pointer over the canvas, else its last position there. */
+    static java.awt.Point pointedAt(ImagePlus imp, JsonObject args) {
+        if (args.has("x") && args.has("y")) return new java.awt.Point((int) Operations.number(args, "x", 0), (int) Operations.number(args, "y", 0));
+        var pointer = Viewer.pointer(imp);
+        Object x = Boolean.TRUE.equals(pointer.get("overCanvas")) ? pointer.get("x") : pointer.get("lastX"), y = Boolean.TRUE.equals(pointer.get("overCanvas")) ? pointer.get("y") : pointer.get("lastY");
+        if (x instanceof Number px && y instanceof Number py) return new java.awt.Point(px.intValue(), py.intValue());
+        throw new IllegalStateException("Point at the cells on the image first.");
+    }
+    /** Objects at the point, else the nearest centroid within twice the typical radius; "these two" also takes the next nearest touching neighbour. */
+    static List<Integer> objectsAt(Roi[] rois, java.awt.Point point, double medianArea, int count) {
+        var hits = new ArrayList<Integer>();
+        for (int i = 0; i < rois.length; i++) if (rois[i].contains(point.x, point.y)) hits.add(i);
+        double reach = 2 * Math.sqrt(medianArea / Math.PI) + 3;
+        Integer[] order = new Integer[rois.length]; for (int i = 0; i < order.length; i++) order[i] = i;
+        double[] distance = new double[rois.length];
+        for (int i = 0; i < rois.length; i++) { var b = rois[i].getBounds(); distance[i] = Math.hypot(b.getCenterX() - point.x, b.getCenterY() - point.y); }
+        Arrays.sort(order, Comparator.comparingDouble(i -> distance[i]));
+        for (int i : order) { if (hits.size() >= count) break; if (!hits.contains(i) && distance[i] <= reach) hits.add(i); }
+        return hits;
     }
 
     // =====================================================================================================
@@ -562,7 +584,14 @@ final class Analysis {
         double maxArea = Operations.number(args, "maxArea", preset.equals("huge") || preset.equals("large") ? median * 3 : Double.POSITIVE_INFINITY);
         double minCirc = Operations.number(args, "minCircularity", 0);
         var keep = new ArrayList<Roi>(); var removedIndices = new ArrayList<Integer>();
-        for (int i = 0; i < n; i++) { if (area[i] >= minArea && area[i] <= maxArea && circ[i] >= minCirc) keep.add(rois[i]); else removedIndices.add(i); }
+        if ("pointer".equals(Operations.string(args, "at", "")) || args.has("x") && args.has("y")) {
+            // "Remove this one": only the object(s) under the pointer.
+            var hits = objectsAt(rois, pointedAt(imp, args), median, Operations.integer(args, "count", 1, 1, 20));
+            if (hits.isEmpty()) throw new IllegalStateException("No cell under the pointer; point at the one to remove.");
+            for (int i = 0; i < n; i++) if (hits.contains(i)) removedIndices.add(i); else keep.add(rois[i]);
+            minArea = 0; maxArea = Double.POSITIVE_INFINITY;
+        }
+        else for (int i = 0; i < n; i++) { if (area[i] >= minArea && area[i] <= maxArea && circ[i] >= minCirc) keep.add(rois[i]); else removedIndices.add(i); }
         replaceManager(imp, manager, keep);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("removed", removedIndices.size()); result.put("kept", keep.size());
@@ -589,20 +618,23 @@ final class Analysis {
         double factor = Operations.number(args, "factor", 1.5);
         Set<Integer> targets = new TreeSet<>();
         Roi selection = imp.getRoi();
+        boolean pointed = "pointer".equals(Operations.string(args, "at", "")) || args.has("x") && args.has("y");
         if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) { int i = e.getAsInt(); if (i < 0 || i >= n) throw new IllegalArgumentException("No object " + i + " in the ROI Manager."); targets.add(i); }
+        else if (pointed) { var hits = objectsAt(rois, pointedAt(imp, args), median, 1); if (hits.isEmpty()) throw new IllegalStateException("No cell under the pointer; point at the cells to separate."); targets.addAll(hits); }
         else if (selection != null && selection.isArea() && !Operations.bool(args, "all", false)) {
             for (int i = 0; i < n; i++) { var b = rois[i].getBounds(); if (selection.contains((int) b.getCenterX(), (int) b.getCenterY())) targets.add(i); }
         }
         else for (int i = 0; i < n; i++) if (area[i] > factor * median) targets.add(i);
         var out = new ArrayList<Roi>(); var newParts = new ArrayList<Roi>(); int split = 0;
-        var edm = new ij.plugin.filter.EDM();
         for (int i = 0; i < n; i++) {
             if (!targets.contains(i)) { out.add(rois[i]); continue; }
             var b = rois[i].getBounds(); int w = b.width + 2, h = b.height + 2;
             var mask = new ByteProcessor(w, h);
             var local = (Roi) rois[i].clone(); local.setLocation(local.getXBase() - b.x + 1, local.getYBase() - b.y + 1);
             mask.setColor(255); mask.fill(local);
-            edm.toWatershed(mask);
+            // One EDM per object: ImageJ's EDM keeps a MaximumFinder whose direction offsets are built for the first mask
+            // width it sees, so reusing it across differently sized masks reads past the pixel array.
+            new ij.plugin.filter.EDM().toWatershed(mask);
             int[] labels = new int[w * h]; var parts = label((byte[]) mask.getPixels(), w, h, labels);
             int minPart = Math.max(4, (int) Math.round(median * 0.15));
             var pieces = new ArrayList<Roi>();
@@ -619,10 +651,42 @@ final class Analysis {
         replaceManager(imp, manager, out);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("after", out.size()); result.put("checked", targets.size()); result.put("split", split);
-        result.put("scope", args.has("indices") ? "indices" : selection != null && selection.isArea() && !Operations.bool(args, "all", false) ? "selection" : "oversized");
+        result.put("scope", args.has("indices") ? "indices" : pointed ? "pointer" : selection != null && selection.isArea() && !Operations.bool(args, "all", false) ? "selection" : "oversized");
         result.put("medianArea", median);
         journal.record("split_objects", "// split_objects: watershed inside " + targets.size() + " objects (" + result.get("scope") + "), " + split + " split: " + n + " -> " + out.size() + "\nrun(\"Watershed\");");
         result.put("highlight", Viewer.roiHighlight(imp, newParts.isEmpty() ? out : newParts, split == 0 ? "Nothing to split" : split + " split, " + out.size() + " cells", 120));
+        return result;
+    }
+    // =====================================================================================================
+    // merge_objects: "these two are one cell" (the inverse correction)
+    // =====================================================================================================
+    Map<String, Object> mergeObjects(JsonObject args) {
+        var imp = ops.active();
+        var manager = ops.managerOrNull();
+        if (manager == null || manager.getCount() < 2) throw new IllegalStateException("Segment the cells first.");
+        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        double[] area = new double[n]; for (int i = 0; i < n; i++) area[i] = rois[i].getStatistics().pixelCount;
+        double median = (double) describeValues(area).get("median");
+        List<Integer> targets = new ArrayList<>();
+        Roi selection = imp.getRoi();
+        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) { int i = e.getAsInt(); if (i < 0 || i >= n) throw new IllegalArgumentException("No object " + i + " in the ROI Manager."); targets.add(i); }
+        else if (selection != null && selection.isArea() && !"pointer".equals(Operations.string(args, "at", ""))) { for (int i = 0; i < n; i++) { var b = rois[i].getBounds(); if (selection.contains((int) b.getCenterX(), (int) b.getCenterY())) targets.add(i); } }
+        else targets = objectsAt(rois, pointedAt(imp, args), median, Operations.integer(args, "count", 2, 2, 20));
+        if (targets.size() < 2) throw new IllegalStateException("Point between the two cells to merge, or select them.");
+        var parts = new ArrayList<Roi>(); for (int i : targets) parts.add(rois[i]);
+        // Close the gap between touching pieces (watershed lines are 1 px) so the merged cell is one solid outline.
+        var union = combine(parts); var b = union.getBounds();
+        var mask = new ByteProcessor(b.width + 4, b.height + 4); mask.setColor(255);
+        for (var part : parts) { var local = (Roi) part.clone(); local.setLocation(local.getXBase() - b.x + 2, local.getYBase() - b.y + 2); mask.fill(local); }
+        mask.dilate(); mask.erode();
+        Roi merged = maskToRoi(mask); merged.setLocation(merged.getXBase() + b.x - 2, merged.getYBase() + b.y - 2);
+        var out = new ArrayList<Roi>(); boolean placed = false;
+        for (int i = 0; i < n; i++) { if (!targets.contains(i)) out.add(rois[i]); else if (!placed) { out.add(merged); placed = true; } }
+        replaceManager(imp, manager, out);
+        var result = new LinkedHashMap<String, Object>();
+        result.put("before", n); result.put("after", out.size()); result.put("merged", targets.size());
+        journal.record("merge_objects", "// merge_objects: " + targets.size() + " objects joined into one: " + n + " -> " + out.size());
+        result.put("highlight", Viewer.roiHighlight(imp, List.of(merged), "Merged into one cell", 1));
         return result;
     }
     /** Rewrites the ROI Manager and the image overlay with the given objects, numbered in order. */
