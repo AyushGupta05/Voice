@@ -30,6 +30,18 @@ import sc.fidelis.engine.api.Enums.ParameterType;
  * Runtime command catalogue (E2): every label of IJ1's command table (the real runtime), its menu
  * path (walked from the hidden IJ1 menu bar, CSV fallback) and, for the catalogued core commands, the
  * complete parameter schema from {@code commands-core-parameters.csv}.
+ *
+ * <p><b>No-op rule (IN_PLACE_PIXELS family).</b> Unchanged pixels are not a failure by themselves: a
+ * Gaussian Blur or Unsharp Mask of a flat image, Invert-free identities, a sigma of 0 and a selection
+ * smaller than the filter all legitimately leave every pixel as it was in Fiji (probed: sigma=0, radius=0
+ * and a 1x1 selection run, report no error and change nothing). An in-place command is judged a failure
+ * only on evidence: (1) the guard saw an error signal (error text, "Exception" window, error dialog) or
+ * the call threw, or (2) ImageJ never started the command (no CommandListener call reached the tail of the
+ * listener chain, e.g. a listener vetoed it). Otherwise the action is COMPLETED, the record's
+ * {@code errorSummary} carries the note "no-op: ..." and no undo snapshot is kept (nothing to undo).
+ * In IJ1 the unsuitable-image cases (non-binary input to Erode or Skeletonize, a selection outside the
+ * image for Smooth) all raise an error signal, so no unsignalled silent failure exists to catch beyond
+ * rule (2).
  */
 final class Catalogue {
     private static final String COMMANDS = "/sc/fidelis/engine/data/commands.csv";
@@ -44,16 +56,14 @@ final class Catalogue {
     static final class Entry {
         final CommandSchema schema;
         final Summary summary;
-        final boolean mayBeNoOp;
         final boolean paramsOnlyForStacks;
         final boolean needsImage;
         final Map<String, Ext> ext;
 
-        Entry(CommandSchema schema, Summary summary, boolean mayBeNoOp, boolean paramsOnlyForStacks, boolean needsImage,
+        Entry(CommandSchema schema, Summary summary, boolean paramsOnlyForStacks, boolean needsImage,
               Map<String, Ext> ext) {
             this.schema = schema;
             this.summary = summary;
-            this.mayBeNoOp = mayBeNoOp;
             this.paramsOnlyForStacks = paramsOnlyForStacks;
             this.needsImage = needsImage;
             this.ext = ext;
@@ -208,11 +218,6 @@ final class Catalogue {
             "Skeletonize", "Watershed");
     private static final Set<String> NO_IMAGE_NEEDED = Set.of("Clear Results", "Image...", "Open...", "Summarize",
             "Merge Channels...", "Image Calculator...", "Set Measurements...", "Options...");
-    // Commands that must change pixels: a legitimate identity is treated as a silent failure. Not listed:
-    // "Subtract Background..." (the pinned Fiji leaves FX-001 unchanged at J-12 step s02: rolling=50 on a
-    // flat 64x64 image is an identity, verified by verification/baselines).
-    private static final Set<String> LOOSE_STRICT = Set.of("Invert", "Gaussian Blur...", "Unsharp Mask...", "Smooth",
-            "Sharpen", "Find Edges");
     private static final Set<String> TYPE_LABELS = Set.of("8-bit", "16-bit", "32-bit", "8-bit Color", "RGB Color");
     private static final Set<String> IN_PLACE_LABELS = Set.of("Invert", "Smooth", "Sharpen", "Find Edges", "Enhance Contrast...",
             "Subtract Background...", "Fill", "Clear", "Clear Outside", "Draw", "Apply LUT", "Convert to Mask", "Make Binary",
@@ -237,11 +242,6 @@ final class Catalogue {
                 || menuPath.startsWith("Process>Shadows") || menuPath.startsWith("Process>Binary")) return "IN_PLACE_PIXELS";
         if (menuPath.startsWith("Image>Lookup Tables")) return "DISPLAY_ONLY";
         return null;
-    }
-
-    private static boolean mayBeNoOp(String label, String menuPath, String family) {
-        if (!"IN_PLACE_PIXELS".equals(family)) return false;
-        return !LOOSE_STRICT.contains(label);
     }
 
     private static Entry makeEntry(String id, String label, String menuPath, String shortcut, String impl,
@@ -301,7 +301,7 @@ final class Catalogue {
         if (family != null) notes.put("postcondition", family);
         if (csv != null) notes.put("headlessProbe", csv.getOrDefault("headless_probe", ""));
         Summary summary = new Summary(id, label, menuPath, shortcut == null ? "" : shortcut, "IJ1", "", Map.copyOf(notes));
-        return new Entry(schema, summary, mayBeNoOp(label, menuPath, family), onlyStacks, needsImage, ext);
+        return new Entry(schema, summary, onlyStacks, needsImage, ext);
     }
 
     // ---- parameters ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package sc.fidelis.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -88,20 +89,66 @@ class EngineLifecycleTest {
                 "RUNNING " + running + " < terminal " + terminal + " < digest " + digest + " < history " + hist);
     }
 
-    @Test
-    void failedPostconditionRollsBackFromTheSnapshot() throws Exception {
-        // a uniform image: Gaussian Blur leaves the pixels unchanged, which is not allowed for this command
+    private DocumentId flatImage() throws Exception {
         ActionResult n = engine.submit(ActionRequest.session(Origin.PANEL, ActionRequest.Operations.NEW_IMAGE,
                 m("title", "flat", "type", "8-bit", "width", 32, "height", 32, "slices", 1, "fill", "White"), null)).get(30, TimeUnit.SECONDS);
-        DocumentId flat = n.digest().added().get(0);
+        return n.digest().added().get(0);
+    }
+
+    @Test
+    void failedPostconditionRollsBackFromTheSnapshot() throws Exception {
+        // A genuine silent failure: a CommandListener vetoes the command (returns null), so ImageJ never starts it
+        // and raises no error. The engine detects "did not run" through its tail listener and rolls back.
+        DocumentId flat = flatImage();
         String h0 = Pixels.hash(engine.imagePlus(flat), false);
-        ActionResult r = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Process>Filters>Gaussian Blur...",
-                m("sigma", 2), TargetScope.of(flat))).get(60, TimeUnit.SECONDS);
+        ij.CommandListener veto = c -> c.equals("Invert") ? null : c;
+        ij.Executer.addCommandListener(veto);
+        ActionResult r;
+        try {
+            r = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Edit>Invert", m(), TargetScope.of(flat))).get(60, TimeUnit.SECONDS);
+        } finally {
+            ij.Executer.removeCommandListener(veto);
+        }
         assertEquals(ErrorCode.POSTCONDITION_FAILED, r.error().code(), String.valueOf(r.error()));
+        assertEquals("NOT_RUN", r.error().subcode());
         assertEquals(OperationState.ROLLED_BACK, r.state());
         assertEquals(h0, Pixels.hash(engine.imagePlus(flat), false));
         assertEquals(OperationState.ROLLED_BACK, r.record().outcome());
         assertTrue(engine.exportMacro().contains("not applied (ROLLED_BACK)"));
+    }
+
+    @Test
+    void identityFiltersAreCompletedNoOpsWithoutAnUndoSnapshot() throws Exception {
+        // Blur of a flat image is an identity in Fiji, not failures.
+        DocumentId flat = flatImage();
+        String h0 = Pixels.hash(engine.imagePlus(flat), false);
+        ActionResult r = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Process>Filters>Gaussian Blur...",
+                m("sigma", 2), TargetScope.of(flat))).get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, r.state(), String.valueOf(r.error()));
+        assertEquals(h0, Pixels.hash(engine.imagePlus(flat), false));
+        assertTrue(r.record().errorSummary().startsWith("no-op:"), String.valueOf(r.record().errorSummary()));
+        assertTrue(r.digest().changed().isEmpty(), "no document change is reported");
+        ActionResult u = engine.submit(ActionRequest.direct(Origin.PANEL, ActionRequest.Operations.UNDO, m(), TargetScope.of(flat)))
+                .get(30, TimeUnit.SECONDS);
+        assertEquals(ErrorCode.PRECONDITION_FAILED, u.error().code(), "a no-op leaves nothing to undo");
+        // a command that really changes pixels carries no note
+        ActionResult inv = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Edit>Invert", m(), TargetScope.of(flat)))
+                .get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, inv.state());
+        assertEquals(null, inv.record().errorSummary());
+        assertNotEquals(h0, Pixels.hash(engine.imagePlus(flat), false));
+    }
+
+    @Test
+    void anErrorSignalStillFailsAnUnchangedImage() throws Exception {
+        // Smooth with a selection wholly outside the image throws inside the plugin (ArrayIndexOutOfBounds): the
+        // Exception window is an error signal, pixels are unchanged, and the action must fail.
+        DocumentId flat = flatImage();
+        engine.imagePlus(flat).setRoi(new ij.gui.Roi(100, 100, 5, 5));
+        ActionResult r = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Process>Smooth", m(), TargetScope.of(flat)))
+                .get(60, TimeUnit.SECONDS);
+        assertEquals(ErrorCode.EXECUTION_FAILED, r.error().code(), String.valueOf(r.error()));
+        assertEquals(OperationState.ROLLED_BACK, r.state());
     }
 
     @Test
