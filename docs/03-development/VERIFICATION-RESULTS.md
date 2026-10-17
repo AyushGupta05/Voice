@@ -107,7 +107,7 @@ differed (`00ffffff` versus `00000000` at ROI 37 of Blobs), and FX-003 later mat
 for byte. The test therefore compares the saved file by reading it back: pixel SHA-256 and overlay vertices,
 exactly. The file digests are printed for the record.
 
-## 5. Engine parity tests (ready, skipped until A1)
+## 5. Engine parity tests (now run on the product engine; see section 10)
 
 `sc.fidelis.verification.EngineParityTest` obtains the engine by reflection from
 `sc.fidelis.engine.Engines.current()` (a missing class skips the test with the message "Engines is not available
@@ -171,50 +171,58 @@ single planes only; FX-004, FX-005 and FX-040 are cached but have no baselines y
 `fixtures/manifest.json`, `verification/{fetch_fixtures,reference_runner,j12,baseline,compare,gui_smoke,test_verification}.py`,
 `verification/dumper.js`, `verification/baselines/**` (JSON committed, raw planes and NC-licensed per-step data
 git-ignored), `fidelis-app/src/test/java/sc/fidelis/testkit/{Fixtures,PixelHash,IjState,HarnessSelfCheckEngine}.java`,
-`fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and baseline-raw lines).
+`fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and ## 10. Verification on the real engine (T7, 2026-10-17, branch `agent/verify` merged with `development/fidelis-workstation` 913629a)
 
-## 10. Follow-up T6 on the merged tree (2026-10-17, after merging `development/fidelis-workstation`)
+All of the following was run against `sc.fidelis.engine.DefaultEngine`, obtained from `sc.fidelis.testkit.ProductEngine.get()`
+(one engine per test JVM, registered with `EngineProvider`). The stub-era notes of the earlier version of this section
+(stub export, skipped replay, "development stub" status bar, `engine.rois()` not mirrored) no longer apply.
 
-**GUI smoke, for real.** `python -I verification/gui_smoke.py --timeout 150` (launches `fidelis-app/tools/run.py
---isolated-home -- --screenshot <png> --size 1280x800 --open fixtures/cache/FX-003/blobs.gif`): exit code 0,
-application exit 0 after 9.3 s, PNG `verification/runs/gui-smoke.png` (git-ignored), 1266×792, 52,350 B, luminance
-standard deviation 78.9, 377 distinct sampled colours, no problems. I looked at the image: the window shows the
-`blobs.gif` tab, the `two-squares.png` tab and the `synthetic-16bit` tab the debug run adds, the Parameters dock,
-the History table and "Engine: ready (development stub)". The screenshot is smoke evidence only; it is not used as
-scientific evidence (CR-A30-08). The robot capture was all black (no interactive session) and was not written.
+**Suite.** `python -I fidelis-app/tools/test.py`, run twice in sequence (one JVM at a time): **216 tests, 0 failed** both times
+(211 at the merge plus the FX-030 and FX-031 parity cases, the two speech end-to-end tests and the status-bar test).
+No order-dependence was observed: both runs have identical counts and no differing test. `build.py` is green at each commit.
 
-**UI-path parity, independent of A1.** `sc.fidelis.verification.WorkspaceJourneyTest` builds the workspace as the
-application does, around `EngineProvider.get(null)` (the UI's `StubEngine` until a product engine registers; the
-test switches to `engine.rois()` automatically when one is registered), submits the J-12 typed requests with the
-explicit option strings of section 3, and compares after every step with the GUI baseline: 2 passed (FX-001,
-FX-003), every step exact in E1 pixels, E3, E5 Results as doubles, E4 ROI vertices (read from the IJ1 ROI Manager,
-because the stub's `rois()` does not mirror it), E6 `blackBackground`. UI checks in the same run: the hosted IJ1
-canvas is inside the workspace frame, the viewer's `ImagePlus` pixel hash equals the baseline after open.
-Fallbacks (printed as notes by the test): the stub rejects `SET_AUTO_THRESHOLD` and `SAVE_AS` with
-UNSUPPORTED_IN_MODE, so those two steps run through `IJ.setAutoThreshold(imp, "Otsu dark")` and
-`IJ.saveAs(imp, "tiff", path)`, the calls a product engine uses. Convert to Mask is submitted with no options and
-`Prefs.blackBackground = true` set before the first step, exactly as the baseline macro does: the `black` key
-belongs to the stack path of `Thresholder`, and the baseline has none (commands-core-parameters.csv). The
-EngineParityTest and WorkspaceJourneyTest share `J12Session`, so the product engine is tested by the same code.
+**J-12 parity through the real engine** (`EngineParityTest`, typed requests, every step compared exactly with the pinned-Fiji GUI
+baseline under lock key `9403b6197ac4bf75`: E1 pixel SHA-256, E3 titles/dimensions, E4 ROI vertices, E5 Results as doubles, E6 globals;
+the saved Tiff is read back and compared by pixel hash):
 
-**Results precision in the UI.** `ResultsPanel` has no public copy method: `tsv()` and `full()` are
-package-private (the copy button calls `tsv()`). The test finds the panel in the frame's component tree and calls
-`tsv()` reflectively on the EDT. After Measure the TSV (header `# Label Area Mean Min Max IntDen RawIntDen`) has
-1 row; after Analyze Particles it has 71 rows (Blobs) and 2 rows (two-squares); every cell parsed with
-`Double.parseDouble` equals the baseline double bit for bit (`doubleToLongBits`), including Mean
-155.9435746801181 and IntDen 10140075.
+| Fixture | Image | Result | Particles (Analyze Particles rows = engine ROI list) | Published figure (reported only, E9) |
+|---|---|---|---|---|
+| FX-001 | two-squares.png | exact at s01-s10 | 2 | none |
+| FX-003 | Blobs (Otsu dark) | exact at s01-s10 | 71 | none |
+| FX-030 | BBBC001 `..._A03f00d0.tif` | exact at s01-s10 | **345** | manual counts 350 / 362 |
+| FX-031 | BBBC004 `1GRAY.tif` (overlap 0.00) | exact at s01-s10 | **300** | ground truth 300 |
 
-**E7 macro replay.** `verification/replay.py` wraps a macro with the dumper, runs it in the pinned reference
-Fiji in GUI mode and writes `out/final.json`; `MacroReplayTest` has two tests. (1) After the J-12 session,
-`engine.exportMacro()` is replayed on a fresh copy of the fixture (paths rewritten to the copy and a replay-only
-Tiff) and compared with the live session (E1, E4, E5, E6): **skipped** (assumption) because the stub's export
-starts with "Development stub macro". (2) The machinery check feeds the independent reference macro through the
-same path: the replay finished in 4.8 s and its final state (2 images, 71 Results rows, 71 ROIs) equals the
-stored baseline step s10 exactly, and the cached fixture was not touched (the copy has the same SHA-256).
-Debugging note: my first replay hung for the full timeout on a modal "Macro Error" because a newline escape in
-`replay.py` split a string literal inside the macro; the runner's timeout and tree kill handled it, and the
-fix is in the same commit.
+The brief called BBBC001/BBBC004 FX-004/FX-005; in `fixtures/manifest.json` they are FX-030 and FX-031 (FX-004 is
+FluorescentCells.tif, FX-005 the 48-bit RGB HeLa image). J-12 was not run on FX-004/FX-005: it is a grey-level
+threshold-and-count journey and those two are colour images, so it would need a colour conversion the journey does not define and
+no baseline exists. Published counts are never pass/fail: BBBC001 345 against 350/362 and BBBC004 300 against 300 are reported figures.
+The FX-030 GUI baseline and the headless cross-check (E1/E3/E5/E6 exact) are in `verification/baselines/FX-030/9403b6197ac4bf75/`.
 
-**Suites after T6.** `python -I fidelis-app/tools/test.py` (merged tree, one live Fiji JVM): 170 tests run,
-0 failed, 2 skipped by assumption (`EngineParityTest`: no `Engines`; `exportedMacroReplaysTheLiveSession`: stub
-export). `build.py` is green. Python harness self-tests were not changed in this round (14 passed earlier).
+**Workspace path** (`WorkspaceJourneyTest`): J-12 on FX-001 and FX-003 through the workspace on the product engine equals the
+baseline, including the Results panel's copy-as-TSV text parsed back to doubles bit for bit (Mean 155.9435746801181, IntDen 10140075 on
+Blobs, 71 and 2 rows). The status bar's engine label, read from the live frame, is exactly `Engine: ready`.
+
+**E7 replay.** `exportMacroSince(n)` of the J-12 journey, run in the pinned reference Fiji on a fresh copy of the fixture, reproduces the live
+session (E1/E4/E5/E6): passes (replay about 4.8 s, 71 Results rows and 2 images on Blobs). The independent reference macro replays to the stored baseline as before.
+
+**Results TSV precision.** Exact (bit equality of `Double.doubleToLongBits`) in the Results panel; also `MeasurementRow` doubles equal the baseline.
+
+**Speech to execution** (`SpeechToExecutionTest`, D08): `invert-command.wav` -> `WhisperSpeechService.transcribeFile`
+("Invert the image.") -> `DefaultNlService` (READY, `run("Invert");`, `ij1:Edit>Invert`, origin NL_SPOKEN) -> consequence class checked <= AC3 -> `engine.submit` on a
+64x32 8-bit ramp: pixel SHA-256 `b0593af6...7d1d` before and `a6ba55d9...2a9e` after, the latter equal to the hash of the ramp inverted by
+255-v computed in the test (not by Fiji); the history record carries origin NL_SPOKEN. `silence-5s.wav` yields NEEDS_CLARIFICATION, no request and unchanged pixels.
+Skipped by assumption when the worker is UNAVAILABLE. An AC4+ proposal is never executed (the test asserts the class first). Live microphone: not verified.
+
+**GUI smoke** (`python -I verification/gui_smoke.py`): exit 0, application exit 0 after about 11 s, PNG `verification/runs/gui-smoke.png` (git-ignored)
+1266x792, luminance standard deviation 78.9, 432 sampled colours. The harness now runs Windows OCR (`verification/ocr.ps1`) on the PNG and asserts
+"Engine: ready" is present and "stub" absent: the status bar reads `Engine: ready`. I inspected the image: menu bar, command bar, tool palette, tabs
+blobs.gif / two-squares.png / synthetic-16bit, Parameters, History and macro panels. Observation: the screenshot run adds a scripted UI scenario
+(synthetic-16bit, history rows with origins M/P/C), so the front document is not Blobs; this is the UI's debug scenario, not the engine. The robot
+capture is black without an interactive session, and the PNG is then composited from components (smoke evidence only, CR-A30-08).
+
+**Known limitations, exactly.**
+- Strict no-op rule: after `Invert`, `Gaussian Blur...`, `Unsharp Mask...`, `Smooth`, `Sharpen` and `Find Edges` the engine treats unchanged pixels as a silent failure (ROLLED_BACK). A blur of a flat image, or a legitimate identity, is therefore reported as a failure.
+- `Subtract Background...` is outside that rule because the pinned Fiji leaves FX-001 unchanged at J-12 step s02 (it may be an identity); the baselines record this.
+- The FX-030 cross-check is now active (baseline present, parity exact). BBBC counts are reported only.
+- Not verified: live microphone, headless-mode engine, FX-004/FX-005/FX-040 through the engine, GUI interaction by a person.
+- Whole-suite runtime is about 5 minutes (the replay test starts the reference Fiji twice).
