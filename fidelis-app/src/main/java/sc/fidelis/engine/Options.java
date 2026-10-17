@@ -29,11 +29,13 @@ final class Options {
     /**
      * Metadata keys any request may carry in {@code params}: {@code transcriptRef} (speech transcript id,
      * copied into HistoryRecord.transcriptRef) and {@code parentActionId} (nesting under a CODE action,
-     * copied into the record params) and {@code expectedHistorySize} (the history size the action was approved against;
-     * checked when the worker starts it, see {@code DefaultEngine.runOp}). They are accepted for every kind and never
-     * reach the options string.
+     * copied into the record params), {@code expectedHistorySize} (the history size the action was approved against) and
+     * {@code expectedRoi} (the {@link RoiSignature} of the target document's active selection at approval); both are
+     * checked when the worker starts the action, see {@code DefaultEngine.runOp}. They are accepted for every kind and
+     * never reach the options string.
      */
-    static final java.util.Set<String> RESERVED = java.util.Set.of("transcriptRef", "parentActionId", "expectedHistorySize");
+    static final java.util.Set<String> RESERVED = java.util.Set.of("transcriptRef", "parentActionId", "expectedHistorySize",
+            "expectedRoi");
 
     /** Raised for a request that fails validation; {@code key} names the offending parameter (may be null). */
     static final class Invalid extends Exception {

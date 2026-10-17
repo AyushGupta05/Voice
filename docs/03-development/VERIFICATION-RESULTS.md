@@ -184,7 +184,9 @@ single planes only; FX-004, FX-005 and FX-040 are cached but have no baselines y
 `fixtures/manifest.json`, `verification/{fetch_fixtures,reference_runner,j12,baseline,compare,gui_smoke,test_verification}.py`,
 `verification/dumper.js`, `verification/baselines/**` (JSON committed, raw planes and NC-licensed per-step data
 git-ignored), `fidelis-app/src/test/java/sc/fidelis/testkit/{Fixtures,PixelHash,IjState,HarnessSelfCheckEngine}.java`,
-`fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and ## 10. Verification on the real engine (T7, 2026-10-17, branch `agent/verify` merged with `development/fidelis-workstation` 913629a)
+`fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and raw dumps).
+
+## 10. Verification on the real engine (T7, 2026-10-17, branch `agent/verify` merged with `development/fidelis-workstation` 913629a)
 
 All of the following was run against `sc.fidelis.engine.DefaultEngine`, obtained from `sc.fidelis.testkit.ProductEngine.get()`
 (one engine per test JVM, registered with `EngineProvider`). The stub-era notes of the earlier version of this section
@@ -239,3 +241,50 @@ capture is black without an interactive session, and the PNG is then composited 
 - The FX-030 cross-check is now active (baseline present, parity exact). BBBC counts are reported only.
 - Not verified: live microphone, headless-mode engine, FX-004/FX-005/FX-040 through the engine, GUI interaction by a person.
 - Whole-suite runtime is about 5 minutes (the replay test starts the reference Fiji twice).
+
+## 11. macOS (Apple silicon), 17 October 2026 (branch `integration/engine-fixes`)
+
+Machine: macOS 26 (Darwin 25.5), Apple silicon; Fiji at `.local/fiji/Fiji.app` (macOS distribution of the same archive),
+bundled Zulu 21.42.19 / JDK 21.0.7; Python 3.10 on the PATH.
+
+**Pinned runtime on macOS.** `external/fiji.lock.json` pins the Windows archive. `verification/reference_runner.py` checks
+the 781 platform-neutral entries (every lock file outside `java|jars|lib/win64` and the `.exe` launchers) byte for byte:
+all equal. The macOS JavaFX/native jars are the pinned component versions of the win64 ones (ffmpeg 6.1.1-1.5.10,
+flimlib 2.1.1, gluegen-rt/jogl-all 2.6.0, JavaFX 23.0.2, openblas 0.3.26-1.5.10, opencv 4.9.0-1.5.10) and the JDK is the
+pinned Zulu build. Extras outside the pin: `plugins/luma-fiji-bridge.jar` (Penny's stand-alone bridge, kept off the
+reference class path) and `plugins/colourdeconvolution.txt` (data a plugin wrote). The lock key stays `9403b6197ac4bf75`.
+The reference JVM is the command Fiji's launcher prints with `--dry-run`, minus the bridge jar.
+
+**Baselines reproduced on macOS** (`python -I verification/baseline.py --check ...`, nothing overwritten): FX-001 and FX-003,
+GUI and headless, equal the stored Windows per-step dumps (E1, E3-E6), the saved-Tiff digest and `summary.json`. FX-030
+headless and FX-031 GUI/headless equal the committed `summary.json` (per-step dumps were not committed, licence) and were
+stored locally (git-ignored) with `--fill-missing`. FX-030 GUI differed once only in the saved Tiff's digest: one overlay
+ROI stroke colour `ffffff00` instead of `00000000` (the GUI artefact of section 4: the ROI under the pointer); it was not
+stored, matched exactly on the next run and was stored then. The same artefact appeared once more on an FX-003 GUI check;
+the rerun matched. A check with the wrong threshold (`Otsu` instead of `Otsu dark`) is reported as different.
+`python -I verification/test_verification.py`: 14 passed (including the headless dumper self-test on FX-001).
+
+**Suite.** `python -I fidelis-app/tools/test.py --timeout 1500` on the branch head (Penny bridge merged, commit 73d86d0): default order
+**451 tests finished, 0 failed** in two consecutive runs (also 0 failed in the two default-order runs before the last
+commit). `--random-order 17`: 0 failed in 3 of 3 runs after the last fix; `--random-order 42`: 0 failed in 2 of 3 runs, the
+third failed once in `InteractiveJourneyTest` at the Threshold adjuster step ("timed out waiting for Otsu dark threshold
+0.0-143.0 on the image": the adjuster did not apply the method within 30 s; seen once more earlier in a solo run of the
+class, which otherwise passes; open, timing of the adjuster's own thread, not a parity difference).
+14 cases are aborted by assumption in every run, all speech: the speech worker's interpreter defaults to
+`C:\Users\arnav\...\.venv-stt\Scripts\python.exe` (set `-Dfidelis.stt.python`; voice stream). The aborted cases are
+counted in "finished" and are not passes. Reported for this Mac before these fixes (integrator's run of the same
+command on the pre-merge branch): 395 tests, 6 failed; the first full runs in this session also aborted on the AppKit
+text-input race below.
+
+**Fixed on the way (engine and test harness; details in the commit messages).**
+- Native Results mirror by content and command boundaries (EngineNativeSyncTest 3/3).
+- Native dialog answers recorded as the command's exact options; interactive J-12 matches the GUI baseline at every step
+  and its exported macro replays in the reference Fiji to the live state (InteractiveJourneyTest).
+- Image adoption no longer races `ImagePlus.show()` (an unclosable image in EngineQuitTest, EngineConventionsTest) and
+  never takes another engine's host window (the UI's StubEngine workspace in the same test JVM, WorkspaceU2Test).
+- Test JVM on macOS: text components without input methods (an AppKit text-input race aborted the whole JVM); the
+  JUnit thread's stale IJ1 temporary current image is cleared by test isolation.
+- Opt-in reserved key `expectedRoi` (`sc.fidelis.engine.RoiSignature`, EngineExpectedRoiTest).
+
+**Not verified here:** speech (no faster-whisper interpreter configured on this Mac), live microphone, OCR of the GUI
+smoke screenshot (Windows OCR only; `gui_smoke.py` reports it as not asserted on macOS), a person driving the GUI.

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
 
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
@@ -12,24 +14,34 @@ import sc.fidelis.engine.api.EngineEvent;
 import sc.fidelis.engine.api.MeasurementRow;
 
 /**
- * Copies rows of the IJ1 system Results table at full double precision into engine-owned records (E4).
- * The engine list mirrors the live table: rows are attributed to the action that produced them, and
- * when IJ1 restarts the table (Analyze Particles with {@code clear}, Clear Results, a shrink seen after
- * a native command) the list is rebuilt from row 0, so the Results panel shows what Fiji's window shows.
+ * The engine's mirror of the IJ1 system Results table at full double precision (E4, #5). After every
+ * synchronisation the mirror equals the live table row for row (label and every column, bit for bit), and each
+ * row carries the document and history action that produced it.
+ *
+ * <p>Synchronisation compares content, not a row count: leading mirror rows that still equal the table keep their
+ * attribution; from the first row that differs (or from row 0 after a restart such as {@code Clear Results}) the
+ * mirror is rebuilt from the table and the rebuilt rows are attributed to the action being settled. A table that
+ * only gained or lost columns (Set Measurements with the Results window open) keeps its attribution.
+ *
+ * <p>Attribution follows command boundaries. A native command (observed, run by IJ1 for the user) owns the rows
+ * appended after it started until the next command starts: {@link #beforeNative} first settles the previous owner's
+ * rows, so back-to-back commands keep exact attribution even when their follow-ups have not run yet, and a delayed
+ * follow-up ({@link #settleNative}) can never hand a later command's rows to an earlier one. A typed action settles
+ * pending native rows before it runs ({@link #beginTyped}) and captures its own rows when it ends ({@link #capture}).
  */
 final class Results {
+    /** {@code clear} as an option word (Analyze Particles' "Clear results"): the command restarts the table. */
+    private static final Pattern CLEAR_OPTION = Pattern.compile("(^|\\s)clear(\\s|$)");
+
     private final Events events;
     private final List<MeasurementRow> rows = new ArrayList<>();
-    private int lastSeen;
-    /** Fingerprint of table row {@code lastSeen - 1} when it was accounted for: a different row there means the table restarted. */
-    private String lastRowKey = "";
-    /** A native command about to run was seen to restart the table (Clear Results, a shrink, a changed last row). */
+    /** A command that restarts the table was seen since the last synchronisation: the next one keeps no row. */
     private boolean restartPending;
-    /** Times the mirror was rebuilt from row 0 (diagnostics and tests). */
+    /** Times rows of the mirror were dropped because the table restarted or diverged (diagnostics and tests). */
     private int generation;
-    /** The last native command whose rows may still be uncaptured: captured at the start of the next native command. */
-    private DocumentId pendingDoc;
-    private String pendingAction;
+    /** The native command that owns rows appended since it started (null: none, or a typed action took over). */
+    private DocumentId ownerDoc;
+    private String ownerAction;
 
     Results(Events events) {
         this.events = events;
@@ -41,128 +53,168 @@ final class Results {
         return rt == null ? 0 : rt.size();
     }
 
-    /** Label and every value of row {@code r} as exact bits; "" when the row does not exist. */
-    private static String rowKey(ResultsTable rt, int r) {
-        if (rt == null || r < 0 || r >= rt.size()) return "";
-        StringBuilder sb = new StringBuilder(String.valueOf(rt.getLabel(r)));
-        for (String h : rt.getHeadings()) {
-            if (h == null || h.equals("Label")) continue;
-            int col = rt.getColumnIndex(h);
-            if (col == ResultsTable.COLUMN_NOT_FOUND) continue;
-            sb.append('|').append(Double.doubleToLongBits(rt.getValueAsDouble(col, r)));
-        }
-        return sb.toString();
+    /** True when running {@code label} with {@code options} empties the system table before it adds rows. */
+    static boolean restartsTable(String label, String options) {
+        if ("Clear Results".equals(label)) return true;
+        return "Analyze Particles...".equals(label) && options != null && CLEAR_OPTION.matcher(options).find();
     }
 
     synchronized int generation() {
         return generation;
     }
 
+    // ---- boundaries -----------------------------------------------------------------------------------
+
     /**
-     * Capture table rows {@code [from, size())}; returns how many were captured. {@code from == 0}, a list
-     * longer than {@code from} or a table shorter than the list all mean the table restarted: the list is
-     * rebuilt from row 0 under the given attribution.
+     * A native command is about to run (called synchronously on its thread by the command observer). Rows appended
+     * since the previous native command started are settled under that command first; then a table restart by this
+     * command is noted, and this command becomes the owner of the rows that follow.
      */
-    int capture(int from, DocumentId doc, String actionId) {
-        ResultsTable rt = ResultsTable.getResultsTable();
-        int n = rt == null ? 0 : rt.size();
-        int start;
-        boolean rebuilt;
+    void beforeNative(String label, String options, DocumentId doc, String actionId) {
         synchronized (this) {
-            rebuilt = from <= 0 || rows.size() > from || n < rows.size();
-            if (rebuilt) rows.clear();
-            start = rebuilt ? 0 : Math.min(from, rows.size());
+            sync(Integer.MAX_VALUE, ownerDoc, ownerAction);
+            if (restartsTable(label, options)) restartPending = true;
+            ownerDoc = doc;
+            ownerAction = actionId;
         }
-        List<MeasurementRow> fresh = new ArrayList<>();
-        if (rt != null && n > start) {
-            String[] headings = rt.getHeadings();
-            for (int r = start; r < n; r++) {
-                Map<String, Double> values = new LinkedHashMap<>();
-                for (String h : headings) {
-                    if (h == null || h.equals("Label")) continue;
-                    int col = rt.getColumnIndex(h);
-                    if (col == ResultsTable.COLUMN_NOT_FOUND) continue;
-                    values.put(h, rt.getValueAsDouble(col, r));
-                }
-                fresh.add(new MeasurementRow(r, rt.getLabel(r), values, doc, actionId));
+    }
+
+    /** A command running inside a macro (CODE action) restarts the table: the macro's capture rebuilds from row 0. */
+    synchronized void noteChildCommand(String label, String options) {
+        if (restartsTable(label, options)) restartPending = true;
+    }
+
+    /** The native command {@code actionId} restarts the table (its dialog said so, e.g. Analyze Particles' clear). */
+    synchronized void noteRestart(String actionId) {
+        if (actionId != null && actionId.equals(ownerAction)) restartPending = true;
+    }
+
+    /**
+     * Follow-up of a native command (after it finished, or its timer fired): settle the rows appended so far under
+     * the native command that owns them now. That is the command itself unless a later command has started meanwhile,
+     * in which case the earlier command's rows were already settled at that boundary.
+     */
+    synchronized int settleNative() {
+        return sync(Integer.MAX_VALUE, ownerDoc, ownerAction);
+    }
+
+    /** A typed action is about to run: settle rows a native command left, then no native command owns new rows. */
+    synchronized void beginTyped() {
+        sync(Integer.MAX_VALUE, ownerDoc, ownerAction);
+        ownerDoc = null;
+        ownerAction = null;
+    }
+
+    /**
+     * A typed action ended: rows of the table from {@code from} on are its own (0 for a command that cleared the table
+     * first), rows before it keep their attribution where they still equal the table. Returns the rows captured.
+     */
+    synchronized int capture(int from, DocumentId doc, String actionId) {
+        ownerDoc = null;
+        ownerAction = null;
+        return sync(Math.max(0, from), doc, actionId);
+    }
+
+    /** Re-read the table after it was changed outside any action (a reset by other code); no native command owns rows. */
+    synchronized void markSeen() {
+        sync(Integer.MAX_VALUE, ownerDoc, ownerAction);
+        ownerDoc = null;
+        ownerAction = null;
+    }
+
+    // ---- synchronisation ------------------------------------------------------------------------------
+
+    private record TableRow(String label, Map<String, Double> values) {
+    }
+
+    private static List<TableRow> read(ResultsTable rt) {
+        List<TableRow> out = new ArrayList<>();
+        if (rt == null) return out;
+        int n = rt.size();
+        String[] headings = rt.getHeadings();
+        List<Integer> cols = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        for (String h : headings) {
+            if (h == null || h.equals("Label")) continue;
+            int col = rt.getColumnIndex(h);
+            if (col == ResultsTable.COLUMN_NOT_FOUND) continue;
+            cols.add(col);
+            names.add(h);
+        }
+        for (int r = 0; r < n; r++) {
+            Map<String, Double> values = new LinkedHashMap<>();
+            for (int i = 0; i < cols.size(); i++) values.put(names.get(i), rt.getValueAsDouble(cols.get(i), r));
+            out.add(new TableRow(rt.getLabel(r), values));
+        }
+        return out;
+    }
+
+    private static boolean same(double a, double b) {
+        return Double.doubleToLongBits(a) == Double.doubleToLongBits(b);
+    }
+
+    /**
+     * Same label and the same bits in every column both rows have, and at least one column in common unless neither
+     * row has any (columns may have been added or removed: the row is the same measurement).
+     */
+    private static boolean sameMeasurement(MeasurementRow old, TableRow now) {
+        if (!Objects.equals(old.label(), now.label())) return false;
+        int common = 0;
+        for (Map.Entry<String, Double> e : now.values().entrySet()) {
+            Double v = old.values().get(e.getKey());
+            if (v == null) continue;
+            if (!same(v, e.getValue())) return false;
+            common++;
+        }
+        return common > 0 || (old.values().isEmpty() && now.values().isEmpty());
+    }
+
+    private static boolean identical(MeasurementRow old, TableRow now) {
+        if (!old.values().keySet().equals(now.values().keySet())) return false;
+        for (Map.Entry<String, Double> e : now.values().entrySet()) if (!same(old.values().get(e.getKey()), e.getValue())) return false;
+        return Objects.equals(old.label(), now.label());
+    }
+
+    /**
+     * Make the mirror equal the live table. At most {@code keepAtMost} leading rows (none after a restart) keep their
+     * attribution, and only while they still hold the same measurement; every other row is attributed to
+     * {@code doc}/{@code actionId}. Caller holds the lock. Returns the number of rows (re)attributed.
+     */
+    private int sync(int keepAtMost, DocumentId doc, String actionId) {
+        List<TableRow> table = read(ResultsTable.getResultsTable());
+        int limit = restartPending ? 0 : Math.min(keepAtMost, Math.min(rows.size(), table.size()));
+        restartPending = false;
+        List<MeasurementRow> next = new ArrayList<>(table.size());
+        boolean changed = false;
+        int keep = 0;
+        for (; keep < limit; keep++) {
+            MeasurementRow old = rows.get(keep);
+            TableRow now = table.get(keep);
+            if (!sameMeasurement(old, now)) break;
+            if (identical(old, now)) {
+                next.add(old);
+            } else { // columns added or removed: same row, values re-read
+                next.add(new MeasurementRow(keep, now.label(), now.values(), old.document(), old.actionId()));
+                changed = true;
             }
         }
-        int total;
-        String key = rowKey(rt, n - 1);
-        synchronized (this) {
-            rows.addAll(fresh);
-            total = rows.size();
-            lastSeen = n;
-            lastRowKey = key;
-            restartPending = false;
-            if (rebuilt) generation++;
-            if (actionId != null && actionId.equals(pendingAction)) pendingAction = null;
+        if (keep < rows.size()) {
+            generation++;
+            changed = true;
         }
-        if (rebuilt || !fresh.isEmpty()) events.emit(seq -> new EngineEvent.ResultsChanged(seq, total));
-        return fresh.size();
-    }
-
-    /** Note the current table size as accounted for (after typed actions); a shrunken table rebuilds the list. */
-    void markSeen() {
-        ResultsTable rt = ResultsTable.getResultsTable();
-        int n = tableSize();
-        String key = rowKey(rt, n - 1);
-        boolean shrunk;
-        synchronized (this) {
-            shrunk = n < rows.size();
-            lastSeen = n;
-            lastRowKey = key;
-            restartPending = false;
-            pendingAction = null;
+        for (int r = keep; r < table.size(); r++) {
+            TableRow now = table.get(r);
+            next.add(new MeasurementRow(r, now.label(), now.values(), doc, actionId));
+            changed = true;
         }
-        if (shrunk) capture(0, null, null);
-    }
-
-    /**
-     * Called synchronously when a native command is about to run (#5 native drift). First the rows of the previous
-     * native command are captured under its own id, so back-to-back native commands keep exact attribution
-     * even though their timers have not fired yet. Then a restart of the table is noted when the command is
-     * {@code Clear Results}, the table is shorter than accounted for, or the last accounted row changed: the
-     * next capture rebuilds the mirror from row 0 instead of trusting a row count that happens to match.
-     */
-    void beforeNative(String label, DocumentId doc, String actionId) {
-        DocumentId prevDoc;
-        String prevAction;
-        synchronized (this) {
-            prevDoc = pendingDoc;
-            prevAction = pendingAction;
+        int captured = table.size() - keep;
+        if (changed) {
+            rows.clear();
+            rows.addAll(next);
+            int total = rows.size();
+            events.emit(seq -> new EngineEvent.ResultsChanged(seq, total));
         }
-        if (prevAction != null) captureNative(prevDoc, prevAction);
-        ResultsTable rt = ResultsTable.getResultsTable();
-        int n = rt == null ? 0 : rt.size();
-        String key = rowKey(rt, n - 1);
-        synchronized (this) {
-            if ("Clear Results".equals(label) || n < lastSeen || (lastSeen > 0 && n >= lastSeen && !rowKey(rt, lastSeen - 1).equals(lastRowKey)))
-                restartPending = true;
-            if (n == lastSeen && !restartPending) lastRowKey = key;
-            pendingDoc = doc;
-            pendingAction = actionId;
-        }
-    }
-
-    /**
-     * After a native command: capture rows it added to the system table, or rebuild the mirror when the table
-     * restarted (noted by {@link #beforeNative}, a shrink, or a changed last accounted row).
-     */
-    int captureNative(DocumentId doc, String actionId) {
-        ResultsTable rt = ResultsTable.getResultsTable();
-        int n = rt == null ? 0 : rt.size();
-        int from;
-        boolean restart;
-        synchronized (this) {
-            restart = restartPending || n < lastSeen || (lastSeen > 0 && !rowKey(rt, lastSeen - 1).equals(lastRowKey));
-            from = restart ? 0 : lastSeen;
-            if (!restart && from > 0 && n <= from) {
-                if (actionId != null && actionId.equals(pendingAction)) pendingAction = null;
-                return 0; // nothing new
-            }
-        }
-        return capture(from, doc, actionId);
+        return captured;
     }
 
     synchronized List<MeasurementRow> all() {

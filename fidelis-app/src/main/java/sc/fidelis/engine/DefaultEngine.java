@@ -63,6 +63,7 @@ public final class DefaultEngine implements Engine {
     private volatile EngineState state = EngineState.INITIALISING;
     private volatile DocumentId focused;
     private volatile boolean reconcileQueued;
+    private final AtomicInteger deferredRetries = new AtomicInteger();
     private final java.util.concurrent.locks.ReentrantLock adoptLock = new java.util.concurrent.locks.ReentrantLock();
     private volatile Catalogue catalogue = Catalogue.empty();
     final Results results = new Results(events);
@@ -319,6 +320,9 @@ public final class DefaultEngine implements Engine {
                 observers.forget(d.imp);
                 if (d.id.equals(focused)) focused = null;
             }
+            // an image left while ImageJ was still showing a window is adopted by a retry (bounded: 5 s of 100 ms tries)
+            if (ch.deferred() && deferredRetries.incrementAndGet() <= 50) observers.later(this::scheduleReconcile, 100);
+            else if (!ch.deferred()) deferredRetries.set(0);
             return ch;
         } finally {
             adoptLock.unlock();
@@ -354,6 +358,19 @@ public final class DefaultEngine implements Engine {
     }
 
     /**
+     * Replace an observed record in place (same action id) once more is known about it, e.g. the options a person
+     * chose in a native command's dialog. Listeners get the updated record as a HistoryAppended event for the same id.
+     */
+    void replaceObserved(HistoryRecord rec) {
+        if (history.replace(rec)) events.emit(seq -> new EngineEvent.HistoryAppended(seq, rec));
+    }
+
+    /** True while the worker runs a typed action's IJ1 call (a dialog shown now is that action's). */
+    boolean busy() {
+        return running != null;
+    }
+
+    /**
      * Follow-up of a native command: adopt new images, capture rows it added to the Results table, and take over
      * ROI Manager entries it added or removed ({@code managerBefore} is the count before the command, -1 for no
      * manager) into the target document's ROI list, so Analyze Particles run from Fiji's menu fills the same list
@@ -364,7 +381,7 @@ public final class DefaultEngine implements Engine {
             worker.execute(() -> {
                 try {
                     Registry.Change ch = reconcile();
-                    results.captureNative(doc == null ? null : doc.id, actionId);
+                    results.settleNative(); // under the native command that owns the new rows now
                     boolean roiChanged = false;
                     RoiManager rm = RoiManager.getRawInstance();
                     int managerAfter = rm == null ? -1 : rm.getCount();
@@ -430,6 +447,14 @@ public final class DefaultEngine implements Engine {
                 return finish(op, o, t0);
             }
         }
+        // Opt-in binding to the approved selection: a request carrying expectedRoi runs only if the target document's live
+        // selection still has that RoiSignature (a selection drawn after approval is recorded late, by the coalescing ROI
+        // observer, so the history check alone cannot see it).
+        Object expectedRoi = op.request.params().get("expectedRoi");
+        if (expectedRoi != null) {
+            Outcome refused = checkExpectedRoi(op.request, expectedRoi);
+            if (refused != null) return finish(op, refused, t0);
+        }
         Op.CURRENT.set(op);
         try {
             emitState(op, OperationState.VALIDATING, null);
@@ -444,6 +469,44 @@ public final class DefaultEngine implements Engine {
             Op.CURRENT.remove();
             WindowManager.setTempCurrentImage(null); // the worker never keeps an implicit current image between operations
         }
+    }
+
+    /** Null when the target document's live selection has the signature {@code expected}; otherwise the refusal. */
+    private Outcome checkExpectedRoi(ActionRequest r, Object expected) {
+        if (!(expected instanceof String want) || want.isBlank())
+            return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, "expectedRoi must be a selection signature or \""
+                    + RoiSignature.NONE + "\"", null, Map.of("key", "expectedRoi"), true, List.of()));
+        TargetScope t = r.target();
+        if (t == null || t.document() == null)
+            return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, "expectedRoi needs a target document", null,
+                    Map.of("key", "expectedRoi"), true, List.of()));
+        Doc d = registry.get(t.document());
+        String live = d == null ? null : liveRoiSignature(d);
+        if (want.equals(live)) return null;
+        Map<String, String> ctx = new java.util.LinkedHashMap<>();
+        ctx.put("document", t.document().value());
+        ctx.put("expectedRoi", want);
+        ctx.put("actualRoi", live == null ? "document closed" : live);
+        String what = d == null ? "the document was closed" : "the selection changed (" + want + " -> " + live + ")";
+        return Outcome.failed(new EngineError(ErrorCode.PRECONDITION_FAILED, what + " after this action was approved; nothing was run",
+                "STATE_CHANGED", ctx, true, List.of("review the action again")));
+    }
+
+    /** The {@link RoiSignature} of the document's live selection, read on the EDT after canvas events already queued. */
+    private static String liveRoiSignature(Doc d) {
+        return Edt.call(() -> {
+            Roi roi = d.imp.getRoi();
+            return RoiSignature.of(roi == null ? null : RoiCodec.toGeometry(roi));
+        });
+    }
+
+    /**
+     * The {@link RoiSignature} of a document's active selection right now ({@code none} without one), as the engine
+     * computes it for {@code expectedRoi}; empty when the document is not open (implementation-only).
+     */
+    public Optional<String> roiSignature(DocumentId id) {
+        Doc d = registry.get(id);
+        return d == null ? Optional.empty() : Optional.of(liveRoiSignature(d));
     }
 
     void emitState(Op op, OperationState s, EngineError err) {

@@ -51,6 +51,13 @@ class EngineNativeSyncTest {
         ActionResult sm = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Analyze>Set Measurements...", setMeasurements("area", "mean"),
                 TargetScope.of(doc))).get(60, TimeUnit.SECONDS);
         assertEquals(OperationState.COMPLETED, sm.state(), String.valueOf(sm.error()));
+        // Every test counts rows from an empty table ("first native Measure row" is row 0, "three rows" are a1..a3), but
+        // the shared JVM is reset per class, not per test: rows an earlier test left are cleared through the engine.
+        ActionResult cr = engine.submit(ActionRequest.command(Origin.PANEL, "ij1:Analyze>Clear Results", Map.of(),
+                TargetScope.of(doc))).get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, cr.state(), String.valueOf(cr.error()));
+        assertEquals(0, ResultsTable.getResultsTable().size());
+        assertEquals(0, engine.results().size(), "mirror of the cleared table");
     }
 
     @AfterEach

@@ -26,6 +26,7 @@ public final class ExitListener implements LauncherSessionListener, TestExecutio
     public void launcherSessionOpened(LauncherSession session) {
         // before discovery loads any test class (and, through the verifier, ij.* classes): see FijiFixture.patchEarly
         FijiFixture.patchEarly();
+        MacInputMethods.disableOnMac(); // an AppKit text-input race would otherwise abort the whole JVM (see the class)
         session.getLauncher().registerTestExecutionListeners(this);
     }
 
