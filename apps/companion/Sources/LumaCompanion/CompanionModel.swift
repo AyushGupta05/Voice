@@ -10,6 +10,8 @@ struct Activity: Identifiable {
     let time = Date()
     var isError = false
     var icon = "checkmark.circle.fill"
+    /// Raw tool result retained for rich rendering (workflow scripts, class tables). Display only.
+    var payload: [String: Any]? = nil
 }
 
 @MainActor
@@ -42,6 +44,13 @@ final class CompanionModel: ObservableObject {
     @Published var busy = false
     @Published var microphoneLevel: Float = 0
     @Published var measurementReport: MeasurementReport?
+    /// Latest partial transcript while the microphone is live; cleared on the final transcript or when voice stops.
+    @Published var liveTranscript = ""
+    /// Short acknowledgement phrase (text_ack) shown while the task runs; cleared on result, error or idle.
+    @Published var executingText = ""
+    /// Final sentence of the last task, shown briefly in the bar after it finishes.
+    @Published var resultText = ""
+    private var resultClear: Task<Void, Never>?
     private let root: URL
     private var token = ""
     private var gateway: GatewaySupervisor?
@@ -195,7 +204,7 @@ final class CompanionModel: ObservableObject {
                let report = try? JSONDecoder().decode(MeasurementReport.self, from: data) {
                 measurementReport = report
             }
-            activities.insert(Activity(title: friendly(name), detail: summary(nested, toolName: name)), at: 0)
+            activities.insert(Activity(title: friendly(name), detail: summary(nested, toolName: name), payload: richPayload(nested)), at: 0)
             if let highlight = nested["highlight"] as? [String: Any] { self.pointer.highlight(highlight) }
             else if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
             activities = Array(activities.prefix(40))
@@ -207,20 +216,28 @@ final class CompanionModel: ObservableObject {
             }
             if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { selectedTab = 1; expanded = true }
             if let action = event["action"] as? [String: Any], let status = action["status"] as? String, ["failed", "denied", "completed", "expired"].contains(status) {
-                let detail = action["error"] as? String ?? friendly(action["tool"] as? String ?? "Action")
+                let tool = friendly(action["tool"] as? String ?? "Action")
                 let warning = action["auditWarning"] as? String
-                activities.insert(Activity(title: status.capitalized, detail: detail + (warning.map { "\n" + $0 } ?? ""), isError: status == "failed" || warning != nil), at: 0)
-                activities = Array(activities.prefix(40))
+                // A completed action is reported by its tool event as a done thing; only problems need their own entry.
+                if status != "completed" || warning != nil {
+                    let title = status == "failed" ? "Couldn’t finish" : status == "denied" ? "Declined" : status == "expired" ? "Expired" : tool
+                    let detail = action["error"] as? String ?? tool
+                    activities.insert(Activity(title: title, detail: detail + (warning.map { "\n" + $0 } ?? ""), isError: status == "failed" || warning != nil), at: 0)
+                    activities = Array(activities.prefix(40))
+                }
             }
             Task { await refresh() }
         case "error":
             if let requestID = event["requestId"] as? String, requestID != voiceRequestID { return }
             activities.insert(Activity(title: "Needs attention", detail: event["message"] as? String ?? "Unknown error", isError: true), at: 0)
             resetVoice()
+        case "text_ack":
+            if let text = event["text"] as? String, !text.isEmpty { executingText = text; textBusy = true; resultText = "" }
         case "text_result":
             if let text = event["text"] as? String {
                 activities.insert(Activity(title: "Luma", detail: text, icon: "sparkle"), at: 0)
                 activities = Array(activities.prefix(40))
+                showResult(text)
             }
         case "text_progress":
             if let text = event["text"] as? String {
@@ -228,9 +245,11 @@ final class CompanionModel: ObservableObject {
                 activities = Array(activities.prefix(40))
             }
         case "text_error":
-            textBusy = false
+            textBusy = false; executingText = ""
             activities.insert(Activity(title: "Text task stopped", detail: event["message"] as? String ?? "Inspect the application before retrying.", isError: true), at: 0)
-        case "task_state": textBusy = event["state"] as? String == "working"
+        case "task_state":
+            textBusy = event["state"] as? String == "working"
+            if !textBusy { executingText = ""; if !resultText.isEmpty { scheduleResultClear() } }
         case "audio":
             if event["epoch"] as? Int != playbackEpoch || playbackSuppressed {
                 Logger(subsystem: "science.luma.companion", category: "audio").notice("Ignored reply audio: epoch \(String(describing: event["epoch"])) vs \(self.playbackEpoch), suppressed=\(self.playbackSuppressed)")
@@ -256,8 +275,11 @@ final class CompanionModel: ObservableObject {
         case "voice_transcript":
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
             if event["partial"] as? Bool == false, let text = event["text"] as? String {
+                liveTranscript = ""
                 activities.insert(Activity(title: "You", detail: text, icon: "mic"), at: 0)
                 activities = Array(activities.prefix(40))
+            } else if let text = event["text"] as? String {
+                liveTranscript = text
             }
         case "voice_error":
             guard event["requestId"] as? String == voiceRequestID else { return }
@@ -330,7 +352,33 @@ final class CompanionModel: ObservableObject {
     func stopTextTask() {
         send(["type": "stop_task"])
         playbackSuppressed = true; voiceSpeaking = false; audio.interruptPlayback()
-        textBusy = false
+        textBusy = false; executingText = ""
+    }
+    /// Keep the final sentence in the bar for a few seconds, then fall back to Listening or Idle.
+    private func showResult(_ text: String) {
+        executingText = ""
+        resultText = text
+        scheduleResultClear()
+    }
+    private func scheduleResultClear() {
+        resultClear?.cancel()
+        resultClear = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self?.resultText = ""
+        }
+    }
+    /// Results worth rendering beyond one line: saved/generated workflow scripts and per-class counts.
+    private func richPayload(_ value: [String: Any]) -> [String: Any]? {
+        if let workflow = value["workflow"] as? [String: Any], workflow["script"] is String || workflow["steps"] != nil { return ["workflow": workflow] }
+        if let classes = classRows(value) { return ["classes": classes, "total": value["total"] ?? (value["summary"] as? [String: Any])?["total"] ?? NSNull()] }
+        return nil
+    }
+    func classRows(_ value: [String: Any]) -> [[String: Any]]? {
+        if let rows = value["classes"] as? [[String: Any]], !rows.isEmpty { return rows }
+        if let summary = value["summary"] as? [String: Any], let rows = summary["classes"] as? [[String: Any]], !rows.isEmpty { return rows }
+        if let rows = value["summary"] as? [[String: Any]], !rows.isEmpty { return rows }
+        return nil
     }
     func reviewImportSource(_ path: String) {
         let source = URL(fileURLWithPath: path)
@@ -352,7 +400,7 @@ final class CompanionModel: ObservableObject {
     private func resetVoice(keepingRequest: Bool = false) {
         if !keepingRequest { voiceRequestID = nil }
         voiceSessionID = nil; capturing = false; providerListening = false
-        voiceActive = false; voiceStarting = false; voiceSpeaking = false; microphoneLevel = 0
+        voiceActive = false; voiceStarting = false; voiceSpeaking = false; microphoneLevel = 0; liveTranscript = ""
         pointer.follow(false)
         audioSending?.cancel(); audioSending = nil; audioPending.removeAll(); audioPendingBytes = 0
         audio.stop(); playbackEpoch = 0; playbackSuppressed = false
@@ -410,7 +458,8 @@ final class CompanionModel: ObservableObject {
         Task { do { try await socket.send(.string(text)) } catch { activities.insert(Activity(title: "Gateway disconnected", detail: "Reconnect to continue.", isError: true), at: 0) } }
     }
     func friendly(_ name: String) -> String {
-        let labels = ["qupath_project_images": "Project images", "qupath_analysis_catalog": "Analysis options", "qupath_measurement_summary": "Measured results", "qupath_open_path": "Open image or project", "qupath_open_project_image": "Open project image", "qupath_inspect_import": "Inspect annotation file", "qupath_import_annotations": "Import annotations"]
+        let labels = ["qupath_project_images": "Project images", "qupath_analysis_catalog": "Analysis options", "qupath_measurement_summary": "Measured results", "qupath_open_path": "Open image or project", "qupath_open_project_image": "Open project image", "qupath_inspect_import": "Inspect annotation file", "qupath_import_annotations": "Import annotations",
+                      "qupath_detect_cells": "Detected cells", "qupath_class_summary": "Counted classes", "qupath_workflow_steps": "Workflow steps", "qupath_save_workflow": "Saved workflow", "qupath_select": "Selected objects", "qupath_snapshot": "Captured the viewer", "qupath_delete_selected": "Deleted selected objects", "qupath_image_type": "Set image type", "qupath_run_script": "Ran a script", "qupath_run_command": "Ran a command", "qupath_compare": "Compared with checkpoint", "qupath_checkpoints": "Listed checkpoints", "qupath_ui_action": "Operated a control"]
         if let label = labels[name] { return label }
         return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated overlays", "qupath_highlight": "Pointed it out", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
     }
@@ -419,6 +468,18 @@ final class CompanionModel: ObservableObject {
             return value["open"] as? Bool == false ? "No project is open" : "Project images matched: \(value["total"] ?? 0)"
         }
         if toolName == "qupath_analysis_catalog" { return "Measurement names: \(value["measurementNameCount"] ?? 0) · Classes: \(value["classificationCount"] ?? 0)" }
+        if toolName == "qupath_detect_cells", let counts = value["counts"] as? [String: Any], let cells = counts["cells"] {
+            return "Detected \(cells) cells · inspect segmentation in QuPath"
+        }
+        if let positive = value["positive"], let negative = value["negative"] { return "\(positive) positive · \(negative) negative" }
+        if let workflow = value["workflow"] as? [String: Any] {
+            if let path = workflow["path"] as? String { return "Saved \(workflow["steps"] ?? 0) steps to \((path as NSString).lastPathComponent)" }
+            return "\(workflow["total"] ?? 0) recorded steps"
+        }
+        if let rows = classRows(value) {
+            let total = (value["summary"] as? [String: Any])?["total"] ?? value["total"] ?? rows.reduce(0) { $0 + (($1["count"] as? Int) ?? 0) }
+            return "\(total) objects in \(rows.count) classes"
+        }
         if let highlight = value["highlight"] as? [String: Any] {
             let shown = highlight["shown"] as? Int ?? 0, total = highlight["total"] as? Int ?? shown
             let label = (highlight["label"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Highlighted"

@@ -8,7 +8,7 @@ Discovery reports exact menu paths and enabled state. It does not report modal d
 
 ## Project and batch work
 
-A project groups images, annotations, classifiers and workflows. Before processing a whole project, prove parameters on a representative image, save project copies, then use QuPath's documented project scripting methods. Batch operations are risky: show the scope and source before approval. Never silently save changes to every project image.
+A project groups images, annotations, classifiers and workflows. Before processing a whole project, prove parameters on a representative image, save project copies, then use QuPath's documented project scripting methods. Batch operations are risky: state the scope and show the source before running. Never silently save changes to every project image.
 
 ## Export and interoperability
 
@@ -18,11 +18,15 @@ QuPath supports measurement-table export and GeoJSON object export through its m
 
 TMA dearraying, grid edits, density maps and classifiers have specialized prerequisites. Search task-specific docs, discover the installed commands, and inspect the native result. Do not assume a generic cell detection tool covers every analysis.
 
+## Workflows
+
+QuPath records every scripted step (detection, classification, annotations) in the image's workflow history. `qupath_workflow_steps` lists it. “Save this procedure / save as a workflow so I can use it on other samples” → `qupath_save_workflow {name}` with a short kebab-case name derived from the conversation (e.g. `dab-positive-cells`); it writes a Groovy script under `.local/workflows` and returns the script and step count. Say where it was saved and how many steps it has (“Saved dab-positive-cells with 3 steps.”). Running it on another image is a `qupath_run_script` of that exact file after the researcher has seen the code; parameters tuned on one slide are not validated for another.
+
 ## Groovy escape hatch
 
 The approved script runs in QuPath's own context with default QPEx imports. Common APIs include getCurrentImageData(), getCurrentHierarchy(), getSelectedObject(), getSelectedObjects(), getCurrentViewer() and getProject(). Use stable object IDs, explicit image data and exact measurement names.
 
-Scripts can access files, network and the local machine. They are not sandboxed. The researcher must see the complete source and reason; pending approval cannot be reused for different code or context. Use short scripts, print structured summaries, and inspect the resulting application state.
+Scripts can access files, network and the local machine. They are not sandboxed. Show the complete source and reason before running; each run is bound to exact code and context. Use short scripts, print structured summaries, and inspect the resulting application state.
 
 Sources:
 - https://qupath.readthedocs.io/en/0.7/docs/scripting/overview.html

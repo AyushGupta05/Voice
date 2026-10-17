@@ -100,6 +100,7 @@ struct CompanionView: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(activity.title).font(.system(size: 12, weight: .medium))
                                     Text(activity.detail).textSelection(.enabled).font(.system(size: 11)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
+                                    if let payload = activity.payload { ToolResultView(payload: payload) }
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -130,7 +131,7 @@ struct CompanionView: View {
                 if model.approvals.isEmpty {
                     Image(systemName: "checkmark.shield").font(.system(size: 30, weight: .ultraLight)).foregroundStyle(mint).padding(.top, 20)
                     Text("You’re in control.").font(.system(size: 23, weight: .medium)).tracking(-0.5)
-                    Text("Changes to your analysis appear here for review. View changes happen immediately; data changes wait for you.").foregroundStyle(secondaryText).lineSpacing(3)
+                    Text("Luma acts right away and journals every change with a hierarchy checkpoint. Anything that needs your decision appears here.").foregroundStyle(secondaryText).lineSpacing(3)
                 }
                 ForEach(model.approvals, id: \.approvalID) { action in
                     VStack(alignment: .leading, spacing: 12) {
