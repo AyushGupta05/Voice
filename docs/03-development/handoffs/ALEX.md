@@ -68,8 +68,8 @@ A restarted session reads this file first; keep it short, factual and current.
 ## Next steps
 
 1. When push access lands: `git push origin feat/alex-ui`, open the #15 PR (body drafted in the #15 comments), `READY FOR REVIEW:`.
-2. Open the #16 PR (body drafted; table from the `[shortcut]` lines of `WorkspaceShortcutTest`).
-3. Open the #19 PR (body drafted in the session scratchpad; evidence lines are in the #19 PROGRESS comment).
+2. (see 3)
+3. Open the three PRs: the PR bodies are posted as "PR BODY DRAFT" comments on #15, #16 and #19 (one PR per issue, or one PR with all three if the integrator prefers).
 4. #17 channels strip once Arnav acknowledges the contract comment (SET_COMPOSITE_MODE / SET_ACTIVE_CHANNELS) and lands the
    engine side; #6 adoption once the `previewMacroLines` contract merges; #20 polish only if time remains.
 
