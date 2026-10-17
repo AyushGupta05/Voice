@@ -72,7 +72,7 @@ flowchart TB
 | Resolve label | Catalogue `command_id` → exact label, including whitespace (FR-CMD-003) | A08 |
 | Validate | `CommandSchema` (D06) plus preconditions against the target `ImagePlus` | FR-PROC-004 |
 | Prepare | `IJ.setKeyUp(IJ.ALL_KEYS)`; apply action globals through CMP-29; snapshot through CMP-28; ensure the target is registered (§3) | `ij/IJ.java#L1132-L1145`; ADR-004/008 |
-| Execute | `IJ.run(ImagePlus imp, String command, String options)` on the engine worker. This sets the temp current image and the macro options for the thread and runs `Executer` synchronously. | `ij/IJ.java#L310-L332` (A15 §6) |
+| Execute | `IJ.run(ImagePlus imp, String command, String options)` on the engine worker (`ij/IJ.java#L410`). It sets the temp current image and delegates to `IJ.run(command, options)` (`#L310-L332`), which binds the macro options to the thread and runs `Executer` synchronously. | A15 §6; line reference corrected after G10 review |
 | Observe | `CommandListener` sees the command and options (records the product-initiated flag); `ImageListener` events arrive on the EDT | P31, P80 |
 | Complete | Per-family postconditions plus log-delta scan plus pending-dialog check (CMP-26). Success is never inferred from the return of `IJ.run` (it swallows `Throwable`). | `ij/Executer.java#L74-L117` (A08) |
 
@@ -102,7 +102,7 @@ R3 actions are recorded as direct-manipulation history entries with macro equiva
 
 ### R4: macro and script engine
 
-- Product-generated macros (multi-image commands, replay): `IJ.runMacro(text)`, run on the engine worker; one interpreter at a time (FR-MACRO-005).
+- Product-generated macros (multi-image commands, replay): run on the engine worker by an `Interpreter` instance owned by the adapter, mirroring `Macro_Runner.java#L161-L176`, so that `wasError()`/`getErrorMessage()` can be read (refined in D17). One interpreter at a time (FR-MACRO-005). `setIgnoreErrors` is not used.
 - User macros: the capability scan first (CMP-31, `ij.macro.Tokenizer`), then the confirmation (FR-MACRO-002), then execution through `IJ.runMacro` or `ScriptService.run` for scripts with `#@` parameters (FR-MACRO-004).
 - Abort: `Interpreter.abort()` (`ij/macro/Interpreter.java#L2102`); errors are captured from the interpreter error output and the log (D17).
 
@@ -159,7 +159,7 @@ Validation item **V-03**: round-trip fidelity (order, names, positions, properti
 | Weighted RGB conversion | `Prefs.weightedColor`, `ColorProcessor.getWeightingFactors()` | `ColorProcessor.setWeightingFactors(r,g,b)` | `Prefs.java#L80`; `ColorProcessor.java#L1348-L1359` |
 | Pad edges | `Prefs.padEdges` | Assign | `Prefs.java#L116` |
 | Inverting LUT | `Prefs.useInvertingLut` | Assign | `Prefs.java#L90` |
-| Binary iterations / count | **Not readable** (package-private statics `Binary.iterations`, `Binary.count`) | **Always set explicitly** through R1 `run("Options...", "iterations=N count=M [black] …")` before binary operations | `ij/plugin/filter/Binary.java#L22-L23` |
+| Binary iterations / count | **Not readable** (package-private statics `Binary.iterations`, `Binary.count`) | **Set explicitly** through R1 `run("Options...", "iterations=N count=M [black] …")` before the operations that read them (Erode, Dilate, Open, Close in `Binary`). Watershed (`EDM`) reads only `Prefs.blackBackground` and the inverting LUT (G10/D16). | `ij/plugin/filter/Binary.java#L22-L23` |
 | Global calibration | `imp.getGlobalCalibration()` / `ImagePlus.getStaticGlobalCalibration` (to verify in milestone 1, V-04) | Via Set Scale `global` | A09 |
 
 Policy:

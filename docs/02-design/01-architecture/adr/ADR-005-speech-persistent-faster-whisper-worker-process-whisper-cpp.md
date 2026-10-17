@@ -28,7 +28,7 @@ CMP-44 is a persistent Python 3.11 faster-whisper worker:
 - started and supervised by CMP-43;
 - model files pinned by hash.
 
-Audio is captured in Java and sent as 16 kHz mono PCM, so the worker need not decode containers. This may allow PyAV to be dropped from a redistributable bundle (CR-A24-05; to be verified).
+Audio is captured in Java and sent as 16 kHz mono PCM, so the worker need not decode containers. **Correction (Phase 8):** PyAV cannot be dropped, because `faster_whisper/__init__.py#L1` imports `audio.py`, which imports `av` at L15 (VERIFIED at v1.2.1). The FFmpeg/x264/x265 licence question (A24 §5.6, NFR-PKG-005) must therefore be resolved by a PyAV build without GPL codecs, by a patched import, or by whisper.cpp (DEC-005).
 
 ## Alternatives considered
 | Option | Assessment |

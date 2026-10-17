@@ -110,39 +110,50 @@ VC-0108,FR-SPEECH-005,PAR-044,L5,E8,FX-060,n/a,accuracy reported,J-08,planned,Tr
 VC-0109,FR-SPEECH-006,PAR-044,L1,T,FX-060,n/a,exact,J-08,planned,"'two point five', '2.5', 'two and a half' -> 2.5"
 VC-0110,FR-SPEECH-007,PAR-044,L2,T,FX-002,n/a,n/a,J-08,planned,Speech suite passes with CUDA unavailable
 VC-0111,FR-WS-001,PAR-045,L3,D,FX-003;FX-030,n/a,n/a,J-01;J-03;J-04;J-05;J-06;J-07;J-12,planned,"MVP journeys completed inside one window (HACK adds ROI list, tools)"
-VC-0112,NFR-PERF-002,n/a,L2,T,FX-002;FX-060,n/a,median of 20 <= 0.5 s,J-08,planned,Warm worker latency on reference CPU
-VC-0113,NFR-PERF-003,n/a,L2,T,FX-005,n/a,n/a,J-09,planned,Budget accounting equals snapshot sizes; remaining budget shown
-VC-0114,NFR-PERF-004,n/a,L1,T,FX-001,n/a,n/a,n/a,planned,Query API returns copies/renderings; mutation of returned data leaves engine data unchanged
-VC-0115,NFR-PERF-005,n/a,L2,T,FX-006,n/a,<= 5 ms per event on EDT,J-09,planned,Listener execution time instrumentation
-VC-0116,NFR-PERF-006,n/a,L3,T,FX-006;FX-008,n/a,EDT stall <= 100 ms,J-09,planned,"UI pans, zooms and opens menus during a long stack filter (FX-008 scheduled)"
-VC-0117,NFR-REL-001,n/a,L2,T,FX-079;FX-001,n/a,n/a,n/a,planned,"10 failing actions (exception, postcondition, cancelled dialog) then a successful action in one session"
-VC-0118,NFR-REL-002,n/a,L3,T,FX-003,n/a,n/a,J-08;J-12,planned,Kill speech worker mid-session: other journeys pass; voice reports unavailable
-VC-0119,NFR-REL-003,n/a,L2,T,none,headless,timeout per D17,n/a,planned,Hanging macro terminated at timeout; no orphan process
-VC-0120,NFR-REL-004,PAR-035,L2,T,FX-006,n/a,n/a,J-09,planned,Chained hook probe: progress events arrive; legacy behaviour unchanged (V-06)
-VC-0121,NFR-REL-005,PAR-035,L2,T,FX-001;FX-003,n/a,n/a,J-12,planned,Event sequence test per route R1-R4; digest fields present
-VC-0122,NFR-USE-001,n/a,L1,T,none,n/a,n/a,J-03;J-04,planned,"AC0-AC3 from menu, keyboard or canvas execute without a confirm event"
-VC-0123,NFR-USE-002,n/a,L0,I,none,n/a,n/a,J-09,planned,UI review checklist: no simulated progress
-VC-0124,NFR-USE-002,n/a,L1,T,none,n/a,n/a,J-09,planned,Progress component rejects determinate updates without a counter source
-VC-0125,NFR-USE-004,n/a,L0,I,none,n/a,n/a,n/a,planned,Terminology review of UI strings against commands.csv labels and keys
-VC-0126,NFR-PRIV-001,PAR-047,L3,T,FX-003,n/a,0 outbound connections,J-12;J-08,planned,Packet capture during scripted session with networking disabled
-VC-0127,NFR-PRIV-002,n/a,L3,T,FX-003,n/a,0 absolute paths,J-12,planned,"Log, manifest and crash-report scan after scripted session"
-VC-0128,NFR-SEC-001,n/a,L0,I,none,n/a,n/a,n/a,planned,A25 control review record
-VC-0129,NFR-SEC-002,n/a,L2,T,none,n/a,0 listening ports,n/a,planned,Port scan of the product JVM and speech worker by default
-VC-0130,NFR-MAINT-001,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Dependency review; class scan finds no redefined ij.* or net.imagej.* class in product jars
-VC-0131,NFR-MAINT-002,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: every fixture path used by tests has a datasets.csv row
-VC-0132,NFR-MAINT-003,n/a,L0,T,FX-070;FX-071;FX-072;FX-073;FX-074;FX-075;FX-076;FX-077;FX-078;FX-079;FX-080;FX-081,n/a,SHA-256 identical,n/a,planned,Two generator runs give equal SHA-256
-VC-0133,NFR-MAINT-004,n/a,L0,T,none,n/a,no prefs difference,n/a,planned,Reference-runner compares IJ_Prefs.txt and JavaSoft\Prefs registry export before/after every run
-VC-0134,NFR-MAINT-005,n/a,L0,I,none,n/a,n/a,n/a,planned,CI configuration: per-commit tier uses only fixtures < 5 MB
-VC-0135,NFR-MAINT-006,n/a,L0,T,none,n/a,n/a,n/a,planned,Documentation checker: no dangling IDs in traceability.csv and this file
-VC-0136,NFR-FID-001,n/a,L2,E1;E2;E3;E4;E5;E6,FX-001;FX-003;FX-030;FX-070;FX-071;FX-072;FX-077,headless,per FID-002 report,J-12,planned,MVP: one L2 equivalence test per MVP-set command with independent reference macro
-VC-0137,NFR-FID-001,n/a,L3,E1;E2;E3;E4;E5;E6;E7,FX-003;FX-030,gui,per FID-002 report,J-01;J-03;J-04;J-06;J-12,planned,HACK: journey-level equivalence
-VC-0138,NFR-FID-002,n/a,L0,I,none,n/a,n/a,n/a,planned,Verification report lists tolerance and reference mode per command
-VC-0139,NFR-FID-003,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Test review; lint rejects screenshot/PNG comparators registered as E1-E7 evidence; seeded or excluded nondeterministic commands
-VC-0140,NFR-FID-004,n/a,L0,T,none,n/a,lock hash equals baseline key,n/a,planned,CI: lock check before/after; staged update/ content fails; baselines keyed by lock hash
-VC-0141,NFR-FID-005,n/a,L0,I,none,n/a,n/a,n/a,planned,Policy review: no training or fine-tuning on any fixture
-VC-0142,NFR-PKG-001,n/a,L0,T,none,n/a,n/a,n/a,planned,"Inventory completeness against build output (jars, speech bundle, model files)"
-VC-0143,NFR-PKG-003,n/a,L0,T,none,n/a,n/a,n/a,planned,jdeps import scan of product jars against the P70 GPL/AGPL list
-VC-0144,NFR-PKG-007,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: committed fixtures are marked redistributable in datasets.csv
-VC-0145,NFR-PLAT-001,n/a,L0,I,none,n/a,n/a,n/a,planned,Release notes state Windows 11 x64 supported; others untested
-VC-0146,NFR-PLAT-002,PAR-052,L3,D;T,FX-003,n/a,no clipping; image pixels mapped 1:1 at 100 % zoom,J-01,planned,Rendering at 100/150/200 % OS scaling
-VC-0147,NFR-PLAT-003,n/a,L2,T,none,n/a,n/a,n/a,planned,Engine runs with --java-home set to the bundled Zulu 21 only
+VC-0112,FR-WS-006,n/a,L3,T,none,n/a,n/a,n/a,planned,Layout change survives a restart; Reset restores the default layout
+VC-0113,FR-WS-007,n/a,L2,T,FX-001,n/a,no absolute paths,J-05,planned,IJ.log output from a command appears in the Log panel with sanitised paths
+VC-0114,FR-VIEW-007,n/a,L2,T;E1,FX-003,headless,exact,J-12,planned,Comparison shows the actual snapshot pixels; difference image only via Image Calculator... and equals reference
+VC-0115,FR-PLUG-004,n/a,L2,T,FX-003,n/a,n/a,J-10,planned,Workspace edits to a document held by Cell Counter are refused with an explanation; hold released when the plugin window closes
+VC-0116,FR-CMD-008,n/a,L1,T,none,n/a,n/a,n/a,planned,Shortcut conflict check against the runtime shortcut table reports none for the product set; an injected conflict is reported
+VC-0117,FR-MEAS-006,n/a,L2,E5,FX-003,n/a,exact (Double.toString),J-04,planned,"Clipboard copy of Results equals API doubles, with column headers"
+VC-0118,NFR-PERF-002,n/a,L2,T,FX-002;FX-060,n/a,median of 20 <= 0.5 s,J-08,planned,Warm worker latency on reference CPU
+VC-0119,NFR-PERF-003,n/a,L2,T,FX-005,n/a,n/a,J-09,planned,Budget accounting equals snapshot sizes; remaining budget shown
+VC-0120,NFR-PERF-004,n/a,L1,T,FX-001,n/a,n/a,n/a,planned,Query API returns copies/renderings; mutation of returned data leaves engine data unchanged
+VC-0121,NFR-PERF-005,n/a,L2,T,FX-006,n/a,<= 5 ms per event on EDT,J-09,planned,Listener execution time instrumentation
+VC-0122,NFR-PERF-006,n/a,L3,T,FX-006;FX-008,n/a,EDT stall <= 100 ms,J-09,planned,"UI pans, zooms and opens menus during a long stack filter (FX-008 scheduled)"
+VC-0123,NFR-REL-001,n/a,L2,T,FX-079;FX-001,n/a,n/a,n/a,planned,"10 failing actions (exception, postcondition, cancelled dialog) then a successful action in one session"
+VC-0124,NFR-REL-002,n/a,L3,T,FX-003,n/a,n/a,J-08;J-12,planned,Kill speech worker mid-session: other journeys pass; voice reports unavailable
+VC-0125,NFR-REL-003,n/a,L2,T,none,headless,timeout per D17,n/a,planned,Hanging macro terminated at timeout; no orphan process
+VC-0126,NFR-REL-004,PAR-035,L2,T,FX-006,n/a,n/a,J-09,planned,Chained hook probe: progress events arrive; legacy behaviour unchanged (V-06)
+VC-0127,NFR-REL-005,PAR-035,L2,T,FX-001;FX-003,n/a,n/a,J-12,planned,Event sequence test per route R1-R4; digest fields present
+VC-0128,NFR-USE-001,n/a,L1,T,none,n/a,n/a,J-03;J-04,planned,"AC0-AC3 from menu, keyboard or canvas execute without a confirm event"
+VC-0129,NFR-USE-002,n/a,L0,I,none,n/a,n/a,J-09,planned,UI review checklist: no simulated progress
+VC-0130,NFR-USE-002,n/a,L1,T,none,n/a,n/a,J-09,planned,Progress component rejects determinate updates without a counter source
+VC-0131,NFR-USE-003,n/a,L5,E8,FX-064,n/a,unsafe executions = 0,J-07,planned,"MVP: typed NL labelled set scored (command identity, slots, clarification rate, unsafe executions)"
+VC-0132,NFR-USE-003,n/a,L5,E8,FX-060;FX-061;FX-062;FX-063,n/a,unsafe executions = 0; WER reported,J-08,planned,PARITY: speech sets scored per model and prompt configuration
+VC-0133,NFR-USE-004,n/a,L0,I,none,n/a,n/a,n/a,planned,Terminology review of UI strings against commands.csv labels and keys
+VC-0134,NFR-PRIV-001,PAR-047,L3,T,FX-003,n/a,0 outbound connections,J-12;J-08,planned,Packet capture during scripted session with networking disabled
+VC-0135,NFR-PRIV-002,n/a,L3,T,FX-003,n/a,0 absolute paths,J-12,planned,"Log, manifest and crash-report scan after scripted session"
+VC-0136,NFR-SEC-001,n/a,L0,I,none,n/a,n/a,n/a,planned,A25 control review record
+VC-0137,NFR-SEC-002,n/a,L2,T,none,n/a,0 listening ports,n/a,planned,Port scan of the product JVM and speech worker by default
+VC-0138,NFR-MAINT-001,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Dependency review; class scan finds no redefined ij.* or net.imagej.* class in product jars
+VC-0139,NFR-MAINT-002,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: every fixture path used by tests has a datasets.csv row
+VC-0140,NFR-MAINT-003,n/a,L0,T,FX-070;FX-071;FX-072;FX-073;FX-074;FX-075;FX-076;FX-077;FX-078;FX-079;FX-080;FX-081,n/a,SHA-256 identical,n/a,planned,Two generator runs give equal SHA-256
+VC-0141,NFR-MAINT-004,n/a,L0,T,none,n/a,no prefs difference,n/a,planned,Reference-runner compares IJ_Prefs.txt and JavaSoft\Prefs registry export before/after every run
+VC-0142,NFR-MAINT-005,n/a,L0,I,none,n/a,n/a,n/a,planned,CI configuration: per-commit tier uses only fixtures < 5 MB
+VC-0143,NFR-MAINT-006,n/a,L0,T,none,n/a,n/a,n/a,planned,Documentation checker: no dangling IDs in traceability.csv and this file
+VC-0144,NFR-MAINT-007,n/a,L3,T,FX-003,n/a,no product writes,J-12,planned,File-system diff of the Fiji folder before/after a scripted session shows no product writes outside update-site jars
+VC-0145,NFR-FID-001,n/a,L2,E1;E2;E3;E4;E5;E6,FX-001;FX-003;FX-030;FX-070;FX-071;FX-072;FX-077,headless,per FID-002 report,J-12,planned,MVP: one L2 equivalence test per MVP-set command with independent reference macro
+VC-0146,NFR-FID-001,n/a,L3,E1;E2;E3;E4;E5;E6;E7,FX-003;FX-030,gui,per FID-002 report,J-01;J-03;J-04;J-06;J-12,planned,HACK: journey-level equivalence
+VC-0147,NFR-FID-001,n/a,L4,E9,FX-030,gui,reported; manual band 350-362 for A03f00d0,J-12,planned,"Workflow plausibility against BBBC001 manual counts; reported, not pass/fail (A30 E9)"
+VC-0148,NFR-FID-002,n/a,L0,I,none,n/a,n/a,n/a,planned,Verification report lists tolerance and reference mode per command
+VC-0149,NFR-FID-003,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Test review; lint rejects screenshot/PNG comparators registered as E1-E7 evidence; seeded or excluded nondeterministic commands
+VC-0150,NFR-FID-004,n/a,L0,T,none,n/a,lock hash equals baseline key,n/a,planned,CI: lock check before/after; staged update/ content fails; baselines keyed by lock hash
+VC-0151,NFR-FID-005,n/a,L0,I,none,n/a,n/a,n/a,planned,Policy review: no training or fine-tuning on any fixture
+VC-0152,NFR-PKG-001,n/a,L0,T,none,n/a,n/a,n/a,planned,"Inventory completeness against build output (jars, speech bundle, model files)"
+VC-0153,NFR-PKG-003,n/a,L0,T,none,n/a,n/a,n/a,planned,jdeps import scan of product jars against the P70 GPL/AGPL list
+VC-0154,NFR-PKG-007,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: committed fixtures are marked redistributable in datasets.csv
+VC-0155,NFR-PKG-008,n/a,L0,T,none,n/a,n/a,n/a,planned,Build-time check: resolved compile dependency versions equal jar versions in external/fiji.lock.json; mismatch fails the build
+VC-0156,NFR-PLAT-001,n/a,L0,I,none,n/a,n/a,n/a,planned,Release notes state Windows 11 x64 supported; others untested
+VC-0157,NFR-PLAT-002,PAR-052,L3,D;T,FX-003,n/a,no clipping; image pixels mapped 1:1 at 100 % zoom,J-01,planned,Rendering at 100/150/200 % OS scaling
+VC-0158,NFR-PLAT-003,n/a,L2,T,none,n/a,n/a,n/a,planned,Engine runs with --java-home set to the bundled Zulu 21 only

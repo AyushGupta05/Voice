@@ -118,17 +118,17 @@ flowchart TB
 
 | CMP | Name | Responsibility | Key requirements | Design doc |
 |---|---|---|---|---|
-| CMP-01 | Workspace shell | Single main window, layout, docking, menus host, keyboard dispatch, engine-state screen; registered as SciJava `UserInterface` | FR-WS-001, FR-SYS-006, NFR-PLAT-002 | D12, D14 |
-| CMP-02 | Document viewer | Renders planes via IJ1 rendering with caching; zoom/pan; pixel readout; subtitle; C/Z/T navigation | FR-VIEW-001…006 | D13 |
+| CMP-01 | Workspace shell | Single main window, layout, docking, menus host, keyboard dispatch, engine-state screen; registered as SciJava `UserInterface` | FR-WS-001, FR-WS-006, FR-SYS-006, NFR-PLAT-002 | D12, D14 |
+| CMP-02 | Document viewer | Renders planes via IJ1 rendering with caching; zoom/pan; pixel readout; subtitle; C/Z/T navigation | FR-VIEW-001…008, NFR-A11Y-003 | D13 |
 | CMP-03 | Tools & ROI editor | Selection tools, float geometry, IJ1 modifier semantics, commit on gesture end | FR-ROI-001…003 | D13 |
-| CMP-04 | Menus & command search | Menu tree and search generated from the runtime catalogue; shortcuts with IJ1 precedence | FR-CMD-001, 006, 007 | D12, D14 |
+| CMP-04 | Menus & command search | Menu tree and search generated from the runtime catalogue; shortcuts with IJ1 precedence | FR-CMD-001, 006, 007, FR-CMD-008, FR-CMD-009 | D12, D14 |
 | CMP-05 | Parameter panel | Schema-driven forms with all keys, units, consequential flags and globals display, preview control; surfaces legacy dialogs | FR-PROC-003, 007, 010, FR-MEAS-002 | D14, D15 |
-| CMP-06 | Results panel | Per-image results at full precision; standard table kept in sync | FR-MEAS-003…005 | D14 |
+| CMP-06 | Results panel | Per-image results at full precision; standard table kept in sync | FR-MEAS-003…006 | D14 |
 | CMP-07 | ROI list panel | Per-image ROI list mirroring the ROI store | FR-ROI-004, 005 | D14 |
 | CMP-08 | History & macro panel | Structured history, generated macro view, export, replay, undo/redo | FR-HIST-001…010 | D07, D15 |
 | CMP-09 | Command bar | Typed NL input, voice control with recording indicator, transcript editing, plan preview and confirm | FR-NL-004, FR-SPEECH-002/004 | D08, D15 |
 | CMP-10 | Activity & status | Engine state, operation lifecycle, real progress, pending dialogs, errors; also hosts the Log panel (UI-20, D12), which shows IJ1/SciJava log lines | FR-SYS-006, FR-PROC-007, NFR-USE-002, FR-WS-007 | D15, D17 |
-| CMP-11 | Legacy window tracker | Lists and focuses visible IJ1 and plugin windows; marks external windows | FR-PLUG-001, 002 | D10, D12 |
+| CMP-11 | Legacy window tracker | Lists and focuses visible IJ1 and plugin windows; marks external windows | FR-PLUG-001, 002, FR-PLUG-004 | D10, D12 |
 | CMP-12 | Display & globals panels | B&C (display-only) with Apply, threshold preview, channels, result-affecting globals | FR-PROC-014, 015, FR-MEAS-002, FR-VIEW-006 | D13, D14 |
 | CMP-20 | Engine facade API | Typed, serialisable API: submit actions, queries, event subscription | FR-SYS-003 | D09 |
 | CMP-21 | Action queue & worker | Single ordered worker (not EDT); cancellation; serialises macros | FR-SYS-004, FR-MACRO-005, FR-PROC-013 | D04, D06 |
@@ -161,7 +161,7 @@ flowchart TB
 | IF-06 | Speech worker protocol | CMP-43 ↔ CMP-44 | JSON lines over stdin/stdout |
 | IF-07 | Command plan | CMP-40/42 → CMP-41 → CMP-20 | `CommandPlan` JSON (steps of `ActionRequest` drafts plus slot provenance) |
 | IF-08 | LLM provider | CMP-42 ↔ external LLM | Provider plugin interface; HTTP to localhost service |
-| IF-09 | Supervisor heartbeat and quit | CMP-50 ↔ CMP-20 | In-process watchdog thread plus an external process check |
+| IF-09 | Supervisor heartbeat and quit | CMP-50 ↔ CMP-20 | In-process watchdog thread plus a start-up check of the session journal. There is no separate supervisor process in O2 (D03 §7). A JVM shutdown hook writes the journal and halts after a bound (D17). |
 | IF-10 | External client transport (LONG) | external ↔ CMP-20 | Authenticated loopback; disabled by default (NFR-SEC-002) |
 
 ## 5. Relationship to existing Fiji

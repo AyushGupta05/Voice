@@ -46,7 +46,7 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 |---|---|---|---|---|---|
 | NFR-USE-001 | Direct manipulation, menu and keyboard actions shall keep Fiji's immediacy. The product shall add no confirmation steps for AC0–AC3 actions from these modalities. | PR-2; must-stay-familiar | MVP | T: a policy test shows AC0–AC3 from menu, keyboard or canvas executes without a confirm event. | CR-A19-03 |
 | NFR-USE-002 | Progress shall be shown as determinate only from a real counter. It shall otherwise be indeterminate. Time-estimated or simulated progress shall never appear. | PR-5; brief §1.4 | MVP | I: a UI review checklist. T: the progress component rejects updates without a counter source. | CR-A20-01 |
-| NFR-USE-003 | Before release, labelled evaluation sets for NL instructions (A17 §12) and recorded human speech (FX-060–062; several speakers, accents and noise conditions) shall exist. Command-level accuracy shall be reported per model and prompt configuration. The unsafe-execution rate shall be 0. | All current speech evidence is synthetic; safety gate | PARITY (sets exist); LONG (release gate) | T: evaluation report in `docs/04-verification/`. | CR-A16-10, CR-A17-12 |
+| NFR-USE-003 | Before release, labelled evaluation sets for NL instructions (A17 §12) and recorded human speech (FX-060–062; several speakers, accents and noise conditions) shall exist. Command-level accuracy shall be reported per model and prompt configuration. The unsafe-execution rate shall be 0. | All current speech evidence is synthetic; safety gate | MVP (typed NL set FX-064 exists); PARITY (speech sets exist); LONG (release gate) | T: evaluation report in `docs/04-verification/`. | CR-A16-10, CR-A17-12; G10 gap (D18) |
 | NFR-USE-004 | The UI shall use Fiji's terminology (command labels, parameter names and menu paths) without renaming. | Familiarity; tutorials | MVP | I: terminology review against `commands.csv`. | A02, A04 |
 
 ## Accessibility (A11Y)
@@ -82,6 +82,7 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 | NFR-MAINT-004 | Tests and probes that launch Fiji shall pass `-Dimagej.updater.disableAutocheck=true`, terminate Fiji without saving, and isolate or restore ImageJ prefs (`IJ_Prefs.txt` and the `JavaSoft\Prefs` registry keys). | Prefs written by GUI runs (G8, P52) | MVP | T: the harness compares prefs before and after, with no difference. | CR-A04-16, CR-A22-06 |
 | NFR-MAINT-005 | Per-commit CI shall use only fixtures under 5 MB (PROPOSED threshold). Larger fixtures shall run in a scheduled or manual suite. | CI runtime | HACK | I: CI configuration. | CR-A29-05 |
 | NFR-MAINT-006 | Product requirements, decisions and the design shall stay traceable through `docs/data/traceability.csv`. Changes shall update the authoritative document first (F04 §10). | Brief Rule 4 | MVP | T: the documentation checker (Phase 8) reports no dangling IDs. | Brief Part 14 |
+| NFR-MAINT-007 | The product shall store its runtime data (journal, logs, caches, speech environment) in a per-user data directory. It shall write nothing inside the Fiji installation, except product jars installed through the update site. | Pin integrity; clean uninstall (design-raised, D19) | MVP | T: a file-system diff of the Fiji folder before and after a session shows no product writes. | D19 (design gap) |
 
 ## Scientific fidelity (FID)
 
@@ -104,6 +105,7 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 | NFR-PKG-005 | A redistributable speech runtime shall contain no GPL-licensed or proprietary native libraries (x264, x265, cuDNN, Intel OpenMP) unless their redistribution terms have been confirmed and recorded. | P73 findings | PARITY | T: a DLL scan of the bundle against an allow-list. | CR-A24-05 |
 | NFR-PKG-006 | Packaging shall keep `Fiji/licenses/`, the JDK `legal/`, `DISCLAIMER`, `readme.txt` and all jar-embedded licence files unmodified. | Notice duties | PARITY | T: a hash comparison of the licence files before and after packaging. | CR-A24-06 |
 | NFR-PKG-007 | The repository shall contain only fixtures whose licence permits redistribution under the project licence. Other fixtures shall be fetched to a git-ignored cache and verified by SHA-256. | BBBC NC-SA; ImageJ samples unlicensed | MVP | T: a CI check that committed fixtures are marked redistributable in `datasets.csv`. | CR-A29-02 |
+| NFR-PKG-008 | The build shall fail if any compile-time dependency version differs from the version present in the supported Fiji runtime (the runtime lock / installed jars). | The pom-scijava 45.1.0 BOM differs from the pinned install for scijava-common, scijava-search and imagej-legacy (D19, VERIFIED) | MVP | T: a build-time check comparing resolved versions with `external/fiji.lock.json` jar names. | D19 (design gap) |
 
 ## Platform (PLAT)
 

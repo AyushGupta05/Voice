@@ -451,3 +451,7 @@ Each phase line is shown only when a real signal reports it (D15 §3). There is 
 - `imagej/ImageJ@v1.54p` (03382be1): `ij/Menus.java#L110-L256`, `ij/WindowManager.java#L31-L55, L294-L315, L500, L633-L640`, `ij/plugin/WindowOrganizer.java`, `ij/plugin/Zoom.java`, `IJ_Props.txt` (`popup01…popup11`, `zoom01…zoom08`).
 - `imagej/imagej-legacy@imagej-legacy-3.0.0` (fc31a563): `SearchBarHacker.java#L201-L206`.
 - Installed jar listing `Fiji/jars/` (2026-10-17): no docking library; `miglayout-swing-5.3`, `swingx-1.6.1`, `flatlaf-3.6.1`, `jfreechart-1.5.6`, `rsyntaxtextarea-3.6.0` present.
+
+## Phase 8 requirement mapping (lead)
+
+This document's gap analysis led to these requirements being added (A26 §13a): FR-WS-006 (layout persistence), FR-WS-007 (UI-20 Log panel), FR-CMD-008 (shortcut conflicts, with DP-D11-02), FR-CMD-009 (recents and pinned commands in the palette, §5.2), FR-VIEW-008 (linked navigation across splits, §7) and FR-PLUG-004 (externally held documents, §8).

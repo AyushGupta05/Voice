@@ -37,4 +37,22 @@ Status vocabulary:
 | DEC-030 | **Deviation needing explicit acceptance.** Some Fiji menu items keep their labels but are rerouted to workspace equivalents, because their IJ1 implementations act on hidden windows: Window-menu items, Image › Zoom, Brightness/Contrast [C], Threshold [T], Channels Tool [Z], ROI Manager, Undo, Record…. The original behaviour stays reachable through legacy mode. This changes the behaviour, not the semantics, of those menu items (FR-CMD-001, PAR-045). | 02 | Proposed — awaiting approval | D12 DP-D12-03 | D12, A28 |
 | DEC-031 | Product-only shortcuts use only `Ctrl+Alt+<key>` and F6. A start-up conflict check runs, and redo is `Ctrl+Alt+Z`, because Ctrl+Shift+Z and Ctrl+Y collide with IJ1 shortcuts. | 02 | Proposed — awaiting approval | D11 DP-D11-02; FR-CMD-007/008 | D11 |
 
-Further design decisions raised by D16–D19 are added below as they are reviewed.
+| DEC-032 | J-12 (cell counting with the 10-command MVP set) is the MVP acceptance test. Its reference execution runs in GUI-mode Fiji, because `Analyze Particles… add` fails headless. | 02 | Proposed — awaiting approval | D16, D18; A08 op 11 | D16, D18 |
+| DEC-033 | Thresholds are set through `setThreshold`/`setAutoThreshold` (API or macro), never through the `ThresholdAdjuster` window | 02 | Proposed — awaiting approval | A08, P81; FR-PROC-015 | D16, D04 |
+| DEC-034 | The R4 adapter owns its own `ij.macro.Interpreter` instance (mirroring `Macro_Runner`) so that it can read `wasError()`/`getErrorMessage()`. `setIgnoreErrors` is not used. | 02 | Proposed — awaiting approval | D17; `Macro_Runner.java#L161-L176` | D17, D04 |
+| DEC-035 | In M2 the IJ1 "Exception" window opened by `Executer` (`Executer.java#L113-L115`) is treated as a failure signal by the window tracker. Only message-only dialogs may be dismissed automatically. | 02 | Proposed — awaiting approval | D17 | D17 |
+| DEC-036 | The product registers a JVM shutdown hook that flushes the journal and then halts after a time bound. This covers plugin `System.exit` calls that would otherwise hang (P85). | 02 | Proposed — awaiting approval | D17, D03 | D03, D17 |
+| DEC-037 | Verification uses two installs: a pristine reference install R and a product test install P. Comparison uses raw IEEE bits through the API. | 02 | Proposed — awaiting approval | D18 | D18 |
+| DEC-038 | Build with a Maven Wrapper, parent `pom-scijava` 45.1.0 (VERIFIED in the installed and cached Fiji poms) and Java 21 (bundled Zulu). Versions are overridden to match the pinned install where the BOM differs (scijava-common 2.101.0, scijava-search 3.0.2, imagej-legacy 3.0.0). The build fails on mismatch (NFR-PKG-008). | 02 | Proposed — awaiting approval | D19 | D19 |
+| DEC-039 | The speech worker environment is a uv-built Python 3.11 venv from the existing hash-locked requirements (proven in the prototype), not an Appose-built environment. PyAV stays (ADR-005 correction). | 02 | Proposed — awaiting approval | D19, A16 | D19, ADR-005 |
+
+| DEC-040 | The product exports Results at full precision itself, not through `MeasurementsWriter`, which rounds | 02 | Proposed — awaiting approval | FR-MEAS-003; P37 | D16 |
+| DEC-041 | For product-initiated R1 actions, wrap execution in `IJ.redirectErrorMessages(true)` and read `IJ.getErrorMessage()`. This depends on validation VD17-1. | 02 | Proposed — awaiting approval | D17 | D17 |
+| DEC-042 | After a failure or cancellation, rollback to the pre-action snapshot is the default whenever a snapshot exists. Only AC4 actions (no snapshot) can end partial. | 02 | Proposed — awaiting approval | FR-HIST-006; A19 §6 | D17 |
+| DEC-043 | The reference mode per command (headless or GUI) comes from `commands.csv` `headless_probe`. Anything other than `pass` uses a GUI reference. | 02 | Proposed — awaiting approval | A08 §7; CR-A30-07 | D18 |
+| DEC-044 | GUI reference runs terminate through `Runtime.halt` after writing `done.json`, with a hard timeout | 02 | Proposed — awaiting approval | P85 | D18 |
+| DEC-045 | A dedicated Windows CI runner with an interactive desktop session is required for GUI-mode reference tests | 02 | Proposed — awaiting approval | D18 (MVP set needs GUI references) | D18 |
+| DEC-046 | Inside the Fiji installation the product writes only its update-site jars. All runtime data goes in the per-user data directory (NFR-MAINT-007). | 02 | Proposed — awaiting approval | D19 | D19 |
+| DEC-047 | The reference install is rebuilt from the archive (SHA-256 checked) and never updated in place | 02 | Proposed — awaiting approval | NFR-FID-004; A22 | D19 |
+
+Decisions raised in the Phase 8 review are added below.

@@ -567,3 +567,7 @@ stateDiagram-v2
 - A04 §5.3–§5.14, §5.18; A09; A10 §1–§8; A11; A17 §4–§5; A18 §4; A19 §1, §3, §5; A20; A23 §2; A28 / `parity-matrix.csv` (PAR-007…014, 021–023, 049); A30 (E3, E4).
 - Probes: P35 (ROI round trip), P50 (subtitle example), P80 (listener threads), P84 (render cost).
 - D01 (CMP-02, CMP-03, CMP-12, CMP-24, CMP-26, CMP-28, CMP-30); D11; D12; D14; D15.
+
+## Phase 8 requirement mapping (lead)
+
+Requirements added from the design gaps: FR-VIEW-007 (comparison mode, specified in D15), FR-VIEW-008 (linked navigation) and NFR-A11Y-003 (accessible canvas: document identity, C/Z/T, read-out under a keyboard cursor, ROI summary). The canvas specification here must provide the keyboard cursor and the accessible-description hooks.
