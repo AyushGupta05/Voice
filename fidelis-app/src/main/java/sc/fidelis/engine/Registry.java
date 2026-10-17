@@ -60,11 +60,16 @@ final class Registry {
         if (imp != null) opened.add(imp);
     }
 
+    /** When each not-yet-opened image was first left for later (see {@link #showInProgress}). */
+    private final Map<ImagePlus, Long> deferredSince = Collections.synchronizedMap(new WeakHashMap<>());
+    /** A window still being built after this long is adopted anyway (a constructor never legitimately takes this long). */
+    private static final long MAX_DEFER_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+
     /**
-     * True while another thread is inside {@code ImagePlus.show()} or an image window's constructor. ImageJ registers the
-     * window in WindowManager at the start of the constructor but stores it in the image only after the constructor
-     * (and a StackWindow's sliders) are done; re-hosting the image in between let show() store its own, meanwhile
-     * closed, window afterwards, and the image could then never be closed (EngineQuitTest, EngineConventionsTest).
+     * True while another thread is inside an image window's constructor. ImageJ registers the window in WindowManager at
+     * the start of the constructor but {@code ImagePlus.show()} stores it in the image only after the constructor (and a
+     * StackWindow's sliders) are done; re-hosting the image in between let show() store its own, meanwhile closed,
+     * window afterwards, and the image could then never be closed (EngineQuitTest, EngineConventionsTest).
      */
     private static boolean showInProgress() {
         Thread self = Thread.currentThread();
@@ -72,8 +77,7 @@ final class Registry {
             if (e.getKey() == self) continue;
             for (StackTraceElement f : e.getValue()) {
                 String c = f.getClassName();
-                if ((c.equals("ij.ImagePlus") && f.getMethodName().equals("show"))
-                        || ((c.equals("ij.gui.ImageWindow") || c.equals("ij.gui.StackWindow")) && f.getMethodName().equals("<init>")))
+                if ((c.equals("ij.gui.ImageWindow") || c.equals("ij.gui.StackWindow")) && f.getMethodName().equals("<init>"))
                     return true;
             }
         }
@@ -167,11 +171,13 @@ final class Registry {
             // showInProgress); adopted on a later reconcile (imageOpened reconciles again, and a deferral retries)
             if (!opened.contains(imp)) {
                 if (showing == null) showing = showInProgress();
-                if (showing) {
+                long since = deferredSince.computeIfAbsent(imp, k -> System.nanoTime());
+                if (showing && System.nanoTime() - since < MAX_DEFER_NANOS) {
                     deferred = true;
                     continue;
                 }
             }
+            deferredSince.remove(imp);
             Doc d = new Doc(new DocumentId("doc-" + docSeq.incrementAndGet()), imp, null, null);
             try {
                 d.win = Edt.call(() -> host(imp));
