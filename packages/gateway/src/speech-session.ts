@@ -21,6 +21,16 @@ export function spokenReply(text:string){
  return sentence?sentence+' More details are on screen.':'The result is ready on screen.';
 }
 export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<void>;stop:()=>void};
+const wordCount=(text:string)=>text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean).length;
+/** Short commands worth acting on even as one or two words; anything else that short is treated as room chatter. */
+const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?luma\b.*|stop|cancel|undo(?: that)?|go back|redo|yes|no|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
+/** The microphone stays open for 30 minutes, so fragments like "OK." or "Bye." must not become model requests. */
+export function isAddressedToLuma(text:string){
+ const clean=text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
+ if(!clean)return false;
+ if(SHORT_COMMANDS.test(clean))return true;
+ return wordCount(clean)>=3;
+}
 export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
  private inputReady=false;private seen=new Set<string>();private hearing=false;private turns=0;private replies=0;private bytes=0;
@@ -57,10 +67,13 @@ export class SpeechSession{
   if(this.closed||this.seen.has(value.id))return;
   const text=value.text.trim();if(!text)return;if(text.length>4000){this.stop('Spoken request is too long.');return;}
   if(!value.partial)this.log(`heard: ${JSON.stringify(text)}`);
-  if(!this.hearing){this.hearing=true;this.interrupt();}
+  // Barge-in on real speech only: a one-word fragment while Luma talks is usually room chatter, not a correction.
+  if(!this.hearing&&(wordCount(text)>=2||!this.speech)){this.hearing=true;this.interrupt();}
   this.event({type:'voice_transcript',text,partial:value.partial});
   if(value.partial)return;
-  this.hearing=false;this.seen.add(value.id);if(++this.turns>200){this.stop('Voice turn limit reached.');return;}
+  this.hearing=false;this.seen.add(value.id);
+  if(!isAddressedToLuma(text)){this.log(`ignored (not a request): ${JSON.stringify(text)}`);this.event({type:'voice_ignored',text});return;}
+  if(++this.turns>200){this.stop('Voice turn limit reached.');return;}
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
   void this.conversation.submit(text,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }

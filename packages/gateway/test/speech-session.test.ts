@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {AudioQueue,SpeechSession,spokenReply} from '../src/speech-session.js';
+import {AudioQueue,SpeechSession,spokenReply,isAddressedToLuma} from '../src/speech-session.js';
 import type {SpeechProvider,SpeechCallbacks} from '../src/aws-speech.js';
 const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function fixture(){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
@@ -41,4 +41,8 @@ test('a queued final reply plays after its acknowledgment even when its synthesi
  const audio=events.filter(e=>e.type==='audio');assert.equal(audio.length,2);assert(audio[0].epoch<audio[1].epoch);
  const a=session.speak('Zooming out.');const b=session.speak('Done zooming.',true);await tick();session.interrupt();releases[2]();releases[3]();await a;await b;
  assert.equal(events.filter(e=>e.type==='audio').length,2);session.stop();
+});
+test('room chatter and one-word fragments are ignored while real requests and short commands pass',()=>{
+ for(const chatter of ['OK.','Bye.','Really.','You might be.','no way','hello'])assert.equal(isAddressedToLuma(chatter),false,chatter);
+ for(const request of ['Zoom in a little.','Show me the positive cells','undo that','Stop','zoom out','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
 });
