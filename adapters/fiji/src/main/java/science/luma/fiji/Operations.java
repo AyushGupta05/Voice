@@ -471,7 +471,8 @@ final class Operations {
             // The mask is scratch; the ROIs live in the manager and refer to the original image's pixels.
             work.changes = false; work.close(); work = null;
             if (saved != null) imp.setRoi(saved);
-            if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow());
+            // Closing the mask clears ImageJ's per-thread "current image" when it pointed at the mask; put the original back.
+            if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow()); else WindowManager.setTempCurrentImage(imp);
             var bounds = new ArrayList<Rectangle>();
             var table = results(); int bx = column(table, "BX"), by = column(table, "BY"), bw = column(table, "Width"), bh = column(table, "Height"); var cal = imp.getCalibration();
             int count = ((Number) result.get("count")).intValue();

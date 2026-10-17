@@ -25,6 +25,8 @@ const protocol: Record<string, 'read' | 'view' | 'data' | 'code'> = {
   threshold: 'data', analyze_particles: 'data', segment_cells: 'data', filter: 'data', convert: 'data', duplicate: 'data', zoom: 'view', highlight: 'view', overlay: 'view', display: 'view', stack: 'view',
   commands: 'read', run_command: 'code', ui: 'read', ui_action: 'code', run_macro: 'code', run_script: 'code', recorder: 'read', save_workflow: 'code', save_image: 'code', export_results: 'code',
   checkpoint: 'data', checkpoints: 'read', compare: 'read', restore: 'data', close: 'data', snapshot: 'read', log: 'read', plugins: 'read', undo: 'data',
+  track_objects: 'data', intensity_over_time: 'data', tumor_region: 'data', colocalize: 'read', classify_intensity: 'data', object_stats: 'read',
+  make_macro: 'code', workflows: 'read', run_workflow: 'code', capture_macro: 'code',
 };
 
 test('LUMA_APP selects the profile, QuPath by default, and refuses unknown applications', () => {

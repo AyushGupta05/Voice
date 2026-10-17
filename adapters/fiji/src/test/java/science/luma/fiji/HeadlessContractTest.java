@@ -27,6 +27,7 @@ public final class HeadlessContractTest {
     public static void main(String[] ignored) throws Exception {
         new ImageJ(ImageJ.NO_SHOW);
         ij.Prefs.blackBackground = true;
+        java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(event -> { if (event.getID() == java.awt.event.WindowEvent.WINDOW_OPENED && event.getSource() instanceof java.awt.Frame frame && "Results".equals(frame.getTitle())) new Exception("DEBUG Results window opened").printStackTrace(); }, java.awt.AWTEvent.WINDOW_EVENT_MASK);
         var bridge = new LumaBridge();
         bridge.start(TOKEN, PORT);
         try { run(bridge); } catch (Throwable error) { error.printStackTrace(); System.exit(1); } finally { bridge.stop(); }
@@ -81,6 +82,7 @@ public final class HeadlessContractTest {
         // --- measure within the ROI
         var measureArgs = obj("scope", "roi"); measureArgs.add("measurements", array("area", "mean", "min", "max"));
         var measured = call("measure", measureArgs, true, roiKey);
+        System.err.println("WINDOWS after first measure: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(measured.get("newRows").getAsInt() == 1 && measured.get("rows").getAsInt() == 1, "one measurement row: " + measured);
         double area = measured.getAsJsonObject("lastRow").get("Area").getAsDouble();
         expect(area == 10000.0, "ROI area is exactly 100x100 pixels: " + area);
@@ -118,6 +120,7 @@ public final class HeadlessContractTest {
         // --- analyze particles with the hidden ROI Manager
         var particleArgs = obj("minSize", 10); particleArgs.addProperty("addToManager", true);
         var particles = call("analyze_particles", particleArgs, true, key("context"));
+        System.err.println("WINDOWS after particles: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(particles.get("count").getAsInt() == discs, "finds all " + discs + " discs: " + particles.get("count"));
         expect(particles.get("addedToManager").getAsInt() == discs && particles.get("managerTotal").getAsInt() == discs, "discs added to the ROI Manager: " + particles);
         expect(imp.getOverlay() != null && imp.getOverlay().size() == discs && imp.getOverlay().get(0).getStrokeColor().equals(java.awt.Color.MAGENTA) && "1".equals(imp.getOverlay().get(0).getName()), "particles outlined in the overlay with numbers");
@@ -140,6 +143,7 @@ public final class HeadlessContractTest {
         var compare = call("compare", obj("checkpointId", checkpointId), false, null);
         expect(compare.getAsJsonObject("delta").get("roiManager").getAsInt() == discs && compare.getAsJsonObject("delta").get("resultsRows").getAsInt() == 2 * discs && compare.getAsJsonObject("delta").get("overlay").getAsInt() == discs, "compare reports the delta (ImageJ shows manager ROIs as an overlay): " + compare.get("delta"));
         var restored = call("restore", obj("checkpointId", checkpointId), true, key("context"));
+        System.err.println("WINDOWS after restore: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(restored.getAsJsonObject("counts").get("roiManager").getAsInt() == 0 && restored.getAsJsonObject("counts").get("resultsRows").getAsInt() == 0, "restore empties manager and results: " + restored.get("counts"));
         expect(RoiManager.getRawInstance() == null, "no visible ROI Manager window was created");
         expect(imp.getProcessor().getPixel(40, 48) >= 200 && imp.getProcessor().getPixel(5, 5) == 20, "pixels intact after restore");
@@ -147,6 +151,7 @@ public final class HeadlessContractTest {
         // --- segment_cells end to end on the raw image (no threshold set)
         expect(call("context", new JsonObject(), false, null).getAsJsonObject("image").get("threshold").isJsonNull(), "no threshold after restore");
         var segmented = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        System.err.println("WINDOWS after segment: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(segmented.get("count").getAsInt() == discs, "segment_cells counts " + discs + " cells: " + segmented.get("count"));
         expect(segmented.getAsJsonArray("steps").size() >= 6 && segmented.get("macro").getAsString().contains("Watershed"), "segmentation steps and macro recorded: " + segmented.get("steps"));
         expect(segmented.get("managerTotal").getAsInt() == discs, "cell ROIs in the manager");
@@ -155,6 +160,7 @@ public final class HeadlessContractTest {
 
         // --- undo goes back to the checkpoint taken before segment_cells
         var undone = call("undo", new JsonObject(), true, key("context"));
+        System.err.println("WINDOWS after undo: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(undone.get("mode").getAsString().equals("checkpoint") && undone.getAsJsonObject("counts").get("roiManager").getAsInt() == 0, "undo restores the pre-segmentation checkpoint: " + undone);
 
         // --- filters and conversions change pixels and are checkpointed
@@ -163,6 +169,7 @@ public final class HeadlessContractTest {
         expect(blurred.get("command").getAsString().equals("Gaussian Blur...") && imp.getProcessor().getPixel(47, 48) < 180, "gaussian blur softened the disc edge: " + imp.getProcessor().getPixel(47, 48));
         expect(call("restore", obj("checkpointId", blurred.getAsJsonObject("checkpoint").get("id").getAsString()), true, key("context")).has("restored") && imp.getProcessor().getPixel(47, 48) >= 200, "restore after filter brings the pixels back");
         var converted = call("convert", obj("to", "16-bit"), true, key("context"));
+        System.err.println("WINDOWS after convert: " + call("ui", new JsonObject(), false, null).getAsJsonArray("windows").toString().replaceAll("\"controls\":\\[.*?\\]", "").replaceAll("\"fingerprint\":\"[0-9a-f]+\",", ""));
         expect(converted.getAsJsonObject("image").get("bitDepth").getAsInt() == 16, "16-bit conversion");
         call("convert", obj("to", "8-bit"), true, key("context"));
 

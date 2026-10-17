@@ -19,6 +19,12 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_threshold`](#fiji-threshold) | data | Yes |
 | [`fiji_analyze_particles`](#fiji-analyze-particles) | data | Yes |
 | [`fiji_segment_cells`](#fiji-segment-cells) | data | Yes |
+| [`fiji_track_objects`](#fiji-track-objects) | data | Yes |
+| [`fiji_intensity_over_time`](#fiji-intensity-over-time) | data | Yes |
+| [`fiji_tumor_region`](#fiji-tumor-region) | data | Yes |
+| [`fiji_colocalize`](#fiji-colocalize) | read | No |
+| [`fiji_classify_intensity`](#fiji-classify-intensity) | data | Yes |
+| [`fiji_object_stats`](#fiji-object-stats) | read | No |
 | [`fiji_filter`](#fiji-filter) | data | Yes |
 | [`fiji_convert`](#fiji-convert) | data | Yes |
 | [`fiji_duplicate`](#fiji-duplicate) | data | Yes |
@@ -36,6 +42,10 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_run_script`](#fiji-run-script) | code | Yes |
 | [`fiji_recorder`](#fiji-recorder) | read | No |
 | [`fiji_save_workflow`](#fiji-save-workflow) | code | Yes |
+| [`fiji_make_macro`](#fiji-make-macro) | code | Yes |
+| [`fiji_workflows`](#fiji-workflows) | read | No |
+| [`fiji_run_workflow`](#fiji-run-workflow) | code | Yes |
+| [`fiji_capture_macro`](#fiji-capture-macro) | code | Yes |
 | [`fiji_save_image`](#fiji-save-image) | code | Yes |
 | [`fiji_export_results`](#fiji-export-results) | code | Yes |
 | [`fiji_checkpoint`](#fiji-checkpoint) | data | Yes |
@@ -199,6 +209,94 @@ One-step cell/nucleus segmentation of the active image: duplicate → 8-bit → 
 | `method` | No | string; max 40 characters |
 | `minSize` | No | number; min 0 |
 | `watershed` | No | boolean |
+
+<a id="fiji-track-objects"></a>
+
+## fiji_track_objects
+
+Follow cells, nuclei, protein puncta or particles through a time-lapse: detect objects in every frame (auto threshold, method default Otsu; dark true for bright objects on dark), link them frame to frame (maxDistance px/frame, maxGap frames, minLength frames) and draw the trajectories on the overlay. Pick channel, sizes and distances yourself from the image. Returns tracks, objects per frame, mean speed/displacement/path length with units, divisions, the top tracks and a “Tracks” table.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `channel` | No | integer; min 1 |
+| `method` | No | string; max 40 characters |
+| `dark` | No | boolean |
+| `minSize` | No | number; min 0 |
+| `maxSize` | No | number; greater than 0 |
+| `maxDistance` | No | number; greater than 0 |
+| `maxGap` | No | integer; min 0; max 10 |
+| `minLength` | No | integer; min 1 |
+| `startFrame` | No | integer; min 1 |
+| `endFrame` | No | integer; min 1 |
+| `sigma` | No | number; min 0 |
+| `replaceOverlay` | No | boolean |
+
+<a id="fiji-intensity-over-time"></a>
+
+## fiji_intensity_over_time
+
+Mean intensity of the active ROI (scope active) or ROI Manager entries (scope manager, optional indices) in every frame: protein expression kinetics, FRAP recovery, photobleaching. Returns per-ROI first/last/min/max, percent change, peak frame and values, plus a bleaching estimate when measurable.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `scope` | No | "active", "manager" |
+| `indices` | No | array of (integer; min 0); max 1000 items |
+| `channel` | No | integer; min 1 |
+
+<a id="fiji-tumor-region"></a>
+
+## fiji_tumor_region
+
+Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `channel` | No | integer; min 1 |
+| `stain` | No | "auto", "he", "ihc", "fluorescence" |
+| `sigma` | No | number; min 0 |
+| `method` | No | string; max 40 characters |
+| `minAreaFraction` | No | number; min 0; max 1 |
+| `keepLargest` | No | integer; min 1; max 20 |
+| `name` | No | string; max 80 characters |
+
+<a id="fiji-colocalize"></a>
+
+## fiji_colocalize
+
+Colocalisation of two channels (channelA/channelB) of the active image, or two open images (imageA/imageB ids), inside the active ROI when roi is true: Pearson’s r, Manders’ M1/M2 above thresholds (auto method or explicit thresholdA/thresholdB), overlap and ICQ. Read only. Correlation is not interaction; say which thresholds were used.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `channelA` | No | integer; min 1 |  |
+| `channelB` | No | integer; min 1 |  |
+| `roi` | No | boolean |  |
+| `imageA` | No | integer | ImageJ image id exactly as fiji_context/fiji_images report it (ImageJ ids are negative integers). |
+| `imageB` | No | integer | ImageJ image id exactly as fiji_context/fiji_images report it (ImageJ ids are negative integers). |
+| `method` | No | string; max 40 characters |  |
+| `thresholdA` | No | number |  |
+| `thresholdB` | No | number |  |
+
+<a id="fiji-classify-intensity"></a>
+
+## fiji_classify_intensity
+
+Score every ROI Manager object (usually cells from fiji_segment_cells) as positive or negative for a marker by its mean/intdens/median/max in a channel, against an explicit threshold or an auto method on the per-cell values: Ki67 index, protein-positive cells. Returns total, positive, negative, percent positive, the threshold used and a highlight of the positives. Label is the marker name (“Ki67”).
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `channel` | No | integer; min 1 |
+| `measurement` | No | "mean", "intdens", "median", "max" |
+| `threshold` | No | number |
+| `method` | No | string; max 40 characters |
+| `label` | No | string; max 40 characters |
+
+<a id="fiji-object-stats"></a>
+
+## fiji_object_stats
+
+Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Read only.
+
+Input: `{}`.
 
 <a id="fiji-filter"></a>
 
@@ -396,6 +494,59 @@ Save the recorded steps as a reusable ImageJ macro (.ijm) in Penny’s workflow 
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `name` | Yes | string; min 1 characters; max 80 characters |
+
+<a id="fiji-make-macro"></a>
+
+## fiji_make_macro
+
+Write an ImageJ macro (ijm; groovy or python when needed) for any procedure Fiji has no tool for, save it as a named workflow and test-run it on the active image (test default true). Params are passed as getArgument() key=value pairs. Returns ok, error and errorLine on failure, the Log, Results rows added and images opened. On an error fix the code and call again with the same name, silently, at most 3 times.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `name` | Yes | string; min 1 characters; max 80 characters |
+| `code` | Yes | string; min 1 characters; max 32000 characters |
+| `description` | No | string; max 200 characters |
+| `language` | No | "ijm", "groovy", "python" |
+| `test` | No | boolean |
+| `params` | No | object |
+
+<a id="fiji-workflows"></a>
+
+## fiji_workflows
+
+List saved workflows/macros (name, file, language, description, params, modified, lines), optionally filtered by query. Read only.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `query` | No | string; max 200 characters |
+
+<a id="fiji-run-workflow"></a>
+
+## fiji_run_workflow
+
+Run a saved workflow by name on the active image, every open image, or every matching file in a folder (target folder with an absolute folder and a pattern such as *.tif; limit files). Params override its defaults; saveResults writes one combined CSV. Returns processed, failed, per-image results and the CSV path.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `name` | Yes | string; min 1 characters; max 80 characters |
+| `target` | No | "active", "open", "folder" |
+| `folder` | No | string; min 1 characters; max 4096 characters |
+| `pattern` | No | string; max 200 characters |
+| `params` | No | object |
+| `limit` | No | integer; min 1; max 500 |
+| `saveResults` | No | boolean |
+
+<a id="fiji-capture-macro"></a>
+
+## fiji_capture_macro
+
+Turn what Penny just did (the recorded steps, or only the lastSteps) into a reusable, tested macro saved under name. Use for “save what you just did / make this a workflow”. Returns the path, lines, tested and ok.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `name` | Yes | string; min 1 characters; max 80 characters |
+| `description` | No | string; max 200 characters |
+| `lastSteps` | No | integer; min 1; max 500 |
 
 <a id="fiji-save-image"></a>
 

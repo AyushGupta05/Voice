@@ -197,5 +197,65 @@
         "sha256": "9f2f0acc52cc4f0ca0478e3c71138b6bd0f6a3edcebf58cb5d3c62c3a662b7f3"
       }
     }
+  },
+  "fiji-samples": {
+    "root": ".local/data/fiji",
+    "subset": 10,
+    "files": {
+      "imagej/blobs.gif": {
+        "url": "https://imagej.net/images/blobs.gif",
+        "sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271",
+        "bytes": 25765,
+        "licence": "ImageJ sample image (NIH; distributed with the public-domain ImageJ)"
+      },
+      "imagej/FluorescentCells.zip": {
+        "url": "https://imagej.net/images/FluorescentCells.zip",
+        "sha256": "38507fab9787016fad6204239fb0e56437e7513f57d362cec644cd363faadda7",
+        "bytes": 436133,
+        "licence": "ImageJ sample image (NIH; distributed with the public-domain ImageJ)"
+      },
+      "imagej/mitosis.tif": {
+        "url": "https://imagej.net/images/mitosis.tif",
+        "sha256": "0729e84de2153093f214a0ffcc1f7b43b6c12c820ab1bb7ce9eaeeeed74c666b",
+        "bytes": 34269457,
+        "licence": "ImageJ sample image (NIH; distributed with the public-domain ImageJ)"
+      },
+      "imagej/confocal-series.zip": {
+        "url": "https://imagej.net/images/confocal-series.zip",
+        "sha256": "e1114e37bb442cfd05a5b701cf557b1fd12991cf9c9cd40390a4c0259a092df9",
+        "bytes": 2386406,
+        "licence": "ImageJ sample image (NIH; distributed with the public-domain ImageJ)"
+      },
+      "imagej/t1-head.zip": {
+        "url": "https://imagej.net/images/t1-head.zip",
+        "sha256": "642bb5df4a2ee10e9cce7584bd642df66eee014eb25df1a5a1050c6611eaa156",
+        "bytes": 2556794,
+        "licence": "ImageJ sample image (NIH; distributed with the public-domain ImageJ)"
+      },
+      "bbbc039/images.zip": {
+        "url": "https://data.broadinstitute.org/bbbc/BBBC039/images.zip",
+        "sha256": "6f30a5d4fe38c928ded972704f085975f8dc0d65d9aa366df00e5a9d449fddd7",
+        "bytes": 77915748,
+        "licence": "BBBC039v1, Caicedo et al. 2018, Broad Bioimage Benchmark Collection (Ljosa et al., Nature Methods 2012); CC0"
+      },
+      "bbbc039/masks.zip": {
+        "url": "https://data.broadinstitute.org/bbbc/BBBC039/masks.zip",
+        "sha256": "f9e6043d8ca56344a4886f96a700d804d6ee982f31e2b2cd3194af2a053c2710",
+        "bytes": 2753811,
+        "licence": "BBBC039v1 ground truth; CC0"
+      },
+      "bbbc039/metadata.zip": {
+        "url": "https://data.broadinstitute.org/bbbc/BBBC039/metadata.zip",
+        "sha256": "a2c1f900bed9ba92a99553efd4c2ae98598433691c7401d818653ab61110deb2",
+        "bytes": 17816,
+        "licence": "BBBC039v1 metadata (train/validation/test split); CC0"
+      },
+      "trackmate/FakeTracks.tif": {
+        "url": "https://samples.fiji.sc/FakeTracks.tif",
+        "sha256": "dbe7fbe73a5a6e141ffd1182354d7dd0a9c138984be96b8b88decb4b54e9c941",
+        "bytes": 825571,
+        "licence": "Fiji/TrackMate tutorial sample (synthetic spots), samples.fiji.sc"
+      }
+    }
   }
 }

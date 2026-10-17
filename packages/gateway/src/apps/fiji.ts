@@ -179,7 +179,7 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
     || /\b(positive|negative|ki-?67|marker|percent|fraction|proportion|index|express)/.test(said);
   if (name === 'fiji_measure') return /\b(area|size|how many|count|perimeter|circular|feret|min|max|integrated|median)\b/.test(said);
   // A threshold change in a counting conversation must be followed by a recount, so the model continues.
-  if (name === 'fiji_threshold') return /\b(count|particle|how many|cells?|segment|strict|loose|tight|sensitiv|aggressive|conservative|more|less|higher|lower|again|redo)\b/.test(said);
+  if (name === 'fiji_threshold') return /\b(count|particles?|how many|cells?|segment\w*|strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative|more|less|higher|lower|again|redo)\b/.test(said);
   if (name === 'fiji_analyze_particles') return /\b(intens|mean gray|brightness)\b/.test(said);
   if (name === 'fiji_track_objects') return /\b(intens|bright|which|fastest|slowest|longest|compare|direction)\b/.test(said);
   if (name === 'fiji_intensity_over_time') return /\b(recover|half|mobile|immobile|fit|rate|constant)/.test(said);

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fiji",
   "app": "fiji",
-  "toolCount": 49,
+  "toolCount": 59,
   "tools": [
     {
       "name": "fiji_context",
@@ -323,6 +323,237 @@
       }
     },
     {
+      "name": "fiji_track_objects",
+      "description": "Follow cells, nuclei, protein puncta or particles through a time-lapse: detect objects in every frame (auto threshold, method default Otsu; dark true for bright objects on dark), link them frame to frame (maxDistance px/frame, maxGap frames, minLength frames) and draw the trajectories on the overlay. Pick channel, sizes and distances yourself from the image. Returns tracks, objects per frame, mean speed/displacement/path length with units, divisions, the top tracks and a “Tracks” table.",
+      "operation": "track_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "dark": {
+            "type": "boolean"
+          },
+          "minSize": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxSize": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "maxDistance": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "maxGap": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "minLength": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "startFrame": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "endFrame": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sigma": {
+            "type": "number",
+            "minimum": 0
+          },
+          "replaceOverlay": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_intensity_over_time",
+      "description": "Mean intensity of the active ROI (scope active) or ROI Manager entries (scope manager, optional indices) in every frame: protein expression kinetics, FRAP recovery, photobleaching. Returns per-ROI first/last/min/max, percent change, peak frame and values, plus a bleaching estimate when measurable.",
+      "operation": "intensity_over_time",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "active",
+              "manager"
+            ]
+          },
+          "indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxItems": 1000
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_tumor_region",
+      "description": "Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight.",
+      "operation": "tumor_region",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "stain": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "he",
+              "ihc",
+              "fluorescence"
+            ]
+          },
+          "sigma": {
+            "type": "number",
+            "minimum": 0
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "minAreaFraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "keepLargest": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_colocalize",
+      "description": "Colocalisation of two channels (channelA/channelB) of the active image, or two open images (imageA/imageB ids), inside the active ROI when roi is true: Pearson’s r, Manders’ M1/M2 above thresholds (auto method or explicit thresholdA/thresholdB), overlap and ICQ. Read only. Correlation is not interaction; say which thresholds were used.",
+      "operation": "colocalize",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channelA": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "channelB": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "roi": {
+            "type": "boolean"
+          },
+          "imageA": {
+            "type": "integer",
+            "description": "ImageJ image id exactly as fiji_context/fiji_images report it (ImageJ ids are negative integers)."
+          },
+          "imageB": {
+            "type": "integer",
+            "description": "ImageJ image id exactly as fiji_context/fiji_images report it (ImageJ ids are negative integers)."
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "thresholdA": {
+            "type": "number"
+          },
+          "thresholdB": {
+            "type": "number"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_classify_intensity",
+      "description": "Score every ROI Manager object (usually cells from fiji_segment_cells) as positive or negative for a marker by its mean/intdens/median/max in a channel, against an explicit threshold or an auto method on the per-cell values: Ki67 index, protein-positive cells. Returns total, positive, negative, percent positive, the threshold used and a highlight of the positives. Label is the marker name (“Ki67”).",
+      "operation": "classify_intensity",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "measurement": {
+            "type": "string",
+            "enum": [
+              "mean",
+              "intdens",
+              "median",
+              "max"
+            ]
+          },
+          "threshold": {
+            "type": "number"
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_object_stats",
+      "description": "Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Read only.",
+      "operation": "object_stats",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "fiji_filter",
       "description": "Apply an ImageJ filter to the active image or ROI: gaussian/median/mean (radius or sigma), unsharp, subtract_background (rolling radius), enhance_contrast (saturated %), invert, smooth, sharpen, find_edges. Changes pixels; a checkpoint is taken first.",
       "operation": "filter",
@@ -454,7 +685,7 @@
     },
     {
       "name": "fiji_highlight",
-      "description": "Visibly point at what you are talking about, like a presenter: ROI Manager entries/particles (rois manager, optionally indices), the active ROI (active), both (all) or an image-pixel rectangle. Luma flies its cursor there with a short label; the view zooms to targets that would otherwise be invisible. Display only.",
+      "description": "Visibly point at what you are talking about, like a presenter: ROI Manager entries/particles (rois manager, optionally indices), the active ROI (active), both (all) or an image-pixel rectangle. Penny flies its cursor there with a short label; the view zooms to targets that would otherwise be invisible. Display only.",
       "operation": "highlight",
       "risk": "view",
       "inputSchema": {
@@ -763,7 +994,7 @@
     },
     {
       "name": "fiji_recorder",
-      "description": "Read the Macro Recorder text if it is open, otherwise Luma’s own journal of the IJ.run calls it made (steps and an equivalent macro). Read only.",
+      "description": "Read the Macro Recorder text if it is open, otherwise Penny’s own journal of the IJ.run calls it made (steps and an equivalent macro). Read only.",
       "operation": "recorder",
       "risk": "read",
       "inputSchema": {
@@ -775,7 +1006,7 @@
     },
     {
       "name": "fiji_save_workflow",
-      "description": "Save the recorded steps as a reusable ImageJ macro (.ijm) in Luma’s workflow folder so the same procedure can run on other images. Returns the path, step count and macro text. Pick a short descriptive name yourself.",
+      "description": "Save the recorded steps as a reusable ImageJ macro (.ijm) in Penny’s workflow folder so the same procedure can run on other images. Returns the path, step count and macro text. Pick a short descriptive name yourself.",
       "operation": "save_workflow",
       "risk": "code",
       "inputSchema": {
@@ -785,6 +1016,174 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 80
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_make_macro",
+      "description": "Write an ImageJ macro (ijm; groovy or python when needed) for any procedure Fiji has no tool for, save it as a named workflow and test-run it on the active image (test default true). Params are passed as getArgument() key=value pairs. Returns ok, error and errorLine on failure, the Log, Results rows added and images opened. On an error fix the code and call again with the same name, silently, at most 3 times.",
+      "operation": "make_macro",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "ijm",
+              "groovy",
+              "python"
+            ]
+          },
+          "test": {
+            "type": "boolean"
+          },
+          "params": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "code"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_workflows",
+      "description": "List saved workflows/macros (name, file, language, description, params, modified, lines), optionally filtered by query. Read only.",
+      "operation": "workflows",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_run_workflow",
+      "description": "Run a saved workflow by name on the active image, every open image, or every matching file in a folder (target folder with an absolute folder and a pattern such as *.tif; limit files). Params override its defaults; saveResults writes one combined CSV. Returns processed, failed, per-image results and the CSV path.",
+      "operation": "run_workflow",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "active",
+              "open",
+              "folder"
+            ]
+          },
+          "folder": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "pattern": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "params": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "saveResults": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_capture_macro",
+      "description": "Turn what Penny just did (the recorded steps, or only the lastSteps) into a reusable, tested macro saved under name. Use for “save what you just did / make this a workflow”. Returns the path, lines, tested and ok.",
+      "operation": "capture_macro",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "lastSteps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
           }
         },
         "required": [
@@ -983,7 +1382,7 @@
     },
     {
       "name": "fiji_knowledge",
-      "description": "Search Luma’s Fiji guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements, stacks or macros.",
+      "description": "Search Penny’s Fiji guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements, stacks or macros.",
       "risk": "read",
       "inputSchema": {
         "type": "object",
@@ -1002,7 +1401,7 @@
     },
     {
       "name": "fiji_find_images",
-      "description": "Find images on this computer by a loose name (\"the blobs tif\", \"embryos\"): searches Luma’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.",
+      "description": "Find images on this computer by a loose name (\"the blobs tif\", \"embryos\"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.",
       "risk": "read",
       "inputSchema": {
         "type": "object",
@@ -1040,7 +1439,7 @@
     },
     {
       "name": "fiji_desktop_inspect",
-      "description": "List the windows and actionable elements of Fiji (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Luma lacks the Accessibility permission, which only the researcher can grant.",
+      "description": "List the windows and actionable elements of Fiji (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Penny lacks the Accessibility permission, which only the researcher can grant.",
       "operation": "desktop_inspect",
       "risk": "read",
       "inputSchema": {
@@ -1071,7 +1470,7 @@
     },
     {
       "name": "fiji_desktop_act",
-      "description": "Operate one element id from the latest fiji_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Luma moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.",
+      "description": "Operate one element id from the latest fiji_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Penny moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.",
       "operation": "desktop_act",
       "risk": "code",
       "inputSchema": {
@@ -1101,7 +1500,7 @@
           "label": {
             "type": "string",
             "maxLength": 80,
-            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+            "description": "Two to six words shown beside Penny’s cursor while it flies to the target."
           }
         },
         "required": [
@@ -1136,7 +1535,7 @@
           "label": {
             "type": "string",
             "maxLength": 80,
-            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+            "description": "Two to six words shown beside Penny’s cursor while it flies to the target."
           }
         },
         "required": [
@@ -1171,7 +1570,7 @@
           "label": {
             "type": "string",
             "maxLength": 80,
-            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+            "description": "Two to six words shown beside Penny’s cursor while it flies to the target."
           }
         },
         "required": [
@@ -1182,7 +1581,7 @@
     },
     {
       "name": "fiji_desktop_click",
-      "description": "Click at exact global screen coordinates (top-left origin, from a frame returned by fiji_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Luma flies its cursor there, then moves the real mouse and clicks. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Prefer fiji_desktop_act with an id whenever one exists.",
+      "description": "Click at exact global screen coordinates (top-left origin, from a frame returned by fiji_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Penny flies its cursor there, then moves the real mouse and clicks. Use the in-app fiji_ui / fiji_ui_action first; they see AWT/Swing controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, OS file choosers, third-party plugin windows, alerts and any other window on screen. Prefer fiji_desktop_act with an id whenever one exists.",
       "operation": "desktop_click",
       "risk": "code",
       "inputSchema": {
@@ -1228,7 +1627,7 @@
           "label": {
             "type": "string",
             "maxLength": 80,
-            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+            "description": "Two to six words shown beside Penny’s cursor while it flies to the target."
           }
         },
         "required": [
