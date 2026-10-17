@@ -428,7 +428,7 @@ test('spoken acknowledgments come from instant view calls only, once per task',a
     const controller=new AbortController();
     const pending=backend.run({...task(controller.signal).value,id:'spoken-data',spoken:true,acknowledge:text=>acks.push(text)}).catch(()=>undefined);
     await new Promise(r=>setTimeout(r,50));controller.abort();await pending;
-    assert.equal(acks.length,1);
+    assert.deepEqual(acks,['Moving there.','Ready for your approval.']);
   }finally{await f.clean();}
 });
 

@@ -274,7 +274,7 @@ Create a rectangle or ellipse annotation using full-resolution image pixels on t
 
 ## qupath_detect_cells
 
-Run QuPath watershed cell detection in selected annotations with explicit parameters. Check image type/calibration and read detection guidance first. Requires human approval; may take time.
+Run QuPath watershed cell detection in selected annotations with explicit parameters. Requires human approval; may take time. If the image has pixelSizeMicrons, use ONLY the *Microns parameters (requestedPixelSizeMicrons, backgroundRadiusMicrons, medianRadiusMicrons, sigmaMicrons, minAreaMicrons, maxAreaMicrons, cellExpansionMicrons); pixel parameters are rejected there, and vice versa. Good brightfield H-DAB start: detectionImageBrightfield "Hematoxylin OD", requestedPixelSizeMicrons 0.5, backgroundRadiusMicrons 8, medianRadiusMicrons 0, sigmaMicrons 1.5, minAreaMicrons 10, maxAreaMicrons 400, threshold 0.1, cellExpansionMicrons 5, includeNuclei, smoothBoundaries and makeMeasurements true.
 
 | Parameter | Required | Accepted value |
 |---|---|---|

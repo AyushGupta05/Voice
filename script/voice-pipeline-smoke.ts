@@ -15,9 +15,10 @@ const pcm=resampleSpeech(await new AWSSpeechProvider(state).speak(phrase,AbortSi
 const token=(await readFile(join(state,'companion-token'),'utf8')).trim();
 const ws=new WebSocket('ws://127.0.0.1:49555/events',{headers:{Authorization:`Bearer ${token}`}});
 const requestId=randomUUID();const timeline:Record<string,number>={};const t0=Date.now();const mark=(k:string)=>{timeline[k]??=Date.now()-t0;};
+const allowApproval=process.argv.includes('--allow-approval');const decisions:Record<string,unknown>[]=[];
 let sessionId:string|undefined;let transcript='';let reply='';let ack='';let finals=0;let audioBytes=0;const tools:string[]=[];
 const done=new Promise<void>((resolveDone,reject)=>{
- const timer=setTimeout(()=>reject(new Error('Voice pipeline timed out.')),60000);
+ const timer=setTimeout(()=>reject(new Error('Voice pipeline timed out.')),allowApproval?240000:60000);
  // Done once the answer arrived and no further (queued) reply audio follows for 2.5 s.
  let quiet:ReturnType<typeof setTimeout>|undefined;const settle=()=>{if(!reply||!finals)return;clearTimeout(quiet);quiet=setTimeout(()=>{clearTimeout(timer);resolveDone();},2500);};
  ws.on('message',raw=>{const event=JSON.parse(raw.toString());
@@ -30,7 +31,11 @@ const done=new Promise<void>((resolveDone,reject)=>{
   else if(event.type==='voice_transcript'&&!event.partial){transcript=event.text;mark('finalTranscript');}
   else if(event.type==='voice_transcript')mark('firstPartial');
   else if(event.type==='tool'&&event.name){tools.push(event.name);if(event.name!=='qupath_context')mark('firstAction');}
-  else if(event.type==='action'&&event.action?.status==='pending'&&Date.parse(event.action.createdAt)>=t0){clearTimeout(timer);reject(new Error('Unexpected approval request; this check never approves.'));}
+  else if(event.type==='action'&&event.action?.status==='pending'&&Date.parse(event.action.createdAt)>=t0){
+   if(!allowApproval){clearTimeout(timer);reject(new Error('Unexpected approval request; this check never approves.'));}
+   else{mark('approvalRequested');console.error(`APPROVAL NEEDED in Luma: ${event.action.tool} ${JSON.stringify(event.action.arguments)}`);}
+  }
+  else if(event.type==='action'&&['completed','failed','denied','expired'].includes(event.action?.status)&&Date.parse(event.action.createdAt)>=t0){mark('approvalDecided:'+event.action.status);decisions.push({tool:event.action.tool,status:event.action.status,error:event.action.error});}
   else if(event.type==='text_ack'){ack=event.text;mark('acknowledged');}
   else if(event.type==='text_result'){reply=event.text;mark('agentReply');settle();}
   else if(event.type==='voice_speaking'){mark('speaking');if(event.queued)mark('queuedSpeaking');}
@@ -45,10 +50,10 @@ async function stream(){
  for(let i=0;i<5;i++){send(silence);await pace();}
  for(let o=0;o<pcm.length;o+=frame){send(pcm.subarray(o,o+frame));await pace();}
  mark('speechSent');
- while(!reply&&ws.readyState===WebSocket.OPEN&&Date.now()-t0<55000){send(silence);await pace();}
+ while(!reply&&ws.readyState===WebSocket.OPEN&&Date.now()-t0<(allowApproval?235000:55000)){send(silence);await pace();}
 }
 try{await done;}finally{if(ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:'stop_voice',requestId}));await new Promise(r=>setTimeout(r,300));ws.close();}}
-const result={phrase,transcript,acknowledgment:ack,reply,tools,replyAudioSeconds:+(audioBytes/48000).toFixed(2),timelineMs:timeline,
+const result={phrase,transcript,acknowledgment:ack,reply,decisions,tools,replyAudioSeconds:+(audioBytes/48000).toFixed(2),timelineMs:timeline,
  speechEndToReplyAudioMs:timeline.speaking!==undefined&&timeline.speechSent!==undefined?timeline.speaking-timeline.speechSent:undefined};
 console.log(JSON.stringify(result,null,1));
 assert(transcript,'No final transcript.');assert(reply,'No agent reply.');assert(audioBytes>0,'No spoken reply audio.');
