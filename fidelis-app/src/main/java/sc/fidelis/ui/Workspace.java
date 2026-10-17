@@ -41,6 +41,7 @@ public final class Workspace {
     private final RoiPanel rois;
     private final ResultsPanel results;
     private final HistoryPanel history;
+    private final MacroEditorPanel editor;
     private final LogPanel log;
     private final ActivityPanel activity;
     private final Banners banners;
@@ -133,6 +134,8 @@ public final class Workspace {
         rois = new RoiPanel(ctx);
         results = new ResultsPanel(ctx);
         history = new HistoryPanel(ctx);
+        editor = new MacroEditorPanel(ctx);
+        ctx.setEditor(editor);
         log = new LogPanel(ctx);
         activity = new ActivityPanel(ctx);
         commandBar = new CommandBar(ctx);
@@ -150,7 +153,7 @@ public final class Workspace {
         frame.getContentPane().setLayout(new BorderLayout());
         frame.getContentPane().add(north, BorderLayout.NORTH);
         frame.getContentPane().add(tools, BorderLayout.WEST);
-        frame.getContentPane().add(docks.build(documents, parameters, display, threshold, rois, results, history, log, activity), BorderLayout.CENTER);
+        frame.getContentPane().add(docks.build(documents, parameters, display, threshold, rois, results, history, editor, log, activity), BorderLayout.CENTER);
         frame.getContentPane().add(status, BorderLayout.SOUTH);
 
         frame.setSize(size);
@@ -200,6 +203,7 @@ public final class Workspace {
         rois.handle(e);
         results.handle(e);
         history.handle(e);
+        editor.handle(e);
         log.handle(e);
         activity.handle(e);
         legacy.handle(e);
@@ -299,6 +303,10 @@ public final class Workspace {
 
     ResultsPanel results() {
         return results;
+    }
+
+    MacroEditorPanel editor() {
+        return editor;
     }
 
     LogPanel log() {

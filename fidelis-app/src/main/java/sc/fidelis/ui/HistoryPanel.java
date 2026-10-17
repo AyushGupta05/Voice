@@ -63,6 +63,7 @@ public final class HistoryPanel extends JPanel {
     private final JButton redo = new JButton("Redo");
     private final JButton replay = new JButton("Replay");
     private final JButton export = new JButton("Export .ijm…");
+    private final JButton edit = new JButton("Open in editor");
 
     HistoryPanel(UiContext ctx) {
         super(new BorderLayout());
@@ -76,10 +77,16 @@ public final class HistoryPanel extends JPanel {
         redo.addActionListener(e -> direct(Operations.REDO, "Redo"));
         replay.addActionListener(e -> replay());
         export.addActionListener(e -> exportMacro());
+        edit.setToolTipText("Open the generated macro in the Macro editor, where it can be changed and run");
+        edit.addActionListener(e -> {
+            ctx.editor().setText(ctx.engine.exportMacro());
+            ctx.docks().showEditor();
+        });
         bar.add(undo);
         bar.add(redo);
         bar.add(replay);
         bar.add(export);
+        bar.add(edit);
         add(bar, BorderLayout.NORTH);
 
         table.setShowGrid(false);

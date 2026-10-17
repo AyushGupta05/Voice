@@ -65,11 +65,12 @@ final class Docks {
     private JComponent roiTab;
     private JComponent resultsTab;
     private JComponent historyTab;
+    private JComponent editorTab;
     private JComponent logTab;
     private JComponent activityTab;
 
     JComponent build(JComponent documents, JComponent parameters, JComponent display, JComponent threshold,
-                     JComponent roi, JComponent results, JComponent history, JComponent log, JComponent activity) {
+                     JComponent roi, JComponent results, JComponent history, JComponent editor, JComponent log, JComponent activity) {
         documentsPane = documents;
         parametersTab = parameters;
         displayTab = display;
@@ -77,6 +78,7 @@ final class Docks {
         roiTab = roi;
         resultsTab = results;
         historyTab = history;
+        editorTab = editor;
         logTab = log;
         activityTab = activity;
         for (JTabbedPane p : new JTabbedPane[] {tools, roiGroup, resultsGroup, bottom})
@@ -87,6 +89,7 @@ final class Docks {
         roiGroup.addTab("ROI list", roi);
         resultsGroup.addTab("Results", results);
         bottom.addTab("History & macro", history);
+        bottom.addTab("Macro editor", editor);
         bottom.addTab("Log", log);
         bottom.addTab("Activity", activity);
 
@@ -270,6 +273,10 @@ final class Docks {
 
     void showHistory() {
         showBottom(historyTab);
+    }
+
+    void showEditor() {
+        showBottom(editorTab);
     }
 
     void showLog() {

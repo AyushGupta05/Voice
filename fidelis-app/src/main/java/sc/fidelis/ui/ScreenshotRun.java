@@ -199,7 +199,17 @@ final class ScreenshotRun {
     private static void scenario(Workspace w, UiContext ctx, String name, Path repo) throws Exception {
         var engine = w.engine();
         if (name.startsWith("j12")) {
-            ScreenshotJ12.j12(w, ctx, name, repo);
+            ScreenshotJ12.j12(w, ctx, name.equals("j12-editor") ? "j12" : name, repo);
+            if (name.equals("j12-editor")) { // the generated macro in the editor, stopped at the capability confirmation
+                SwingUtilities.invokeAndWait(() -> {
+                    w.editor().setText(engine.exportMacro());
+                    w.docks().showEditor();
+                    w.editor().run();
+                });
+                waitUntil(() -> w.editor().isAwaitingConfirmation(), 30);
+                System.out.println("[fidelis] macro editor: " + w.editor().statusText() + "; capabilities '" + w.editor().capabilitiesText()
+                        + "'; " + w.editor().text().lines().count() + " lines");
+            }
             return;
         }
         engine.open(repo.resolve("fixtures").resolve("two-squares.png")).get();

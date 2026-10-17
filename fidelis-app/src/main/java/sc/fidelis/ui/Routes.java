@@ -70,6 +70,7 @@ final class Routes {
             case "ij1:Image>Adjust>Brightness/Contrast..." -> ctx.docks().showDisplay();
             case "ij1:Analyze>Tools>ROI Manager..." -> ctx.docks().showRoi();
             case "ij1:Plugins>Macros>Record..." -> ctx.docks().showHistory();
+            case "ij1:File>New>Script...", "ij1:Plugins>New>Macro", "ij1:Plugins>Macros>Edit..." -> ctx.docks().showEditor();
             case "ij1:Plugins>Utilities>Find Commands...", "ij1:Window>Show All", "ij1:Window>Main Window [enter]" -> ctx.focusCommandBar();
             case "ij1:Window>Put Behind [tab]" -> ctx.documents().nextTab();
             case "ij1:Window>Cascade", "ij1:Window>Tile" ->

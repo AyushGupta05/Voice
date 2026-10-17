@@ -38,6 +38,7 @@ public final class UiContext {
     private ParametersPanel parameters;
     private CommandBar commandBar;
     private DocumentArea documents;
+    private MacroEditorPanel editor;
     private Docks docks;
     private Banners banners;
     private LegacyWindows legacyWindows;
@@ -51,6 +52,7 @@ public final class UiContext {
     void setParameters(ParametersPanel p) { this.parameters = p; }
     void setCommandBar(CommandBar c) { this.commandBar = c; }
     void setDocuments(DocumentArea d) { this.documents = d; }
+    void setEditor(MacroEditorPanel e) { this.editor = e; }
     void setDocks(Docks d) { this.docks = d; }
     void setBanners(Banners b) { this.banners = b; }
     void setLegacyWindows(LegacyWindows l) { this.legacyWindows = l; }
@@ -59,11 +61,17 @@ public final class UiContext {
     ParametersPanel parameters() { return parameters; }
     CommandBar commandBar() { return commandBar; }
     DocumentArea documents() { return documents; }
+    MacroEditorPanel editor() { return editor; }
     Docks docks() { return docks; }
     Banners banners() { return banners; }
     LegacyWindows legacyWindows() { return legacyWindows; }
 
     /** Window title: product name and the focused document (docs D12 UI-01). */
+    /** Give a request submitted directly to the engine the label the Activity panel and notices show. */
+    void registerLabel(String requestId, String label) {
+        if (requestId != null && label != null) labels.put(requestId, label);
+    }
+
     /** Remember one of Fiji's own menu accelerators (read from the IJ1 menu bar by {@link MenuBuilder}). */
     void registerAccelerator(javax.swing.KeyStroke ks, String commandId) {
         if (ks != null && commandId != null) accelerators.put(ks, commandId);

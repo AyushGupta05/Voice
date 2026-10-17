@@ -167,6 +167,10 @@ final class MenuBuilder {
         m.add(panelItem("ROI list", () -> ctx.docks().showRoi()));
         m.add(panelItem("Results", () -> ctx.docks().showResults()));
         m.add(panelItem("History & macro", () -> ctx.docks().showHistory()));
+        JMenuItem editor = panelItem("Macro editor", () -> ctx.docks().showEditor());
+        editor.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_E,
+                java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.ALT_DOWN_MASK)); // DEC-031: product-only keys are Ctrl+Alt
+        m.add(editor);
         m.add(panelItem("Log", () -> ctx.docks().showLog()));
         m.add(panelItem("Activity", () -> ctx.docks().showActivity()));
         m.addSeparator();
