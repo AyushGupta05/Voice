@@ -564,11 +564,11 @@ final class Operations {
         double ceiling = imp.getBitDepth() == 8 || imp.getBitDepth() == 24 ? 255 : imp.getBitDepth() == 16 ? 65535 : Double.NaN;
         double globalMax = ip.getStats().max, range = Math.max(1, globalMax - ip.getStats().min);
         var areas = new ArrayList<Double>(); for (int r = first; r < table.size(); r++) areas.add(areaColumn >= 0 ? table.getValueAsDouble(areaColumn, r) : 0.0);
-        var sorted = new ArrayList<>(areas); Collections.sort(sorted); double median = sorted.get(sorted.size() / 2);
-        var keep = new ArrayList<Integer>(); int text = 0, tiny = 0;
+        // Two passes: text first, then specks relative to the median of what is left (letters would drag the median down).
+        boolean[] textFlags = new boolean[count];
         for (int i = 0; i < count; i++) {
             Roi roi = rois != null ? rois[managerBefore + i] : null;
-            double area = areas.get(i); boolean isText = false;
+            boolean isText = false;
             if (roi != null) {
                 ip.setRoi(roi); var stats = ij.process.ImageStatistics.getStatistics(ip, Measurements.MEAN | Measurements.STD_DEV | Measurements.MIN_MAX | Measurements.AREA, null); ip.resetRoi();
                 // Annotation text is flat (no texture) and saturated: at the bit-depth ceiling, or for 16-bit data at a
@@ -577,8 +577,14 @@ final class Operations {
                 boolean saturated = !Double.isNaN(ceiling) && stats.max >= ceiling - 1 || imp.getBitDepth() == 16 && stats.max >= 4095 && stats.max >= globalMax;
                 isText = flat && saturated || Pipeline.whiteAnnotation(imp, roi);
             }
-            boolean isTiny = count >= 5 && area < 0.15 * median;
-            if (isText) text++; else if (isTiny) tiny++; else keep.add(i);
+            textFlags[i] = isText;
+        }
+        var remaining = new ArrayList<Double>(); for (int i = 0; i < count; i++) if (!textFlags[i]) remaining.add(areas.get(i));
+        Collections.sort(remaining); double median = remaining.isEmpty() ? 0 : remaining.get(remaining.size() / 2);
+        var keep = new ArrayList<Integer>(); int text = 0, tiny = 0;
+        for (int i = 0; i < count; i++) {
+            boolean isTiny = remaining.size() >= 5 && areas.get(i) < 0.15 * median;
+            if (textFlags[i]) text++; else if (isTiny) tiny++; else keep.add(i);
         }
         if (text + tiny > 0) dropParticles(result, keep);
         result.put("excluded", Map.of("text", text, "tiny", tiny));

@@ -164,6 +164,16 @@ public final class PipelineContractTest {
         var captionRun = call("apply_analysis", captionApply, true, null).getAsJsonObject("run");
         for (var image : captionRun.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == 5, "caption replay keeps 5: " + image);
         System.out.println("PASS white caption letters excluded live and in replay: 5 nuclei");
+        // The real sample: FluorescentCells.tif has six nuclei and a burned-in "Press 'I' (Image>Show Info)…" caption.
+        String repo = System.getenv().getOrDefault("LUMA_REPO", System.getProperty("user.dir"));
+        Path real = Path.of(repo, ".local", "data", "samples", "fluorescent-cells", "FluorescentCells.tif");
+        if (Files.isRegularFile(real)) {
+            ImagePlus cells = IJ.openImage(real.toString());
+            java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(cells));
+            var found = call("segment_cells", new JsonObject(), true, null);
+            expect(found.get("count").getAsInt() == 6, "FluorescentCells: 6 nuclei after caption and speck exclusion: " + found.get("count") + " " + found.get("excluded"));
+            System.out.println("PASS FluorescentCells.tif: 6 nuclei, excluded " + found.get("excluded"));
+        } else System.out.println("SKIP FluorescentCells.tif (run script/fetch-samples.sh)");
         Path channels = Files.createTempDirectory("penny-pipeline-channels");
         for (int i = 1; i <= 2; i++) {
             var nuclear = nuclei("nuclear"); var unrelated = new ByteProcessor(240, 160); unrelated.setValue(33); unrelated.fill();
