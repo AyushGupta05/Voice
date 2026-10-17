@@ -9,20 +9,30 @@ struct CompanionSurface: View {
             if model.expanded { CompanionView(model: model, height: model.detailsHeight) }
         }
         .frame(width: 420)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: model.expanded ? 24 : 28))
-        .overlay(RoundedRectangle(cornerRadius: model.expanded ? 24 : 28).stroke(.white.opacity(0.12)))
-        .environment(\.colorScheme, .dark)
+        .modifier(PennySurfaceChrome(cornerRadius: model.expanded ? 24 : 28))
     }
 }
 
-/// Dynamic-Island style bar with exactly three looks: Idle ("Hey Penny", mic) → Listening (waveform + partial transcript)
-/// → Executing (acknowledgement phrase + spinner, then the result sentence with a check; dots while Penny talks).
-/// Phase selection lives in `BarStatus`; this view only renders it.
+/// Penny's light floating surface: white fill, PennyPalette.border border, light appearance whatever the system setting.
+/// The window shadow comes from the panel itself (`hasShadow`).
+struct PennySurfaceChrome: ViewModifier {
+    var cornerRadius: CGFloat
+    func body(content: Content) -> some View {
+        // One shape for fill, clip and border; the border sits inside the edge so no sliver shows outside the fill.
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
+        content
+            .background(PennyPalette.surface, in: shape)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(PennyPalette.border, lineWidth: 1))
+            .foregroundStyle(PennyPalette.textPrimary)
+            .environment(\.colorScheme, .light)
+    }
+}
+
+/// Binds the bar to the model: derives `BarStatus`, forwards the phase and microphone level to the companion cursor,
+/// and routes the controls back to the model. Rendering lives in `VoiceBarContent`.
 private struct VoiceBar: View {
     @ObservedObject var model: CompanionModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let mint = Color(red: 0.64, green: 0.92, blue: 0.79)
     private var working: Bool { model.textBusy || model.busy || model.context["analysisRunning"] as? Bool == true }
     private var status: BarStatus {
         BarStatus(connected: model.connected, bridgeConnected: model.bridgeConnected,
@@ -33,103 +43,127 @@ private struct VoiceBar: View {
                   voiceReady: model.voiceReady, voiceReason: model.voiceReason, appName: model.appName,
                   resultIsError: model.resultIsError)
     }
-    private var voiceOn: Bool { model.voiceActive || model.voiceStarting }
-    private var transition: AnyTransition { reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)).combined(with: .scale(scale: 0.96)) }
 
     var body: some View {
         let status = status
+        VoiceBarContent(status: status, level: model.microphoneLevel, voiceOn: model.voiceActive || model.voiceStarting,
+                        liveTranscript: model.liveTranscript, voiceReason: model.voiceReason,
+                        canStopTask: model.canStopTask, expanded: model.expanded,
+                        toggleVoice: { model.toggleVoice() }, toggleDetails: { model.toggleDetails() }, stopTask: { model.stopTextTask() })
+        // The companion cursor shows the same phase: listening ring, thinking orbit, speaking ripple.
+        .onChange(of: status, initial: true) { _, now in model.pointer.setMood(CursorMood(now)) }
+        .onChange(of: model.microphoneLevel) { _, level in model.pointer.setLevel(level) }
+    }
+}
+
+/// Dynamic-Island style bar with exactly three looks: Idle ("Hey Penny", mic) → Listening (waveform + partial transcript)
+/// → Executing (acknowledgement phrase + spinner, then the result sentence with a check; dots while Penny talks).
+/// Phase selection lives in `BarStatus`; this view only renders it from plain values, so previews need no live model.
+struct VoiceBarContent: View {
+    let status: BarStatus
+    var level: Float = 0
+    var voiceOn = false
+    var liveTranscript = ""
+    var voiceReason = ""
+    var canStopTask = false
+    var expanded = false
+    var toggleVoice: () -> Void = {}
+    var toggleDetails: () -> Void = {}
+    var stopTask: () -> Void = {}
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var transition: AnyTransition { reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)).combined(with: .scale(scale: 0.96)) }
+
+    var body: some View {
         HStack(spacing: 12) {
-            micControl(status)
-            centre(status)
+            micControl
+            centre
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .id(status.phase)
                 .transition(transition)
             trailing
         }
         .padding(.horizontal, 14).frame(width: 420, height: 56)
-        .background(Color(red: 0.075, green: 0.085, blue: 0.09))
+        .background(PennyPalette.surface)
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.82), value: status.phase)
         .animation(.easeInOut(duration: 0.2), value: status.title)
         .animation(.easeInOut(duration: 0.2), value: status.showsResult)
-        // The companion cursor shows the same phase: listening ring, thinking orbit, speaking ripple.
-        .onChange(of: status, initial: true) { _, now in model.pointer.setMood(CursorMood(now)) }
-        .onChange(of: model.microphoneLevel) { _, level in model.pointer.setLevel(level) }
     }
 
     /// Mic glyph when idle, stop control while voice is on, spinner while the speech connection is starting.
-    private func micControl(_ status: BarStatus) -> some View {
-        Button { model.toggleVoice() } label: {
+    private var micControl: some View {
+        Button { toggleVoice() } label: {
             ZStack {
-                Circle().fill(voiceOn ? mint.opacity(0.16) : .white.opacity(0.06)).frame(width: 34, height: 34)
+                Circle().fill(voiceOn ? PennyPalette.accentSoft : PennyPalette.controlFill).frame(width: 34, height: 34)
                 if status.phase == .listening && !status.ready {
-                    ProgressView().controlSize(.small).tint(mint)
+                    ProgressView().controlSize(.small).tint(PennyPalette.accent)
                 } else if voiceOn {
-                    Image(systemName: "stop.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(mint)
+                    Image(systemName: "stop.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(PennyPalette.accent)
                 } else {
                     Image(systemName: status.canStartVoice ? "mic.fill" : "mic.slash")
-                        .font(.system(size: 15, weight: .medium)).foregroundStyle(.white.opacity(0.75))
+                        .font(.system(size: 15, weight: .medium)).foregroundStyle(status.canStartVoice ? PennyPalette.textPrimary : PennyPalette.textSecondary)
                 }
             }
         }.buttonStyle(.plain)
             .disabled(!voiceOn && !status.canStartVoice)
             .accessibilityLabel(voiceOn ? "Stop voice" : "Start voice")
-            .help(voiceOn ? "Stop microphone" : status.canStartVoice ? "Talk to Penny" : model.voiceReason)
+            .help(voiceOn ? "Stop microphone" : status.canStartVoice ? "Talk to Penny" : voiceReason)
     }
 
-    @ViewBuilder private func centre(_ status: BarStatus) -> some View {
+    @ViewBuilder private var centre: some View {
         switch status.phase {
         case .idle:
             // The whole pill starts voice; when voice cannot start the reason sits under the invitation.
-            Button { model.toggleVoice() } label: {
+            Button { toggleVoice() } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 7) {
-                        Image(systemName: "mic.fill").font(.system(size: 10)).foregroundStyle(status.ready ? mint : .secondary)
-                        Text(status.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                        Image(systemName: "mic.fill").font(.system(size: 10)).foregroundStyle(status.ready ? PennyPalette.accent : PennyPalette.textSecondary)
+                        Text(status.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(PennyPalette.textPrimary).lineLimit(1)
                     }
                     if !status.note.isEmpty {
-                        Text(status.note).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                        Text(status.note).font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).lineLimit(1).truncationMode(.tail)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain).disabled(!status.ready)
                 .accessibilityLabel("Start voice").accessibilityValue(status.note.isEmpty ? status.title : status.note)
         case .listening:
             // Same spot stops voice while listening.
-            Button { model.toggleVoice() } label: {
+            Button { toggleVoice() } label: {
                 HStack(spacing: 10) {
-                    Waveform(level: status.ready ? model.microphoneLevel : 0, color: mint, animated: !reduceMotion)
+                    Waveform(level: status.ready ? level : 0, color: PennyPalette.accent, animated: !reduceMotion)
                         .frame(width: 92, height: 22)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(status.title)
-                            .font(.system(size: 12, weight: model.liveTranscript.isEmpty ? .semibold : .regular))
-                            .foregroundStyle(model.liveTranscript.isEmpty ? Color.primary : Color.white.opacity(0.9))
+                            .font(.system(size: 12, weight: liveTranscript.isEmpty ? .semibold : .regular))
+                            .foregroundStyle(PennyPalette.textPrimary)
                             .lineLimit(1).truncationMode(.head)
                         if !status.note.isEmpty {
-                            Text(status.note).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                            Text(status.note).font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).lineLimit(1)
                         }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
-                .accessibilityLabel("Stop voice").accessibilityValue(model.liveTranscript.isEmpty ? "Listening" : model.liveTranscript)
+                .accessibilityLabel("Stop voice").accessibilityValue(liveTranscript.isEmpty ? "Listening" : liveTranscript)
         case .executing:
             HStack(spacing: 10) {
                 if status.showsResult {
                     Image(systemName: status.showsError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                        .font(.system(size: 13)).foregroundStyle(status.showsError ? Color.orange : mint)
+                        .font(.system(size: 13)).foregroundStyle(status.showsError ? PennyPalette.warning : PennyPalette.accent)
                         .transition(.scale.combined(with: .opacity)).accessibilityHidden(true)
                 } else {
-                    ProgressView().controlSize(.small).tint(mint).accessibilityHidden(true)
+                    ProgressView().controlSize(.small).tint(PennyPalette.accent).accessibilityHidden(true)
                 }
                 if status.showsResult {
-                    Text(status.title).font(.system(size: 12, weight: .medium)).lineLimit(2).truncationMode(.tail)
+                    Text(status.title).font(.system(size: 12, weight: .medium)).foregroundStyle(PennyPalette.textPrimary)
+                        .lineLimit(2).truncationMode(.tail)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ShimmerText(text: status.title, animated: !reduceMotion)
                 }
                 if status.speaking {
-                    SpeakingDots(color: mint, animated: !reduceMotion).frame(width: 22, height: 10).accessibilityHidden(true)
+                    SpeakingDots(color: PennyPalette.accent, animated: !reduceMotion).frame(width: 22, height: 10).accessibilityHidden(true)
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()).onTapGesture { model.toggleDetails() }
+            }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()).onTapGesture { toggleDetails() }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(status.showsError ? "Needs attention" : status.showsResult ? "Done" : status.speaking ? "Speaking" : "Working")
                 .accessibilityValue(status.title)
@@ -137,12 +171,14 @@ private struct VoiceBar: View {
     }
 
     @ViewBuilder private var trailing: some View {
-        if model.canStopTask {
-            Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 12)).frame(width: 24, height: 30) }
-                .buttonStyle(.plain).accessibilityLabel("Stop task").help("Stop unstarted work; completed actions remain")
+        if canStopTask {
+            Button { stopTask() } label: { Image(systemName: "stop.fill").font(.system(size: 12)).frame(width: 24, height: 30) }
+                .buttonStyle(.plain).foregroundStyle(PennyPalette.textSecondary)
+                .accessibilityLabel("Stop task").help("Stop unstarted work; completed actions remain")
         }
-        Button { model.toggleDetails() } label: { Image(systemName: model.expanded ? "chevron.up" : "chevron.down").font(.system(size: 11, weight: .semibold)).frame(width: 24, height: 30) }
-            .buttonStyle(.plain).accessibilityLabel(model.expanded ? "Collapse Penny" : "Expand Penny")
+        Button { toggleDetails() } label: { Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 11, weight: .semibold)).frame(width: 24, height: 30) }
+            .buttonStyle(.plain).foregroundStyle(PennyPalette.textSecondary)
+            .accessibilityLabel(expanded ? "Collapse Penny" : "Expand Penny")
     }
 }
 
@@ -155,8 +191,15 @@ struct Waveform: View {
     var animated: Bool
     /// Gain the bars were showing when the level last changed, and when; the displayed gain approaches
     /// the target from there so decay continues smoothly between level updates.
-    @State private var anchor: (gain: Double, time: TimeInterval) = (0, Date().timeIntervalSinceReferenceDate)
-    @State private var target: Double = 0
+    @State private var anchor: (gain: Double, time: TimeInterval)
+    @State private var target: Double
+    /// Starts at the current level (as `onAppear` would), so the very first frame already shows it.
+    init(level: Float, color: Color, animated: Bool) {
+        self.level = level; self.color = color; self.animated = animated
+        let gain = WaveformLevel.gain(level)
+        _anchor = State(initialValue: (gain, Date().timeIntervalSinceReferenceDate))
+        _target = State(initialValue: gain)
+    }
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !animated && target == anchor.gain)) { timeline in
             let now = timeline.date.timeIntervalSinceReferenceDate
@@ -191,11 +234,11 @@ struct ShimmerText: View {
     @State private var phase: CGFloat = -1
     var body: some View {
         Text(text).font(.system(size: 12, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-            .foregroundStyle(.white.opacity(0.85))
+            .foregroundStyle(PennyPalette.textPrimary.opacity(0.82))
             .overlay {
                 if animated {
                     GeometryReader { proxy in
-                        LinearGradient(colors: [.clear, .white.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing)
+                        LinearGradient(colors: [.clear, PennyPalette.accent.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing)
                             .frame(width: proxy.size.width * 0.6)
                             .offset(x: phase * proxy.size.width)
                     }

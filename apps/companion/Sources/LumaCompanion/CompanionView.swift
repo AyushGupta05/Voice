@@ -2,10 +2,6 @@ import SwiftUI
 import AppKit
 import LumaPresentation
 
-private let mint = Color(red: 0.64, green: 0.92, blue: 0.79)
-private let secondaryText = Color.white.opacity(0.5)
-private let hairline = Color.white.opacity(0.08)
-
 struct CompanionView: View {
     @ObservedObject var model: CompanionModel
     var height: CGFloat = 600
@@ -26,19 +22,21 @@ struct CompanionView: View {
             footer
         }
         .frame(width: 420, height: height)
-        .background(Color(red: 0.075, green: 0.085, blue: 0.09))
+        .background(PennyPalette.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(hairline, lineWidth: 1))
-        .environment(\.colorScheme, .dark)
+        // On the light surface a second rounded outline reads as a card inside the card; a PennyPalette.border under the bar separates them.
+        .overlay(alignment: .top) { Rectangle().fill(PennyPalette.border).frame(height: 1).padding(.horizontal, 22) }
+        .foregroundStyle(PennyPalette.textPrimary)
+        .environment(\.colorScheme, .light)
         .font(.system(size: 13))
         .sheet(isPresented: $showingFunding) {
             VStack(alignment: .leading, spacing: 18) {
-                Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(mint)
-                Text("Voice connection").font(.system(size: 24, weight: .semibold))
-                Text(model.voiceReason).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(model.textReady ? "Type in Penny to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate \(model.appName) locally.").foregroundStyle(.secondary)
-                Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
-            }.padding(28).frame(width: 360)
+                Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(PennyPalette.accent)
+                Text("Voice connection").font(.system(size: 24, weight: .semibold)).foregroundStyle(PennyPalette.textPrimary)
+                Text(model.voiceReason).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
+                Text(model.textReady ? "Type in Penny to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate \(model.appName) locally.").foregroundStyle(PennyPalette.textSecondary)
+                Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(PennyPalette.accent).foregroundStyle(PennyPalette.onAccent)
+            }.padding(28).frame(width: 360).background(PennyPalette.surface).environment(\.colorScheme, .light)
         }
     }
     private var header: some View {
@@ -47,33 +45,33 @@ struct CompanionView: View {
             Text("Penny").font(.system(size: 21, weight: .semibold, design: .rounded)).tracking(-0.8)
             Spacer()
             HStack(spacing: 6) {
-                Circle().fill(model.bridgeConnected ? mint : Color.orange).frame(width: 5, height: 5)
-                Text(model.bridgeConnected ? "\(model.appName) connected" : model.connected ? "Waiting for \(model.appName)" : "Gateway offline").font(.system(size: 10, weight: .medium)).foregroundStyle(secondaryText)
+                Circle().fill(model.bridgeConnected ? PennyPalette.accent : PennyPalette.warning).frame(width: 5, height: 5)
+                Text(model.bridgeConnected ? "\(model.appName) connected" : model.connected ? "Waiting for \(model.appName)" : "Gateway offline").font(.system(size: 10, weight: .medium)).foregroundStyle(PennyPalette.textSecondary)
             }
-            Button { NSApp.hide(nil) } label: { Image(systemName: "minus").font(.system(size: 11)).foregroundStyle(secondaryText) }
+            Button { NSApp.hide(nil) } label: { Image(systemName: "minus").font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary) }
                 .buttonStyle(.plain).help("Hide Penny; reopen from the menu bar")
         }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 20)
     }
     private var contextCard: some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(mint.opacity(0.09))
-                Image(systemName: "viewfinder").font(.system(size: 21, weight: .light)).foregroundStyle(mint)
+                RoundedRectangle(cornerRadius: 10).fill(PennyPalette.accentSoft)
+                Image(systemName: "viewfinder").font(.system(size: 21, weight: .light)).foregroundStyle(PennyPalette.accent)
             }.frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 5) {
                 Text(model.imageName).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
-                Text(model.selectionLabel).font(.system(size: 11)).foregroundStyle(secondaryText).lineLimit(1)
+                Text(model.selectionLabel).font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary).lineLimit(1)
             }
             Spacer(minLength: 0)
-            Image(systemName: "link").font(.system(size: 11)).foregroundStyle(secondaryText)
-        }.padding(12).background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(hairline))
+            Image(systemName: "link").font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary)
+        }.padding(12).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(PennyPalette.border))
     }
     private var session: some View {
         VStack(alignment: .leading, spacing: 18) {
             if model.activities.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Less navigating.\nMore discovering.").font(.system(size: 27, weight: .medium)).tracking(-0.8).lineSpacing(1).fixedSize(horizontal: false, vertical: true)
-                    Text("Your scientific tools, one conversation away.").font(.system(size: 12)).foregroundStyle(secondaryText)
+                    Text("Your scientific tools, one conversation away.").font(.system(size: 12)).foregroundStyle(PennyPalette.textSecondary)
                 }.padding(.top, 8).padding(.bottom, 2)
             }
             HStack(spacing: 8) {
@@ -83,7 +81,7 @@ struct CompanionView: View {
             }.disabled(!model.bridgeConnected || (model.context["image"] as? [String: Any]) == nil)
             if !model.activities.isEmpty {
                 HStack {
-                    Text("IN THIS SESSION").font(.system(size: 9, weight: .semibold)).tracking(1.4).foregroundStyle(secondaryText)
+                    Text("IN THIS SESSION").font(.system(size: 9, weight: .semibold)).tracking(1.4).foregroundStyle(PennyPalette.textSecondary)
                     Spacer()
                     if model.busy || model.textBusy { ProgressView().controlSize(.mini) }
                 }
@@ -94,10 +92,10 @@ struct CompanionView: View {
                         }
                         ForEach(model.activities) { activity in
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: activity.isError ? "exclamationmark.circle" : activity.icon).foregroundStyle(activity.isError ? Color.orange : mint).font(.system(size: 13)).padding(.top, 2)
+                                Image(systemName: activity.isError ? "exclamationmark.circle" : activity.icon).foregroundStyle(activity.isError ? PennyPalette.warning : PennyPalette.accent).font(.system(size: 13)).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(activity.title).font(.system(size: 12, weight: .medium))
-                                    Text(activity.detail).textSelection(.enabled).font(.system(size: 11)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
+                                    Text(activity.detail).textSelection(.enabled).font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
                                     if let payload = activity.payload { ToolResultView(payload: payload) }
                                 }
                                 Spacer(minLength: 0)
@@ -108,9 +106,9 @@ struct CompanionView: View {
             } else {
                 Spacer(minLength: 0)
                 HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "cursorarrow.rays").foregroundStyle(mint)
-                    Text("Select something in \(model.appName). Penny follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(secondaryText).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
-                }.padding(14).background(mint.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+                    Image(systemName: "cursorarrow.rays").foregroundStyle(PennyPalette.accent)
+                    Text("Select something in \(model.appName). Penny follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(PennyPalette.textSecondary).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                }.padding(14).background(PennyPalette.accentWash, in: RoundedRectangle(cornerRadius: 12))
                 Spacer(minLength: 0)
             }
         }
@@ -118,27 +116,28 @@ struct CompanionView: View {
     private func quickAction(_ title: String, icon: String, action: @escaping () async -> Void) -> some View {
         Button { Task { await action() } } label: {
             VStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 16, weight: .light)).foregroundStyle(mint)
-                Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(.white.opacity(0.8))
-            }.frame(maxWidth: .infinity).padding(.vertical, 13).background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+                Image(systemName: icon).font(.system(size: 16, weight: .light)).foregroundStyle(PennyPalette.accent)
+                Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(PennyPalette.textPrimary)
+            }.frame(maxWidth: .infinity).padding(.vertical, 13).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(PennyPalette.border))
         }.buttonStyle(HoverButtonStyle()).help(title)
     }
     private var knowledge: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 TextField("Find a \(model.appName) workflow…", text: $model.knowledgeQuery).textFieldStyle(.plain).onSubmit { Task { await model.search() } }
-                Button { Task { await model.search() } } label: { Image(systemName: "magnifyingglass").foregroundStyle(mint) }.buttonStyle(.plain).help("Search \(model.appName) guidance")
-            }.padding(12).background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                Button { Task { await model.search() } } label: { Image(systemName: "magnifyingglass").foregroundStyle(PennyPalette.accent) }.buttonStyle(.plain).help("Search \(model.appName) guidance")
+            }.padding(12).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).stroke(PennyPalette.border))
             if model.knowledgeResults.isEmpty {
                 Text("Application knowledge, close at hand.").font(.system(size: 21, weight: .medium)).tracking(-0.5).padding(.top, 12)
-                Text("Search detection, measurements, classification, export, TMA or scripting.").foregroundStyle(secondaryText).lineSpacing(3)
+                Text("Search detection, measurements, classification, export, TMA or scripting.").foregroundStyle(PennyPalette.textSecondary).lineSpacing(3)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(Array(model.knowledgeResults.enumerated()), id: \.offset) { _, item in
                         VStack(alignment: .leading, spacing: 7) {
-                            Text(item["title"] as? String ?? "Guide").font(.system(size: 13, weight: .medium)).foregroundStyle(mint)
-                            Text(item["excerpt"] as? String ?? "").font(.system(size: 11)).foregroundStyle(secondaryText).lineLimit(9).textSelection(.enabled)
+                            Text(item["title"] as? String ?? "Guide").font(.system(size: 13, weight: .medium)).foregroundStyle(PennyPalette.accent)
+                            Text(item["excerpt"] as? String ?? "").font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary).lineLimit(9).textSelection(.enabled)
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -147,21 +146,21 @@ struct CompanionView: View {
     }
     private var footer: some View {
         VStack(spacing: 12) {
-            Divider().overlay(hairline)
+            Divider().overlay(PennyPalette.border)
             HStack(spacing: 10) {
                 TextField("Ask Penny to do something…", text: $model.input).font(.system(size: 12)).textFieldStyle(.plain).onSubmit { model.sendText() }
                 if model.canStopTask {
-                    Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 10)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).help("Stop unstarted work; completed actions remain")
+                    Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 10)).frame(width: 25, height: 25).background(PennyPalette.controlFill, in: Circle()) }.buttonStyle(.plain).foregroundStyle(PennyPalette.textSecondary).help("Stop unstarted work; completed actions remain")
                 }
-                Button { model.sendText() } label: { Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).disabled(model.input.isEmpty || !model.textReady || !model.connected || !model.eventsReady || model.textSending).help(model.textReady ? "Send message using verified AWS credits" : model.textReason)
-            }.padding(.horizontal, 13).padding(.vertical, 10).background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+                Button { model.sendText() } label: { Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).frame(width: 25, height: 25).background(PennyPalette.controlFill, in: Circle()) }.buttonStyle(.plain).foregroundStyle(PennyPalette.textPrimary).disabled(model.input.isEmpty || !model.textReady || !model.connected || !model.eventsReady || model.textSending).help(model.textReady ? "Send message using verified AWS credits" : model.textReason)
+            }.padding(.horizontal, 13).padding(.vertical, 10).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(PennyPalette.border))
             HStack {
                 if !model.voiceReady {
-                    Button { showingFunding = true } label: { HStack(spacing: 5) { Circle().fill(Color.orange).frame(width: 4, height: 4); Text(model.voiceReason).font(.system(size: 10)).lineLimit(1).truncationMode(.tail) }.foregroundStyle(secondaryText) }.buttonStyle(.plain).help(model.voiceReason)
+                    Button { showingFunding = true } label: { HStack(spacing: 5) { Circle().fill(PennyPalette.warning).frame(width: 4, height: 4); Text(model.voiceReason).font(.system(size: 10)).lineLimit(1).truncationMode(.tail) }.foregroundStyle(PennyPalette.textSecondary) }.buttonStyle(.plain).help(model.voiceReason)
                 }
                 Spacer()
                 Button { model.toggleVoice() } label: {
-                    HStack(spacing: 7) { Image(systemName: model.voiceActive || model.voiceStarting ? "stop.fill" : "waveform"); Text(model.voiceActive || model.voiceStarting ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(mint, in: Capsule()).foregroundStyle(Color.black.opacity(0.85))
+                    HStack(spacing: 7) { Image(systemName: model.voiceActive || model.voiceStarting ? "stop.fill" : "waveform"); Text(model.voiceActive || model.voiceStarting ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(PennyPalette.accent, in: Capsule()).foregroundStyle(PennyPalette.onAccent)
                 }.buttonStyle(HoverButtonStyle()).disabled(!model.voiceOn && !model.canStartVoice)
             }
         }.padding(.horizontal, 22).padding(.bottom, 20).padding(.top, 12)
@@ -171,9 +170,9 @@ struct BuddyMark: View {
     var size: CGFloat = 30
     var body: some View {
         HStack(spacing: size * 0.14) {
-            Capsule().fill(Color.black.opacity(0.8)).frame(width: size * 0.09, height: size * 0.29)
-            Capsule().fill(Color.black.opacity(0.8)).frame(width: size * 0.09, height: size * 0.29)
-        }.frame(width: size, height: size).background(mint, in: RoundedRectangle(cornerRadius: size * 0.35))
+            Capsule().fill(PennyPalette.onAccent).frame(width: size * 0.09, height: size * 0.29)
+            Capsule().fill(PennyPalette.onAccent).frame(width: size * 0.09, height: size * 0.29)
+        }.frame(width: size, height: size).background(PennyPalette.accent, in: RoundedRectangle(cornerRadius: size * 0.35))
     }
 }
 struct HoverButtonStyle: ButtonStyle {
