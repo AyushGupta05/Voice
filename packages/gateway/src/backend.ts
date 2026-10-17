@@ -5,7 +5,7 @@ import type { DelegationBackend, DelegatedTask } from './live.js';
 
 type InputItem = Record<string, unknown>;
 /** Final answers to spoken requests are read aloud; exact details remain in the companion and QuPath. */
-export const spokenStyle = '\nThis request was spoken and your answers are read aloud. Luma speaks short phrases on its own while actions run (listed in spokenSoFar, e.g. "Zooming in." or "Ready for your approval."). Your final answer is one plain-language sentence of at most 20 words that adds what is new: the outcome, a count, a problem or a question. If spokenSoFar already covers everything, answer exactly "Done." Leave coordinates, object IDs, file paths and markdown out unless asked. If the transcript is ambiguous, ask one short question.';
+export const spokenStyle = '\nThis request was spoken and your answers are read aloud. Luma speaks short phrases on its own while actions run (listed in spokenSoFar, e.g. "Zooming in." or "Ready for your approval."). Your final answer is one plain-language sentence of at most 20 words. After any approved data action, state its outcome with the real numbers from the tool result, e.g. "Detected 294 cells." or "49 of 294 cells are positive." For view actions already covered by spokenSoFar, answer exactly "Done." Leave coordinates, object IDs, file paths and markdown out unless asked. If the transcript is ambiguous, ask one short question.';
 /** Immediate spoken phrase for an instant view tool, derived from the call itself (no extra model round). */
 export function acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined {
   const viewer = (context as { viewer?: { downsample?: unknown } } | undefined)?.viewer;
