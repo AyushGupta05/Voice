@@ -634,7 +634,7 @@ final class Analysis {
     }
     /** "Show me the size distribution": an ImageJ histogram plot window of object areas, drawn from the same values as the result. */
     static void showHistogram(ImagePlus imp, double[] area, String unit) {
-        // A small, crisp chart in Penny's colours in a non-focusable window. Not a PlotWindow: that is an ImageWindow and becomes
+        // A small, crisp chart in Penny's light colours in a non-focusable window. Not a PlotWindow: that is an ImageWindow and becomes
         // ImageJ's current image, so the next "remove the tiny ones" would act on the plot instead of the cells.
         String areaUnit = unit == null || unit.isBlank() || unit.startsWith("pixel") ? "px²" : unit.replace("micron", "µm") + "²";
         double[] values = area.clone();
@@ -661,7 +661,11 @@ final class Analysis {
 
     /** The size chart: histogram with rounded bars for 12+ objects, a dot plot below that; median marked; vector-drawn. */
     static final class SizeChart extends javax.swing.JComponent {
-        static final Color BACKGROUND = new Color(17, 20, 24), MINT = new Color(92, 235, 199), GRID = new Color(255, 255, 255, 28), TEXT = new Color(235, 240, 238), MUTED = new Color(150, 160, 158);
+        /** Penny's light palette (the companion's PennyPalette): white surface, #1D2125 text, #5E646C labels (5.97:1 on white),
+         *  hairline grid, and the deep teal accent #0B7D66 (5.07:1 on white) fading to a pale tint at the foot of each bar. */
+        static final Color BACKGROUND = Color.WHITE, ACCENT = new Color(11, 125, 102), ACCENT_FADE = new Color(11, 125, 102, 115),
+                ACCENT_HALO = new Color(11, 125, 102, 46), GRID = new Color(231, 233, 236), AXIS = new Color(196, 201, 207),
+                TEXT = new Color(29, 33, 37), MUTED = new Color(94, 100, 108), MEDIAN = new Color(55, 62, 71);
         private double[] values = new double[0]; private String unit = "px²";
         SizeChart() { setPreferredSize(new java.awt.Dimension(420, 250)); setOpaque(true); }
         void set(double[] values, String unit) { this.values = values.clone(); Arrays.sort(this.values); this.unit = unit; }
@@ -692,7 +696,7 @@ final class Analysis {
                 g.setColor(MUTED); String label = format(t); g.drawString(label, px - g.getFontMetrics().stringWidth(label) / 2, bottom + 16);
             }
             g.setColor(MUTED); g.drawString("area (" + unit + ")", right - g.getFontMetrics().stringWidth("area (" + unit + ")"), h - 8);
-            g.setColor(new Color(255, 255, 255, 60)); g.drawLine(left, bottom, right, bottom);
+            g.setColor(AXIS); g.drawLine(left, bottom, right, bottom);
             if (n >= 12) {
                 int bins = Math.max(6, Math.min(24, (int) Math.round(Math.sqrt(n) * 1.5)));
                 int[] counts = new int[bins]; double width = (hi - lo) / bins;
@@ -703,7 +707,7 @@ final class Analysis {
                     if (counts[i] == 0) continue;
                     double barHeight = (bottom - top) * counts[i] / (double) peak;
                     var bar = new java.awt.geom.RoundRectangle2D.Double(left + i * barWidth + 1.5, bottom - barHeight, barWidth - 3, barHeight + 4, 6, 6);
-                    g.setPaint(new java.awt.GradientPaint(0, (float) (bottom - barHeight), MINT, 0, bottom, new Color(92, 235, 199, 120)));
+                    g.setPaint(new java.awt.GradientPaint(0, (float) (bottom - barHeight), ACCENT, 0, bottom, ACCENT_FADE));
                     var clip = g.getClip(); g.clipRect(left, top - 2, right - left, bottom - top + 2); g.fill(bar); g.setClip(clip);
                 }
                 g.setColor(MUTED); g.drawString(String.valueOf(peak), 18, top + 10); g.drawString("0", 30, bottom);
@@ -712,12 +716,12 @@ final class Analysis {
                 int lane = (top + bottom) / 2;
                 for (int i = 0; i < n; i++) {
                     double px = x.applyAsDouble(values[i]); double py = lane + ((i % 3) - 1) * 14;
-                    g.setColor(new Color(92, 235, 199, 70)); g.fill(new java.awt.geom.Ellipse2D.Double(px - 11, py - 11, 22, 22));
-                    g.setColor(MINT); g.fill(new java.awt.geom.Ellipse2D.Double(px - 6, py - 6, 12, 12));
+                    g.setColor(ACCENT_HALO); g.fill(new java.awt.geom.Ellipse2D.Double(px - 11, py - 11, 22, 22));
+                    g.setColor(ACCENT); g.fill(new java.awt.geom.Ellipse2D.Double(px - 6, py - 6, 12, 12));
                 }
             }
             int mx = (int) Math.round(x.applyAsDouble(median));
-            g.setColor(new Color(255, 255, 255, 170)); g.setStroke(new java.awt.BasicStroke(1.4f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND, 1, new float[]{4, 4}, 0));
+            g.setColor(MEDIAN); g.setStroke(new java.awt.BasicStroke(1.4f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND, 1, new float[]{4, 4}, 0));
             g.drawLine(mx, top - 4, mx, bottom);
             g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11)); g.drawString("median", Math.min(right - 40, mx + 5), top + 6);
             g.dispose();
