@@ -54,7 +54,7 @@ def main() -> None:
                          "junit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$Random"]
         print(f"[test] random class order, seed {seed}" + (" (methods shuffled too)" if methods else ""))
     props = {"fidelis.repo.dir": str(env.REPO_DIR), "java.awt.headless": "false"}
-    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props) + ["-cp", ";".join(cp)] + launcher
+    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props) + ["-cp", env.CLASSPATH_SEPARATOR.join(cp)] + launcher
     argfile = env.write_argfile(env.BUILD / "test.args", args)
     proc = subprocess.Popen([env.jdk_bin("java"), f"@{argfile}"], cwd=str(env.fiji_dir()))
     try:

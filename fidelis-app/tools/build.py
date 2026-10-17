@@ -28,7 +28,7 @@ def javac(out: Path, srcs: list[str], classpath: list[str], label: str) -> None:
         return
     out.mkdir(parents=True, exist_ok=True)
     args = ["-d", str(out), "--release", "21", "-encoding", "UTF-8", "-Xlint:-options", "-proc:none",
-            "-cp", ";".join(classpath)] + srcs
+            "-cp", env.CLASSPATH_SEPARATOR.join(classpath)] + srcs
     argfile = env.write_argfile(env.BUILD / f"javac-{label}.args", args)
     print(f"[build] javac {label}: {len(srcs)} files")
     r = subprocess.run([env.jdk_bin("javac"), f"@{argfile}"])
