@@ -5,7 +5,7 @@ import {PollyClient,SynthesizeSpeechCommand} from '@aws-sdk/client-polly';
 import {CreditBudget,sharedObservation} from './credit-budget.js';
 import {loadSpeechConfig} from './speech-config.js';
 import {reusableClient} from './aws-clients.js';
-import {observeSpeechCredits,SPEECH_REGION,MAX_VOICE_SECONDS,MAX_SPOKEN_CHARACTERS,type SpeechProof} from './aws-speech-proof.js';
+import {observeSpeechCredits,SPEECH_REGION,MAX_VOICE_SECONDS,MAX_SPOKEN_CHARACTERS,VOICE,type SpeechProof} from './aws-speech-proof.js';
 
 export type SpeechTranscript={id:string;text:string;partial:boolean};
 export type SpeechCallbacks={inputReady:()=>void;listening:()=>void;transcript:(value:SpeechTranscript)=>void};
@@ -37,7 +37,7 @@ const production:SpeechDependencies={observe:sharedObservation(observeSpeechCred
  },
  synthesize:async(proof,text,signal)=>{
   const client=pollyClient(proof.credentials);
-  {const result=await client.send(new SynthesizeSpeechCommand({Engine:'neural',VoiceId:'Amy',LanguageCode:'en-GB',OutputFormat:'pcm',SampleRate:'16000',TextType:'text',Text:text}),{abortSignal:signal});
+  {const result=await client.send(new SynthesizeSpeechCommand({Engine:VOICE.engine,VoiceId:VOICE.id as any,LanguageCode:VOICE.language as any,OutputFormat:'pcm',SampleRate:'16000',TextType:'text',Text:text}),{abortSignal:signal});
    if(!result.AudioStream||result.ContentType!=='audio/pcm')throw new Error('AWS returned no supported speech audio.');
    const chunks:Uint8Array[]=[];let bytes=0;
    for await(const chunk of result.AudioStream as AsyncIterable<Uint8Array>){signal.throwIfAborted();bytes+=chunk.length;if(bytes>2_000_000)throw new Error('Speech audio exceeded its bounded size.');chunks.push(chunk);}
