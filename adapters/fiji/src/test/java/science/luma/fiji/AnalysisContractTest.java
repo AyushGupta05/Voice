@@ -28,7 +28,7 @@ public final class AnalysisContractTest {
         ij.Prefs.blackBackground = true;
         journal = new Journal(); ops = new Operations(journal); analysis = new Analysis(ops, journal);
         try {
-            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); globalManagerIndices(); centroidScope(); retainedManagerMetadata(); perImageManager(); emptyExistingObjects(); errors(); samples();
+            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); globalManagerIndices(); centroidScope(); retainedManagerMetadata(); perImageManager(); emptyExistingObjects(); ownImageOverlay(); errors(); samples();
         } catch (Throwable error) { error.printStackTrace(); System.exit(1); }
         System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats, filter_objects, split_objects): passed");
         System.exit(0);
@@ -261,6 +261,35 @@ public final class AnalysisContractTest {
         try { edt(() -> analysis.colocalize(new JsonObject())); throw new AssertionError("single channel accepted"); }
         catch (IllegalArgumentException expected) { /* speakable */ }
         System.out.println("PASS speakable errors");
+    }
+    static void ownImageOverlay() throws Exception {
+        // A real ImageCanvas without a native ImageWindow is enough to exercise its separate ROI Manager Show All layer.
+        class CanvasImage extends ImagePlus {
+            private final ij.gui.ImageCanvas canvas;
+            CanvasImage() { super("own-overlay", new ByteProcessor(100, 80)); canvas = new ij.gui.ImageCanvas(this); }
+            @Override public ij.gui.ImageCanvas getCanvas() { return canvas; }
+        }
+        var image = new CanvasImage(); activate(image);
+        var other = new ImagePlus("foreign-overlay", new ByteProcessor(100, 80));
+        var foreign = new Roi(60, 40, 15, 15); foreign.setName("foreign object"); Operations.tag(foreign, other);
+        var mine = new Roi(10, 10, 20, 20); mine.setName("own object"); Operations.tag(mine, image);
+        var manager = ops.manager(); manager.reset(); manager.addRoi(foreign); manager.addRoi(mine);
+        var own = new ij.gui.Overlay(); own.add((Roi) mine.clone()); image.setOverlay(own); image.setHideOverlay(true);
+        var global = new ij.gui.Overlay(); global.add((Roi) foreign.clone()); global.add((Roi) mine.clone()); image.getCanvas().setShowAllList(global);
+        expect(image.getCanvas().getShowAllList().size() == 2, "fixture exposes foreign entries through canvas Show All");
+        edt(() -> { Pipeline.ownOverlayOnly(image, manager); return Map.of(); });
+        expect(image.getCanvas().getShowAllList() == null && image.getOverlay() == own && !image.getHideOverlay(), "clears only the global canvas layer while retaining the image's own visible overlay");
+        image.getCanvas().setShowAllList(global);
+        var filter = new JsonObject(); filter.addProperty("minArea", 0); edt(() -> analysis.filterObjects(filter));
+        expect(image.getCanvas().getShowAllList() == null && image.getOverlay().size() == 1, "filter outlines clear foreign Show All entries");
+        image.getCanvas().setShowAllList(global);
+        var classify = new JsonObject(); classify.addProperty("threshold", 0); edt(() -> analysis.classifyIntensity(classify));
+        expect(image.getCanvas().getShowAllList() == null && image.getOverlay().size() == 1, "classification outlines clear foreign Show All entries");
+        image.getCanvas().setShowAllList(global);
+        edt(() -> { Operations.outline(image, manager, 1, List.of(mine.getBounds()), 1); return Map.of(); });
+        expect(image.getCanvas().getShowAllList() == null && image.getOverlay().size() == 1, "segmentation outline presentation clears foreign Show All entries");
+        expect(manager.getCount() == 2 && "foreign object".equals(manager.getName(0)) && String.valueOf(other.getID()).equals(manager.getRoi(0).getProperty(Operations.ROI_IMAGE_PROPERTY)), "foreign manager entry, label and ownership remain intact");
+        System.out.println("PASS image-owned overlays clear foreign canvas Show All without deleting retained objects");
     }
     static void globalManagerIndices() throws Exception {
         var manager = ops.manager(); manager.reset();
