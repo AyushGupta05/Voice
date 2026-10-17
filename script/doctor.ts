@@ -9,6 +9,9 @@ import { activeProfile } from '../packages/gateway/src/apps/index.js';
 
 type Check = { name: string; status: 'pass' | 'fail' | 'note'; detail: string };
 const root=resolve(process.env.LUMA_ROOT??fileURLToPath(new URL('..',import.meta.url)));
+// LUMA_GATEWAY_PORT checks a second gateway (another app profile, a worktree) beside the companion's default 49555.
+const gatewayPort=Number(process.env.LUMA_GATEWAY_PORT??49555);
+if(!Number.isInteger(gatewayPort)||gatewayPort<1024||gatewayPort>65535)throw new Error('LUMA_GATEWAY_PORT must be an unprivileged loopback port.');
 // Diagnostics follow the selected application (LUMA_APP): its bridge artifact, launcher, tools and knowledge.
 const profile=activeProfile();const {tools}=profile;const app=profile.displayName;
 const checks:Check[]=[{name:'application',status:'note',detail:`${app} profile (LUMA_APP=${profile.id}); ${tools.length} tools.`}];
@@ -30,7 +33,7 @@ let readyForVoice=false;
 try {
   const token=(await readFile(resolve(root,'.local/state/gateway-token'),'utf8')).trim();
   const headers={Authorization:`Bearer ${token}`};
-  const healthResponse=await fetch('http://127.0.0.1:49555/health',{headers,signal:AbortSignal.timeout(4000)});
+  const healthResponse=await fetch(`http://127.0.0.1:${gatewayPort}/health`,{headers,signal:AbortSignal.timeout(4000)});
   if(!healthResponse.ok)throw new Error('Authentication or gateway response failed.');
   const health=await healthResponse.json() as {application?:unknown;app?:{id?:unknown};bridgeError?:unknown;context?:{image?:unknown};voice?:{enabled?:unknown}};
   add('gateway',health.application==='Luma','Authenticated Luma gateway is reachable.','Unexpected service on the gateway port.');
@@ -45,7 +48,7 @@ try {
   const loadedBridge=await bridgeReadiness(root,identity,profile);
   add(`loaded ${app} build`,bridgeReady(loadedBridge),loadedBridge.message,loadedBridge.message);
   if(health.context&&!health.context.image)checks.push({name:'active image',status:'note',detail:'Open an image and select a region for scientific tools.'});
-  const schemaResponse=await fetch('http://127.0.0.1:49555/tools',{headers,signal:AbortSignal.timeout(2000)});
+  const schemaResponse=await fetch(`http://127.0.0.1:${gatewayPort}/tools`,{headers,signal:AbortSignal.timeout(2000)});
   if(!schemaResponse.ok)throw new Error('Tool schema request failed.');
   const schema=await schemaResponse.json() as {tools?:unknown};
   add('running tool schemas',JSON.stringify(schema.tools)===JSON.stringify(tools),`All ${tools.length} running definitions match this checkout.`,'Gateway definitions differ. Restart its owning companion or development gateway after work has finished.');

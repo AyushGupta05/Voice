@@ -9,7 +9,10 @@ const request=process.argv.slice(2).filter(a=>!a.startsWith('--')).join(' ').tri
 if(!request)throw new Error('Give the request text as the argument.');
 const root=resolve(process.env.LUMA_ROOT??process.cwd()),state=join(root,'.local/state');
 const token=(await readFile(join(state,'companion-token'),'utf8')).trim();
-const ws=new WebSocket('ws://127.0.0.1:49555/events',{headers:{Authorization:`Bearer ${token}`}});
+// LUMA_GATEWAY_PORT drives a second gateway (another app profile, a worktree) beside the companion's default 49555.
+const port=Number(process.env.LUMA_GATEWAY_PORT??49555);
+if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('LUMA_GATEWAY_PORT must be an unprivileged loopback port.');
+const ws=new WebSocket(`ws://127.0.0.1:${port}/events`,{headers:{Authorization:`Bearer ${token}`}});
 const t0=Date.now();const tools:string[]=[];const highlights:string[]=[];let ack='';let reply='';let error='';
 const done=new Promise<void>((resolveDone,reject)=>{
  const timer=setTimeout(()=>{error='timed out after 180 s';resolveDone();},180_000);

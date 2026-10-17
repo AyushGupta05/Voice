@@ -53,3 +53,16 @@ test('matching folders come back with their image count after the images', async
     assert.ok(!(await findLocalImages(root, '', 20, [root], false)).matches.some(m => m.kind === 'folder'), 'an empty query lists images only');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('a git worktree under .local/worktrees searches its enclosing checkout\'s data folder as well as its own', async () => {
+  const { searchRoots, enclosingCheckout } = await import('../src/local-images.js');
+  const checkout = '/work/Voice', worktree = join(checkout, '.local', 'worktrees', 'integration');
+  assert.equal(enclosingCheckout(worktree), checkout);
+  assert.equal(enclosingCheckout(worktree + '/'), checkout);
+  assert.equal(enclosingCheckout(checkout), undefined);
+  assert.equal(enclosingCheckout(join(checkout, '.local', 'worktrees')), undefined);
+  const roots = searchRoots(worktree, '/Users/someone');
+  assert.deepEqual(roots.slice(0, 4), [join(worktree, '.local', 'data'), join(worktree, '.local', 'downloads'), join(checkout, '.local', 'data'), join(checkout, '.local', 'downloads')]);
+  assert.deepEqual(searchRoots(checkout, '/Users/someone').slice(0, 2), [join(checkout, '.local', 'data'), join(checkout, '.local', 'downloads')]);
+  assert.deepEqual(searchRoots(checkout, '/Users/someone').length, 5);
+});
