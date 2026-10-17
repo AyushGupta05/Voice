@@ -1,6 +1,9 @@
 import { readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, extname, basename } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 
 const IMAGE_EXTENSIONS = new Set(['.ndpi', '.svs', '.tif', '.tiff', '.czi', '.scn', '.mrxs', '.vsi', '.bif', '.qptiff', '.ome.tif', '.ome.tiff', '.qpproj', '.jpg', '.jpeg', '.png']);
 export type LocalImage = { path: string; name: string; sizeBytes: number; kind: 'image' | 'project' };
@@ -44,6 +47,23 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     }
   }
   for (const directory of roots) await visit(directory, 0);
+  // Spotlight covers the rest of the home folder (any depth) for slides the researcher saved elsewhere.
+  for (const path of await spotlightImages(query)) {
+    if (seen.has(path) || matches.length >= limit) { if (!seen.has(path)) truncated = true; continue; }
+    let size = 0;
+    try { size = (await stat(path)).size; } catch { continue; }
+    seen.add(path);
+    matches.push({ path, name: basename(path), sizeBytes: size, kind: extension(path) === '.qpproj' ? 'project' : 'image' });
+  }
   matches.sort((a, b) => b.sizeBytes - a.sizeBytes);
-  return { matches, searched: roots, truncated };
+  return { matches, searched: [...roots, 'Spotlight: home folder'], truncated };
+}
+/** macOS Spotlight query for slide/project files by extension; silent on any failure (non-macOS, indexing off, timeout). */
+export async function spotlightImages(query: string, home = homedir(), timeoutMs = 3000): Promise<string[]> {
+  if (process.platform !== 'darwin') return [];
+  const names = [...IMAGE_EXTENSIONS].filter(ext => !ext.startsWith('.ome') && ext !== '.jpg' && ext !== '.jpeg' && ext !== '.png').map(ext => `kMDItemFSName == "*${ext}"c`).join(' || ');
+  try {
+    const { stdout } = await execFileAsync('mdfind', ['-onlyin', home, names], { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 });
+    return stdout.split('\n').map(line => line.trim()).filter(line => line && imageNameMatches(basename(line), query)).slice(0, 200);
+  } catch { return []; }
 }
