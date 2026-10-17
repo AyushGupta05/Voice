@@ -185,6 +185,20 @@ final class J12Session {
     static void compare(String tag, Engine engine, Path baseline, DocumentId original, List<DocumentId> before,
                         List<String> failures, boolean roisFromEngine) {
         JsonNode step = BaselineCompare.loadStep(baseline, tag);
+        Snapshot snap = snapshot(engine, original, before, roisFromEngine);
+        // A capture log may retain rows that IJ1's `clear` dropped from the live table: tolerate extra leading rows.
+        for (String d : BaselineCompare.diff(step, snap, true, true)) failures.add(tag + " " + d);
+        engine.globals().forEach((k, v) -> {
+            if (k.toLowerCase().contains("blackbackground")
+                    && !v.equalsIgnoreCase(step.get("globals").get("blackBackground").asText())) {
+                failures.add(tag + " E6 global " + k + "=" + v + " vs baseline "
+                        + step.get("globals").get("blackBackground").asText());
+            }
+        });
+    }
+
+    /** The scenario's documents (those not in {@code before}), Results and ROI list as the engine reports them. */
+    static Snapshot snapshot(Engine engine, DocumentId original, List<DocumentId> before, boolean roisFromEngine) {
         List<Snapshot.Img> images = new ArrayList<>();
         for (var info : engine.documents()) {
             if (before.contains(info.id())) continue;
@@ -204,16 +218,7 @@ final class J12Session {
         } else {
             rois.addAll(Snapshot.capture().rois());
         }
-        Snapshot snap = new Snapshot(images, table(engine), rois, Map.of());
-        // A capture log may retain rows that IJ1's `clear` dropped from the live table: tolerate extra leading rows.
-        for (String d : BaselineCompare.diff(step, snap, true, true)) failures.add(tag + " " + d);
-        engine.globals().forEach((k, v) -> {
-            if (k.toLowerCase().contains("blackbackground")
-                    && !v.equalsIgnoreCase(step.get("globals").get("blackBackground").asText())) {
-                failures.add(tag + " E6 global " + k + "=" + v + " vs baseline "
-                        + step.get("globals").get("blackBackground").asText());
-            }
-        });
+        return new Snapshot(images, table(engine), rois, Map.of());
     }
 
     static Snapshot.Table table(Engine e) {

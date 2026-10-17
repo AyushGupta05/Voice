@@ -57,6 +57,16 @@ final class JourneyScenario {
         return ws.engine().getClass().getName() + (productEngine ? " (registered product engine)" : " (UI development stub)");
     }
 
+    static String exportMacro() {
+        return ws.engine().exportMacro();
+    }
+
+    /** The live session as the engine reports it, with the IJ1 globals read directly. */
+    static Snapshot liveSnapshot(sc.fidelis.engine.api.DocumentId original) {
+        Snapshot s = J12Session.snapshot(ws.engine(), original, List.of(), productEngine);
+        return new Snapshot(s.images(), s.results(), s.rois(), Snapshot.capture().globals());
+    }
+
     /** Run J-12 on the workspace's engine, checking the UI's Results panel after Measure and Analyze Particles. */
     static J12Session.Run journey(String fixtureId, Path tmp, Path baseline, List<String> uiFailures) throws Exception {
         return J12Session.run(ws.engine(), fixtureId, tmp, productEngine, tag -> {
