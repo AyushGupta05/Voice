@@ -8,6 +8,8 @@ The signed-in AWS Billing Credits UI showed an active hackathon promotional cred
 
 Official documentation lists supported OpenAI models on Bedrock and Responses/Chat Completions endpoints. It did not establish a Bedrock endpoint for OpenAI Realtime or GPT-Live. OpenAI's direct realtime service uses its own API authentication and billing.
 
+A read-only official-documentation recheck at 06:52 BST still did not establish a funded live-voice route. OpenAI's [Bedrock guide](https://developers.openai.com/api/docs/guides/amazon-bedrock) documents Responses/Chat Completions compatibility and marks Responses WebSocket connections unavailable on Bedrock. Its separate [GPT-Live connection guide](https://developers.openai.com/api/docs/guides/voice-websockets?api=live) documents an OpenAI-hosted primary session with a project API key. These sources do not establish that GPT-Live is a credit-covered Bedrock service; the funding gate remains unchanged. No provider connection, grant redemption or billing configuration was attempted.
+
 The text/reference fixtures, focused viewer follow-up and two fixed scientific-agent attempts made **26 completed real model requests** in total, with estimated token usage of **$0.02179905** and **$26 retained as conservative attempt reserves**. The first scientific attempt stopped at strict argument validation and restored its baseline; the corrected run completed the full authorized sequence. Both attempts remain fully counted. Fresh account/credit/access/price checks preceded each call. No direct cash-billed OpenAI route, new subscription or project cloud infrastructure was used. AWS invoice/credit settlement is not reconciled; these figures do not describe unrelated existing account usage.
 
 ## Enforced behavior

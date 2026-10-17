@@ -4,18 +4,24 @@ import LumaAudioCore
 
 /// PCM16 mono at 24 kHz, matching the documented OpenAI voice format.
 /// Production capture is only started after a funded session is accepted.
+@MainActor
 final class AudioIO {
     private let capture = AVAudioEngine()
     private let playback = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24000, channels: 1, interleaved: false)!
     private var tapping = false
+    private lazy var captureLifecycle = CaptureLifecycle(stopDevice: { [weak self] in self?.stopCapture() })
     init() {
         playback.attach(player)
         playback.connect(player, to: playback.mainMixerNode, format: target)
     }
     func start(onChunk: @escaping (Data, Float) -> Void) async throws {
-        guard await AVCaptureDevice.requestAccess(for: .audio) else { throw CompanionError.message("Microphone access is needed for voice.") }
+        try await captureLifecycle.start(permission: { await AVCaptureDevice.requestAccess(for: .audio) }, begin: {
+            try self.startCapture(onChunk: onChunk)
+        })
+    }
+    private func startCapture(onChunk: @escaping (Data, Float) -> Void) throws {
         let input = capture.inputNode
         let source = input.outputFormat(forBus: 0)
         guard let converter = AVAudioConverter(from: source, to: target) else { throw CompanionError.message("Could not configure microphone audio.") }
@@ -47,5 +53,5 @@ final class AudioIO {
     }
     func interruptPlayback() { player.stop() }
     private func stopCapture() { capture.stop(); if tapping { capture.inputNode.removeTap(onBus: 0); tapping = false } }
-    func stop() { stopCapture(); player.stop(); playback.stop() }
+    func stop() { captureLifecycle.stop(); player.stop(); playback.stop() }
 }

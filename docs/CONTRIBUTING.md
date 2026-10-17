@@ -22,7 +22,7 @@ The running gateway’s tool list feeds MCP discovery and the conversation trans
 - `python3 script/test-build-bridge.py -v`: portable disposable build fixture; failed compilation preserves the previous JAR and successful packaging replaces it from fresh classes.
 - `python3 script/test-qupath-launch.py -v`: portable startup fixture; an already-running instance or failed inventory leaves tokens, artifacts and the filesystem unchanged, without opening an app.
 - `python3 script/test-companion-process.py -v`: macOS-only disposable compiled-process fixture; proves exact-path stop leaves a same-named foreign process running.
-- `./script/test-audio.sh`: four offline native PCM tests; no microphone, playback or provider session.
+- `./script/test-audio.sh`: four offline PCM tests and four capture-lifecycle tests with injected permission/device closures; no microphone prompt, hardware capture/playback or provider session.
 - `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
 - `./script/build-bridge.sh`: compile against the pinned real QuPath API.
 - `./script/build_and_run.sh --verify`: build/sign/launch the native companion and confirm its process.
