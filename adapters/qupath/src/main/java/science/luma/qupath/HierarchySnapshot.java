@@ -5,12 +5,12 @@ import qupath.lib.objects.hierarchy.PathObjectHierarchy;
 
 /** Private in-memory native serialization, never accepts serialized data from a client or file. */
 final class HierarchySnapshot {
-    private static final int MAX_BYTES = 64 * 1024 * 1024;
+    private static final int MAX_BYTES = 512 * 1024 * 1024;
     static byte[] capture(PathObjectHierarchy hierarchy) {
         var bytes = new ByteArrayOutputStream() {
             @Override public synchronized void write(int value) { check(1); super.write(value); }
             @Override public synchronized void write(byte[] value,int offset,int length) { check(length); super.write(value,offset,length); }
-            private void check(int length) { if ((long)count + length > MAX_BYTES) throw new IllegalStateException("Checkpoint exceeds 64 MiB. Save a project copy first."); }
+            private void check(int length) { if ((long)count + length > MAX_BYTES) throw new IllegalStateException("Checkpoint exceeds 512 MiB"); }
         };
         try (var stream = new ObjectOutputStream(bytes)) { stream.writeObject(hierarchy); }
         catch (IOException error) { throw new IllegalStateException("Cannot preserve this hierarchy; no mutation started.",error); }

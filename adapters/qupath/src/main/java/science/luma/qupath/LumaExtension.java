@@ -757,10 +757,18 @@ public final class LumaExtension implements QuPathExtension {
         String path = prefix.isEmpty() ? clean(menu.getText()) : prefix + " > " + clean(menu.getText());
         for (var item : menu.getItems()) { if (item instanceof Menu child) findMenu(child,path,target,found); else if ((path + " > " + clean(item.getText())).equals(target)) found.add(item); }
     }
+    /** Best effort: a hierarchy too large to snapshot must never block the researcher's action; the result says so. */
     private Object checkpoint(String label) {
         var image = image();
-        if (image.getHierarchy().nObjects() > 200000) throw new IllegalStateException("Checkpoint exceeds the prototype's 200,000 object memory limit. Save a project copy first.");
-        byte[] serialized = HierarchySnapshot.capture(image.getHierarchy());
+        byte[] serialized;
+        try {
+            if (image.getHierarchy().nObjects() > 1_000_000) throw new IllegalStateException("more than 1,000,000 objects");
+            serialized = HierarchySnapshot.capture(image.getHierarchy());
+        } catch (IllegalStateException | OutOfMemoryError error) {
+            return Map.of("skipped", true, "label", label, "counts", counts(image.getHierarchy()),
+                "reason", "Hierarchy too large to checkpoint (" + Objects.toString(error.getMessage(), error.getClass().getSimpleName()) + "); this step cannot be undone with qupath_restore. Save the image if you may need to go back.",
+                "scope", "object hierarchy only; not files, scripts or image settings");
+        }
         String id = UUID.randomUUID().toString();
         var checkpoint = new Checkpoint(id,label,image,serialized,counts(image.getHierarchy()));
         checkpoints.put(id, checkpoint);
