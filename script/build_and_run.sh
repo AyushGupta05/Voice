@@ -23,7 +23,8 @@ import plistlib,sys
 with open(sys.argv[1],'wb') as file:
     plistlib.dump({'CFBundleExecutable':'LumaCompanion','CFBundleIdentifier':'science.luma.companion','CFBundleName':'Luma','CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'14.0','LSUIElement':True,'NSPrincipalClass':'NSApplication','NSMicrophoneUsageDescription':'Luma uses your microphone for continuous conversation with your scientific software.','LumaRoot':sys.argv[2],'LumaNode':sys.argv[3]},file)
 PY
-codesign --force --sign - "$APP_BUNDLE"
+# A stable designated requirement keeps the microphone permission across rebuilds; ad-hoc cdhash requirements change every build.
+codesign --force --sign - --identifier science.luma.companion -r='designated => identifier "science.luma.companion"' "$APP_BUNDLE"
 if [[ "$MODE" != --build-only ]]; then
   python3 script/companion-process.py stop "$APP_BUNDLE/Contents/MacOS/LumaCompanion"
 fi
