@@ -40,6 +40,7 @@ import sc.fidelis.engine.api.Enums.ErrorCode;
 import sc.fidelis.engine.api.Enums.OperationState;
 import sc.fidelis.engine.api.Enums.Provenance;
 import sc.fidelis.engine.api.HistoryRecord;
+import sc.fidelis.engine.api.HostCanvas;
 import sc.fidelis.engine.api.MeasurementRow;
 import sc.fidelis.engine.api.RoiGeometry;
 import sc.fidelis.engine.api.TargetScope;
@@ -173,7 +174,7 @@ public final class DefaultEngine implements Engine {
             for (Doc d : registry.all()) if (d.imp.changes) return false;
             for (int id : idList()) {
                 ImagePlus imp = WindowManager.getImage(id);
-                if (imp != null && imp.changes) return false;
+                if (imp != null && imp.changes && imp.getProperty(HostCanvas.TRANSIENT_PROPERTY) == null) return false;
             }
         }
         setState(EngineState.QUITTING, "quit");

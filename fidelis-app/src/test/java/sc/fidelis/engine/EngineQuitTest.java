@@ -85,4 +85,16 @@ class EngineQuitTest {
         assertNull(WindowManager.getIDList());
         assertEquals(1, terminated.get());
     }
+
+    @Test
+    void anUnsavedTransientHelperImageDoesNotBlockQuit() throws Exception {
+        make("quit-doc");
+        ij.ImagePlus helper = IJ.createImage("[before] helper", "8-bit ramp", 8, 8, 1);
+        helper.setProperty(sc.fidelis.engine.api.HostCanvas.TRANSIENT_PROPERTY, Boolean.TRUE);
+        helper.show();
+        helper.changes = true;
+        assertTrue(engine.quit(false, stopped::incrementAndGet, terminated::incrementAndGet), "a helper copy is not user data");
+        assertTrue(engine.documents().isEmpty());
+        assertNull(WindowManager.getIDList());
+    }
 }

@@ -85,6 +85,22 @@ class EngineDocumentsTest {
             engine.submit(ActionRequest.session(Origin.PANEL, ActionRequest.Operations.CLOSE, Map.of("discard", true),
                     TargetScope.of(new DocumentId("doc-none")))).get(30, TimeUnit.SECONDS); // barrier behind the reconcile
             assertEquals(before, engine.documents().size(), "a transient helper image must not become a document");
+
+            // never adopted, never counted: not by the synchronous adoption before a native command, not by a native
+            // command running while the helper is IJ1's current image, and no event
+            java.util.List<sc.fidelis.engine.api.EngineEvent> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+            sc.fidelis.engine.api.EngineListener l = events::add;
+            engine.addListener(l);
+            try {
+                WindowManager.setCurrentWindow(w);
+                engine.adoptBeforeNative();
+                assertEquals(before, engine.documents().size());
+                assertTrue(engine.documents().stream().noneMatch(d -> d.title().contains("helper")));
+                assertTrue(events.stream().noneMatch(e -> e instanceof sc.fidelis.engine.api.EngineEvent.DocumentsChanged),
+                        "adopting nothing must not emit DocumentsChanged: " + events);
+            } finally {
+                engine.removeListener(l);
+            }
         } finally {
             Edt.run(() -> {
                 WindowManager.removeWindow(w);
