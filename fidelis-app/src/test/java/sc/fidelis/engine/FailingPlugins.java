@@ -30,4 +30,14 @@ public final class FailingPlugins {
             IJ.error("Test plugin error text");
         }
     }
+
+    /** Shows a GenericDialog and waits for the user (a native dialog the engine must report and be able to cancel). */
+    public static class Dialoging implements PlugIn {
+        @Override
+        public void run(String arg) {
+            ij.gui.GenericDialog gd = new ij.gui.GenericDialog("Fidelis test dialog");
+            gd.addNumericField("value", 1, 0);
+            gd.showDialog();
+        }
+    }
 }

@@ -10,6 +10,8 @@ final class Op {
     final String id;
     final ActionRequest request;
     volatile boolean cancelRequested;
+    /** True once the engine actually signalled the running operation (Escape key or Interpreter.abort). */
+    volatile boolean abortIssued;
     /** Set while this operation is a CODE action; nested commands record this as {@code parentActionId}. */
     volatile String actionId;
     /** For commands nested under a CODE action: the CODE action id. */

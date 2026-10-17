@@ -144,7 +144,7 @@ final class CodeRunner {
         showBatchImages();
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
-        boolean cancelled = op.cancelRequested;
+        boolean cancelled = op.cancelRequested && op.abortIssued;
         boolean macroError = interp.wasError() || (ret != null && ret.equals("[aborted]"));
         String message = null;
         if (rep.failed()) message = rep.errorText();
@@ -170,7 +170,7 @@ final class CodeRunner {
 
         OperationState state;
         EngineError error = null;
-        if (cancelled && (macroError || thrown != null)) {
+        if (cancelled) {
             state = OperationState.CANCELLED;
             error = new EngineError(ErrorCode.CANCELLED, "macro was cancelled", "MACRO_ABORTED", Map.of(), false, List.of());
         } else if (message != null) {

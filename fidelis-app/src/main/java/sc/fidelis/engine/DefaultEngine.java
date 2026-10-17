@@ -209,8 +209,10 @@ public final class DefaultEngine implements Engine {
         op.cancelRequested = true;
         if (running == op) {
             if (op.request.kind() == ActionKind.CODE) {
+                op.abortIssued = true;
                 Interpreter.abort();
             } else {
+                op.abortIssued = true;
                 CommandRunner.requestEscape();
             }
             Guard g = guard;
