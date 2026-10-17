@@ -1,0 +1,39 @@
+mode	id	command	options	status	produced	exception	detail	captured_output	ms
+groovy-batch=false	01	Invert		pass	true		cks 48764102->325206100		448
+groovy-batch=false	02	Gaussian Blur...	sigma=2	pass	true		cks 48764102->69768574		48
+groovy-batch=false	03	Subtract Background...	rolling=50	pass	true		mean 53.30078125->33.13800048828125		20
+groovy-batch=false	04	Median...	radius=2	pass	true		cks 48776020->48764102		31
+groovy-batch=false	05	Convert to Mask		pass	true		bins=2 invertedLut=false		15
+groovy-batch=false	06	Auto Threshold	method=Otsu white	pass	true		bins=2		8
+groovy-batch=false	07	(API) IJ.setAutoThreshold	Otsu dark	pass	true		min=220.0 max=255.0		8
+groovy-batch=false	08	Set Measurements...	area mean min centroid redirect=None decimal=3	pass	true		measurements=51 want=51		10
+groovy-batch=false	09	Measure		pass	true		rows=1 headings=Area Mean Min Max X Y	  Area Mean Min Max X Y  | 1 65536 33.301 0 220 128 128  | 	8
+groovy-batch=false	10	Analyze Particles...	size=0-Infinity display clear	pass	true		rows=4	  Area Mean Min Max X Y  | 1 2828 220 220 220 40 40  | 2 1264 220 220 220 120 60  | 3 3852 220 220 220 200 180  | 4 1976 220 220 220 60 190  | 	20
+groovy-batch=false	11	Analyze Particles...	size=0-Infinity clear add	fail	false		check failed: java.awt.HeadlessException	java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:164)  |  at java.desktop/java.awt.Window.<init>(Window.java:553)  |  at java.desktop/java.awt.Frame.<init>(Frame.java:428)  |  at ij.plugin.frame.PlugInFrame.<init>(PlugInFrame.java:13)  |  at ij.plugin.frame.RoiManager.<init>(RoiManager.java:88)  |  at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62)  |  at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:502)  |  at java.base/java.lang.reflect.Refle...	11
+groovy-batch=false	12	Histogram		fail	false		current=null	java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:164)  |  at java.desktop/java.awt.Window.<init>(Window.java:553)  |  at java.desktop/java.awt.Frame.<init>(Frame.java:428)  |  at ij.gui.ImageWindow.<init>(ImageWindow.java:69)  |  at ij.gui.ImageWindow.<init>(ImageWindow.java:65)  |  at ij.gui.HistogramWindow.<init>(HistogramWindow.java:58)  |  at ij.gui.HistogramPlot.show(HistogramPlot.java:371)  |  at ij.plugin.Histogram.run(Histogram.java:80)  |  at ij.IJ.runPlugIn(IJ.java:216)  |  at ij.Executer.runCommand(Executer.java:152)  |  at ij.Executer.run...	58
+groovy-batch=false	13	Duplicate...	title=dup	pass	true		current=dup		5
+groovy-batch=false	14	Crop		pass	true		imp=100x80 current=null nullxnull		8
+groovy-batch=false	15	Scale...	x=0.5 y=0.5 interpolation=Bilinear average create title=scaled	pass	true		current=scaled w=128		7
+groovy-batch=false	16	Rotate... 	angle=15 grid=1 interpolation=Bilinear	pass	true		cks 48764102->49466578		89
+groovy-batch=false	16b	Rotate...	angle=15	fail	false	java.lang.RuntimeException: Macro canceled	Edit>Selection>Rotate... without ROI; cks 48764102->48764102 roi=null	This command requires a selection  | 	31
+groovy-batch=false	17	Z Project...	projection=[Max Intensity]	pass	true		current=MAX_stack		6
+groovy-batch=false	18	Make Substack...	slices=1-2	pass	true		current=Substack (1-2) n=2		9
+groovy-batch=false	19	Split Channels		pass	true		current=rgb (blue)		121
+groovy-batch=false	20	Merge Channels...	c1=r c2=g create	fail	false		current=g composite=false ids=[-34]		62
+groovy-batch=false	21	Enhance Contrast...	saturated=0.35 normalize	pass	true		cks 48885712->49281176		167
+groovy-batch=false	22	Apply LUT		pass	true		cks 48764102->49281176		16
+groovy-batch=false	23	Fill	slice	pass	true		pixel(210,20)=255		14
+groovy-batch=false	23b	Fill	slice	pass	true		pixel(10,10)=255		3
+groovy-batch=false	24	Clear	slice	pass	true		pixel(30,30)=0		9
+groovy-batch=false	25	Add to Manager		fail	false	java.lang.RuntimeException: Macro canceled	check failed: java.awt.HeadlessException	java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:164)  |  at java.desktop/java.awt.Window.<init>(Window.java:553)  |  at java.desktop/java.awt.Frame.<init>(Frame.java:428)  |  at ij.plugin.frame.PlugInFrame.<init>(PlugInFrame.java:13)  |  at ij.plugin.frame.RoiManager.<init>(RoiManager.java:88)  |  at java.base/jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance(DirectConstructorHandleAccessor.java:62)  |  at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:502)  |  at java.base/java.lang.reflect.Refle...	7
+groovy-batch=false	26	Brightness/Contrast...		fail	false		frame command; no measurable effect expected; display range 0.0-255.0	java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:164)  |  at java.desktop/java.awt.Window.init(Window.java:501)  |  at java.desktop/java.awt.Window.<init>(Window.java:453)  |  at java.desktop/java.awt.Window.<init>(Window.java:608)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:674)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:418)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:388)  |  at ij.plugin.frame.PlugInDialog.<init>(PlugInDialog.java:12)  |  at ij.plugin.frame.ContrastAdjuster.<init>(ContrastAdjuster.java:64)  |  ...	7
+groovy-batch=false	27	Threshold...		fail	false		frame command; isThreshold=false	java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:164)  |  at java.desktop/java.awt.Window.init(Window.java:501)  |  at java.desktop/java.awt.Window.<init>(Window.java:453)  |  at java.desktop/java.awt.Window.<init>(Window.java:608)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:674)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:418)  |  at java.desktop/java.awt.Dialog.<init>(Dialog.java:388)  |  at ij.plugin.frame.PlugInDialog.<init>(PlugInDialog.java:12)  |  at ij.plugin.frame.ThresholdAdjuster.<init>(ThresholdAdjuster.java:74) ...	5
+groovy-batch=false	28	Undo		pass	true		orig=48764102 afterInvert=325206100 afterUndo=48764102		9
+groovy-batch=false	29	8-bit		pass	true		bitDepth=8		47
+groovy-batch=false	30a	Tiff...	path=[C:/Users/arnav/AppData/Local/Temp/claude/c--Users-arnav-Documents-dev-click-to-batch/0143a74a-54d3-45c4-9ab8-8ca264a2998b/scratchpad/G1/final/p13/p13-false.tif]	pass	true		exists=true size=65696		106
+groovy-batch=false	30b	Open...	path=[C:/Users/arnav/AppData/Local/Temp/claude/c--Users-arnav-Documents-dev-click-to-batch/0143a74a-54d3-45c4-9ab8-8ca264a2998b/scratchpad/G1/final/p13/p13-false.tif]	fail	false		current=null		15
+groovy-batch=false	31	Find Maxima...	prominence=10 output=Count	fail	false		Count=-1		14
+groovy-batch=false	32	Image Calculator...	image1=a operation=Add image2=b create	fail	false		current=b		4
+groovy-batch=false	33	Set Scale...	distance=10 known=1 unit=um	pass	true		pixelWidth=0.1 unit=µm		8
+groovy-batch=false	34	Add Slice		pass	true		n=4		3
+groovy-batch=false	35	Histogram	bins=256 use x_min=0 x_max=256 y_max=Auto stack	fail	false		current=null	java.lang.NullPointerException: Cannot invoke "java.util.Vector.elementAt(int)" because the return value of "ij.gui.GenericDialog.getCheckboxes()" is null  |  at ij.plugin.Histogram.showDialog(Histogram.java:131)  |  at ij.plugin.Histogram.run(Histogram.java:36)  |  at ij.IJ.runPlugIn(IJ.java:216)  |  at ij.Executer.runCommand(Executer.java:152)  |  at ij.Executer.run(Executer.java:70)  |  at ij.IJ.run(IJ.java:326)  |  at ij.IJ.run(IJ.java:416)  |  at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)  |  at P13-headless-ijrun-probe$_run_closure67$_closure69$_closure72.doCall(P13-he...	2
