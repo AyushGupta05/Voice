@@ -443,6 +443,14 @@ public final class DefaultEngine implements Engine {
                 return finish(op, o, t0);
             }
         }
+        // Opt-in binding to the approved selection: a request carrying expectedRoi runs only if the target document's live
+        // selection still has that RoiSignature (a selection drawn after approval is recorded late, by the coalescing ROI
+        // observer, so the history check alone cannot see it).
+        Object expectedRoi = op.request.params().get("expectedRoi");
+        if (expectedRoi != null) {
+            Outcome refused = checkExpectedRoi(op.request, expectedRoi);
+            if (refused != null) return finish(op, refused, t0);
+        }
         Op.CURRENT.set(op);
         try {
             emitState(op, OperationState.VALIDATING, null);
@@ -457,6 +465,44 @@ public final class DefaultEngine implements Engine {
             Op.CURRENT.remove();
             WindowManager.setTempCurrentImage(null); // the worker never keeps an implicit current image between operations
         }
+    }
+
+    /** Null when the target document's live selection has the signature {@code expected}; otherwise the refusal. */
+    private Outcome checkExpectedRoi(ActionRequest r, Object expected) {
+        if (!(expected instanceof String want) || want.isBlank())
+            return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, "expectedRoi must be a selection signature or \""
+                    + RoiSignature.NONE + "\"", null, Map.of("key", "expectedRoi"), true, List.of()));
+        TargetScope t = r.target();
+        if (t == null || t.document() == null)
+            return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, "expectedRoi needs a target document", null,
+                    Map.of("key", "expectedRoi"), true, List.of()));
+        Doc d = registry.get(t.document());
+        String live = d == null ? null : liveRoiSignature(d);
+        if (want.equals(live)) return null;
+        Map<String, String> ctx = new java.util.LinkedHashMap<>();
+        ctx.put("document", t.document().value());
+        ctx.put("expectedRoi", want);
+        ctx.put("actualRoi", live == null ? "document closed" : live);
+        String what = d == null ? "the document was closed" : "the selection changed (" + want + " -> " + live + ")";
+        return Outcome.failed(new EngineError(ErrorCode.PRECONDITION_FAILED, what + " after this action was approved; nothing was run",
+                "STATE_CHANGED", ctx, true, List.of("review the action again")));
+    }
+
+    /** The {@link RoiSignature} of the document's live selection, read on the EDT after canvas events already queued. */
+    private static String liveRoiSignature(Doc d) {
+        return Edt.call(() -> {
+            Roi roi = d.imp.getRoi();
+            return RoiSignature.of(roi == null ? null : RoiCodec.toGeometry(roi));
+        });
+    }
+
+    /**
+     * The {@link RoiSignature} of a document's active selection right now ({@code none} without one), as the engine
+     * computes it for {@code expectedRoi}; empty when the document is not open (implementation-only).
+     */
+    public Optional<String> roiSignature(DocumentId id) {
+        Doc d = registry.get(id);
+        return d == null ? Optional.empty() : Optional.of(liveRoiSignature(d));
     }
 
     void emitState(Op op, OperationState s, EngineError err) {

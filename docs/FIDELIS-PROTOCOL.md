@@ -94,8 +94,12 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
   nothing after it ran). This is an additive, opt-in engine change (`DefaultEngine.runOp`, `Options.RESERVED`) for
   the engine owner's review; requests without the key are unaffected. Residual (documented, not fixed): the binding
   covers what reaches the history; a native selection edit on the canvas is recorded about 250 ms late by the engine's
-  observer, so an edit made in the last moment before a step can still be in effect when it runs. Closing that needs an
-  engine-level selection fingerprint checked on the worker (a contract addition for the engine owner). Threshold and display DIRECT operations apply an
+  observer, so an edit made in the last moment before a step can still be in effect when it runs. The engine now offers
+  the selection fingerprint for that (opt-in reserved key `expectedRoi`, engine branch `integration/engine-fixes`): the
+  `sc.fidelis.engine.RoiSignature` of the target document's active selection at approval (`none`, or
+  `TYPE:x,y,w,h:HASH`, computed as `RoiSignature.of(engine.activeRoi(doc).orElse(null))`), compared with the live
+  selection on the EDT when the worker starts the step; a difference refuses it with PRECONDITION_FAILED / `STATE_CHANGED`
+  and runs nothing (`EngineExpectedRoiTest`). The bridge does not send it yet. Threshold and display DIRECT operations apply an
   explicit TargetScope plane (`DirectOps`, opt-in) and the bridge pins them like COMMAND steps. COMMAND
   steps on a stack are pinned to the approved plane (TargetScope channel/slice/frame), so a plane change in the workspace
   cannot redirect them. The bridge's own reads of the live image (plane pixels, threshold levels, the inverted-LUT flag,
