@@ -59,6 +59,7 @@ public final class DefaultEngine implements Engine {
     private volatile EngineState state = EngineState.INITIALISING;
     private volatile DocumentId focused;
     private volatile boolean reconcileQueued;
+    private volatile Catalogue catalogue = Catalogue.empty();
 
     private DefaultEngine(ImageJ ij) {
         this.ij = ij;
@@ -106,7 +107,7 @@ public final class DefaultEngine implements Engine {
     }
 
     private void buildCatalogue() {
-        // filled in by the catalogue component
+        catalogue = Catalogue.buildFromRuntime();
     }
 
     private void setState(EngineState s, String reason) {
@@ -367,17 +368,17 @@ public final class DefaultEngine implements Engine {
 
     @Override
     public List<CommandSchema.Summary> catalogue() {
-        return List.of();
+        return catalogue.summaries();
     }
 
     @Override
     public Optional<CommandSchema> schema(String commandId) {
-        return Optional.empty();
+        return catalogue.find(commandId).map(e -> e.schema);
     }
 
     @Override
     public List<CommandSchema.Summary> search(String query, int limit) {
-        return List.of();
+        return catalogue.search(query, limit);
     }
 
     // ---- history and globals ----------------------------------------------------------------
