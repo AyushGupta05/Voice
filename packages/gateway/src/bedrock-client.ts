@@ -6,6 +6,8 @@ import { BEDROCK_MODEL, BEDROCK_REGION, observeAWSCredits, type AWSProof } from 
 import { sharedObservation, CreditBudget, type UsageReceipt } from './credit-budget.js';
 import { bedrockSigV4Only } from './aws-auth.js';
 import { reusableClient } from './aws-clients.js';
+import { tools as localTools } from './tools.js';
+const localToolNames = new Set(localTools.map(tool => tool.name));
 const runtimeClient = reusableClient(credentials => new BedrockRuntimeClient({ region: BEDROCK_REGION, credentials, maxAttempts: 1, ...bedrockSigV4Only(),
   endpoint: 'https://bedrock-runtime.us-east-1.amazonaws.com' }));
 
@@ -48,7 +50,8 @@ export function chatPayload(request: BackendRequest) {
   }
   flush();
   const functions = request.tools.map(tool => {
-    if (tool.type !== 'function' || typeof tool.name !== 'string' || !tool.name.startsWith('qupath_') || !tool.parameters) throw new Error('Only local QuPath function tools are allowed.');
+    // Only the active application's own local tools may reach the model, whichever application profile is loaded.
+    if (tool.type !== 'function' || typeof tool.name !== 'string' || !/^[a-z][a-z0-9]*_[a-z0-9_]+$/.test(tool.name) || !localToolNames.has(tool.name) || !tool.parameters) throw new Error('Only local application function tools are allowed.');
     return { type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.parameters, strict: false } };
   });
   const body = { model: BEDROCK_MODEL, messages, tools: functions, parallel_tool_calls: false,
