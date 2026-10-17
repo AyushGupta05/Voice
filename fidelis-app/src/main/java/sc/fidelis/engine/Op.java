@@ -17,6 +17,9 @@ final class Op {
     /** For commands nested under a CODE action: the CODE action id. */
     volatile String parentActionId;
 
+    /** Set by a tail CommandListener when ImageJ really started the command (no earlier listener vetoed it). */
+    volatile boolean commandRan;
+
     Op(String id, ActionRequest request) {
         this.id = id;
         this.request = request;

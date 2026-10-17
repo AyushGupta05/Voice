@@ -40,6 +40,7 @@ import sc.fidelis.engine.api.Enums.ErrorCode;
 import sc.fidelis.engine.api.Enums.OperationState;
 import sc.fidelis.engine.api.Enums.Provenance;
 import sc.fidelis.engine.api.HistoryRecord;
+import sc.fidelis.engine.api.HostCanvas;
 import sc.fidelis.engine.api.MeasurementRow;
 import sc.fidelis.engine.api.RoiGeometry;
 import sc.fidelis.engine.api.TargetScope;
@@ -154,8 +155,27 @@ public final class DefaultEngine implements Engine {
 
     @Override
     public void quit(boolean discardUnsaved) {
+        quit(discardUnsaved, worker::shutdown, () -> {
+            Thread t = new Thread(() -> Bootstrap.exit(ij, 0), "fidelis-quit");
+            t.start();
+        });
+    }
+
+    /**
+     * The contract of {@link Engine#quit}: with unsaved changes and {@code discardUnsaved} false, nothing is closed and
+     * the call returns (refused); otherwise every document is closed with {@code changes=false}, the workers stop and the
+     * JVM is terminated. The two final steps are parameters so the lifecycle can be tested without ending the test JVM.
+     *
+     * @return true when the quit went ahead
+     */
+    boolean quit(boolean discardUnsaved, Runnable stopWorkers, Runnable terminate) {
+        adoptBeforeNative(); // images IJ1 opened and the registry has not seen yet count as documents
         if (!discardUnsaved) {
-            for (Doc d : registry.all()) if (d.imp.changes) return;
+            for (Doc d : registry.all()) if (d.imp.changes) return false;
+            for (int id : idList()) {
+                ImagePlus imp = WindowManager.getImage(id);
+                if (imp != null && imp.changes && imp.getProperty(HostCanvas.TRANSIENT_PROPERTY) == null) return false;
+            }
         }
         setState(EngineState.QUITTING, "quit");
         for (Doc d : registry.all()) {
@@ -165,9 +185,30 @@ public final class DefaultEngine implements Engine {
                 // closing is best effort at shutdown
             }
         }
-        worker.shutdown();
-        Thread t = new Thread(() -> Bootstrap.exit(ij, 0), "fidelis-quit");
-        t.start();
+        for (int id : idList()) { // whatever IJ1 still holds that was never hosted
+            ImagePlus imp = WindowManager.getImage(id);
+            if (imp == null) continue;
+            imp.changes = false;
+            try {
+                Edt.run(imp::close);
+            } catch (RuntimeException ignored) {
+                // best effort
+            }
+        }
+        reconcile();
+        stopWorkers.run();
+        terminate.run();
+        return true;
+    }
+
+    private static int[] idList() {
+        int[] ids = WindowManager.getIDList();
+        return ids == null ? new int[0] : ids;
+    }
+
+    /** Test support: return to READY after a quit that did not terminate the JVM. */
+    void resumeAfterQuitForTest() {
+        setState(EngineState.READY, "resumed");
     }
 
     // ---- actions ----------------------------------------------------------------------------
@@ -246,6 +287,7 @@ public final class DefaultEngine implements Engine {
             Registry.Change ch = registry.reconcile();
             for (Doc d : ch.removed()) {
                 snapshots.releaseAll(d);
+                observers.forget(d.imp);
                 if (d.id.equals(focused)) focused = null;
             }
             return ch;

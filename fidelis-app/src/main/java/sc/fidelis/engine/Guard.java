@@ -152,6 +152,7 @@ final class Guard {
         } else if (w instanceof Frame f) {
             if (title.equals("ROI Manager")) hide(w);
             else if (!(w instanceof ImageWindow)) opened.add(title);
+            else if (w.getClass() != ImageWindow.class && w.getClass() != ij.gui.StackWindow.class) opened.add(title); // Plot, Histogram: visible legacy windows
         } else if (w instanceof Dialog d) {
             if (w instanceof MessageDialog || title.equals("Macro Error") || title.equals("No Image")) {
                 String text = textOf(d);

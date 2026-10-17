@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ij.CommandListener;
+import ij.Executer;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Roi;
@@ -214,6 +216,8 @@ final class CommandRunner {
         if (ex.report.failed() || ex.thrown != null) {
             String text = ex.report.failed() ? ex.report.errorText() : String.valueOf(ex.thrown);
             failure = new Failure(ErrorCode.EXECUTION_FAILED, label + " failed: " + text, ex.report.failed() ? null : "EXCEPTION");
+        } else if (!ex.cancelled && !op.commandRan) {
+            failure = new Failure(ErrorCode.POSTCONDITION_FAILED, label + " did not run: ImageJ never started the command", "NOT_RUN");
         } else if (!ex.cancelled) {
             failure = postcondition(en, family, typed, before, after, checkDoc, change, resultsBefore, resultsAfter,
                     roiCountBefore, roiCountAfter, outPath, ex.report);
@@ -248,11 +252,18 @@ final class CommandRunner {
         eng.setGuard(guard);
         Throwable thrown = null;
         boolean escaped = false;
+        // Added last so it is reached only if no earlier listener vetoed the command (Executer stops at the first null).
+        CommandListener tail = cmd -> {
+            op.commandRan = true;
+            return cmd;
+        };
+        Executer.addCommandListener(tail);
         try {
             IJ.run(imp, label, options);
         } catch (Throwable t) {
             thrown = t;
         } finally {
+            Executer.removeCommandListener(tail);
             escaped = IJ.escapePressed();
             IJ.resetEscape();
             IJ.setKeyUp(IJ.ALL_KEYS);
@@ -286,6 +297,8 @@ final class CommandRunner {
         if (ex.report.failed() || ex.thrown != null) {
             failure = new Failure(ErrorCode.EXECUTION_FAILED, en.label() + " failed: "
                     + (ex.report.failed() ? ex.report.errorText() : String.valueOf(ex.thrown)), null);
+        } else if (!ex.cancelled && !op.commandRan) {
+            failure = new Failure(ErrorCode.POSTCONDITION_FAILED, en.label() + " did not run: ImageJ never started the command", "NOT_RUN");
         }
         List<String> lines = List.of(Options.runLine(en.label(), null));
         return conclude(op, en, actionId, r.target(), doc, doc, Map.of(), lines, gBefore, gAfter, before, after, before, change,
@@ -349,8 +362,7 @@ final class CommandRunner {
         switch (family) {
             case "IN_PLACE_PIXELS" -> {
                 if (after == null) return new Failure(ErrorCode.POSTCONDITION_FAILED, label + ": the target image disappeared", null);
-                if (before.hash().equals(after.hash()) && !en.mayBeNoOp)
-                    return new Failure(ErrorCode.POSTCONDITION_FAILED, label + " left the pixels unchanged", null);
+                // unchanged pixels are a no-op, not a failure (see the Catalogue javadoc); conclude() notes it
             }
             case "SCALE_IN_PLACE" -> {
                 if (after == null || (before.hash().equals(after.hash()) && before.width() == after.width() && before.height() == after.height()))
@@ -480,8 +492,12 @@ final class CommandRunner {
             params.put("createdDocuments", ids);
         }
         List<String> macroLines = state == OperationState.COMPLETED || legacy ? lines : lines;
+        String note = error == null ? null : error.message();
+        if (state == OperationState.COMPLETED && "IN_PLACE_PIXELS".equals(en.family()) && before != null && after != null
+                && before.hash().equals(after.hash()))
+            note = "no-op: " + en.label() + " ran without error and left the pixels unchanged";
         HistoryRecord rec = History.record(actionId, r.origin(), prov, en.schema.commandId(), en.label(), params, ts, macroLines,
-                exact, gBefore, gDelta, state, error == null ? null : error.message());
+                exact, gBefore, gDelta, state, note);
         eng.history.add(rec);
         if (doc != null) eng.observers.noteRoi(doc);
 

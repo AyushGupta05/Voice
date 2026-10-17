@@ -44,7 +44,7 @@ final class Observers {
     });
     private final Map<ImagePlus, ScheduledFuture<?>> pendingRoi = new IdentityHashMap<>();
     private final Map<ImagePlus, ScheduledFuture<?>> pendingUpdate = new IdentityHashMap<>();
-    private final Map<ImagePlus, String> lastRoi = new IdentityHashMap<>();
+    private final Map<ImagePlus, String> lastRoi = java.util.Collections.synchronizedMap(new IdentityHashMap<>());
 
     Observers(DefaultEngine eng) {
         this.eng = eng;
@@ -199,6 +199,19 @@ final class Observers {
                         List.of(new DocumentChange(doc.id, false, false, true, false, false)), 0, Map.of(), List.of(), List.of(), List.of());
                 eng.events.emit(seq -> new EngineEvent.StateDigestEvent(seq, null, digest));
             }, COALESCE_MS, TimeUnit.MILLISECONDS));
+        }
+    }
+
+    /** Drop per-image state of a closed document (the maps are strong, identity-keyed and would pin the pixel data). */
+    void forget(ImagePlus imp) {
+        synchronized (pendingRoi) {
+            ScheduledFuture<?> f = pendingRoi.remove(imp);
+            if (f != null) f.cancel(false);
+            lastRoi.remove(imp);
+        }
+        synchronized (pendingUpdate) {
+            ScheduledFuture<?> f = pendingUpdate.remove(imp);
+            if (f != null) f.cancel(false);
         }
     }
 

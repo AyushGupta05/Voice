@@ -91,16 +91,25 @@ final class DirectOps {
                     eng.emitState(op, OperationState.RUNNING, null);
                     params.put("min", min);
                     params.put("max", max);
-                    if (imp instanceof CompositeImage) {
-                        int ch = r.params().get("channel") == null ? imp.getChannel() : (int) number(r, "channel");
-                        if (ch < 1 || ch > imp.getNChannels()) throw new Bad("channel out of range");
+                    if (r.params().get("channel") != null || imp instanceof CompositeImage) {
+                        if (!(imp instanceof CompositeImage)) throw new Bad("channel is only valid for composite images");
+                        int orig = imp.getChannel();
+                        int ch = r.params().get("channel") == null ? orig : (int) number(r, "channel");
+                        if (ch < 1 || ch > imp.getNChannels()) throw new Bad("channel out of range (1.." + imp.getNChannels() + ")");
                         params.put("channel", ch);
+                        // IJ1's channel slider and Brightness/Contrast set the range of the current channel only:
+                        // select it, set the range, restore the position (macro: Stack.setChannel then setMinAndMax).
                         imp.setC(ch);
+                        imp.setDisplayRange(min, max);
+                        if (ch != orig) imp.setC(orig);
                         lines.add("Stack.setChannel(" + ch + ");");
+                        lines.add("setMinAndMax(" + Options.formatNumber(min) + ", " + Options.formatNumber(max) + ");");
+                        if (ch != orig) lines.add("Stack.setChannel(" + orig + ");");
+                    } else {
+                        imp.setDisplayRange(min, max);
+                        lines.add("setMinAndMax(" + Options.formatNumber(min) + ", " + Options.formatNumber(max) + ");");
                     }
-                    imp.setDisplayRange(min, max);
                     imp.updateAndDraw();
-                    lines.add("setMinAndMax(" + Options.formatNumber(min) + ", " + Options.formatNumber(max) + ");");
                     displayChanged = true;
                 }
                 case Operations.SET_POSITION -> {
@@ -404,11 +413,17 @@ final class DirectOps {
             int w = (int) number(r, "width");
             int h = (int) number(r, "height");
             int n = pr.get("slices") == null ? 1 : (int) number(r, "slices");
-            if (w < 1 || h < 1 || n < 1) throw new Bad("width, height and slices must be at least 1");
+            int c = pr.get("channels") == null ? 1 : (int) number(r, "channels");
+            int t = pr.get("frames") == null ? 1 : (int) number(r, "frames");
+            if (w < 1 || h < 1 || n < 1 || c < 1 || t < 1) throw new Bad("width, height, channels, slices and frames must be at least 1");
+            if ((long) w * h * c * n * t > 400_000_000L) throw new Bad("the requested image is larger than 400 million pixels");
+            boolean hyper = c > 1 || t > 1;
             String actionId = eng.history.nextId();
             Map<String, String> gBefore = Globals.capture();
             eng.emitState(op, OperationState.RUNNING, null);
-            ImagePlus imp = IJ.createImage(title, type + " " + fill.toLowerCase(Locale.ROOT), w, h, n);
+            ImagePlus imp = hyper
+                    ? IJ.createImage(title, type + " " + fill.toLowerCase(Locale.ROOT), w, h, c, n, t)
+                    : IJ.createImage(title, type + " " + fill.toLowerCase(Locale.ROOT), w, h, n);
             if (imp == null) return Outcome.failed(ErrorCode.EXECUTION_FAILED, "ImageJ could not create the image");
             Doc d = eng.registry.register(imp, null);
             eng.focusDoc(d);
@@ -419,10 +434,14 @@ final class DirectOps {
             params.put("width", (long) w);
             params.put("height", (long) h);
             params.put("slices", (long) n);
+            if (hyper) {
+                params.put("channels", (long) c);
+                params.put("frames", (long) t);
+            }
             params.put("fill", fill);
             params.put("document", d.id.value());
             List<String> lines = List.of("newImage(\"" + Options.macroString(title) + "\", \"" + type + " " + fill.toLowerCase(Locale.ROOT)
-                    + "\", " + w + ", " + h + ", " + n + ");");
+                    + "\", " + w + ", " + h + ", " + (hyper ? c + ", " + n + ", " + t : String.valueOf(n)) + ");");
             HistoryRecord rec = History.record(actionId, r.origin(), Provenance.TYPED, Operations.NEW_IMAGE, "New Image", params, null,
                     lines, true, gBefore, Map.of(), OperationState.COMPLETED, null);
             eng.history.add(rec);
