@@ -57,16 +57,30 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 - Implemented: all 28 operations of the contract.
 - Protocol-tested (`python3 -I fidelis-app/tools/test.py --select-class …`, JUnit in a live Fiji JVM with the product
-  engine): `sc.fidelis.penny.FidelisBridgeTest` (9: token, Origin, approval, context binding, contextKey, plans and
-  workspace hooks, failures, macro confirmation, discarded plans, `confirm=always`, highlight geometry),
-  `PennyCatalogueTest` (4: every hard-coded catalogue id with its schema, recipe provenance, the value-aware `black` rule,
-  operation names), `FidelisBridgeJourneyTest` (4: the Blobs voice journey over HTTP; the exported macro replayed in plain
-  ImageJ gives the same 67 objects and 21886 px²; `undo {steps: undoSteps}` restores the original pixels; a second
-  Analyze Particles replaces the ROI list). The three classes together: 17 tests, 0 failed. With the NL, UI-confirmation and speech-to-execution classes in the same run:
-  297 tests, 0 failed (4 skipped: the Whisper interpreter is not installed on this Mac).
+  engine): `sc.fidelis.penny.FidelisBridgeTest` (10: token, Origin, approval, context binding, contextKey, plans and
+  workspace hooks, failures, legacy Sharpen and its refused undo, particle counts with display on/off, macro
+  confirmation, discarded plans, `confirm=always`, highlight geometry),
+  `PennyCatalogueTest` (5: every hard-coded catalogue id with its schema, recipe provenance, explicit `true` defaults,
+  the value-aware `black` rule, operation names), `FidelisBridgeJourneyTest` (6: the Blobs voice journey over HTTP; the
+  exported macro replayed in plain ImageJ gives the same 67 objects and 21886 px²; `undo {steps: undoSteps}` restores the
+  original pixels; segmenting again with Li replaces the Otsu segmentation and matches Li on a fresh copy, 68; per-ROI
+  measurements on a 3-slice stack use each ROI's plane, 62.0 and 162.0 as read from the pixels; a second Analyze Particles
+  replaces the ROI list). The three classes together: 21 tests, 0 failed. With the NL, UI-confirmation
+  and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
+  installed on this Mac). Full suite (`test.py`, all classes, before the last two bridge fixes): 412 tests, 6 failed, none
+  in or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
+  (`verification/reference_runner.py` looks only for Windows `.exe`/`.bat` launchers) and
+  `InteractiveJourneyTest` ×1 (Subtract Background's `separate` field); the last two run now that the FX fixtures are
+  cached.
 - Real-app-tested: the full workspace started with `run.py` and the bridge on a spare port, driven over HTTP the way the
   gateway does (context, then the approved change bound to it): open Blobs, `segment_cells` 67 objects (mean 326.657 px²,
   0.19 s), whole-image measure, `run_macro` waiting then confirmed, `undo`, history showing `NL_SPOKEN` steps with the
   task id. Smoke with and without `fidelis.penny=true` through `Bootstrap`.
+- Review: the repository's autoreview helper (Codex, branch diff against `integration/fidelis-penny`). The first run was
+  a reviewer failure (its one finding used an absolute path and was discarded; no review produced). The second reported
+  11 findings (3 P1: context check before plan construction, ImageJ statistics mutating the live processor's ROI, per-ROI
+  plane; 8 P2: atomic confirm, keeping the bridge busy until the engine ends, failure wording, highlight with `add:false`,
+  `true` defaults, `display auto` channel, `undoSteps` as an upper bound, `object_stats` units); all were checked against
+  the code, accepted and fixed with tests.
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.

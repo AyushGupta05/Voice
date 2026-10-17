@@ -56,7 +56,9 @@ final class Params {
                 Object d = defaultFor(p, doc);
                 if (d == null) continue;
                 out.put(k, d);
-                prov.put(k, p.type() == ParameterType.BOOLEAN && p.consequential() ? DERIVED : DEFAULT);
+                // an off-by-default flag is the macro-mode meaning of "absent" (DERIVED when consequential, as in
+                // DefaultNlService); any other default (a number, a choice, a true flag) is a bare catalogue DEFAULT
+                prov.put(k, Boolean.FALSE.equals(d) && p.consequential() ? DERIVED : DEFAULT);
             }
         }
         return new Filled(out, prov);
@@ -116,7 +118,9 @@ final class Params {
         String raw = p.defaultValue() == null ? "" : p.defaultValue().trim();
         switch (p.type()) {
             case BOOLEAN -> {
-                return offDefault(p) ? Boolean.FALSE : null;
+                if (offDefault(p)) return Boolean.FALSE;
+                // an explicit true default (not a remembered or dialog-dependent one, which stays unknown)
+                return raw.toLowerCase(Locale.ROOT).startsWith("true") ? Boolean.TRUE : null;
             }
             case NUMBER, INTEGER -> {
                 Matcher m = LEADING_NUMBER.matcher(raw);

@@ -163,6 +163,7 @@ class FidelisBridgeTest {
         assertEquals(409, r.status(), r.body().toString());
         assertTrue(r.error().contains("threshold"), r.error());
         assertEquals("PRECONDITION_FAILED", r.body().get("code").getAsString());
+        assertTrue(r.body().get("note").getAsString().contains("refused the failed step before running it"), r.body().toString());
         assertFalse(r.body().has("result"));
         assertEquals(before, engine.history().size(), "a precondition failure records nothing");
         BridgeHttp.Resp missing = http.change("command", args("commandId", "ij1:Process>Filters>Gaussian Blur...", "params", args("sigma", "abc")));
@@ -194,6 +195,19 @@ class FidelisBridgeTest {
         assertTrue(shown.get("count").getAsInt() > 0, shown.toString());
         assertEquals(shown.get("count").getAsInt(), quiet.get("count").getAsInt());
         assertEquals(engine.rois(id).size(), quiet.get("count").getAsInt());
+        // without add the ROI list is not this run's: the highlight shows the image, never older objects
+        JsonObject noAdd = http.change("analyze_particles", args("add", false, "size", "0-Infinity")).result();
+        assertEquals(shown.get("count").getAsInt(), noAdd.get("count").getAsInt());
+        assertFalse(noAdd.getAsJsonObject("highlight").get("flash").getAsBoolean(), noAdd.toString());
+        // display auto reads the plane's raw range
+        JsonObject disp = http.exec("display", args("auto", true), null, null).result();
+        ij.process.ImageProcessor ip = engine.imagePlus(id).getProcessor();
+        double lo = Double.MAX_VALUE, hi = -Double.MAX_VALUE;
+        for (int y = 0; y < ip.getHeight(); y++) for (int x = 0; x < ip.getWidth(); x++) { double v = ip.getf(x, y); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+        if (lo < hi) {
+            assertEquals(lo, disp.get("min").getAsDouble());
+            assertEquals(hi, disp.get("max").getAsDouble());
+        }
     }
 
     @Test

@@ -67,6 +67,31 @@ class PennyCatalogueTest {
     }
 
     @Test
+    void explicitTrueBooleanDefaultsAreFilledAndUnknownOnesAreLeftToTheEngine() {
+        Engine engine = ProductEngine.get();
+        boolean sawTrue = false;
+        for (CommandSchema.Summary sum : engine.catalogue()) {
+            CommandSchema s = engine.schema(sum.commandId()).orElse(null);
+            if (s == null || !s.schemaComplete()) continue;
+            Params.Filled f = Params.fill(s, Map.of(), Map.of(), null);
+            for (ParameterSchema p : s.parameters()) {
+                if (p.type() != sc.fidelis.engine.api.Enums.ParameterType.BOOLEAN || p.key().equals("black")) continue;
+                String d = p.defaultValue() == null ? "" : p.defaultValue().trim().toLowerCase(java.util.Locale.ROOT);
+                if (d.startsWith("true")) {
+                    sawTrue = true;
+                    assertEquals(Boolean.TRUE, f.params().get(p.key()), s.commandId() + " " + p.key());
+                    assertEquals("DEFAULT", f.provenance().get(p.key()));
+                } else if (Params.offDefault(p)) {
+                    assertEquals(Boolean.FALSE, f.params().get(p.key()), s.commandId() + " " + p.key());
+                } else {
+                    assertFalse(f.params().containsKey(p.key()), "unknown default left out: " + s.commandId() + " " + p.key() + " [" + p.defaultValue() + "]");
+                }
+            }
+        }
+        assertTrue(sawTrue, "the catalogue has explicit true defaults (Scale..., for example)");
+    }
+
+    @Test
     void blackEqualToTheCurrentGlobalIsNotAGlobalChangeButADifferentValueIs() {
         Engine engine = ProductEngine.get();
         boolean before = Prefs.blackBackground;

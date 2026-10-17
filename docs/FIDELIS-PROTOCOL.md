@@ -38,7 +38,8 @@ and the workspace voice surface (`sc.fidelis.penny.ui`).
   409 `{error, …}` for refusals and engine failures (below).
 - `spoken:true` → requests use `Origin.NL_SPOKEN`, else `Origin.NL_TYPED`. Every engine request carries
   `params.transcriptRef = taskId` (reserved key; the engine records it in `HistoryRecord.transcriptRef`); without a `taskId`
-  the plan id (`penny-plan-…`) is used, so Penny's steps are always traceable. Steps a confirmed macro runs are recorded by
+  the plan id (`penny-plan-…`) is used, so Penny's steps are always traceable. Exception: commands without a catalogued
+  schema go through the engine's legacy route, which refuses any params, so their step carries no `transcriptRef`. Steps a confirmed macro runs are recorded by
   the engine as `MACRO` children of the `NL_*` CODE step and carry the same `transcriptRef`.
 - Data, session and code operations (`open_path command segment_cells measure threshold analyze_particles filter convert
   duplicate undo redo run_macro confirm`) need `approved:true` and `expectedContext` equal to the current `contextKey`
@@ -64,8 +65,9 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
   without running anything. `confirm` (gateway "yes"/"go ahead" route) or the workspace's *Confirm and run* runs it.
 - `-Dfidelis.penny.confirm=always` makes every plan wait (the strict Fidelis behaviour); `context.confirmPolicy` reports it.
 - Slot provenance: keys the gateway gave are USER; values an operation's documented recipe sets (segment_cells' σ 1, Otsu,
-  the Analyze Particles reporting convention, filter defaults below) are DERIVED; catalogue defaults are DEFAULT, except an
-  off-by-default flag, which is DERIVED when consequential (as `DefaultNlService` does). `black` is never filled from a
+  the Analyze Particles reporting convention, filter defaults below) are DERIVED; catalogue defaults are DEFAULT (an
+  explicit `true` flag default included), except an off-by-default flag, which is DERIVED when consequential (as
+  `DefaultNlService` does); a remembered or dialog-dependent default is left out for the engine to judge. `black` is never filled from a
   default. So a `command` call that leaves a consequential number to its catalogue default is explicit.
 - `black` (value-aware rule, added for the bridge): Convert to Mask on a single image takes its polarity from the global
   BlackBackground preference. segment_cells passes `black` = the **current** global, so the polarity is stated explicitly in
@@ -74,17 +76,27 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
 - One plan waits at a time. It is discarded (card cleared with `clearPlan`) when another plan runs or replaces it, on
   `cancel_plan`, after 15 minutes, or when `confirm` finds the `contextKey` differs from the one it was planned against;
   a late `confirm` then answers 409 naming the plan and why. `confirm` needs `approved` + `expectedContext` like any change.
+- Admission: the context check, plan construction, the confirmation decision and the reservation of the plan thread are
+  serialised (one lock in `PennyOps`), and the `contextKey` is checked again after the plan is built, so a focus or
+  selection change in the workspace while a plan is prepared refuses it (409) instead of running it on another image.
+  While a plan runs, other data/code operations and the view plans (`select_roi`, `display`, `stack`) answer 409
+  `{running:true, planId}`; reads, `zoom`, `highlight`, `activate_image` and `cancel_plan` still work.
 - Running: plans run one at a time on the bridge's own thread (`fidelis-penny-plan`, never the EDT); each step is awaited
-  (up to 30 min, for an original Fiji dialog the user must answer) and the plan **stops at the first step the engine does
-  not report COMPLETED**. The HTTP request waits up to 115 s; after that it answers 409 `{error, planId, running:true}` and
-  the plan continues (later changes get 409 "still running" until it ends; `context.running` shows it).
+  until the engine reports a terminal state (no timeout: an original Fiji dialog waits for the user, and the bridge stays
+  busy until it is answered) and the plan **stops at the first step the engine does not report COMPLETED**. The HTTP request
+  waits up to 115 s; after that it answers 409 `{error, planId, running:true}` and the plan continues (`context.running`
+  shows it). On a stack, commands whose catalogue schema has no `stack` key (Invert, Smooth, Sharpen, Find Edges) make
+  ImageJ ask "Process all N images?" in Fidelis; the plan waits for that answer.
 - Completed result: `{status:"completed", planId, operation, confirmed?, …operation fields…, steps:[step], undoSteps,
   contextKey}`; `step` = `{actionId, label, commandId, outcome, durationMs, macroLines[]}` (`label` is the plan's label,
-  `commandId` the engine's command id or DIRECT operation); `undoSteps` = steps that changed pixels/type (what `undo
-  {steps}` would have to revert). Failure: 409 `{error, code, subcode, suggestions, state, planId, failedStep,
-  failedLabel, completedSteps[], step?, note}`; `error` is the engine's `EngineError.message`, prefixed with
-  "Step k of n (label) did not complete:" for multi-step plans. Nothing is reported as done unless the engine said
-  COMPLETED; earlier completed steps stay in History.
+  `commandId` the engine's command id or DIRECT operation); `undoSteps` = steps that changed pixels or type through a
+  catalogued command, i.e. the `undo {steps}` that would revert the plan. It is an upper bound: 0 for virtual stacks, and
+  the engine keeps no snapshot over its undo budget, in which case `undo` stops at the first step without one (409, the
+  steps undone so far stay undone and are listed). Failure: 409 `{error, code, subcode, suggestions, state, planId,
+  failedStep, failedLabel, completedSteps[], step?, note}`; `error` is the engine's `EngineError.message`, prefixed with
+  "Step k of n (label) did not complete:" for multi-step plans; `note` says what is known about the failed step (rolled
+  back by the engine, refused before running, or "may have changed the image, ROIs or results"). Nothing is reported as
+  done unless the engine said COMPLETED; earlier completed steps stay in History.
 - The workspace calls back through `sc.fidelis.penny.PennyPlans`: `confirm(planId)` → `CompletableFuture<Map>` (runs off the
   EDT, same checks as `confirm`, the plan keeps its NL origin and transcriptRef), `cancel(planId)`, `bridgeRunning()`.
 
@@ -103,18 +115,18 @@ image use the **focused** document (409 "No image is open/focused" otherwise).
 | `activate_image` | view | `id` (doc id or IJ1 id) or `imageId` or `title` | `Engine.focus` (not a history step) → `{document, contextKey}` |
 | `commands` | read | `query`, `limit?` (1–50, 10) | `Engine.search`, else a token scan of `catalogue()` → `{commands:[{commandId,label,menuPath,schemaComplete,consequence,parameters?:[{key,type,default,choices,consequential}]}]}` |
 | `command` | data | `commandId`, `params?` | one COMMAND step; missing keys from the schema (provenance above); a command without a catalogued schema takes no params and may open its original dialog → `{step, resultsRowsAdded, document? (new image), globalsChanged?, highlight}` |
-| `segment_cells` | data | `channel?`, `method?` (Otsu), `dark?` (default: not `dark` when the image shows an inverting LUT, else `dark`), `minSize?`, `maxSize?` (calibrated units unless `pixel:true`), `exclude?`, `watershed?` (true), `gaussian?` (true), `sigma?` (1) | on the focused document, no Duplicate: [SET_POSITION channel] → [8-bit if RGB/indexed colour] → Gaussian Blur σ → `SET_AUTO_THRESHOLD{method,dark}` → Convert to Mask (polarity = current BlackBackground, stated) → Fill Holes → [Watershed] → [Set Measurements area mean centroid bounding shape ∪ current, **only when Area is not recorded**] → Analyze Particles (size, circularity 0–1, show Nothing, display, clear, add; exclude/include false) → `{count, averageSize, totalArea, unit, rois, resultsRows, document, threshold:{method,dark}, watershed, highlight, steps, undoSteps}`. `count` = Results rows the engine attributed to the Analyze Particles action; the image becomes the mask |
-| `measure` | data | `measurements?:[…]` (area, mean, min/max, standard, modal, centroid, center, perimeter, bounding, fit, shape, feret, integrated, median, skewness, kurtosis, area_fraction, stack), `scope:roi\|all\|rois` (`manager` = `rois`) | Set Measurements (current ∪ requested) **only when a requested column is not recorded** (AC5 → explicit), then `roi`: Measure (the selection, or the whole image without one); `all`: [Select None] Measure [restore the selection]; `rois`: one Measure per ROI-list entry (≤ 1000) then the selection restored → `{rows, totalRows, columns, lastRow, summary:{area:{min,max,mean,count}, …}, unit, scope, highlight}` (summary keys lower-case without '.') |
+| `segment_cells` | data | `channel?`, `method?` (Otsu), `dark?` (default: not `dark` when the image shows an inverting LUT, else `dark`), `minSize?`, `maxSize?` (calibrated units unless `pixel:true`), `exclude?`, `watershed?` (true), `gaussian?` (true), `sigma?` (1), `replace?` (true) | on the focused document, no Duplicate: [UNDO × the previous segmentation's `undoSteps`, when this document still holds exactly the plane that segmentation left (SHA-256 of the plane) and `replace` is not false: "stricter/looser" re-segments the original, keeping its polarity and 8-bit choice] → [SET_POSITION channel] → [8-bit if RGB/indexed colour] → Gaussian Blur σ → `SET_AUTO_THRESHOLD{method,dark}` → Convert to Mask (polarity = current BlackBackground, stated) → Fill Holes → [Watershed] → [Set Measurements area mean centroid bounding shape ∪ current, **only when Area is not recorded**] → Analyze Particles (size, circularity 0–1, show Nothing, display, clear, add; exclude/include false) → `{count, countedFrom, averageSize, totalArea, unit, rois, resultsRows, document, threshold:{method,dark}, watershed, replacedPrevious, highlight, steps, undoSteps}`. `count` = Results rows the engine attributed to the Analyze Particles action; the image becomes the mask |
+| `measure` | data | `measurements?:[…]` (area, mean, min/max, standard, modal, centroid, center, perimeter, bounding, fit, shape, feret, integrated, median, skewness, kurtosis, area_fraction, stack), `scope:roi\|all\|rois` (`manager` = `rois`) | Set Measurements (current ∪ requested) **only when a requested column is not recorded** (AC5 → explicit), then `roi`: Measure (the selection, or the whole image without one); `all`: [Select None] Measure [restore the selection]; `rois`: one Measure per ROI-list entry (≤ 1000), each targeted at the plane the ROI was recorded on (its c/z/t; 0 = current), then the plane position and the selection restored → `{rows, totalRows, columns, lastRow, summary:{area:{min,max,mean,count}, …}, unit, scope, highlight}` (summary keys lower-case without '.') |
 | `threshold` | data | `method?` (Otsu), `dark?` (as segment_cells), or `lower` + `upper` | `SET_AUTO_THRESHOLD` or `SET_THRESHOLD` → `{lower, upper, method, dark?, highlight}` (levels read back from the image) |
-| `analyze_particles` | data | Analyze Particles schema keys (`size`, `circularity`, `show`, `display`, `exclude`, `clear`, `include`, `summarize`, `add`, …); aliases `minSize`, `maxSize`, `minCircularity`, `addToManager` | defaults show Nothing, display, clear, add → `{count, countedFrom, averageSize, totalArea, unit, rois, resultsRows, document, highlight}`; `count` is the Results rows of that action, or the ROI list when `display` is off and `add` on (a second run replaces the ROI list; verified) |
+| `analyze_particles` | data | Analyze Particles schema keys (`size`, `circularity`, `show`, `display`, `exclude`, `clear`, `include`, `summarize`, `add`, …); aliases `minSize`, `maxSize`, `minCircularity`, `addToManager` | defaults show Nothing, display, clear, add → `{count, countedFrom, averageSize, totalArea, unit, rois, resultsRows, document, highlight}`; `count` is the Results rows of that action, or the ROI list when `display` is off and `add` on; with `add:false` the highlight is the image (the ROI list then holds earlier objects); a second run replaces the ROI list (verified) |
 | `filter` | data | `name: gaussian\|median\|mean\|unsharp\|subtract_background\|enhance_contrast\|invert\|smooth\|sharpen\|find_edges`, `sigma?` (2), `radius?` (2; unsharp 1), `mask?` (0.6), `rolling?` (50), `light?`, `sliding?`, `saturated?` (0.35), `normalize?`, `equalize?`, `stack?` | the catalogue command (sharpen and find_edges have no catalogued options: they run at once through the engine's legacy route, which refuses any params, so their history step carries no `transcriptRef`, and keeps no undo snapshot, so `undo` answers 409 "nothing to undo" and `undoSteps` does not count them) → `{step, highlight}` |
 | `convert` | data | `to: 8-bit\|16-bit\|32-bit\|RGB` | `ij1:Image>Type>…` → `{step, document}` |
 | `duplicate` | data | `title?` | `ij1:Image>Duplicate...` (whole stack for stacks) → `{document, step, highlight}` |
 | `select_roi` | view | `type: rectangle\|oval\|polygon\|none`, `x,y,width,height` or `points:[[x,y],…]` (image px), `name?` | `SET_ROI`/`CLEAR_ROI` → `{roi, highlight}` |
 | `rois` | read | `limit?` (100), `offset?` | `Engine.rois(focused)` → `{document, total, rois:[{index,name,type,bounds}]}` |
 | `results` | read | `limit?` (50, ≤ 500), `offset?` | `Engine.results()` → `{columns, rows:[{row, Label?, <column>: value}], total, offset}` (non-finite values as "NaN") |
-| `object_stats` | read | | from the rows of the latest completed Analyze Particles (else all rows) → `{n, unit, source, area:{mean,median,min,max,count}, mean?, circularity?, perimeter?, integratedDensity?}` |
-| `display` | view | `min?`, `max?`, `auto?` (from the image's raw min/max), `channel?` | `SET_DISPLAY_RANGE` → `{min, max, step}` |
+| `object_stats` | read | | from the rows of the latest completed Analyze Particles (else all rows) → `{n, unit, source, area:{mean,median,min,max,count}, mean?, circularity?, perimeter?, integratedDensity?}`; `unit` is the source document's (null with `unitNote` when the rows come from several or closed documents) |
+| `display` | view | `min?`, `max?`, `auto?` (raw min/max of the requested channel's current plane, read from the pixel array, never through ImageJ statistics on the live processor), `channel?` | `SET_DISPLAY_RANGE` → `{min, max, step}` |
 | `stack` | view | `slice?`, `channel?`, `frame?` | `SET_POSITION` → `{position, step}` |
 | `zoom` | view | `direction: in\|out`, `fit?`, `selection?` | `PennyUi.zoom(doc, "in"\|"out"\|"fit"\|"selection")` (not a history step) → `{zoom, document, viewer, highlight}` |
 | `highlight` | view | `rois: all\|indices\|active`, `indices?`, `label?`, `limit?` (120) | `PennyUi.flash` + payload → `{highlight, total}`; 409 when there is nothing to show |
@@ -127,7 +139,8 @@ image use the **focused** document (409 "No image is open/focused" otherwise).
 
 Verified numbers (17 Oct 2026, macOS arm64, pinned Fiji 1.54p, FX-003 Blobs 256×254, uncalibrated): `segment_cells` with
 defaults finds **67** objects, mean area **326.657 px²**, total 21886 px² (Gaussian σ1, Otsu not-dark because Blobs has an
-inverting LUT, Watershed); measuring every ROI-list entry reproduces the mean area exactly; the macro Fidelis exports from
+inverting LUT, Watershed); `method:"Li"` afterwards replaces it and finds **68** (mean 353.941 px²), the same as Li on a
+fresh copy; measuring every ROI-list entry reproduces the mean area exactly; the macro Fidelis exports from
 that voice session, replayed in plain ImageJ in the same JVM, gives 67 rows and 21886 px²; `minSize:20` gives 65. These are
 not comparable with the J-12 baseline's 71 (a different pipeline: Subtract Background 50, σ2, Otsu dark, size ≥ 20).
 

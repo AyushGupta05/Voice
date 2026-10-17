@@ -213,6 +213,83 @@ class FidelisBridgeJourneyTest {
         assertTrue(more.error().contains("nothing to undo"), more.error());
     }
 
+    /**
+     * "Stricter / looser": segmenting the same image again replaces the previous segmentation (it is undone first), so
+     * the new method sees the original pixels; a fresh copy segmented once with the same method gives the same count.
+     */
+    @Test
+    void segmentingAgainReplacesThePreviousSegmentation() throws Exception {
+        Path blobs = Fixtures.require("FX-003", "blobs.gif");
+        DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
+                .getAsJsonObject("document").get("id").getAsString());
+        String original = PixelHash.sha256(engine.imagePlus(doc));
+        JsonObject otsu = http.change("segment_cells", args()).result();
+        assertTrue(!otsu.get("replacedPrevious").getAsBoolean());
+        JsonObject li = http.change("segment_cells", args("method", "Li")).result();
+        assertTrue(li.get("replacedPrevious").getAsBoolean(), li.toString());
+        int undone = 0;
+        for (JsonElement e : li.getAsJsonArray("steps")) if (e.getAsJsonObject().get("label").getAsString().startsWith("Undo the previous segmentation")) undone++;
+        assertEquals(otsu.get("undoSteps").getAsInt(), undone);
+        assertEquals(li.get("count").getAsInt(), engine.rois(doc).size());
+        // independent: a fresh copy segmented once with Li
+        DocumentId fresh = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
+                .getAsJsonObject("document").get("id").getAsString());
+        JsonObject liFresh = http.change("segment_cells", args("method", "Li")).result();
+        assertTrue(!liFresh.get("replacedPrevious").getAsBoolean(), "another document is never replaced");
+        System.out.println("[penny-journey] Otsu " + otsu.get("count") + ", Li after replace " + li.get("count") + ", Li on a fresh copy "
+                + liFresh.get("count") + " (mean " + liFresh.get("averageSize") + ")");
+        assertEquals(liFresh.get("count").getAsInt(), li.get("count").getAsInt());
+        assertEquals(liFresh.get("totalArea").getAsDouble(), li.get("totalArea").getAsDouble(), 1e-9);
+        // and the replacement chain still reverts to the original pixels
+        engine.focus(doc);
+        http.change("undo", args("steps", li.get("undoSteps").getAsInt())).result();
+        assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
+        assertTrue(engine.documents().stream().anyMatch(x -> x.id().equals(fresh)));
+    }
+
+    /** Each ROI-list entry is measured on the plane it was recorded on, and the viewer goes back to where it was. */
+    @Test
+    void roiListMeasurementsUseEachRoisPlane() throws Exception {
+        sc.fidelis.engine.api.ActionResult made = engine.submit(sc.fidelis.engine.api.ActionRequest.session(Origin.PANEL,
+                sc.fidelis.engine.api.ActionRequest.Operations.NEW_IMAGE,
+                java.util.Map.of("title", "planes", "type", "8-bit", "width", 64, "height", 64, "slices", 3, "fill", "Ramp"), null))
+                .get(60, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(made.succeeded(), String.valueOf(made.error()));
+        DocumentId doc = made.digest().added().get(0);
+        http.change("stack", args("slice", 2)).result();
+        // only slice 2 (Add has a stack key, false by default; Invert has none and would ask "Process all 3 images?")
+        http.change("command", args("commandId", "ij1:Process>Math>Add...", "params", args("value", 100))).result();
+        for (int z = 1; z <= 2; z++) {
+            sc.fidelis.engine.api.RoiGeometry g = new sc.fidelis.engine.api.RoiGeometry("RECTANGLE", List.of(0f, 32f), List.of(0f, 64f),
+                    new double[] {0, 0, 32, 64}, null, new int[] {0, z, 0}, null);
+            assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.SET_ROI,
+                    java.util.Map.of("roi", g), sc.fidelis.engine.api.TargetScope.of(doc))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+            assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.ROI_LIST_ADD,
+                    java.util.Map.of(), sc.fidelis.engine.api.TargetScope.of(doc))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        }
+        http.exec("select_roi", args("type", "none"), null, null).result();
+        http.change("stack", args("slice", 3)).result();
+        JsonObject m = http.change("measure", args("scope", "rois", "measurements", List.of("mean"))).result();
+        assertEquals(2, m.get("rows").getAsInt(), m.toString());
+        List<Double> means = new ArrayList<>();
+        int n = engine.results().size();
+        for (MeasurementRow r : engine.results().subList(n - 2, n)) means.add(r.values().get("Mean"));
+        // independent expectation: the mean of the left half of each slice, read from the stack's pixels
+        double[] want = new double[2];
+        for (int z = 1; z <= 2; z++) {
+            ij.process.ImageProcessor ip = engine.imagePlus(doc).getStack().getProcessor(z);
+            double sum = 0;
+            for (int y = 0; y < 64; y++) for (int x = 0; x < 32; x++) sum += ip.getf(x, y);
+            want[z - 1] = sum / (32 * 64);
+        }
+        System.out.println("[penny-journey] ROI on slice 1 mean " + means.get(0) + " (pixels " + want[0] + "), ROI on slice 2 (+100) mean "
+                + means.get(1) + " (pixels " + want[1] + ")");
+        assertEquals(want[0], means.get(0), 1e-9);
+        assertEquals(want[1], means.get(1), 1e-9);
+        assertNotEquals(means.get(0), means.get(1));
+        assertEquals(3, engine.imagePlus(doc).getZ(), "the viewer is back on slice 3");
+    }
+
     @Test
     void analyzeParticlesAgainReplacesOrExtendsTheRoiListHonestly() throws Exception {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");

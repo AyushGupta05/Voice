@@ -22,7 +22,7 @@ public final class PennyPlans {
     /** Discard the plan waiting for confirmation (no-op when it is not the pending one). */
     public static void cancel(String planId) {
         FidelisBridge b = FidelisBridge.current();
-        if (b != null) b.ops().cancel(planId);
+        if (b != null) b.ops().cancelFromUi(planId);
     }
 
     /** True while a Penny bridge is serving in this JVM. */

@@ -336,11 +336,9 @@ public final class FidelisBridge {
             if (expected == null || expected.isBlank())
                 throw new PennyOps.Failure(409, "An approved operation must be bound to application context (expectedContext).");
         }
-        if (expected != null && !PennyOps.READ.contains(op) && !expected.equals(ops.contextKey()))
-            throw new PennyOps.Failure(409, "Fidelis image, selection, results or history changed. Review the action again.",
-                    Map.of("contextKey", ops.contextKey()));
+        // the context binding is checked by PennyOps under its admission lock, and again just before the plan runs
         PennyOps.Call call = new PennyOps.Call(op, args, PennyJson.bool(req, "spoken", false), PennyJson.str(req, "taskId", null),
-                PennyJson.str(req, "utterance", null));
+                PennyJson.str(req, "utterance", null), PennyOps.READ.contains(op) || expected == null || expected.isBlank() ? null : expected);
         Map<String, Object> out = ops.execute(call);
         return out == null ? Map.of() : out;
     }
