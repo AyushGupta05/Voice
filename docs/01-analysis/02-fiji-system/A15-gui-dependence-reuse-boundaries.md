@@ -106,7 +106,7 @@ Classes: **I** = GUI-independent; **C** = conditionally independent (works witho
 | Image display registry (`ImagePlus.show`, `WindowManager`) | C | M1: batch list only (`getWindow()==null`, current image via temp/batch list). M2: windows created and shown unless batch mode or explicitly hidden; hidden windows stay registered and current (P42 C3) | P41 E1–E4; P42 C1–C3, D1; §4.3–4.4 |
 | Active image per thread | C | `WindowManager.setTempCurrentImage` is per thread. `IJ.run(imp, …)` sets it. A macro run on the same thread can change it (P41: after `IJ.runMacro` the active display was the macro's image "m", I3) | `ij/WindowManager.java#L69-L97`; P41 I3, I6 |
 | ROI objects (`Roi`, `Overlay`) | I | Pure data; overlays persist in TIFF | P41 G5; P43 O1 |
-| ROI Manager (`ij.plugin.frame.RoiManager`) | C (M2/M3) / B (M1) | `extends PlugInFrame` (`Frame`). M1: `HeadlessException`; macro `roiManager` aborts. M2: `new RoiManager(false)` is hidden and fully usable (`addRoi`, `getCount`), but not registered as the singleton (`getInstance()` = null); `new RoiManager()` is visible; batch-mode macro manager works | P41 G1–G4; P46 a1; P42 F1–F3; `RoiManager.java#L87-L112` |
+| ROI Manager (`ij.plugin.frame.RoiManager`) | C (M2/M3) / B (M1) | `extends PlugInFrame` (`Frame`). M1: `HeadlessException`; macro `roiManager` aborts. M2: `new RoiManager(false)` is hidden and fully usable (`addRoi`, `getCount`), but not registered as the singleton (`getInstance()` = null). The boolean argument is ignored, so `RoiManager(true)` is equivalent (`RoiManager.java#L105-L112`; lead note, Phase 8); `new RoiManager()` is visible; batch-mode macro manager works | P41 G1–G4; P46 a1; P42 F1–F3; `RoiManager.java#L87-L112` |
 | Results data (system `ResultsTable`) | I | Static `Analyzer.systemRT`; `Measure` works headless | P41 F1; P42 C4 |
 | Results display (`TextWindow`, named tables) | C / B | M1: `show()` is a no-op, named tables cannot be found (`getResultsTable(title)` looks up a `Frame`). M2: `show("Results")` opens a **visible** `TextWindow` | P41 F2–F4; P42 G1; `ResultsTable.java#L103-L120` |
 | Recorder (`ij.plugin.frame.Recorder`) | C (M2/M3) / B (M1) | `extends PlugInFrame`. M1: `HeadlessException`, `IJ.recording()` false. M2: `new Recorder(false)` hidden, `getText()` readable; `IJ.run` from non-macro code was **not** recorded until `Recorder.recordInMacros = true`, after which `run("Invert");` appeared | P41 H1–H3; P42 H1; `Recorder.java#L49-L57` |
@@ -123,7 +123,7 @@ Classes: **I** = GUI-independent; **C** = conditionally independent (works witho
 | IO: IJ1 readers/writers, Bio-Formats reader, SCIFIO | I | — | P43 |
 | IO: Bio-Formats Exporter | C (M2/M3) | Fails in M1 (P46 b1), works in M2 (P47 S2) | P46, P47 |
 | IO: file choosers (`OpenDialog`, `SaveDialog`, `JFileChooser`) | B | Need a display. Avoid by always passing paths | `LegacyUI.chooseFile` uses `threadService.invoke` with IJ1 dialogs (`legacy/ui/LegacyUI.java#L270-L311`) |
-| Status / progress / log | I | Patched `IJ.showStatus/showProgress/log` forward to hooks (`LegacyInjector.java#L177-L198`) | source |
+| Status / progress / log | I | Patched `IJ.showStatus/showProgress/log` forward to `IJ._hooks` (`LegacyInjector.java#L177-L198`). Only `log` is forwarded on to SciJava by `DefaultLegacyHooks`; progress and status need a chained hook (A20; lead correction, Phase 8). | source |
 | Updater auto-check | C | Runs on the first `UIShownEvent` of a non-headless UI (P49 log) | `DefaultUpdateService.java#L113-L125` |
 
 ## 6. Threading
@@ -173,7 +173,7 @@ Question: can a persistent non-headless JVM run Fiji with its windows hidden or 
 | Display state (LUT, display range, slice/channel position) | `ImagePlus`/`CompositeImage` setters | M1–M3 | INFERRED (API; not probed) |
 | Recording equivalent | `Executer.addCommandListener` plus macro-option capture by the adapter; or hidden `Recorder(false)` with `recordInMacros` (M2/M3) | — | P42 H1; source |
 | Pixels for display in a non-Java viewer | `ImagePlus.getProcessor().getPixels()` / ImgLib2 views ([A07](A07-fiji-imagej-architecture.md) §5.5) | M1–M3 | P41 I1–I2 |
-| Status / progress / log | SciJava `StatusService`/`LogService` events | M1–M3 | source |
+| Status / progress / log | Log: SciJava `LogService`. Progress and status: a chained `LegacyHooks` (validation V-06; A20) | M1–M3 | source |
 
 ### 8.2 Must remain native Swing/AWT (legacy-window fallback)
 
@@ -304,3 +304,4 @@ Legend: ✔ works (VERIFIED by the cited probe); ✔* works under the stated con
 ## Change log
 
 - 2026-10-17: Initial draft (agent G3).
+- 2026-10-17: Lead annotation (Phase 8). Progress and status forwarding corrected per A20.

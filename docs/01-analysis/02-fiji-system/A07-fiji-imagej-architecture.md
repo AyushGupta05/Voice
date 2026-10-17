@@ -185,7 +185,7 @@ Edges are from `imagej2@imagej-2.18.0:pom.xml` (dependencies at L302–L438) and
 | Target | Patch | Line | Why it matters |
 |---|---|---|---|
 | `ij.IJ.runPlugIn` | `_hooks.interceptRunPlugIn(className,arg)` first; can redirect to SciJava modules (`DefaultLegacyHooks.interceptRunPlugIn` → `runLegacyCompatibleCommand`) | L186–L193 | IJ2 commands appear in IJ1 menus and macros |
-| `IJ.showProgress/showStatus/log` | Forwarded to hooks → `StatusService`/`LogService` | L177–L198 | A new UI can receive status, progress and log through SciJava events |
+| `IJ.showProgress/showStatus/log` | Forwarded to `IJ._hooks`. **Correction (lead, Phase 8):** imagej-legacy's `DefaultLegacyHooks` overrides only `log`, so IJ1 progress and status are **not** forwarded to `StatusService` by default (A20; A26 §14-C2). | L177–L198 | Log arrives through SciJava. Progress and status need a chained hook (NFR-REL-004, V-06). |
 | `ImagePlus.updateAndDraw/repaintWindow/show/hide/close` | `registerImage`/`unregisterImage` hooks | L212–L226 | Seam for synchronisation (off by default) |
 | `ImageWindow.setVisible/show` | Only call `super` if `_hooks.isLegacyMode()` | L229–L240 | **Can suppress image windows**, but only when no `ij.ImageJ` frame exists (§5.7) |
 | `RoiManager.show/setVisible` | Same `isLegacyMode()` guard | L300–L306 | Same |
@@ -301,7 +301,7 @@ Exceptions and the full matrix are in [A15](A15-gui-dependence-reuse-boundaries.
 2. **CR-A07-02**: Any JVM-resident component shall create the SciJava `Context` (or call `LegacyInjector.preinit()`) before loading any `ij.*` class, and shall have a start-up test that fails if `LegacyService.isActive()` is false. *Rationale:* patch-order failure (P42 attempt 1).
 3. **CR-A07-03**: The UI shall provide its own input-harvester preprocessor and widget set for SciJava modules, or shall resolve all inputs before calling `ModuleService.run`. *Rationale:* harvesters run only for the visible UI they belong to (§7.2).
 4. **CR-A07-04**: The design shall not rely on proactive IJ1↔IJ2 synchronisation (`imagej.legacy.sync`). It shall treat the active `ImagePlus` as the source of truth and request `Dataset` views on demand. *Rationale:* sync is off by default and documented as unstable (§5.5).
-5. **CR-A07-05**: The application shall subscribe to SciJava `StatusEvent`/log/progress (fed by patched `IJ.showStatus/showProgress/log`) to present IJ1 status and progress. *Rationale:* existing seam (§5.6).
+5. **CR-A07-05**: The application shall subscribe to SciJava `StatusEvent`/log/progress (fed by patched `IJ.showStatus/showProgress/log`) to present IJ1 status and progress. *Rationale:* existing seam (§5.6). *(Superseded by CR-A20-03 / NFR-REL-004: progress and status are not forwarded by default; see A26 §14-C2.)*
 6. **CR-A07-06**: The JVM host shall terminate deterministically, through an explicit shutdown that disposes the context and then halts with a timeout. *Rationale:* observed exit hangs (§8).
 
 ## Risks
@@ -325,3 +325,4 @@ Exceptions and the full matrix are in [A15](A15-gui-dependence-reuse-boundaries.
 ## Change log
 
 - 2026-10-17: Initial draft (agent G3).
+- 2026-10-17: Lead annotation (Phase 8). Progress and status forwarding corrected per A20 source inspection.

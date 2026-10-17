@@ -55,6 +55,7 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 |---|---|---|---|---|---|
 | NFR-A11Y-001 | All product-rendered controls (tools, menus, tables, plots, parameter panels, history) shall be keyboard-operable and shall expose accessible names, roles and values to assistive technology through Java Accessibility. | Legacy canvases expose nothing (A04, A05) | PARITY | T: an automated accessible-tree inspection lists names and roles for every control. D: manual check with Windows Narrator. | CR-A04-15, CR-A05-07 |
 | NFR-A11Y-002 | Product-rendered surfaces shall meet WCAG 2.1 AA contrast and keyboard criteria (PROPOSED as the target standard), and shall scale consistently with the OS display scale. | UP-13/14; HiDPI | PARITY | T: contrast checks on the theme tokens. D: rendering checked at 100/150/200 % (NFR-PLAT-002). | CR-A05-07 |
+| NFR-A11Y-003 | The image canvas shall expose to assistive technology the document identity, the current C/Z/T position, the pixel read-out under the keyboard cursor, and the active ROI summary. A keyboard-driven cursor shall be provided for pixel inspection. | The canvas is otherwise opaque to assistive technology (D14 gap) | PARITY | T: accessible-tree inspection while the keyboard cursor moves. D: Narrator check. | D13/D14 (design gap) |
 
 ## Privacy (PRIV)
 

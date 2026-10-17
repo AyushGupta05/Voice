@@ -209,6 +209,21 @@ Several FRs depend on the proposed architecture (DEC-010, A21): a persistent non
 | FR-WS-004 | Output folders shall have a documented retention policy and a user-invoked deletion function. | Data hygiene | PARITY | T: the deletion function removes only product outputs. | CR-A25-09 | — |
 | FR-WS-005 | The system shall store API keys for hosted providers in the OS credential store and never log them. | Secret handling | LONG (only with hosted LLM) | T: no key appears in logs or files after a scripted session. | CR-A25-12 | DEC-007 |
 
+### 13a. Requirements added during design (from D11–D15 gap analysis; PROPOSED, awaiting approval)
+
+These were raised by the UX design (G9, D11–D15) as design elements that no analysis CR covered. They are added so that every design element traces to a requirement (brief Part 8, Phase 8). Their source is the design document named, not an analysis CR.
+
+| ID | Requirement | Rationale | Pri | Acceptance criteria | Sources | Deps |
+|---|---|---|---|---|---|---|
+| FR-WS-006 | The workspace layout (dock regions, panel visibility, document splits) shall persist per user between sessions, and shall be resettable to the default. | Expert efficiency; predictable workspace | HACK | T: a layout change survives a restart; Reset restores the default. | D12 (gap) | FR-WS-001 |
+| FR-WS-007 | The workspace shall provide a Log panel showing IJ1 and SciJava log lines, with sanitised paths (NFR-PRIV-002). | Fiji's Log window is a primary diagnostic surface (A04); legacy Log hidden in M2 | MVP | T: `IJ.log` output from a command appears in the panel. | D12 UI-20, PAR-035 | FR-SYS-003 |
+| FR-VIEW-007 | The viewer shall offer a live comparison mode between two real states: a snapshot or source document versus the current document, side by side or as a swipe. Difference images are produced only through the original `Image Calculator...` command. | Visible effect of real processing (brief §1.4) without fake before/after images | HACK | T: comparison shows the actual snapshot pixels; no synthetic image is produced outside catalogue commands. | D15 (gap) | FR-HIST-004 |
+| FR-VIEW-008 | The viewer shall offer optional linked navigation (zoom, pan, C/Z/T) across selected documents. | Multi-image workflows (A03) | PARITY | T: linked documents follow navigation. Unlinked ones do not. | D12/D13 (gap) | FR-VIEW-004 |
+| FR-PLUG-004 | While a C5 plugin holds a document in a visible Fiji image window, the workspace shall mark that document as externally controlled and read-only, and shall release it when the plugin window closes. | Prevents concurrent edits to one `ImagePlus` | HACK | T: workspace edits to a held document are refused with an explanation; the hold is released on close. | D10, D12 (gap) | FR-PLUG-001 |
+| FR-CMD-008 | Product-specific shortcuts shall not shadow any ImageJ/Fiji shortcut. A start-up check shall report conflicts with installed macro or menu shortcuts. | Familiarity (FR-CMD-007) | HACK | T: the conflict check against the runtime shortcut table reports none for the product set; an injected conflict is reported. | D11 DP-D11-02 (gap) | FR-CMD-007 |
+| FR-CMD-009 | Command search shall offer recently used and user-pinned commands, without changing the Fiji menu hierarchy. | Discoverability (UP list in A05) with additive organisation only | PARITY | T: recent commands appear; pinning persists; the menus are unchanged. | D12 (gap) | FR-CMD-006 |
+| FR-MEAS-006 | Copying Results to the clipboard shall copy full-precision values, with column headers. | Precision (FR-MEAS-003) | HACK | T: clipboard text equals the API doubles. | D14 (gap) | FR-MEAS-003 |
+
 ## 14. Conflicts resolved during consolidation
 
 | # | Conflict | Resolution | Basis |

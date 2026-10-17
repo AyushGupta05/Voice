@@ -1,49 +1,38 @@
 # Work Progress — Stage 00–02 (recovery checkpoint)
 
-Read this file together with `INDEX.md` and `DECISIONS.md` before resuming work. Plan of record: `C:\Users\arnav\.claude\plans\splendid-plotting-dijkstra.md`, with the phase summary below.
+Read this file together with `INDEX.md` and `DECISIONS.md` before resuming work. The plan of record is at `C:\Users\arnav\.claude\plans\splendid-plotting-dijkstra.md`.
 
 ## Current state
 
 - **Branch:** `docs/analysis-design`. Commit `08a1433` is the prototype snapshot (DEC-002). Nothing has been pushed.
-- **Current phase:** Phase 1–3 (analysis drafting).
-- **Last checkpoint:** Phase 0 complete (2026-10-17).
+- **Current phase:** Phase 7, engineering design. D11–D15 (agent G9) and D16–D19 (agent G10) are in progress. D01–D10 and ADR-001…011 are done.
+- **Last checkpoint:** commit `095ba94` (2026-10-17).
 
 ## Phase checklist
 
 | Phase | Status | Notes |
 |---|---|---|
-| 0 Context ingestion, scaffold, audit | Done | Stray `IJ_Props.txt` removed from the Fiji root; pin re-verified. Tests re-run (23 passed). F01–F04, A01, glossary, decision register and upstream manifest written. |
-| 1–3 Upstream, interaction and feasibility analysis | In progress | Research agents G1–G7 are drafting A02–A17, A24, A25 and A29. The lead writes A18–A23 and A30 after them. |
-| 4 Requirements baseline (A26–A28, A31, A32) | Not started | |
-| 5 Architecture design (D01–D10, ADRs) | Not started | |
-| 6 UX design (D11–D15) | Not started | |
-| 7 Engineering design (D16–D20) | Not started | |
-| 8 Internal quality review | Not started | Checker script plus a reviewer agent |
+| 0 Context, scaffold, audit | Done | F01–F04, glossary, decision register, upstream manifest; tests re-run (23 passed) |
+| 1–3 Analysis A01–A25, A29–A30 | Done | Agents G1–G8 plus the lead. 49 probe IDs. 17 screenshots. |
+| 4 Requirements baseline A26–A28, A31, A32 | Done | 108 FR, 43 NFR, 52 parity rows, 133 risks. Analysis baselined (not approved). |
+| 5 Architecture design D01–D10 and ADRs | Done | DEC-010…012, DEC-020…028 proposed |
+| 6 UX design D11–D15 | In progress (G9) | |
+| 7 Engineering design D16–D19, D20 | In progress (G10); D20 pending | D20 and `traceability.csv` follow once G9/G10 finish |
+| 8 Internal quality review | Partly done | `docs/tools/check_docs.py` reports 0 errors (before D11–D20). A reviewer agent is still to run. |
 | 9 Handoff report | Not started | |
 
-## Research sources inspected
+## Open validation items (from design)
 
-- Repository (all source, docs, tests and locks): F02.
-- The pinned Fiji install (jar listing, `IJ_Props.txt`, `javap` of listener APIs).
-- The upstream cache: 18 shallow clones (see `data/upstream-manifest.yaml`).
+V-01…V-08 are listed in D04 §10 and D07 §4. V-08 is closed by source inspection. V-09 (audio capture rate) is in D08 §1.
 
-## Agent assignments (Phase 1–3)
+## Outstanding owner decisions
 
-| Agent | Documents | Probe IDs |
-|---|---|---|
-| G1 | A08, `data/commands.csv`, `data/commands-core-parameters.csv` | P10–P29 |
-| G2 | A09, A10, A11, A12 | P30–P39 |
-| G3 | A07, A13, A14, A15 | P40–P49 |
-| G4 | A04 + screenshots | P50–P59 |
-| G5 | A16, A17 | P60–P69 |
-| G6 | A02, A03, A05, A06 | — |
-| G7 | A24, A25, A29, `data/datasets.csv` | P70–P79 |
-| (planned) G8 | GUI-mode feasibility probes: listeners, Recorder capture of programmatic runs, hidden-window behaviour | P80–P89 (after G4) |
-
-## Outstanding questions
-
-- Product name (DEC-001) and code licence (DEC-005): owner decisions.
+DEC-001 (name), DEC-005 (licence and distribution), DEC-006 (documentation layout), DEC-007 (hosted LLM), DEC-010 (architecture), DEC-011 (fiji-llm), DEC-012 (hackathon strategy), DEC-020…028 (design ADRs).
 
 ## Next required action
 
-When the agents report, review each document for evidence tagging and cross-document consistency. Then write A18–A23 and A30, and run G8.
+1. Integrate the G9 and G10 outputs.
+2. Write D20 and generate `traceability.csv`.
+3. Run the checker and the reviewer agent, and repair what they find.
+4. Regenerate `INDEX.md`.
+5. Write the final report.

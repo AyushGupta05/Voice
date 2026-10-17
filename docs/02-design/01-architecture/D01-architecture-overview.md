@@ -127,7 +127,7 @@ flowchart TB
 | CMP-07 | ROI list panel | Per-image ROI list mirroring the ROI store | FR-ROI-004, 005 | D14 |
 | CMP-08 | History & macro panel | Structured history, generated macro view, export, replay, undo/redo | FR-HIST-001…010 | D07, D15 |
 | CMP-09 | Command bar | Typed NL input, voice control with recording indicator, transcript editing, plan preview and confirm | FR-NL-004, FR-SPEECH-002/004 | D08, D15 |
-| CMP-10 | Activity & status | Engine state, operation lifecycle, real progress, pending dialogs, errors | FR-SYS-006, FR-PROC-007, NFR-USE-002 | D15, D17 |
+| CMP-10 | Activity & status | Engine state, operation lifecycle, real progress, pending dialogs, errors; also hosts the Log panel (UI-20, D12), which shows IJ1/SciJava log lines | FR-SYS-006, FR-PROC-007, NFR-USE-002, FR-WS-007 | D15, D17 |
 | CMP-11 | Legacy window tracker | Lists and focuses visible IJ1 and plugin windows; marks external windows | FR-PLUG-001, 002 | D10, D12 |
 | CMP-12 | Display & globals panels | B&C (display-only) with Apply, threshold preview, channels, result-affecting globals | FR-PROC-014, 015, FR-MEAS-002, FR-VIEW-006 | D13, D14 |
 | CMP-20 | Engine facade API | Typed, serialisable API: submit actions, queries, event subscription | FR-SYS-003 | D09 |

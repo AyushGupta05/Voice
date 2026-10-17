@@ -33,4 +33,8 @@ Status vocabulary:
 
 | DEC-028 | Product launch through a Jaunch `extra-*.toml` launch option that adds UI selection (`-Dscijava.ui=…`) and `-Dimagej.updater.disableAutocheck=true`, with a launcher script as fallback. Classic Fiji launches stay unchanged. | 02 | Proposed — awaiting approval (validation V-07) | `fiji.toml#L14` includes `extra*.toml`; P49 | D03 §2, D04 §10 |
 
-Further design decisions raised by D11–D19 are added below as they are reviewed.
+| DEC-029 | Workspace layout: a single window with fixed dock regions and document tabs that split up to 2×2. No third-party docking library and no floating product panels at MVP/HACK. | 02 | Proposed — awaiting approval | D12 comparison (DP-D12-01/02); no docking library in `Fiji/jars` (VERIFIED) | D12 |
+| DEC-030 | **Deviation needing explicit acceptance.** Some Fiji menu items keep their labels but are rerouted to workspace equivalents, because their IJ1 implementations act on hidden windows: Window-menu items, Image › Zoom, Brightness/Contrast [C], Threshold [T], Channels Tool [Z], ROI Manager, Undo, Record…. The original behaviour stays reachable through legacy mode. This changes the behaviour, not the semantics, of those menu items (FR-CMD-001, PAR-045). | 02 | Proposed — awaiting approval | D12 DP-D12-03 | D12, A28 |
+| DEC-031 | Product-only shortcuts use only `Ctrl+Alt+<key>` and F6. A start-up conflict check runs, and redo is `Ctrl+Alt+Z`, because Ctrl+Shift+Z and Ctrl+Y collide with IJ1 shortcuts. | 02 | Proposed — awaiting approval | D11 DP-D11-02; FR-CMD-007/008 | D11 |
+
+Further design decisions raised by D16–D19 are added below as they are reviewed.

@@ -30,7 +30,7 @@ ID_PATTERNS = {
     "IF": r"IF-\d{2}",
     "UI": r"UI-\d{2}",
     "J": r"J-\d{2}",
-    "RISK": r"R-\d{3}",
+    "RISK": r"(?<![A-Za-z])R-\d{3}",
     "DOC": r"\b(?:F0[1-4]|A[0-3]\d|D[0-2]\d)\b",
 }
 FM_KEYS = ["id", "title", "stage", "status", "priority", "source_revisions",
@@ -114,7 +114,7 @@ def check():
                 and p.parent.name not in ("screenshots", "probes") and p.name not in (
                 "architecture.md", "environment.md", "setup.md", "upstreams.md", "verification.md"):
             fm = front_matter(text)
-            if p.name in ("DECISIONS.md", "WORK-PROGRESS.md", "GLOSSARY.md"):
+            if p.name in ("DECISIONS.md", "WORK-PROGRESS.md", "GLOSSARY.md", "BIBLIOGRAPHY.md"):
                 pass
             elif fm is None:
                 ERR.append(f"{rel}: missing front matter")
