@@ -63,6 +63,7 @@ public final class DefaultEngine implements Engine {
     private volatile EngineState state = EngineState.INITIALISING;
     private volatile DocumentId focused;
     private volatile boolean reconcileQueued;
+    private final AtomicInteger deferredRetries = new AtomicInteger();
     private final java.util.concurrent.locks.ReentrantLock adoptLock = new java.util.concurrent.locks.ReentrantLock();
     private volatile Catalogue catalogue = Catalogue.empty();
     final Results results = new Results(events);
@@ -319,6 +320,9 @@ public final class DefaultEngine implements Engine {
                 observers.forget(d.imp);
                 if (d.id.equals(focused)) focused = null;
             }
+            // an image left while ImageJ was still showing a window is adopted by a retry (bounded: 5 s of 100 ms tries)
+            if (ch.deferred() && deferredRetries.incrementAndGet() <= 50) observers.later(this::scheduleReconcile, 100);
+            else if (!ch.deferred()) deferredRetries.set(0);
             return ch;
         } finally {
             adoptLock.unlock();

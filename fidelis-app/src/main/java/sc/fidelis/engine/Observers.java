@@ -77,6 +77,7 @@ final class Observers {
         ImagePlus.addImageListener(new ImageListener() {
             @Override
             public void imageOpened(ImagePlus imp) {
+                eng.registry.noteOpened(imp); // show() has stored its window: the image can be re-hosted safely
                 eng.scheduleReconcile();
             }
 
@@ -419,6 +420,11 @@ final class Observers {
             if (f != null) f.cancel(false);
         }
         lastThreshold.remove(imp);
+    }
+
+    /** Run {@code r} after {@code ms} milliseconds on the observer timer. */
+    void later(Runnable r, long ms) {
+        timer.schedule(r, ms, TimeUnit.MILLISECONDS);
     }
 
     List<ImagePlus> pendingImages() {

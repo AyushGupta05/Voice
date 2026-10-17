@@ -44,8 +44,40 @@ final class Registry {
     }
 
     /** Result of {@link #reconcile()}: documents adopted from IJ1 and documents that disappeared. */
-    record Change(List<Doc> added, List<Doc> removed) {
+    /** {@code deferred}: an image was left for a later reconcile because ImageJ was still showing a window. */
+    record Change(List<Doc> added, List<Doc> removed, boolean deferred) {
+        Change(List<Doc> added, List<Doc> removed) {
+            this(added, removed, false);
+        }
+
         boolean isEmpty() { return added.isEmpty() && removed.isEmpty(); }
+    }
+
+    /** Images ImageJ reported as opened (ImageListener.imageOpened, posted after ImagePlus.show() stored its window). */
+    private final Set<ImagePlus> opened = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+
+    void noteOpened(ImagePlus imp) {
+        if (imp != null) opened.add(imp);
+    }
+
+    /**
+     * True while another thread is inside {@code ImagePlus.show()} or an image window's constructor. ImageJ registers the
+     * window in WindowManager at the start of the constructor but stores it in the image only after the constructor
+     * (and a StackWindow's sliders) are done; re-hosting the image in between let show() store its own, meanwhile
+     * closed, window afterwards, and the image could then never be closed (EngineQuitTest, EngineConventionsTest).
+     */
+    private static boolean showInProgress() {
+        Thread self = Thread.currentThread();
+        for (Map.Entry<Thread, StackTraceElement[]> e : Thread.getAllStackTraces().entrySet()) {
+            if (e.getKey() == self) continue;
+            for (StackTraceElement f : e.getValue()) {
+                String c = f.getClassName();
+                if ((c.equals("ij.ImagePlus") && f.getMethodName().equals("show"))
+                        || ((c.equals("ij.gui.ImageWindow") || c.equals("ij.gui.StackWindow")) && f.getMethodName().equals("<init>")))
+                    return true;
+            }
+        }
+        return false;
     }
 
     synchronized Doc get(DocumentId id) {
@@ -103,6 +135,8 @@ final class Registry {
                 if (imp != null) live.add(imp);
             }
         }
+        Boolean showing = null;
+        boolean deferred = false;
         Set<ImagePlus> liveSet = Collections.newSetFromMap(new IdentityHashMap<>());
         liveSet.addAll(live);
         List<Doc> removed = new ArrayList<>();
@@ -129,10 +163,15 @@ final class Registry {
                 ignored.add(imp); // plots, histograms and other special windows are not documents
                 continue;
             }
-            // ImagePlus.show() registers the window in WindowManager inside the ImageWindow constructor, before the
-            // window is shown and before show() stores it in the image: re-hosting it now would let show() overwrite
-            // the host afterwards. It is adopted once shown (ImageJ then notifies imageOpened, which reconciles again).
-            if (!w.isShowing()) continue;
+            // not yet reported opened while some thread is still showing a window: perhaps this one, half-built (see
+            // showInProgress); adopted on a later reconcile (imageOpened reconciles again, and a deferral retries)
+            if (!opened.contains(imp)) {
+                if (showing == null) showing = showInProgress();
+                if (showing) {
+                    deferred = true;
+                    continue;
+                }
+            }
             Doc d = new Doc(new DocumentId("doc-" + docSeq.incrementAndGet()), imp, null, null);
             try {
                 d.win = Edt.call(() -> host(imp));
@@ -147,7 +186,7 @@ final class Registry {
             }
             added.add(d);
         }
-        Change ch = new Change(added, removed);
+        Change ch = new Change(added, removed, deferred);
         if (!ch.isEmpty()) events.emit(EngineEvent.DocumentsChanged::new);
         return ch;
     }
