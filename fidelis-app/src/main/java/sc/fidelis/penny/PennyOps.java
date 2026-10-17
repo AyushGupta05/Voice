@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -64,6 +65,10 @@ final class PennyOps {
             "confirm", "cancel_plan", "dialog", "dialog_action");
     static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "history", "macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
+    /** DIRECT operations that depend on the plane (pinned to the approved one; the engine applies a TargetScope plane). */
+    static final Set<String> PLANE_DIRECT = Set.of(Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD,
+            Operations.SET_DISPLAY_RANGE);
+
     /** View operations that are engine plans (select_roi, display, stack); the other views never reach the engine. */
     static final Set<String> PLAN_VIEWS = Set.of("select_roi", "display", "stack");
     static final Set<String> MUTATING = Set.of("open_path", "command", "segment_cells", "measure", "threshold", "analyze_particles",
@@ -76,6 +81,11 @@ final class PennyOps {
     static final List<String> SEGMENT_MEASUREMENTS = List.of("area", "mean", "centroid", "bounding", "shape");
 
     static final long HTTP_WAIT_SECONDS = 115;
+    /** Engine error codes that are decided before an operation touches anything. */
+    static final Set<sc.fidelis.engine.api.Enums.ErrorCode> PRE_EXECUTION = Set.of(sc.fidelis.engine.api.Enums.ErrorCode.VALIDATION_FAILED,
+            sc.fidelis.engine.api.Enums.ErrorCode.PRECONDITION_FAILED, sc.fidelis.engine.api.Enums.ErrorCode.UNKNOWN_COMMAND,
+            sc.fidelis.engine.api.Enums.ErrorCode.ENGINE_NOT_READY, sc.fidelis.engine.api.Enums.ErrorCode.CONFIRMATION_REQUIRED,
+            sc.fidelis.engine.api.Enums.ErrorCode.CAPABILITY_CONFIRMATION_REQUIRED);
     static final long PENDING_TTL_MS = 15 * 60_000L;
     static final int HIGHLIGHT_LIMIT = 120;
 
@@ -88,7 +98,7 @@ final class PennyOps {
      * The last completed segment_cells: its document, how many undo steps revert it, the SHA-256 of the plane it left,
      * and the choices a replacement keeps (8-bit conversion, polarity).
      */
-    record Segmentation(DocumentId doc, int undoSteps, String digest, boolean converted, boolean dark, int historyEnd) {}
+    record Segmentation(DocumentId doc, int undoSteps, String digest, boolean converted, boolean dark, int historyEnd, List<String> snapshots) {}
 
     /** Actions that leave a document's pixels and undo snapshots alone (a segmentation can still be replaced after them). */
     static final Set<String> KEEPS_UNDO = Set.of(PennyCommands.MEASURE, PennyCommands.SET_MEASUREMENTS, PennyCommands.ANALYZE_PARTICLES,
@@ -145,6 +155,10 @@ final class PennyOps {
         Finisher finish = (p, r) -> new LinkedHashMap<>();
         boolean explicit;
         int undoSteps;
+        /** History size when the plan was approved (its contextKey includes it). */
+        int approvedHistory = -1;
+        /** Action ids of the steps that changed pixels or type through a catalogued command (their undo snapshots). */
+        final List<String> snapshotActions = new ArrayList<>();
         /** The approved plane of a stack document ({c, z, t}); COMMAND steps are pinned to it. Null for single planes. */
         int[] position;
         /** The original Fiji dialog the plan's current engine operation waits on, set from the engine's events. */
@@ -325,6 +339,7 @@ final class PennyOps {
 
     private Object run(Plan p) {
         assess(p);
+        p.approvedHistory = engine.history().size();
         p.contextKey = contextKey();
         // the workspace may have changed focus or selection while the plan was being built
         if (p.call.expectedContext() != null && !p.call.expectedContext().equals(p.contextKey))
@@ -455,15 +470,15 @@ final class PennyOps {
                 // the approval binds the whole plan: let foreign engine work finish, then make sure nothing else acted
                 // on Fidelis since the plan was approved (or since its previous step)
                 waitForForeignOps(p, i, results);
+                // the baseline is taken before validation: anything recorded after it makes the engine refuse the step
+                int baseline = engine.history().size();
                 if (i == 0) {
-                    if (!contextKey().equals(p.contextKey))
+                    if (baseline != p.approvedHistory || !contextKey().equals(p.contextKey))
                         throw stepFailure(p, i, null, results, "the image, selection, results or history changed after the plan was approved", true);
                 } else {
                     // every record since the previous step was submitted must be this plan's (its step and that step's children)
-                    for (HistoryRecord h : sinceMark(cursor)) {
-                        boolean mine = p.transcriptRef.equals(h.transcriptRef()) || ours.contains(h.actionId())
-                                || (h.params() != null && ours.contains(String.valueOf(h.params().get("parentActionId"))));
-                        if (!mine)
+                    for (HistoryRecord h : sinceMark(cursor, baseline)) {
+                        if (!mine(p, ours, h))
                             throw stepFailure(p, i, null, results, "another action (" + h.label() + ", " + h.origin() + ") ran in Fidelis after step " + i
                                     + "; the plan stopped so it does not act on a changed image", true);
                     }
@@ -472,7 +487,7 @@ final class PennyOps {
                 p.current = i;
                 ActionRequest r = s.request();
                 if (r.kind() == ActionKind.CODE && p.codeToken != null) r = r.withConfirmation(p.codeToken);
-                cursor = engine.history().size();
+                cursor = baseline;
                 // the engine refuses the step (STATE_CHANGED) if anything else enters the history before its worker starts it
                 Map<String, Object> bound = new LinkedHashMap<>(r.params());
                 bound.put("expectedHistorySize", cursor);
@@ -521,8 +536,15 @@ final class PennyOps {
                 if (q.kind() == ActionKind.COMMAND && !engine.schema(q.commandId()).map(CommandSchema::schemaComplete).orElse(false)) continue;
                 boolean px = false;
                 for (var ch : r.digest().changed()) px |= ch.pixelsChanged() || ch.typeChanged();
-                if (px) undoable++;
+                if (px) {
+                    undoable++;
+                    p.snapshotActions.add(r.record().actionId());
+                }
             }
+            // results are read from the live mirrors: if another action ran after the plan, they may describe it instead
+            waitForForeignOpsQuietly();
+            int before = engine.history().size();
+            boolean foreign = sinceMark(cursor, before).stream().anyMatch(h -> !mine(p, ours, h));
             boolean virtual = p.doc != null && engine.document(p.doc).map(DocumentInfo::virtualStack).orElse(false);
             p.undoSteps = virtual ? 0 : undoable;
             Map<String, Object> out = new LinkedHashMap<>();
@@ -530,7 +552,16 @@ final class PennyOps {
             out.put("planId", p.id);
             out.put("operation", p.call.operation());
             if (confirmed) out.put("confirmed", true);
-            out.putAll(p.finish.finish(p, results));
+            if (!foreign) {
+                Map<String, Object> fin = p.finish.finish(p, results);
+                if (engine.history().size() != before || sinceMark(cursor, engine.history().size()).stream().anyMatch(h -> !mine(p, ours, h))) foreign = true;
+                else out.putAll(fin);
+            }
+            if (foreign) {
+                out.put("statisticsWithheld", true);
+                out.put("note", "Every step completed, but another action ran in Fidelis right after this plan, so the Results and ROI "
+                        + "list may describe it; read results or rois again.");
+            }
             List<Map<String, Object>> steps = new ArrayList<>();
             for (int i = 0; i < results.size(); i++) steps.add(step(p.steps.get(i), results.get(i)));
             out.put("steps", steps);
@@ -553,9 +584,27 @@ final class PennyOps {
         }
     }
 
-    private List<HistoryRecord> sinceMark(int mark) {
+    private List<HistoryRecord> sinceMark(int from, int to) {
         List<HistoryRecord> h = engine.history();
-        return mark < 0 || mark >= h.size() ? List.of() : h.subList(mark, h.size());
+        int end = Math.min(to, h.size());
+        return from < 0 || from >= end ? List.of() : h.subList(from, end);
+    }
+
+    private static boolean mine(Plan p, Set<String> ours, HistoryRecord h) {
+        return p.transcriptRef.equals(h.transcriptRef()) || ours.contains(h.actionId())
+                || (h.params() != null && ours.contains(String.valueOf(h.params().get("parentActionId"))));
+    }
+
+    private void waitForForeignOpsQuietly() {
+        long end = System.currentTimeMillis() + 5_000;
+        while (!foreignOps.isEmpty() && System.currentTimeMillis() < end) {
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     /** Wait (up to 30 s) until no engine operation other than Penny's is queued or running. */
@@ -595,7 +644,9 @@ final class PennyOps {
         if (notStarted) failedStep = "Step " + (i + 1) + " was not started.";
         else if (res == null) failedStep = "The failed step's effect is unknown; check History before retrying.";
         else if (res.state() == OperationState.ROLLED_BACK) failedStep = "The engine rolled the failed step back.";
-        else if (res.record() == null) failedStep = "The engine refused the failed step before running it.";
+        else if (res.record() == null && res.error() != null && PRE_EXECUTION.contains(res.error().code()))
+            failedStep = "The engine refused the failed step before running it.";
+        else if (res.record() == null) failedStep = "The engine reported an internal failure without a record; the failed step's effect is unknown, check History before retrying.";
         else failedStep = "The failed step may have changed the image, ROIs or results (state " + res.state() + "); check History before retrying.";
         extra.put("note", (completed.isEmpty() ? "No earlier step of this plan ran. " : completed.size() + " earlier step(s) completed and stay in History. ")
                 + failedStep);
@@ -673,7 +724,7 @@ final class PennyOps {
                 try {
                     DialogDriver.act(w, Map.of(), "Cancel");
                 } catch (RuntimeException e) {
-                    r.cancelledDialog = before;
+                    if (!(e instanceof DialogDriver.EdtTimeout t) || t.notApplied) r.cancelledDialog = before;
                     throw e;
                 }
                 out.put("cancelled", true);
@@ -754,7 +805,9 @@ final class PennyOps {
         try {
             DialogDriver.act(w, values, press);
         } catch (RuntimeException e) {
-            p.cancelledDialog = before;
+            // keep the marker when the press may still have happened (the EDT was busy after the task had started)
+            if (!(e instanceof DialogDriver.EdtTimeout t) || t.notApplied) p.cancelledDialog = before;
+            if (e instanceof DialogDriver.EdtTimeout t) throw new Failure(409, t.getMessage(), Map.of("applied", t.notApplied ? "no" : "unknown"));
             throw e;
         }
         if (press != null) DialogDriver.awaitClosed(w, 3000);
@@ -852,6 +905,10 @@ final class PennyOps {
                 if (params.get("slice") instanceof Number n) pos[1] = n.intValue();
                 if (params.get("frame") instanceof Number n) pos[2] = n.intValue();
             }
+        }
+        if (PLANE_DIRECT.contains(op) && ts != null && ts.document().equals(p.doc) && ts.channel() == null && ts.slice() == null && ts.frame() == null) {
+            int[] pos = position(p);
+            if (pos != null) ts = new TargetScope(ts.document(), pos[0], pos[1], pos[2], ts.allPlanes(), ts.roiIndex());
         }
         ActionRequest r = ActionRequest.direct(p.origin, op, meta(p, params), ts);
         return new Step(role, label, menu, r, prov, preview);
@@ -1374,11 +1431,15 @@ final class PennyOps {
         // original) when the image still holds exactly the mask that segmentation left; otherwise the image is used as is
         Segmentation last = lastSegmentation.get();
         boolean replace = !Boolean.FALSE.equals(PennyJson.bool(a, "replace")) && last != null && last.doc().equals(d.id())
-                && last.undoSteps() > 0 && last.digest() != null && last.digest().equals(planeDigest(d.id())) && untouchedSince(last);
+                && !last.snapshots().isEmpty() && last.digest() != null && last.digest().equals(planeDigest(d.id())) && untouchedSince(last);
         if (replace) {
-            for (int i = 1; i <= last.undoSteps(); i++)
-                p.steps.add(directStep(p, "undo", Operations.UNDO, "Undo the previous segmentation (" + i + " of " + last.undoSteps() + ")",
-                        "Edit>Undo", Map.of(), Map.of(), "run(\"Undo\");", ts));
+            // newest first; each UNDO names the snapshots that must be on top (the engine checks before restoring anything)
+            List<String> newestFirst = new ArrayList<>(last.snapshots());
+            Collections.reverse(newestFirst);
+            for (int i = 0; i < newestFirst.size(); i++)
+                p.steps.add(directStep(p, "undo", Operations.UNDO, "Undo the previous segmentation (" + (i + 1) + " of " + newestFirst.size() + ")",
+                        "Edit>Undo", map("expectedUndoActionIds", List.copyOf(newestFirst.subList(i, newestFirst.size()))), Map.of(),
+                        "run(\"Undo\");", ts));
         }
         final boolean dark = replace && darkArg == null ? last.dark() : dark0;
         final boolean to8 = replace ? last.converted() : d.bitDepth() == 24 || "COLOR_256".equals(d.type());
@@ -1423,7 +1484,8 @@ final class PennyOps {
             m.put("threshold", map("method", method, "dark", dark));
             m.put("watershed", watershed);
             m.put("replacedPrevious", replace);
-            lastSegmentation.set(new Segmentation(d.id(), plan.undoSteps, planeDigest(d.id()), to8, dark, engine.history().size()));
+            lastSegmentation.set(new Segmentation(d.id(), plan.undoSteps, planeDigest(d.id()), to8, dark, engine.history().size(),
+                    List.copyOf(plan.snapshotActions)));
             return m;
         };
         return p;

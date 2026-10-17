@@ -76,6 +76,17 @@ final class DialogDriver {
         }
     }
 
+    /** The EDT did not run the work in time; {@code applied} is unknown when it had already started. */
+    static final class EdtTimeout extends IllegalStateException {
+        final boolean notApplied;
+
+        EdtTimeout(boolean notApplied) {
+            super(notApplied ? "the Fidelis event thread was busy for 20 s; nothing was changed in the dialog"
+                    : "the Fidelis event thread was busy for 20 s while answering the dialog; whether it was applied is unknown");
+            this.notApplied = notApplied;
+        }
+    }
+
     static <T> T onEdt(Callable<T> c) {
         if (SwingUtilities.isEventDispatchThread()) {
             try {
@@ -92,8 +103,11 @@ final class DialogDriver {
             Throwable t = e.getCause();
             if (t instanceof RuntimeException re) throw re;
             throw new IllegalStateException(t);
-        } catch (Exception e) {
-            throw new IllegalStateException("the Fidelis event thread did not answer: " + e, e);
+        } catch (java.util.concurrent.TimeoutException | InterruptedException e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            // a queued task must not fill or press the dialog later, after the caller was told it failed
+            boolean notStarted = task.cancel(false);
+            throw new EdtTimeout(notStarted);
         }
     }
 

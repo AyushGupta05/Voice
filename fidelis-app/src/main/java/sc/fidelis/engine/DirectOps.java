@@ -61,6 +61,24 @@ final class DirectOps {
         boolean pixelsChanged = false;
         boolean dimsChanged = false;
         try {
+            if (ts.channel() != null || ts.slice() != null || ts.frame() != null) {
+                switch (name) {
+                    case Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD, Operations.SET_DISPLAY_RANGE -> {
+                        // plane-dependent operations act on the plane the request names, not on wherever the viewer is now
+                        int c = ts.channel() != null ? ts.channel() : imp.getChannel();
+                        int z = ts.slice() != null ? ts.slice() : imp.getSlice();
+                        int t = ts.frame() != null ? ts.frame() : imp.getFrame();
+                        if (c < 1 || c > imp.getNChannels() || z < 1 || z > imp.getNSlices() || t < 1 || t > imp.getNFrames())
+                            throw new Bad("the target plane " + c + "," + z + "," + t + " is outside the image");
+                        if (c != imp.getChannel() || z != imp.getSlice() || t != imp.getFrame()) {
+                            imp.setPosition(c, z, t);
+                            lines.add(imp.isHyperStack() || imp.getNChannels() > 1 || imp.getNFrames() > 1
+                                    ? "Stack.setPosition(" + c + ", " + z + ", " + t + ");" : "setSlice(" + z + ");");
+                        }
+                    }
+                    default -> { }
+                }
+            }
             switch (name) {
                 case Operations.SET_ROI -> {
                     Object g = r.params().get("roi");
@@ -271,7 +289,19 @@ final class DirectOps {
 
     private Outcome undo(Op op, Doc doc, Map<String, String> gBefore) {
         Snapshots.Snapshot snap;
+        // Opt-in (the Penny bridge): expectedUndoActionIds lists the actions whose snapshots must be the newest ones, newest
+        // first; the undo runs only if they are, so an automatic "undo these steps" never reverts some other action.
+        Object want = op.request.params().get("expectedUndoActionIds");
         synchronized (doc.undo) {
+            if (want instanceof List<?> ids) {
+                java.util.Iterator<Snapshots.Snapshot> it = doc.undo.iterator();
+                for (Object id : ids) {
+                    Snapshots.Snapshot s = it.hasNext() ? it.next() : null;
+                    if (s == null || !String.valueOf(id).equals(s.actionId))
+                        return Outcome.failed(new EngineError(ErrorCode.PRECONDITION_FAILED, "the undo snapshots are not the expected ones (wanted "
+                                + ids + "; nothing was undone)", "UNDO_MISMATCH", Map.of(), true, List.of("undo step by step instead")));
+                }
+            }
             snap = doc.undo.peekFirst();
         }
         if (snap == null)

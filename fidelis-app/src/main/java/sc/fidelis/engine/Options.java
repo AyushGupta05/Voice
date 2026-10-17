@@ -33,7 +33,8 @@ final class Options {
      * checked when the worker starts it, see {@code DefaultEngine.runOp}). They are accepted for every kind and never
      * reach the options string.
      */
-    static final java.util.Set<String> RESERVED = java.util.Set.of("transcriptRef", "parentActionId", "expectedHistorySize");
+    static final java.util.Set<String> RESERVED = java.util.Set.of("transcriptRef", "parentActionId", "expectedHistorySize",
+            "expectedUndoActionIds");
 
     /** Raised for a request that fails validation; {@code key} names the offending parameter (may be null). */
     static final class Invalid extends Exception {

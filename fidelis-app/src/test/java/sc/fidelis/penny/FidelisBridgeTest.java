@@ -248,6 +248,80 @@ class FidelisBridgeTest {
     }
 
     @Test
+    void undoChecksTheExpectedSnapshotsAndPlaneOperationsUseTheirTargetPlane() throws Exception {
+        String doc = openSquares();
+        sc.fidelis.engine.api.DocumentId id = new sc.fidelis.engine.api.DocumentId(doc);
+        String before = PixelHash.sha256(engine.imagePlus(id));
+        JsonObject inv = http.change("filter", args("name", "invert")).result();
+        String inverted = PixelHash.sha256(engine.imagePlus(id));
+        String act = inv.getAsJsonObject("step").get("actionId").getAsString();
+        sc.fidelis.engine.api.ActionResult wrong = engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.NL_TYPED,
+                sc.fidelis.engine.api.ActionRequest.Operations.UNDO, Map.of("expectedUndoActionIds", List.of("act-0")),
+                sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals("UNDO_MISMATCH", wrong.error().subcode());
+        assertEquals(inverted, PixelHash.sha256(engine.imagePlus(id)), "nothing was undone");
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.NL_TYPED,
+                sc.fidelis.engine.api.ActionRequest.Operations.UNDO, Map.of("expectedUndoActionIds", List.of(act)),
+                sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        assertEquals(before, PixelHash.sha256(engine.imagePlus(id)));
+        // a threshold names its plane: it is applied there even when the viewer shows another slice
+        sc.fidelis.engine.api.ActionResult made = engine.submit(sc.fidelis.engine.api.ActionRequest.session(sc.fidelis.engine.api.Enums.Origin.PANEL,
+                sc.fidelis.engine.api.ActionRequest.Operations.NEW_IMAGE,
+                Map.of("title", "three", "type", "8-bit", "width", 16, "height", 16, "slices", 3, "fill", "Ramp"), null)).get(60, java.util.concurrent.TimeUnit.SECONDS);
+        sc.fidelis.engine.api.DocumentId stack = made.digest().added().get(0);
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL,
+                sc.fidelis.engine.api.ActionRequest.Operations.SET_POSITION, Map.of("slice", 3), sc.fidelis.engine.api.TargetScope.of(stack)))
+                .get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        sc.fidelis.engine.api.ActionResult t = engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.NL_TYPED,
+                sc.fidelis.engine.api.ActionRequest.Operations.SET_AUTO_THRESHOLD, Map.of("method", "Otsu", "dark", true),
+                new sc.fidelis.engine.api.TargetScope(stack, null, 1, null, false, null))).get(30, java.util.concurrent.TimeUnit.SECONDS);
+        assertTrue(t.succeeded(), String.valueOf(t.error()));
+        assertEquals(1, engine.imagePlus(stack).getZ(), "the threshold went to slice 1");
+        assertTrue(t.record().macroLines().get(0).startsWith("setSlice(1)"), t.record().macroLines().toString());
+    }
+
+    @Test
+    void numbersAreWithheldOrExactWhenTheWorkspaceAnalysesRightAfterThePlan() throws Exception {
+        java.nio.file.Path blobs = Fixtures.require("FX-003", "blobs.gif");
+        String doc = http.change("open_path", args("path", blobs.toString())).result().getAsJsonObject("document").get("id").getAsString();
+        sc.fidelis.engine.api.DocumentId id = new sc.fidelis.engine.api.DocumentId(doc);
+        java.util.concurrent.atomic.AtomicBoolean armed = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean fired = new java.util.concurrent.atomic.AtomicBoolean();
+        Map<String, Object> big = new java.util.LinkedHashMap<>();
+        big.put("size", "1000-Infinity");
+        big.put("circularity", "0.00-1.00");
+        big.put("show", "Nothing");
+        for (String k : List.of("display", "clear")) big.put(k, true);
+        for (String k : List.of("exclude", "include", "summarize", "overlay", "add", "composite", "record", "in_situ", "pixel", "stack")) big.put(k, false);
+        PennyUi.register(new RecordingUi() {
+            @Override
+            public void planProgress(String planId, int step, String label) {
+                super.planProgress(planId, step, label);
+                if (label.equals("Analyze Particles...")) armed.set(true);
+            }
+        });
+        // as soon as Penny's Analyze Particles starts, the "workspace" queues its own analysis behind it (clear: true)
+        sc.fidelis.engine.api.EngineListener l = e -> {
+            if (e instanceof sc.fidelis.engine.api.EngineEvent.OperationStateChanged st && st.state() == sc.fidelis.engine.api.Enums.OperationState.RUNNING
+                    && armed.get() && fired.compareAndSet(false, true)) {
+                engine.submit(sc.fidelis.engine.api.ActionRequest.command(sc.fidelis.engine.api.Enums.Origin.PANEL, "ij1:Analyze>Analyze Particles...", big,
+                        sc.fidelis.engine.api.TargetScope.of(id)));
+            }
+        };
+        engine.addListener(l);
+        try {
+            JsonObject seg = http.change("segment_cells", args()).result();
+            assertTrue(fired.get(), "the competing analysis was queued");
+            boolean withheld = seg.has("statisticsWithheld") && seg.get("statisticsWithheld").getAsBoolean();
+            System.out.println("[penny-bridge] competing analysis: " + (withheld ? "statistics withheld (" + seg.get("note").getAsString() + ")"
+                    : "count " + seg.get("count")));
+            assertTrue(withheld || seg.get("count").getAsInt() == 67, "a reported count is Penny's own (67 on Blobs), never the workspace's: " + seg);
+        } finally {
+            engine.removeListener(l);
+        }
+    }
+
+    @Test
     void macrosWaitForConfirmationAndRunOnlyAfterIt() throws Exception {
         String doc = openSquares();
         String hash = PixelHash.sha256(engine.imagePlus(new sc.fidelis.engine.api.DocumentId(doc)));
