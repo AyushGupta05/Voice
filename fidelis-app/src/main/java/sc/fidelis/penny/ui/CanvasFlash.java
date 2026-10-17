@@ -23,8 +23,8 @@ import ij.gui.ImageCanvas;
 
 /**
  * Penny pointing at something on the image: outlines that pop in over the hosted IJ1 canvas, hold, and fade after about
- * three seconds, with a small label chip. Drawn in Penny's highlight colour (the companion cursor's mint) over a dark
- * halo so it reads on any image.
+ * three seconds, with a small label chip. Drawn in the look-and-feel's accent colour over a light halo, so it reads on
+ * bright and dark image regions alike, in the light (default) and the dark theme.
  *
  * <p>The IJ1 canvas is a heavyweight AWT component, so a Swing glass pane or JLayer cannot paint over it (it would be
  * painted under the canvas). The flash therefore paints inside the canvas itself: on every animation frame it repaints the
@@ -34,8 +34,10 @@ import ij.gui.ImageCanvas;
  * source rectangle and magnification every frame (zoom and pan during a flash stay aligned). EDT only.
  */
 public final class CanvasFlash {
-    /** Penny's highlight colour (apps/companion PointerOverlay.swift accent). */
-    static final Color PENNY = new Color(0x5c, 0xeb, 0xc7);
+    /** The highlight colour: the look-and-feel accent (read every frame, so a theme switch follows). */
+    static Color colour() {
+        return sc.fidelis.ui.Theme.accent();
+    }
     static final long APPEAR_MS = 320;
     static final long STAGGER_MS = 25;
     static final int STAGGERED = 30;
@@ -158,6 +160,7 @@ public final class CanvasFlash {
             Rectangle2D union = null;
             double pulse = 0.5 + 0.5 * Math.sin(t / 1000.0 * Math.PI / 0.9);
             boolean crowded = rects.size() > CROWDED; // many objects: thin outlines only, so the image stays readable
+            Color accent = colour();
             for (int i = 0; i < rects.size(); i++) {
                 long delay = Math.min(i, STAGGERED) * STAGGER_MS;
                 double lt = t - delay;
@@ -182,17 +185,17 @@ public final class CanvasFlash {
                         : new RoundRectangle2D.Double(sx, sy, w * s, h * s, 7, 7);
                 if (!crowded) {
                     // a few targets: a soft fill and a pulsing glow, like the companion's spotlight
-                    g.setColor(PennyIndicator.alpha(PENNY, 0.12 * a));
+                    g.setColor(PennyIndicator.alpha(accent, 0.12 * a));
                     g.fill(shape);
-                    g.setStroke(new BasicStroke(5.5f));
-                    g.setColor(PennyIndicator.alpha(PENNY, (0.16 + 0.14 * pulse) * a));
+                    g.setStroke(new BasicStroke(6f));
+                    g.setColor(PennyIndicator.alpha(accent, (0.14 + 0.12 * pulse) * a));
                     g.draw(shape);
                 }
-                g.setStroke(new BasicStroke(crowded ? 2.6f : 3.4f));
-                g.setColor(new Color(0, 0, 0, (int) Math.round((crowded ? 90 : 110) * a)));
+                g.setStroke(new BasicStroke(crowded ? 3.0f : 3.8f));
+                g.setColor(new Color(255, 255, 255, (int) Math.round((crowded ? 150 : 190) * a)));
                 g.draw(shape);
-                g.setStroke(new BasicStroke(crowded ? 1.3f : 1.9f));
-                g.setColor(PennyIndicator.alpha(PENNY, a));
+                g.setStroke(new BasicStroke(crowded ? 1.5f : 2.0f));
+                g.setColor(PennyIndicator.alpha(accent, a));
                 g.draw(shape);
             }
             if (label != null && union != null) paintChip(g, union, t, cw, ch);
@@ -219,11 +222,14 @@ public final class CanvasFlash {
         if (y < 4) y = 4;
         y += (1 - easeOutBack(appear)) * 6;
         RoundRectangle2D chip = new RoundRectangle2D.Double(x, y, w, h, h, h);
-        g.setColor(new Color(0, 0, 0, (int) Math.round(90 * a)));
+        g.setColor(new Color(0, 0, 0, (int) Math.round(60 * a)));
         g.fill(new RoundRectangle2D.Double(x, y + 1.5, w, h, h, h));
-        g.setColor(PennyIndicator.alpha(PENNY, 0.95 * a));
+        g.setColor(PennyIndicator.alpha(colour(), 0.96 * a));
         g.fill(chip);
-        g.setColor(new Color(0, 0, 0, (int) Math.round(235 * a)));
+        g.setColor(new Color(255, 255, 255, (int) Math.round(140 * a)));
+        g.setStroke(new BasicStroke(1f));
+        g.draw(chip);
+        g.setColor(new Color(255, 255, 255, (int) Math.round(250 * a)));
         g.drawString(label, (float) (x + 7), (float) (y + (h + fm.getAscent() - fm.getDescent()) / 2));
     }
 

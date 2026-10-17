@@ -338,12 +338,11 @@ public final class PennyPanel extends JPanel {
                 } else {
                     planMessage = "Could not confirm: " + c.getMessage();
                 }
-            } else if (!planDone && !planFailed) {
-                // the bridge answered with the plan's result; its progress hooks may not have reported the end
-                planRunning = false;
+            } else if (!planRunning && !planDone && !planFailed) {
+                // the bridge answered with the plan's result and no progress hook reported it: the plan ran
                 planDone = true;
                 doneCollapse.restart();
-            }
+            } // while progress hooks are reporting, planFinished decides the outcome
             card.rebuild();
             update();
         }));

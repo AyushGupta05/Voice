@@ -145,8 +145,9 @@ final class PennyUiGeometryScenario {
         assertSame(overlayBefore, imp.getOverlay(), "the flash never touches the ImagePlus overlay");
         assertSame(roiBefore, imp.getRoi(), "nor its ROI");
 
-        // the frame at 1.5 s, composited the way the workspace screenshot does: Penny's colour appears on the outline
-        int mint = edt(() -> {
+        // the frame at 1.5 s, composited the way the workspace screenshot does: the accent colour appears on the outline
+        java.awt.Color accent = edt(Theme::accent);
+        int accentPixels = edt(() -> {
             f.hold(1500);
             BufferedImage img = new BufferedImage(canvas.getWidth(), canvas.getHeight(), BufferedImage.TYPE_INT_RGB);
             java.awt.Graphics2D g = img.createGraphics();
@@ -158,12 +159,13 @@ final class PennyUiGeometryScenario {
                 for (int x = 0; x < img.getWidth(); x++) {
                     int rgb = img.getRGB(x, y);
                     int r = (rgb >> 16) & 0xff, gr = (rgb >> 8) & 0xff, b = rgb & 0xff;
-                    if (gr > 180 && b > 140 && r < 140) n++;
+                    if (Math.abs(r - accent.getRed()) < 40 && Math.abs(gr - accent.getGreen()) < 40 && Math.abs(b - accent.getBlue()) < 40
+                            && b - r > 60) n++; // the LaF accent (blue in FlatLaf), absent from the grey test image
                 }
             f.release();
             return n;
         });
-        assertTrue(mint > 40, "outline pixels in Penny's colour: " + mint);
+        assertTrue(accentPixels > 40, "outline pixels in the accent colour " + accent + ": " + accentPixels);
         waitFor("flash fades and ends by itself", () -> {
             try {
                 return edt(() -> CanvasFlash.on(canvas) == null);
