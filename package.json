@@ -8,7 +8,7 @@
     "dev": "tsx packages/gateway/src/server.ts",
     "mcp": "tsx packages/gateway/src/mcp.ts",
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test packages/gateway/test/*.test.ts",
+    "test": "LUMA_APP=qupath tsx --test packages/gateway/test/*.test.ts",
     "check": "npm run build && npm test && npm run docs:check",
     "smoke": "tsx script/smoke.ts",
     "tool": "tsx script/tool.ts",

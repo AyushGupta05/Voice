@@ -4,7 +4,7 @@ import { desktopToolsFor } from '../desktop-tools.js';
 
 /** Fiji's macOS launcher bundle id. Placeholder until the bridge session reports the real one from
  * `.local/fiji/Fiji.app/Contents/Info.plist`; override with LUMA_FIJI_BUNDLE_ID without a rebuild. */
-export const FIJI_BUNDLE_ID = process.env.LUMA_FIJI_BUNDLE_ID?.trim() || 'net.imagej.launcher';
+export const FIJI_BUNDLE_ID = process.env.LUMA_FIJI_BUNDLE_ID?.trim() || 'sc.fiji.fiji';
 
 const text = { type: 'string' };
 const number = { type: 'number' };

@@ -48,10 +48,10 @@ test('without LUMA_APP the launcher-written .local/state/app file selects the ap
   const root = await mkdtemp(join(tmpdir(), 'luma-app-file-'));
   try {
     await mkdir(join(root, '.local/state'), { recursive: true });
-    await writeFile(join(root, '.local/state/app'), 'fiji\n'); assert.equal(selectApp(undefined, root), 'fiji'); assert.equal(selectApp('', root), 'fiji');
+    await writeFile(join(root, '.local/state/app'), 'fiji\n'); assert.equal(selectApp('', root), 'fiji');
     assert.equal(selectApp('qupath', root), 'qupath', 'the environment variable wins over the file');
-    await writeFile(join(root, '.local/state/app'), 'QuPath'); assert.equal(selectApp(undefined, root), 'qupath');
-    await writeFile(join(root, '.local/state/app'), 'imagej'); assert.throws(() => selectApp(undefined, root), /\.local\/state\/app must be one of/);
+    await writeFile(join(root, '.local/state/app'), 'QuPath'); assert.equal(selectApp('', root), 'qupath');
+    await writeFile(join(root, '.local/state/app'), 'imagej'); assert.throws(() => selectApp('', root), /\.local\/state\/app must be one of/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

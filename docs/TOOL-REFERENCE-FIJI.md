@@ -542,7 +542,7 @@ List the windows and actionable elements of Fiji (default), the frontmost app or
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
-| `apps` | No | array of (string; max 200 characters); max 8 items | Bundle ids, or "frontmost". Default ["net.imagej.launcher"]. |
+| `apps` | No | array of (string; max 200 characters); max 8 items | Bundle ids, or "frontmost". Default ["sc.fiji.fiji"]. |
 | `windowTitleContains` | No | string; max 200 characters |  |
 | `maxElements` | No | integer; min 1; max 2000 |  |
 
@@ -569,7 +569,7 @@ Type text into whatever currently has keyboard focus (Fiji is brought forward fi
 |---|---|---|---|
 | `text` | Yes | string; min 1 characters; max 4096 characters |  |
 | `submit` | No | boolean | Press Return after typing. |
-| `app` | No | string; max 200 characters | Bundle id to bring forward first: "net.imagej.launcher" (default), "frontmost" or "none". |
+| `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
 | `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
 
 <a id="fiji-desktop-key"></a>
@@ -581,7 +581,7 @@ Press keyboard shortcuts in order, e.g. ["cmd+shift+g"] to open the path sheet i
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
 | `keys` | Yes | array of (string; min 1 characters; max 40 characters); min 1 items; max 10 items |  |
-| `app` | No | string; max 200 characters | Bundle id to bring forward first: "net.imagej.launcher" (default), "frontmost" or "none". |
+| `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
 | `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
 
 <a id="fiji-desktop-click"></a>
@@ -597,7 +597,7 @@ Click at exact global screen coordinates (top-left origin, from a frame returned
 | `count` | No | integer; min 1; max 3 | 2 for a double-click. |
 | `button` | No | "left", "right" |  |
 | `modifiers` | No | array of ("cmd", "shift", "alt", "ctrl"); max 4 items |  |
-| `app` | No | string; max 200 characters | Bundle id to bring forward first: "net.imagej.launcher" (default), "frontmost" or "none". |
+| `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
 | `label` | No | string; max 80 characters | Two to six words shown beside Luma’s cursor while it flies to the target. |
 
 See [analysis semantics and verification limits](CAPABILITIES.md), [setup](SETUP.md) and [scientific task guidance](../skills/fiji/SKILL.md).

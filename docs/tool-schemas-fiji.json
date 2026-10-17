@@ -1053,7 +1053,7 @@
               "maxLength": 200
             },
             "maxItems": 8,
-            "description": "Bundle ids, or \"frontmost\". Default [\"net.imagej.launcher\"]."
+            "description": "Bundle ids, or \"frontmost\". Default [\"sc.fiji.fiji\"]."
           },
           "windowTitleContains": {
             "type": "string",
@@ -1131,7 +1131,7 @@
           "app": {
             "type": "string",
             "maxLength": 200,
-            "description": "Bundle id to bring forward first: \"net.imagej.launcher\" (default), \"frontmost\" or \"none\"."
+            "description": "Bundle id to bring forward first: \"sc.fiji.fiji\" (default), \"frontmost\" or \"none\"."
           },
           "label": {
             "type": "string",
@@ -1166,7 +1166,7 @@
           "app": {
             "type": "string",
             "maxLength": 200,
-            "description": "Bundle id to bring forward first: \"net.imagej.launcher\" (default), \"frontmost\" or \"none\"."
+            "description": "Bundle id to bring forward first: \"sc.fiji.fiji\" (default), \"frontmost\" or \"none\"."
           },
           "label": {
             "type": "string",
@@ -1223,7 +1223,7 @@
           "app": {
             "type": "string",
             "maxLength": 200,
-            "description": "Bundle id to bring forward first: \"net.imagej.launcher\" (default), \"frontmost\" or \"none\"."
+            "description": "Bundle id to bring forward first: \"sc.fiji.fiji\" (default), \"frontmost\" or \"none\"."
           },
           "label": {
             "type": "string",

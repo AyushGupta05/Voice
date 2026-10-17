@@ -13,5 +13,189 @@
   "qupathDocs": {
     "commit": "1e5537b6f493878ac3c9365c1c0985935cd02915",
     "repository": "https://github.com/qupath/qupath-docs.git"
+  },
+  "fiji": {
+    "channel": "latest (the stable channel publishes no macOS arm64 build)",
+    "build": "20261013-1517",
+    "url": "https://downloads.imagej.net/fiji/archive/latest/20261013-1517/fiji-latest-macos-arm64-jdk.zip",
+    "sha256": "7bf4a0ebbb308a9cd3328f59b81edb4e680100bff130277ae8de95f0f2416f02",
+    "publishedSha256Url": "https://downloads.imagej.net/fiji/archive/latest/20261013-1517/fiji-latest-macos-arm64-jdk.zip.sha256",
+    "downloadsPage": "https://imagej.net/software/fiji/downloads"
+  },
+  "imagej-docs": {
+    "wiki": {
+      "repository": "https://github.com/imagej/imagej.github.io.git",
+      "commit": "f6b0a55580008deae7af5a7aa36e94ca487ea45b"
+    },
+    "pages": {
+      "user-guide/146.md": {
+        "url": "https://imagej.net/ij/docs/guide/146.html",
+        "sha256": "e1ca05223669f5edb3fa007b3b3443b33f3958fd8b4d2b85d98047c82ddb0814"
+      },
+      "user-guide/146-Part-I.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Part-I.html",
+        "sha256": "5b5a8628466370befc7445ee579fade3ac4a7d6f1deac66b05ef3fb1b576771f"
+      },
+      "user-guide/146-2.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-2.html",
+        "sha256": "ee837c8e5c754d82afc03ed21216c14f7bc5a6738c2db948c6069a9d25eab1e0"
+      },
+      "user-guide/146-3.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-3.html",
+        "sha256": "7f7ef44b94d411fd71a90e747dc9454d2f769d32d4ed0e2fe1f6a75b9b6fd035"
+      },
+      "user-guide/146-4.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-4.html",
+        "sha256": "be54261c44e867d0ed8fe7c25c929e962b58d1355b3490399d3558327792bf98"
+      },
+      "user-guide/146-5.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-5.html",
+        "sha256": "3c931dd93c13630da6d0e9629f1c0e33991033ec6e98d28bc73a918d27f7d768"
+      },
+      "user-guide/146-7.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-7.html",
+        "sha256": "a18a6444eecc79c02ca1549bc36dca6f27cfe1757b46979c542812851ea9fb29"
+      },
+      "user-guide/146-8.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-8.html",
+        "sha256": "09aaaaf755a7d7bc6937695dde1923e8a6ee0d5c6918c0651b857ba029e62534"
+      },
+      "user-guide/146-9.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-9.html",
+        "sha256": "17be9a2e7f6094dbf5bc8ca3143c938ddb21044e342ef2b292859abe9d45d471"
+      },
+      "user-guide/146-10.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-10.html",
+        "sha256": "24e29ce4462944fcb0ec3bc6cdd192c3663bfe682d0eff74b38db6f479188be5"
+      },
+      "user-guide/146-11.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-11.html",
+        "sha256": "1de6803f6cc58fa419f0f32c18e6b242aa27cb08edcdbfade88b39fd7ff533d2"
+      },
+      "user-guide/146-13.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-13.html",
+        "sha256": "ed21b5235e8bbf258876aa7ef217aa1ae1c0b68f27401d815f438e5c86f076d8"
+      },
+      "user-guide/146-14.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-14.html",
+        "sha256": "5b3d28d94ec542e4437f55ce8fe4f265dbb21be79b91642aa605a6006f98d1ff"
+      },
+      "user-guide/146-Part-III.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Part-III.html",
+        "sha256": "a2f6f30d93738568d2897c6a648f0e917535d951bd8288db7488aec441c24db4"
+      },
+      "user-guide/146-17.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-17.html",
+        "sha256": "1a9ebeae3c358100e5fa6cb2461172c34087f25ffda18597118c253a0aaa3514"
+      },
+      "user-guide/146-18.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-18.html",
+        "sha256": "a2a27649596f7f3c495ade5754c6eb71d513080174109f74c7f1f9b2d99554b1"
+      },
+      "user-guide/146-19.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-19.html",
+        "sha256": "83a858eee60444e94749d9089ce0568afc0e5774ff4036647761face50097f9b"
+      },
+      "user-guide/146-21.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-21.html",
+        "sha256": "9780b056b707b9ebdb5e5891d38f2cfd9b6dff4f553bc6a51e3119f19f214759"
+      },
+      "user-guide/146-23.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-23.html",
+        "sha256": "80be5bccb532c9a4c0c3e04c51671f86389e0bd63963ab7080dbe4b18e4b2785"
+      },
+      "user-guide/146-24.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-24.html",
+        "sha256": "47d0a011e2c01e34d9b862a5f8f5cac65e4f41bd63d32193fbc78ce141008c36"
+      },
+      "user-guide/146-25.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-25.html",
+        "sha256": "3be6cf2cb9b8808d410da9500414b42fa77eacd9d72bd1df646a45528030fba0"
+      },
+      "user-guide/146-Part-IV.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Part-IV.html",
+        "sha256": "7d1b00c7821ba9947e153e2087c7d1b3d796616b6b82c9404f310cc619f9bca3"
+      },
+      "user-guide/146-26.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-26.html",
+        "sha256": "77d06619891c17c260b97835f95060376b83f5b9d13abb6516b27fad59a2d421"
+      },
+      "user-guide/146-27.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-27.html",
+        "sha256": "812f7d3e2248b2235f357e2b5538791bd5706835238edad8a6364e2d6bcad72f"
+      },
+      "user-guide/146-28.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-28.html",
+        "sha256": "e9a3eab9332864281dcd2bf836397879ec4aa8a32431bca2794fef2962e9c0cf"
+      },
+      "user-guide/146-29.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-29.html",
+        "sha256": "d431e124ca3cfb22b61466e49846fd02200a77fb995628793f0d5930bc4b2c18"
+      },
+      "user-guide/146-30.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-30.html",
+        "sha256": "d70498719eeeee161b1b6d485beaa44e219fa0a0e29c072389ffd5e9429ba398"
+      },
+      "user-guide/146-Part-V.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Part-V.html",
+        "sha256": "7f9da974e32742deab718b9fa7a1a22a481d4edf3c78dbdbf906092e356357f7"
+      },
+      "user-guide/146-33.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-33.html",
+        "sha256": "936dd86c05d68eab9a615e88b1976f9bfc27b2347566b966ffbf611978095887"
+      },
+      "user-guide/146-35.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-35.html",
+        "sha256": "13e95afc026473f98bdc3601903dc697cdaa04ad59484ec1f6eb38f8fd192842"
+      },
+      "user-guide/146-References.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-References.html",
+        "sha256": "a00f19fac4ae11d9dabff000142baf1e3ea54395432d93977c0846048cc70801"
+      },
+      "user-guide/146-Section--1.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Section--1.html",
+        "sha256": "ad8d5d19334186f685b89c4da77e1f05810979068a88224d5fdb614ec291d3a1"
+      },
+      "user-guide/146-Section--2.md": {
+        "url": "https://imagej.net/ij/docs/guide/146-Section--2.html",
+        "sha256": "c3c1c7e038a971c9e3573ee762dbfaee391ead52223741421ae1982136bcda5a"
+      },
+      "menus/file.md": {
+        "url": "https://imagej.net/ij/docs/menus/file.html",
+        "sha256": "b79f6a14668417d2f5069608f33912491f73c0912f8b806caf90645c0351e840"
+      },
+      "menus/edit.md": {
+        "url": "https://imagej.net/ij/docs/menus/edit.html",
+        "sha256": "f6e72f22354f11d29caf191453ee685b900f221c336a6483ae789e7041acb91e"
+      },
+      "menus/image.md": {
+        "url": "https://imagej.net/ij/docs/menus/image.html",
+        "sha256": "960d8e4f8abfb612a658880e5b9afaae2f3f5aad0a18caf8a273d2acf6a35789"
+      },
+      "menus/process.md": {
+        "url": "https://imagej.net/ij/docs/menus/process.html",
+        "sha256": "cb8aaaf5400ea38c14befbd958c6c4513214a293b2a90a6604fb94e432c45adf"
+      },
+      "menus/analyze.md": {
+        "url": "https://imagej.net/ij/docs/menus/analyze.html",
+        "sha256": "c5ad776ee7bf68377da97d0be20bf89aa6559247576ebdf1f62af9168af6537a"
+      },
+      "menus/plugins.md": {
+        "url": "https://imagej.net/ij/docs/menus/plugins.html",
+        "sha256": "b16b1b1403d12173cc0d15345769971690daba45c128483f39fa272e5e659df4"
+      },
+      "menus/window.md": {
+        "url": "https://imagej.net/ij/docs/menus/window.html",
+        "sha256": "73933b108bebf524012c037a768a9c94f7367dbe63c9eda7740794250486b92d"
+      },
+      "menus/help.md": {
+        "url": "https://imagej.net/ij/docs/menus/help.html",
+        "sha256": "de61744d60110b878c1c8e06c521e83b5942685e1782ea728dc2be163d204aa9"
+      },
+      "macro-functions.md": {
+        "url": "https://imagej.net/ij/developer/macro/functions.html",
+        "sha256": "9f2f0acc52cc4f0ca0478e3c71138b6bd0f6a3edcebf58cb5d3c62c3a662b7f3"
+      }
+    }
   }
 }
