@@ -12,9 +12,13 @@ const acknowledgments: Record<string, string> = {
   fiji_save_workflow: 'Saving the macro.', fiji_find_images: 'Finding it.', fiji_overlay: 'Updating the view.', fiji_stack: 'Changing slice.',
   fiji_activate_image: 'Switching image.', fiji_project_stack: 'Projecting.', fiji_convert: 'Converting.', fiji_save_image: 'Saving.', fiji_export_results: 'Exporting.',
   fiji_results: 'Checking.', fiji_roi_manager: 'Checking.', fiji_images: 'Checking.',
+  fiji_track_objects: 'Tracking them.', fiji_intensity_over_time: 'Following the intensity.', fiji_tumor_region: 'Outlining the tumour.',
+  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Checking.',
+  fiji_make_macro: 'Writing the macro.', fiji_workflows: 'Checking.', fiji_run_workflow: 'Running it on every image.', fiji_capture_macro: 'Saving the macro.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
   if (name === 'fiji_highlight') return highlightAcknowledgment(args);
+  if (name === 'fiji_run_workflow' && args.target !== 'open' && args.target !== 'folder') return 'Running the workflow.';
   return acknowledgments[name];
 }
 const silentFinishTools = new Set(['fiji_zoom', 'fiji_highlight', 'fiji_overlay', 'fiji_select_roi', 'fiji_activate_image', 'fiji_stack', 'fiji_display']);
@@ -29,6 +33,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
   if (silentFinishTools.has(name)) return '';
   const inner = completedPayload(result);
+  // Read operations return the bridge result itself, without a decision envelope.
+  if (biologyReads.has(name)) return biologySentence(name, args, inner ?? result as Record<string, unknown>) ?? undefined;
   if (inner === undefined && (result as { status?: unknown }).status !== 'completed') return undefined;
   if (name === 'fiji_segment_cells' || name === 'fiji_analyze_particles') {
     const count = finite(inner?.count); if (count === undefined) return undefined;
@@ -73,16 +79,115 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fiji_save_workflow') { const recorded = inner?.steps; const steps = Array.isArray(recorded) ? recorded.length : finite(recorded); const file = typeof inner?.path === 'string' ? inner.path.split('/').pop() : undefined; return file ? `Saved${steps !== undefined ? ` ${steps} steps` : ''} as ${file}.` : 'Saved the macro.'; }
   if (name === 'fiji_export_results') { const rows = finite(inner?.rows); const file = typeof inner?.path === 'string' ? inner.path.split('/').pop() : undefined; return file ? `Exported${rows !== undefined ? ` ${rows} rows` : ''} to ${file}.` : 'Exported.'; }
   if (name === 'fiji_save_image') { const file = typeof inner?.path === 'string' ? inner.path.split('/').pop() : undefined; return file ? `Saved ${file}.` : 'Saved.'; }
+  if (inner) { const sentence = biologySentence(name, args, inner); if (sentence !== null) return sentence; }
   return undefined;
+}
+const biologyReads = new Set(['fiji_colocalize', 'fiji_object_stats', 'fiji_workflows']);
+const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : undefined;
+const fileName = (value: unknown) => text(value)?.split('/').pop();
+const percent = (value: number) => `${Math.abs(value) >= 10 ? Math.round(value) : Number(value.toFixed(1))}%`;
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+/** An area spoken with the unit the bridge reported; µm² of a millimetre or more is said in mm² (exact factor 10⁶). */
+function spokenArea(area: number, unit: string | undefined): string {
+  if (!unit) return round(area);
+  if (/^(?:µm|um|μm|micron)$/i.test(unit) && area >= 1e6) return `${round(area / 1e6)} mm²`;
+  return `${round(area)} ${unit}²`;
+}
+const correlation = (r: number) => { const size = Math.abs(r); return size >= 0.7 ? 'strong' : size >= 0.4 ? 'moderate' : size >= 0.1 ? 'weak' : undefined; };
+/**
+ * Spoken outcomes of the biology and macro operations, built only from numbers the bridge reported. `undefined` sends the
+ * turn back to the model (missing numbers, a failed macro, nothing processed); `null` means the tool is not one of these.
+ */
+function biologySentence(name: string, args: Record<string, unknown>, inner: Record<string, unknown>): string | undefined | null {
+  const unit = text(inner.unit);
+  if (name === 'fiji_track_objects') {
+    const tracks = finite(inner.tracks), frames = finite(inner.frames), speed = finite(inner.meanSpeed);
+    if (tracks === undefined || frames === undefined) return undefined;
+    // meanSpeed is per timeUnit when the image has a frame interval, per frame otherwise (docs/FIJI-PROTOCOL.md).
+    const per = finite(inner.frameInterval) !== undefined && text(inner.timeUnit) ? text(inner.timeUnit) : 'frame';
+    const divisions = finite(inner.divisions);
+    return `Tracked ${plural(tracks, 'object')} over ${frames} frames${speed !== undefined ? `, mean speed ${round(speed)}${unit ? ` ${unit}` : ''} per ${per}` : ''}${divisions ? `, ${plural(divisions, 'division')}` : ''}.`;
+  }
+  if (name === 'fiji_intensity_over_time') {
+    const frames = finite(inner.frames), series = Array.isArray(inner.series) ? inner.series as Array<Record<string, unknown>> : [];
+    const changes = series.map(entry => finite(entry?.changePercent));
+    if (frames === undefined || !series.length || changes.some(change => change === undefined)) return undefined;
+    if (series.length === 1) {
+      const change = changes[0]!, peak = finite(series[0].peakFrame);
+      return `Intensity ${change >= 0 ? 'rose' : 'fell'} ${percent(Math.abs(change))} over ${frames} frames${peak !== undefined ? `, peak at frame ${peak}` : ''}.`;
+    }
+    const low = Math.min(...changes as number[]), high = Math.max(...changes as number[]);
+    const signed = (value: number) => `${value > 0 ? '+' : value < 0 ? 'minus ' : ''}${percent(Math.abs(value))}`;
+    return `Followed ${series.length} regions over ${frames} frames; change ${low === high ? signed(low) : `from ${signed(low)} to ${signed(high)}`}.`;
+  }
+  if (name === 'fiji_tumor_region') {
+    const fraction = finite(inner.areaFraction), area = finite(inner.area), regions = finite(inner.regions);
+    if (fraction === undefined || fraction < 0 || fraction > 1) return undefined;
+    const where = regions !== undefined && regions > 1 ? `${regions} regions cover` : 'Tumour covers';
+    return `${where} ${percent(fraction * 100)} of the section${area !== undefined ? `, ${spokenArea(area, unit)}` : ''}.`;
+  }
+  if (name === 'fiji_colocalize') {
+    const r = finite(inner.pearson); if (r === undefined) return undefined;
+    const manders = inner.manders as { m1?: unknown; m2?: unknown } | undefined;
+    const m1 = finite(manders?.m1), m2 = finite(manders?.m2), band = correlation(r);
+    const relation = band ? `${band} ${r >= 0 ? 'positive' : 'negative'} correlation` : 'no meaningful correlation';
+    return `Pearson ${r.toFixed(2)}, ${relation}${m1 !== undefined && m2 !== undefined ? `; Manders M1 ${m1.toFixed(2)}, M2 ${m2.toFixed(2)}` : ''}.`;
+  }
+  if (name === 'fiji_classify_intensity') {
+    const total = finite(inner.total), positive = finite(inner.positive);
+    if (total === undefined || positive === undefined || total <= 0) return undefined;
+    const share = finite(inner.percentPositive) ?? positive / total * 100;
+    const label = text(inner.label) ?? text(args.label);
+    const marker = !label ? 'positive' : /positive|\+$/i.test(label) ? label : `${label}-positive`;
+    return `${positive} of ${total} cells ${marker}, ${percent(share)}.`;
+  }
+  if (name === 'fiji_object_stats') {
+    const n = finite(inner.n), area = inner.area as { mean?: unknown; median?: unknown } | undefined;
+    const mean = finite(area?.mean), median = finite(area?.median);
+    if (n === undefined || mean === undefined) return undefined;
+    return `${plural(n, 'object')}, mean area ${spokenArea(mean, unit)}${median !== undefined ? `, median ${spokenArea(median, unit)}` : ''}.`;
+  }
+  if (name === 'fiji_make_macro' || name === 'fiji_capture_macro') {
+    if (inner.ok !== true || inner.error != null) return undefined;
+    const file = fileName(inner.path) ?? text(inner.name);
+    if (inner.tested !== true) return file ? `Saved ${file}; not tested yet.` : undefined;
+    const rows = finite(inner.resultsAdded);
+    return `Macro saved and tested${rows ? `: ${plural(rows, 'row')}` : ''}.`;
+  }
+  if (name === 'fiji_workflows') {
+    const list = Array.isArray(inner.workflows) ? inner.workflows as Array<{ name?: unknown }> : undefined;
+    if (!list) return undefined;
+    if (!list.length) return 'No saved workflows yet.';
+    const names = list.map(entry => text(entry?.name)).filter(Boolean) as string[];
+    if (list.length > 3 || names.length !== list.length) return `${plural(list.length, 'saved workflow')}.`;
+    return `${plural(list.length, 'saved workflow')}: ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`}.`;
+  }
+  if (name === 'fiji_run_workflow') {
+    const processed = finite(inner.processed), failed = finite(inner.failed) ?? 0;
+    if (processed === undefined || processed === 0) return undefined;
+    const workflow = text(inner.workflow) ?? text(args.name), csv = fileName(inner.csv);
+    return `Ran ${workflow ?? 'the workflow'} on ${plural(processed, 'image')}${failed ? `, ${failed} failed` : ''}${csv ? `; results in ${csv}` : ''}.`;
+  }
+  return null;
 }
 /** Wording the local sentence cannot answer sends the turn back to the model. */
 function requestContinuesAfter(name: string, utterance: string): boolean {
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
-  if (name === 'fiji_segment_cells') return !/\b(segment|count|find|detect|identify|how many)\b/.test(said) || /\b(area|size|intens|measur|mean|bright|perimeter|circular)/.test(said);
+  // Marker positivity needs fiji_classify_intensity after the segmentation.
+  if (name === 'fiji_segment_cells') return !/\b(segment|count|find|detect|identify|how many)\b/.test(said) || /\b(area|size|intens|measur|mean|bright|perimeter|circular)/.test(said)
+    || /\b(positive|negative|ki-?67|marker|percent|fraction|proportion|index|express)/.test(said);
   if (name === 'fiji_measure') return /\b(area|size|how many|count|perimeter|circular|feret|min|max|integrated|median)\b/.test(said);
-  if (name === 'fiji_threshold') return /\b(count|particle|how many|cells?|segment)\b/.test(said);
+  // A threshold change in a counting conversation must be followed by a recount, so the model continues.
+  if (name === 'fiji_threshold') return /\b(count|particle|how many|cells?|segment|strict|loose|tight|sensitiv|aggressive|conservative|more|less|higher|lower|again|redo)\b/.test(said);
   if (name === 'fiji_analyze_particles') return /\b(intens|mean gray|brightness)\b/.test(said);
+  if (name === 'fiji_track_objects') return /\b(intens|bright|which|fastest|slowest|longest|compare|direction)\b/.test(said);
+  if (name === 'fiji_intensity_over_time') return /\b(recover|half|mobile|immobile|fit|rate|constant)/.test(said);
+  if (name === 'fiji_tumor_region') return /\b(intens|stain|perimeter|circular|solid|shape|cells?|nucle)/.test(said);
+  if (name === 'fiji_colocalize') return /\b(icq|costes|overlap|significan|random)/.test(said);
+  if (name === 'fiji_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest|histogram|distribution)/.test(said);
+  // A macro written to answer a question reports what it found; only "write/save a macro" is answered locally.
+  if (name === 'fiji_make_macro') return !/\b(macro|script)\b/.test(said) || /\b(how many|what|which|find|count|measure)\b/.test(said);
   return false;
 }
 /** Whole-utterance instant routes from the protocol: zoom, fit, overlay, slices and undo. */
@@ -141,7 +246,7 @@ export const fiji: AppProfile = {
   launcherScript: './script/run-fiji.sh', bridgeJar: 'dist/luma-fiji-bridge.jar', buildManifest: '.local/fiji-bridge-build.json', buildScript: 'script/build-fiji-bridge.sh',
   doctorArtifacts: [['dist/luma-fiji-bridge.jar', 'Fiji bridge build'], ['.local/fiji/Fiji.app/Contents/MacOS/ImageJ-macosx', 'Fiji launcher']],
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
-  longRunningTools: new Set(['fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command']),
+  longRunningTools: new Set(['fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.

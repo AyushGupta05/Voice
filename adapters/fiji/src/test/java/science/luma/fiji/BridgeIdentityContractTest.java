@@ -8,8 +8,8 @@ public final class BridgeIdentityContractTest {
         var identity = BridgeIdentity.description();
         if (identity != BridgeIdentity.description()) throw new AssertionError("Loaded identity must be cached, never read from a replaced jar");
         if (!String.valueOf(identity.get("sourceSha256")).matches("[a-f0-9]{64}")) throw new AssertionError("Missing real build stamp");
-        if (!identity.get("protocolVersion").equals(1) || BridgeIdentity.OPERATIONS.size() != 40) throw new AssertionError("Unexpected capability protocol: " + BridgeIdentity.OPERATIONS.size() + " operations");
-        if (BridgeIdentity.OPERATIONS.stream().distinct().count() != 40) throw new AssertionError("Duplicate operation names");
+        if (!identity.get("protocolVersion").equals(1) || BridgeIdentity.OPERATIONS.size() != 41) throw new AssertionError("Unexpected capability protocol: " + BridgeIdentity.OPERATIONS.size() + " operations");
+        if (BridgeIdentity.OPERATIONS.stream().distinct().count() != 41) throw new AssertionError("Duplicate operation names");
         for (var operation : BridgeIdentity.OPERATIONS) {
             int classes = (LumaBridge.READ.contains(operation) ? 1 : 0) + (LumaBridge.VIEW.contains(operation) ? 1 : 0) + (LumaBridge.DATA.contains(operation) ? 1 : 0) + (LumaBridge.CODE.contains(operation) ? 1 : 0);
             if (classes != 1) throw new AssertionError("Operation " + operation + " must belong to exactly one risk class");
@@ -17,6 +17,6 @@ public final class BridgeIdentityContractTest {
         if (!BridgeIdentity.readDigest(null).equals("unknown")) throw new AssertionError("Manual builds without a stamp are unverified");
         var invalid = new ByteArrayInputStream("sourceSha256=untrusted\n".getBytes(StandardCharsets.UTF_8));
         if (!BridgeIdentity.readDigest(invalid).equals("unknown")) throw new AssertionError("Invalid stamp accepted");
-        System.out.println("Startup-cached bridge identity, build resource, risk classes and the 40-operation contract: passed");
+        System.out.println("Startup-cached bridge identity, build resource, risk classes and the 41-operation contract: passed");
     }
 }

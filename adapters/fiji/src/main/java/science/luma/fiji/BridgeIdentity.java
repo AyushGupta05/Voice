@@ -14,7 +14,7 @@ final class BridgeIdentity {
         "measure", "results", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert",
         "duplicate", "zoom", "highlight", "overlay", "display", "stack", "commands", "run_command", "ui", "ui_action",
         "run_macro", "run_script", "recorder", "save_workflow", "save_image", "export_results", "checkpoint",
-        "checkpoints", "compare", "restore", "close", "snapshot", "log", "plugins", "undo");
+        "checkpoints", "compare", "restore", "close", "snapshot", "log", "plugins", "undo", "status");
     private static final Map<String, Object> DESCRIPTION = Map.of("adapterVersion", VERSION, "protocolVersion", PROTOCOL_VERSION,
         "sourceSha256", sourceDigest(), "operations", OPERATIONS);
     private static String sourceDigest() {

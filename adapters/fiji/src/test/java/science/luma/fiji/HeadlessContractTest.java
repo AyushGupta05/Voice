@@ -60,8 +60,10 @@ public final class HeadlessContractTest {
         expect(context.getAsJsonObject("image").get("title").getAsString().equals("synthetic-blobs.tif"), "context sees the synthetic image");
         expect(context.getAsJsonObject("image").get("bitDepth").getAsInt() == 8, "8-bit image");
         expect(context.get("viewer").isJsonNull(), "no window means no viewer geometry");
-        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 40, "adapter declares 40 operations");
+        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 41, "adapter declares 41 operations");
 
+        var status = call("status", new JsonObject(), false, null);
+        expect(status.has("status") && !status.get("analysisRunning").getAsBoolean(), "status reports the status bar text: " + status);
         // --- policy: data ops need approved + expectedContext, and a stale key is refused
         var refused = rawCall("measure", obj("scope", "all"), null, null);
         expect(refused.statusCode() == 409 && refused.body().contains("approved"), "data op without approval refused: " + refused.body());
@@ -118,6 +120,10 @@ public final class HeadlessContractTest {
         var particles = call("analyze_particles", particleArgs, true, key("context"));
         expect(particles.get("count").getAsInt() == discs, "finds all " + discs + " discs: " + particles.get("count"));
         expect(particles.get("addedToManager").getAsInt() == discs && particles.get("managerTotal").getAsInt() == discs, "discs added to the ROI Manager: " + particles);
+        expect(imp.getOverlay() != null && imp.getOverlay().size() == discs && imp.getOverlay().get(0).getStrokeColor().equals(java.awt.Color.MAGENTA) && "1".equals(imp.getOverlay().get(0).getName()), "particles outlined in the overlay with numbers");
+        @SuppressWarnings("unchecked") var flash = particles.getAsJsonObject("highlight");
+        expect(flash.size() == 0 || flash.get("flash").getAsBoolean(), "highlight payloads carry flash:true when a window exists");
+        expect(LumaBridge.rootFromJar() == null || java.nio.file.Files.isRegularFile(java.nio.file.Path.of(LumaBridge.rootFromJar(), ".local/state/bridge-token")), "jar-relative root only when a token exists there");
         double average = particles.get("averageSize").getAsDouble();
         double expectedAverage = (6 * Math.PI * 64 + 6 * Math.PI * 144) / 12;
         expect(Math.abs(average - expectedAverage) / expectedAverage < 0.12, "average disc area near πr² (" + expectedAverage + "): " + average);
@@ -144,7 +150,7 @@ public final class HeadlessContractTest {
         expect(segmented.get("count").getAsInt() == discs, "segment_cells counts " + discs + " cells: " + segmented.get("count"));
         expect(segmented.getAsJsonArray("steps").size() >= 6 && segmented.get("macro").getAsString().contains("Watershed"), "segmentation steps and macro recorded: " + segmented.get("steps"));
         expect(segmented.get("managerTotal").getAsInt() == discs, "cell ROIs in the manager");
-        expect(call("images", new JsonObject(), false, null).getAsJsonArray("images").size() == 1, "the scratch mask was closed");
+        expect(call("images", new JsonObject(), false, null).getAsJsonArray("images").size() == 1, "the scratch mask was closed: " + call("images", new JsonObject(), false, null));
         expect(WindowManager.getCurrentImage() == imp, "the original image stays active");
 
         // --- undo goes back to the checkpoint taken before segment_cells

@@ -5,6 +5,7 @@ import ij.ImagePlus;
 import ij.gui.ImageCanvas;
 import ij.gui.ImageWindow;
 import ij.gui.Roi;
+import ij.WindowManager;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -57,7 +58,7 @@ final class Viewer {
             var target = new java.util.LinkedHashMap<String, Object>(); target.put("x", (double) p.x); target.put("y", (double) p.y); target.put("width", (double) d.width); target.put("height", (double) d.height); target.put("shape", "rect");
             var result = new java.util.LinkedHashMap<String, Object>();
             result.put("label", label.length() > 80 ? label.substring(0, 80) : label); result.put("total", 1); result.put("shown", 1); result.put("truncated", false); result.put("kind", "control");
-            result.put("targets", List.of(target)); result.put("pointer", Map.of("screenX", p.x + d.width / 2.0, "screenY", p.y + d.height / 2.0)); result.put("coordinateSystem", "screen-top-left");
+            result.put("targets", List.of(target)); result.put("pointer", Map.of("screenX", p.x + d.width / 2.0, "screenY", p.y + d.height / 2.0)); result.put("coordinateSystem", "screen-top-left"); result.put("flash", true);
             return result;
         } catch (RuntimeException error) { return Map.of(); }
     }
@@ -97,6 +98,23 @@ final class Viewer {
         if (src.width >= imp.getWidth() && src.height >= imp.getHeight()) return;
         ic.setSourceRect(new Rectangle(cx - src.width / 2, cy - src.height / 2, src.width, src.height));
         ic.repaint();
+    }
+    /** Presents a freshly opened image: zoomed so it takes at least 60% of the screen height (never above 32x) and centred on screen. */
+    static void present(ImagePlus imp) {
+        ImageWindow win = imp.getWindow(); ImageCanvas ic = imp.getCanvas();
+        if (win == null || ic == null) return;
+        try {
+            Dimension screen = IJ.getScreenSize();
+            double wanted = Math.min(0.80 * screen.width / imp.getWidth(), 0.72 * screen.height / imp.getHeight());
+            double mag = ic.getMagnification();
+            if (imp.getHeight() * mag < 0.6 * screen.height && wanted > mag) {
+                double level = mag; while (ImageCanvas.getHigherZoomLevel(level) <= wanted && level < 32) level = ImageCanvas.getHigherZoomLevel(level);
+                if (level > mag) magnify(imp, level, null, null);
+            }
+            Rectangle bounds = win.getBounds();
+            win.setLocation(Math.max(0, (screen.width - bounds.width) / 2), Math.max(0, (screen.height - bounds.height) / 2));
+            WindowManager.setCurrentWindow(win); WindowManager.toFront(win);
+        } catch (RuntimeException ignored) { /* display only */ }
     }
     static void fit(ImagePlus imp) {
         ImageCanvas ic = imp.getCanvas(); if (ic == null || imp.getWindow() == null) throw new IllegalStateException("The image has no window to zoom.");

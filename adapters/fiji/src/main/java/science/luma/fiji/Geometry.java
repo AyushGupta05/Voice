@@ -66,7 +66,7 @@ final class Geometry {
         result.put("label", label.length() > 80 ? label.substring(0, 80) : label); result.put("total", total); result.put("shown", targets.size());
         result.put("truncated", targets.size() < total); result.put("kind", "image"); result.put("targets", targets); result.put("pointer", pointer);
         result.put("viewer", Map.of("x", view.screenX, "y", view.screenY, "width", view.canvasWidth, "height", view.canvasHeight));
-        result.put("coordinateSystem", "screen-top-left");
+        result.put("coordinateSystem", "screen-top-left"); result.put("flash", true);
         result.put("note", targets.size() < total ? "Only targets inside the visible canvas are outlined; zoom or highlight again to see others." : "");
         return result;
     }

@@ -27,7 +27,12 @@ public final class LumaBridge implements PlugIn {
     private static final Gson JSON = new GsonBuilder().serializeNulls().serializeSpecialFloatingPointValues().disableHtmlEscaping().create();
     private static final int MAX_BODY = 1024 * 1024;
     private static final long UI_TIMEOUT_SECONDS = 120, COMMAND_TIMEOUT_MS = 20_000;
-    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins");
+    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins", "status");
+    /** Status-bar wording while a data/code operation runs, so the action is visible in Fiji itself. */
+    static final Map<String, String> STATUS = Map.ofEntries(Map.entry("segment_cells", "segmenting cells"), Map.entry("measure", "measuring"), Map.entry("threshold", "thresholding"),
+        Map.entry("analyze_particles", "counting particles"), Map.entry("filter", "applying the filter"), Map.entry("convert", "converting"), Map.entry("open_path", "opening"),
+        Map.entry("run_command", "running the command"), Map.entry("run_macro", "running a macro"), Map.entry("run_script", "running a script"), Map.entry("restore", "going back"), Map.entry("undo", "going back"),
+        Map.entry("save_workflow", "saving the macro"), Map.entry("save_image", "saving the image"), Map.entry("export_results", "exporting results"), Map.entry("duplicate", "duplicating"), Map.entry("close", "closing"));
     static final Set<String> VIEW = Set.of("activate_image", "select_roi", "zoom", "highlight", "overlay", "display", "stack");
     static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo");
     static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results");
@@ -55,7 +60,21 @@ public final class LumaBridge implements PlugIn {
         if ("status".equals(arg) || Operations.guiVisible() && !"silent".equals(arg)) IJ.showMessage("Luma bridge", statusMessage());
     }
 
-    static String root() { String property = System.getProperty("luma.root"); if (property != null && !property.isBlank()) return property; String env = System.getenv("LUMA_ROOT"); return env == null || env.isBlank() ? null : env; }
+    static String root() {
+        String property = System.getProperty("luma.root"); if (property != null && !property.isBlank()) return property;
+        String env = System.getenv("LUMA_ROOT"); if (env != null && !env.isBlank()) return env;
+        return rootFromJar();
+    }
+    /** The repository that built this jar: plugins/luma-fiji-bridge.jar is a symlink to <root>/dist/luma-fiji-bridge.jar. */
+    static String rootFromJar() {
+        try {
+            var location = LumaBridge.class.getProtectionDomain().getCodeSource().getLocation();
+            var jar = Path.of(location.toURI()).toRealPath();
+            var root = jar.getParent() == null ? null : jar.getParent().getParent();
+            if (root != null && jar.getParent().getFileName().toString().equals("dist") && Files.isRegularFile(root.resolve(".local/state/bridge-token"))) return root.toString();
+        } catch (Exception ignored) { /* not launched from a repository checkout */ }
+        return null;
+    }
     /** Token from LUMA_BRIDGE_TOKEN, else the gateway's own file under the Luma root; null when the bridge should stay off. */
     static String configuredToken() {
         String token = System.getenv("LUMA_BRIDGE_TOKEN");
@@ -144,12 +163,39 @@ public final class LumaBridge implements PlugIn {
         }
         String expected = request.has("expectedContext") && !request.get("expectedContext").isJsonNull() ? request.get("expectedContext").getAsString() : null;
         if (!READ.contains(operation) && !operation.equals("ui_action") && analysisRunning.get()) throw new IllegalStateException("A command, macro or script is still running in Fiji. Wait for it or close its dialog before starting another action.");
-        return switch (operation) {
-            case "run_command" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before " + Operations.string(args, "name", "command"))); yield withMeta(scripting.runCommand(args, imp, COMMAND_TIMEOUT_MS), backup); }
-            case "run_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before macro")); yield withMeta(scripting.runMacro(args, imp, COMMAND_TIMEOUT_MS), backup); }
-            case "run_script" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before script")); yield withMeta(scripting.runScript(args, imp, COMMAND_TIMEOUT_MS), backup); }
-            default -> edt(() -> { check(expected); return execute(operation, args, request); });
-        };
+        if (mutating) edt(() -> { announce(operation, args); return null; });
+        try {
+            return switch (operation) {
+                case "run_command" -> {
+                    var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); int before = imp == null ? 0 : imp.getID();
+                    var backup = edt(() -> checkpointIfPossible("Before " + Operations.string(args, "name", "command")));
+                    var result = new LinkedHashMap<>(scripting.runCommand(args, imp, COMMAND_TIMEOUT_MS));
+                    // A command that opened a new image (samples, importers) presents it like open_path does.
+                    var opened = edt(() -> { var current = WindowManager.getCurrentImage(); if (current == null || current.getID() == before) return null; Viewer.present(current); return Map.of("image", Operations.describe(current), "highlight", Viewer.imageHighlight(current, "Opened " + current.getTitle())); });
+                    if (opened != null) result.putAll(opened);
+                    yield withMeta(result, backup);
+                }
+                case "run_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before macro")); yield withMeta(scripting.runMacro(args, imp, COMMAND_TIMEOUT_MS), backup); }
+                case "run_script" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before script")); yield withMeta(scripting.runScript(args, imp, COMMAND_TIMEOUT_MS), backup); }
+                default -> edt(() -> { check(expected); return execute(operation, args, request); });
+            };
+        } finally {
+            if (mutating) edt(() -> { if (!analysisRunning.get()) IJ.showStatus(""); return null; });
+        }
+    }
+    /** Visible action: the image window comes to the front and Fiji's status bar says what Luma is doing. EDT only. */
+    private void announce(String operation, JsonObject args) {
+        var imp = WindowManager.getCurrentImage();
+        if (imp != null && imp.getWindow() != null) { try { WindowManager.setCurrentWindow(imp.getWindow()); WindowManager.toFront(imp.getWindow()); } catch (RuntimeException ignored) { /* display only */ } }
+        String what = STATUS.getOrDefault(operation, operation.replace('_', ' '));
+        if (operation.equals("run_command") && args.has("name")) what = "running " + args.get("name").getAsString();
+        IJ.showStatus("Luma: " + what + "…");
+    }
+    private Map<String, Object> status() {
+        var result = new LinkedHashMap<String, Object>();
+        result.put("status", ij.ImageJ.getStatusBarText()); result.put("analysisRunning", analysisRunning.get()); result.put("lastDispatch", lastDispatch);
+        result.put("progress", null); result.put("note", "ImageJ's progress bar exposes no value; analysisRunning tells whether a bridge command, macro or script is still running.");
+        return result;
     }
     private void check(String expected) {
         if (expected != null && !contextKey().equals(expected)) throw new IllegalStateException("Fiji image, selection or results changed. Review the action again.");
@@ -172,6 +218,7 @@ public final class LumaBridge implements PlugIn {
         Object checkpoint = CHECKPOINT_FIRST.contains(operation) ? checkpointIfPossible("Before " + operation.replace('_', ' ')) : null;
         Map<String, Object> result = switch (operation) {
             case "context" -> context();
+            case "status" -> status();
             case "images" -> Map.of("images", ops.images().stream().map(imp -> { var d = Operations.describe(imp); d.put("active", imp == WindowManager.getCurrentImage()); return d; }).toList());
             case "open_path" -> ops.openPath(args);
             case "activate_image" -> ops.activate(args);

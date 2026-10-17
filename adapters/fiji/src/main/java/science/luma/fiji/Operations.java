@@ -136,6 +136,7 @@ final class Operations {
             imp = WindowManager.getCurrentImage();
             if (imp == null || path(imp) == null || !path(imp).equals(path.toString())) throw new IllegalStateException("Neither ImageJ nor Bio-Formats opened " + path.getFileName() + ". Inspect Fiji for a reader dialog.");
         } else { journal.record("open_path", "open(\"" + Journal.escape(path.toString()) + "\");"); show(imp); }
+        Viewer.present(imp);
         var result = new LinkedHashMap<String, Object>();
         result.put("opened", true); result.put("reader", reader); result.put("image", describe(imp)); result.put("highlight", Viewer.imageHighlight(imp, "Opened " + imp.getTitle()));
         return result;
@@ -268,7 +269,7 @@ final class Operations {
             default -> throw new IllegalArgumentException("scope must be roi, manager or all.");
         }
         showResults(table);
-        var result = summary(table, before);
+        var result = summary(table, before, flags);
         result.put("scope", scope);
         Rectangle union = measured.isEmpty() ? new Rectangle(0, 0, imp.getWidth(), imp.getHeight()) : Geometry.union(measured.stream().map(Roi::getBounds).toList());
         result.put("focused", Viewer.follow(imp, union));
@@ -281,13 +282,17 @@ final class Operations {
         if (roi != null && (roi.isLine() || roi.getType() == Roi.POINT || roi.getType() == Roi.ANGLE)) { analyzer.measure(); return; }
         analyzer.saveResults(imp.getStatistics(flags), roi);
     }
-    static Map<String, Object> summary(ResultsTable table, int before) {
+    private static final Map<String, Integer> SUMMARY_COLUMNS = new LinkedHashMap<>();
+    static { SUMMARY_COLUMNS.put("Area", Measurements.AREA); SUMMARY_COLUMNS.put("Mean", Measurements.MEAN); SUMMARY_COLUMNS.put("Min", Measurements.MIN_MAX); SUMMARY_COLUMNS.put("Max", Measurements.MIN_MAX); SUMMARY_COLUMNS.put("IntDen", Measurements.INTEGRATED_DENSITY); SUMMARY_COLUMNS.put("Median", Measurements.MEDIAN); SUMMARY_COLUMNS.put("Perim.", Measurements.PERIMETER); SUMMARY_COLUMNS.put("Circ.", Measurements.SHAPE_DESCRIPTORS); }
+    /** Min/max/mean over the new rows, only for columns the flags actually measured (unmeasured columns hold zeros in ImageJ's table). */
+    static Map<String, Object> summary(ResultsTable table, int before, int flags) {
         var result = new LinkedHashMap<String, Object>();
         int rows = table.size(); result.put("rows", rows); result.put("newRows", rows - before);
         result.put("columns", List.of(table.getHeadings()));
         result.put("lastRow", rows == 0 ? Map.of() : row(table, rows - 1));
         var summary = new LinkedHashMap<String, Object>();
-        for (String column : List.of("Area", "Mean", "Min", "Max", "IntDen", "Median", "Perim.", "Circ.")) {
+        for (var entry : SUMMARY_COLUMNS.entrySet()) {
+            String column = entry.getKey(); if ((flags & entry.getValue()) == 0) continue;
             int index = table.getColumnIndex(column); if (index == ResultsTable.COLUMN_NOT_FOUND || !table.columnExists(index)) continue;
             double min = Double.MAX_VALUE, max = -Double.MAX_VALUE, sum = 0; int n = 0;
             for (int r = before; r < rows; r++) { double v = table.getValueAsDouble(index, r); if (!Double.isFinite(v)) continue; n++; sum += v; min = Math.min(min, v); max = Math.max(max, v); }
@@ -353,7 +358,9 @@ final class Operations {
         if (ip.getMinThreshold() == ImageProcessor.NO_THRESHOLD) throw new IllegalStateException("ImageJ did not set a threshold; check the Log window.");
         result.put("lower", ip.getMinThreshold()); result.put("upper", ip.getMaxThreshold());
         Roi roi = imp.getRoi(); Rectangle bounds = roi == null ? new Rectangle(0, 0, imp.getWidth(), imp.getHeight()) : roi.getBounds();
-        result.put("focused", Viewer.follow(imp, bounds));
+        // A threshold concerns the whole image (or a real region); never zoom into a single tiny particle ROI.
+        boolean regionSized = roi != null && bounds.getWidth() * bounds.getHeight() >= 0.05 * imp.getWidth() * imp.getHeight();
+        result.put("focused", Viewer.follow(imp, regionSized ? bounds : new Rectangle(0, 0, imp.getWidth(), imp.getHeight())));
         result.put("highlight", roi == null ? Viewer.imageHighlight(imp, "Thresholded " + plain(ip.getMinThreshold()) + "–" + plain(ip.getMaxThreshold())) : Viewer.roiHighlight(imp, List.of(roi), "Thresholded in the region", 1));
         return result;
     }
@@ -394,12 +401,23 @@ final class Operations {
         var result = new LinkedHashMap<String, Object>();
         result.put("count", count); result.put("totalArea", totalArea); result.put("averageSize", count == 0 ? 0.0 : totalArea / count); result.put("unit", cal.getUnit());
         result.put("resultsRows", table.size()); result.put("addedToManager", manager == null ? 0 : manager.getCount() - managerBefore); result.put("managerTotal", manager == null ? 0 : manager.getCount());
-        result.put("summary", summary(table, before).get("summary"));
-        if (manager != null && guiVisible()) { try { manager.runCommand(imp, "Show All without labels"); } catch (RuntimeException ignored) { /* display only */ } }
+        result.put("summary", summary(table, before, measurements).get("summary"));
+        outline(imp, manager, managerBefore, bounds, count);
         var union = Geometry.union(bounds);
         result.put("focused", union != null && Viewer.follow(imp, union));
         result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " particle" : " particles"), 120, true));
         return result;
+    }
+    /** Detections stay visible even with the ROI Manager hidden: bright magenta outlines in the overlay, numbered when there are at most 200. */
+    static void outline(ImagePlus imp, RoiManager manager, int managerBefore, List<Rectangle> bounds, int count) {
+        if (count <= 0) return;
+        var overlay = new Overlay();
+        var rois = manager == null ? new Roi[0] : manager.getRoisAsArray();
+        if (rois.length >= managerBefore + count) { for (int i = managerBefore; i < managerBefore + count; i++) overlay.add((Roi) rois[i].clone()); }
+        else for (var b : bounds) overlay.add(new OvalRoi(b.x, b.y, b.width, b.height));
+        for (int i = 0; i < overlay.size(); i++) { var roi = overlay.get(i); roi.setStrokeColor(java.awt.Color.MAGENTA); roi.setStrokeWidth(2); roi.setName(String.valueOf(i + 1)); }
+        overlay.drawLabels(count <= 200); overlay.drawNames(count <= 200); overlay.setLabelColor(java.awt.Color.WHITE); overlay.drawBackgrounds(true);
+        imp.setOverlay(overlay); imp.setHideOverlay(false); imp.updateAndDraw();
     }
     Map<String, Object> segmentCells(JsonObject args) {
         var imp = active();
@@ -414,7 +432,7 @@ final class Operations {
         try {
             work = new Duplicator().run(imp, channel, channel, imp.getZ(), imp.getZ(), imp.getT(), imp.getT());
             work.setTitle("luma-segmentation-mask");
-            steps.add("duplicate channel " + channel + " of " + imp.getTitle()); macro.add("run(\"Duplicate...\", \"title=luma-segmentation-mask duplicate channels=" + channel + "\");");
+            steps.add("duplicate channel " + channel + " of " + imp.getTitle()); macro.add("selectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nrun(\"Duplicate...\", \"title=luma-segmentation-mask duplicate channels=" + channel + "\");");
             if (work.getBitDepth() != 8) { IJ.run(work, "8-bit", ""); steps.add("convert to 8-bit"); macro.add("run(\"8-bit\");"); }
             if (gaussian) { IJ.run(work, "Gaussian Blur...", "sigma=" + plain(sigma)); steps.add("Gaussian blur sigma " + plain(sigma)); macro.add("run(\"Gaussian Blur...\", \"sigma=" + plain(sigma) + "\");"); }
             boolean dark = args.has("dark") ? args.get("dark").getAsBoolean() : !work.getProcessor().isInvertedLut();
@@ -426,24 +444,41 @@ final class Operations {
             if (watershed) { IJ.run(work, "Watershed", ""); steps.add("watershed"); macro.add("run(\"Watershed\");"); }
             var particleArgs = args.deepCopy(); particleArgs.addProperty("show", "Nothing"); if (!particleArgs.has("exclude")) particleArgs.addProperty("exclude", false);
             if (!particleArgs.has("minSize")) particleArgs.addProperty("minSize", 0);
+            // Each segmentation answers for the current image only: previous ROIs and rows must not inflate the count.
+            var existing = managerOrNull();
+            if (existing != null && existing.getCount() > 0) { existing.reset(); steps.add("reset ROI Manager"); macro.add("roiManager(\"reset\");"); }
+            if (results().size() > 0) { results().reset(); steps.add("clear results"); macro.add("run(\"Clear Results\");"); }
+            for (var line : macro) journal.record("segment_cells", line);
             int journalBefore = journal.size();
             var result = particles(work, particleArgs, "segment_cells");
             steps.add("analyze particles (" + result.get("count") + " found)");
             for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro")));
+            macro.add("close(\"luma-segmentation-mask\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nroiManager(\"Show All without labels\");");
+            journal.record("segment_cells", macro.getLast());
             result.put("threshold", Map.of("lower", lower, "upper", upper, "method", method, "dark", dark));
+            // Intensities must come from the original pixels, not the binary mask: re-measure the new ROIs on the image.
+            var measuredManager = managerOrNull();
+            if (measuredManager != null && measuredManager.getCount() > 0) {
+                results().reset();
+                IJ.run("Set Measurements...", "area mean standard min integrated median perimeter shape bounding redirect=None decimal=3");
+                measuredManager.runCommand(imp, "Measure");
+                var measured = summary(results(), 0, Measurements.AREA | Measurements.MEAN | Measurements.MIN_MAX | Measurements.INTEGRATED_DENSITY | Measurements.MEDIAN | Measurements.PERIMETER | Measurements.SHAPE_DESCRIPTORS);
+                result.put("summary", measured.get("summary")); result.put("resultsRows", results().size());
+                steps.add("measure the ROIs on the original image");
+                macro.add("run(\"Set Measurements...\", \"area mean standard min integrated median perimeter shape bounding redirect=None decimal=3\");\nroiManager(\"Measure\");");
+            }
             result.put("steps", steps); result.put("macro", String.join("\n", macro)); result.put("maskClosed", true);
-            journal.record("segment_cells", "// segment_cells: " + String.join("; ", steps));
             // The mask is scratch; the ROIs live in the manager and refer to the original image's pixels.
             work.changes = false; work.close(); work = null;
             if (saved != null) imp.setRoi(saved);
-            var manager = managerOrNull();
-            if (manager != null && guiVisible()) { try { WindowManager.setCurrentWindow(imp.getWindow()); manager.runCommand(imp, "Show All without labels"); } catch (RuntimeException ignored) { /* display only */ } }
+            if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow());
             var bounds = new ArrayList<Rectangle>();
             var table = results(); int bx = column(table, "BX"), by = column(table, "BY"), bw = column(table, "Width"), bh = column(table, "Height"); var cal = imp.getCalibration();
             int count = ((Number) result.get("count")).intValue();
             for (int r = Math.max(0, table.size() - count); r < table.size() && bx >= 0 && by >= 0 && bw >= 0 && bh >= 0; r++) bounds.add(new Rectangle((int) Math.round(cal.getRawX(table.getValueAsDouble(bx, r))), (int) Math.round(cal.getRawY(table.getValueAsDouble(by, r))), (int) Math.round(table.getValueAsDouble(bw, r) / cal.pixelWidth), (int) Math.round(table.getValueAsDouble(bh, r) / cal.pixelHeight)));
             var union = Geometry.union(bounds);
             result.put("focused", union != null && Viewer.follow(imp, union));
+            outline(imp, managerOrNull(), ((Number) result.get("managerTotal")).intValue() - ((Number) result.get("addedToManager")).intValue(), bounds, count);
             result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " cell" : " cells"), 120, true));
             result.put("image", describe(imp));
             return result;
@@ -533,8 +568,17 @@ final class Operations {
             }
             if (rois.isEmpty()) { rects.add(new Rectangle(0, 0, imp.getWidth(), imp.getHeight())); if (label.isEmpty()) label = imp.getTitle(); }
         }
-        var union = rects.isEmpty() ? Geometry.union(rois.stream().map(Roi::getBounds).toList()) : Geometry.union(rects);
-        boolean focused = args.has("focus") ? bool(args, "focus", false) && union != null && focusNow(imp, union) : Viewer.follow(imp, union);
+        var bounds = rects.isEmpty() ? rois.stream().map(Roi::getBounds).toList() : rects;
+        var union = Geometry.union(bounds);
+        boolean focused;
+        if (args.has("focus")) focused = bool(args, "focus", false) && union != null && focusNow(imp, union);
+        else {
+            // The view follows the work: refocus when the union is invisible or when fewer than half of the targets are on screen.
+            var view = Viewer.view(imp); long visible = 0;
+            if (view != null) for (var b : bounds.stream().limit(400).toList()) if (Geometry.screenRect(view, b.x, b.y, b.x + b.width, b.y + b.height) != null) visible++;
+            boolean fewVisible = view != null && bounds.size() > 1 && visible * 2 < Math.min(400, bounds.size());
+            focused = union != null && (fewVisible ? focusNow(imp, union) : Viewer.follow(imp, union));
+        }
         if (label.isEmpty()) label = rois.isEmpty() ? "Region" : rois.size() + (rois.size() == 1 ? " region" : " regions");
         var highlight = rects.isEmpty() ? Viewer.roiHighlight(imp, rois, label, limit) : Viewer.rectHighlight(imp, rects, label, limit, false);
         if (highlight.isEmpty()) throw new IllegalStateException("The image is not shown in a Fiji window; nothing to point at.");
