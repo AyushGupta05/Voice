@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fiji",
   "app": "fiji",
-  "toolCount": 66,
+  "toolCount": 68,
   "tools": [
     {
       "name": "fiji_context",
@@ -1615,6 +1615,64 @@
       }
     },
     {
+      "name": "fiji_recipes",
+      "description": "Find a verified one-call recipe for the request: 2D/3D nuclei counts, spots, local threshold, area fraction, skeleton/neurite length, local thickness, fibre orientation, bleach correction, Coloc 2, H&E/DAB deconvolution, kymograph, denoise, CLAHE, drift correction, FRAP, TrackMate, stitching, per-cell intensities, nearest neighbours. Returns id, title, when, params with defaults and output. Check before writing a macro. Read only.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_run_recipe",
+      "description": "Run a recipe from fiji_recipes on the active image (and its selection) by id; pass only params you change. Returns the macro result, the Log and summary (its RESULT numbers). Pixels are checkpointed; result images and tables stay open.",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 80
+          },
+          "params": {
+            "type": "object",
+            "maxProperties": 40,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "fiji_knowledge",
       "description": "Search Penny’s Fiji guidance and the locally downloaded official ImageJ documentation (user guide, menus, macro functions). Use before unfamiliar commands, filters, measurements, stacks or macros.",
       "risk": "read",
@@ -1635,7 +1693,7 @@
     },
     {
       "name": "fiji_find_images",
-      "description": "Find images on this computer by a loose name (\"the blobs tif\", \"embryos\"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.",
+      "description": "Find images on this computer by a loose name (\"the blobs tif\", \"embryos\"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder. Matching folders come back as kind \"folder\" with an image count, for folder-wide runs.",
       "risk": "read",
       "inputSchema": {
         "type": "object",

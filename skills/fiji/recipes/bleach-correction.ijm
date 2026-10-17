@@ -5,7 +5,7 @@
 // @param method = Simple Ratio | "Simple Ratio", "Exponential Fit" or "Histogram Matching"
 // @param background = 0 | Simple Ratio only: background intensity subtracted before the ratio
 // @output A new corrected time series "<title>-bleach-corrected" (one channel; a z-stack is max-projected per time point first). Reports the whole-frame mean of the first and last frame before and after.
-// @say Bleaching corrected: the signal had fallen {dropBefore:%} by the last frame, now {dropAfter:%}.
+// @say Bleaching corrected: the signal had fallen {dropBefore}% by the last frame, now {dropAfter}%.
 channel = parseFloat(pennyParam("channel", "1"));
 method = pennyParam("method", "Simple Ratio");
 background = parseFloat(pennyParam("background", "0"));
@@ -21,7 +21,8 @@ if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=penny
 else run("Duplicate...", "title=penny-bleach duplicate");
 if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-bleach"); rename("penny-bleach"); }
 run("Properties...", "channels=1 slices=1 frames=" + nSlices);
-if (bitDepth() == 32 || bitDepth() == 24) run("16-bit");
+if (bitDepth() == 24) run("8-bit");
+if (bitDepth() == 32) run("16-bit");
 input = getImageID();
 setSlice(1); getStatistics(n, firstBefore); setSlice(nSlices); getStatistics(n, lastBefore);
 options = "correction=[" + method + "]";

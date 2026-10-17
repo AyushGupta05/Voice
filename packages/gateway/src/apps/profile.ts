@@ -4,7 +4,10 @@ import type { Runtime } from '../runtime.js';
 
 export type AppId = 'qupath' | 'fiji';
 /** Instant spoken route: a whole-utterance match that dispatches one tool with a fixed reply and no model round. */
-export type FastRoute = { tool: string; arguments: Record<string, unknown>; reply: string };
+export type FastRoute = { tool: string; arguments: Record<string, unknown>; reply: string;
+  /** A folder the utterance names ("the bbbc folder"): the host resolves it with `<prefix>_find_images` and passes the
+   * first matching folder as `arguments.folder`; when nothing matches the route runs with its default. */
+  folderQuery?: string };
 /** Inputs for a profile's pre-dispatch check of a data/code tool. `check()` re-validates the request after every
  * adapter read (abort signal, conversation revision, context) and must be called after each one. */
 export type PrepareInput = { name: string; args: Arguments; context: Context; adapter: Adapter; check: () => void };
@@ -48,6 +51,8 @@ export type AppProfile = {
   acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined;
   localSentenceFor(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
   requestContinuesAfter(name: string, utterance: string): boolean;
+  /** A completed call that achieved nothing (e.g. an undo with no checkpoint), as a short spoken reason; undefined when it worked. */
+  unsuccessful?(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
   /** Tools whose spoken outcome is the acknowledgment already playing, so a local finish stays silent. */
   silentFinishTools: Set<string>;
   /** Tools that get a spoken "Running it now." once a human approves them under the review policy. */
@@ -66,6 +71,23 @@ export type AppProfile = {
 export function finite(value: unknown) { return typeof value === 'number' && Number.isFinite(value) ? value : undefined; }
 /** Wording that asks for more than one call delivers, whatever the application. */
 export function continuesGenerally(utterance: string) { return /\b(and|then|after that|also)\b/.test(utterance.toLowerCase()); }
+const fillerWord = /^(?:ok|okay|hey|penny|luma|fiji|qupath|so|now|right|please|thanks|thank|you|um|uh|well|alright|yes|yeah|no|sure)$/;
+const questionWord = /^(?:do|does|did|is|are|how|what|which|can|could|will|would|should|was|were)$/;
+/**
+ * A second clause after the first request ("open hela cells, do the channels colocalise?", "open hela do the channels
+ * colocalise"): clauses split by commas, semicolons or sentence ends, ignoring filler-only clauses ("okay, zoom in"),
+ * or a question word after the opening command. A request that starts as a question is one intent.
+ */
+export function compoundRequest(utterance: string) {
+  const clauses = utterance.toLowerCase().split(/[,;:]|[?!](?=\s*\S)|\.(?=\s+\S)/).map(clause => clause.replace(/[^a-z0-9' ]+/g, ' ').trim())
+    .filter(clause => clause && !clause.split(/\s+/).every(word => fillerWord.test(word)));
+  if (clauses.length > 1) return true;
+  const words = (clauses[0] ?? '').split(/\s+/).filter(Boolean);
+  if (!words.length || questionWord.test(words[0])) return false;
+  // "the cells that are positive" is a relative clause, not a second question.
+  for (let i = 2; i < words.length; i++) if (questionWord.test(words[i]) && !/^(?:that|which|who|there|it|they|this|these|those|what|where|how)$/.test(words[i - 1])) return true;
+  return false;
+}
 /** Runtime decision envelopes carry `error` always; a present error or a non-completed status means no real result. */
 export function completedPayload(result: unknown): Record<string, unknown> | undefined {
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
@@ -74,6 +96,23 @@ export function completedPayload(result: unknown): Record<string, unknown> | und
   // The adapter wraps mutation payloads as { result, checkpoint, contextKey }.
   const outer = envelope.result as Record<string, unknown> | undefined;
   return outer?.result && typeof outer.result === 'object' ? outer.result as Record<string, unknown> : outer;
+}
+/** Why a tool call did not work, as a short sentence, or undefined when it did: a thrown error, a failed or denied
+ * decision, a payload reporting `ok:false`/`error`, or the profile's own "completed but achieved nothing" check. */
+export function failureReason(profile: Pick<AppProfile, 'unsuccessful'>, name: string, args: Record<string, unknown>, result: unknown): string | undefined {
+  const short = (value: unknown, fallback: string) => {
+    const message = typeof value === 'string' && value.trim() ? value.trim().split('\n')[0] : fallback;
+    return message.length > 140 ? `${message.slice(0, 137).trimEnd()}...` : message;
+  };
+  if (!result || typeof result !== 'object') return undefined;
+  const envelope = result as { status?: unknown; error?: unknown; ok?: unknown; message?: unknown };
+  if (envelope.status === 'duplicate' || envelope.status === 'approval_required') return undefined;
+  if (envelope.error != null) return short(envelope.error, 'it reported an error');
+  if (typeof envelope.status === 'string' && envelope.status !== 'completed') return short(undefined, `it ended ${envelope.status}`);
+  if (envelope.ok === false) return short(envelope.message, 'it reported failure');
+  const inner = completedPayload(result);
+  if (inner && inner !== result && (inner.ok === false || (inner.error != null && inner.error !== false))) return short(inner.error ?? inner.message, 'it reported failure');
+  return profile.unsuccessful?.(name, args, result);
 }
 /** Bind a `<prefix>_ui_action` to the exact control observed now, so the bridge can refuse a changed dialog. */
 export async function bindUiControl(input: PrepareInput, appName: string) {

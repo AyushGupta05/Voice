@@ -1,6 +1,8 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Runtime, Action } from './runtime.js';
 import type { DelegationBackend, DelegatedTask } from './live.js';
 import { activeProfile, type AppProfile } from './apps/index.js';
+import { failureReason } from './apps/profile.js';
 
 type InputItem = Record<string, unknown>;
 /** Final answers to spoken requests are read aloud; exact details remain in the companion and the application. */
@@ -12,6 +14,12 @@ export function acknowledgmentFor(name: string, args: Record<string, unknown>, c
 export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.localSentenceFor(name, args, result); }
 /** A request whose wording asks for more than this call delivers must go back to the model. */
 export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile()): boolean { return profile.requestContinuesAfter(name, utterance); }
+/** Wording that already tells the researcher something did not work (or asks them), so it is not a false success. */
+export const admitsFailure = (text: string) => /(?:\bnot\b|n't\b|\bno\b|\bnothing\b|fail|unable|error|cannot|refus|blocked|missing|\?)/i.test(text);
+/** The reply after a failed last action: never a success phrase. */
+export const failureSentence = (reason: string) => `That did not work: ${reason.replace(/[.\s]+$/, '')}.`;
+/** The conversation task whose work is running, so tool events can say whose call they were (server.ts). */
+export const toolTask = new AsyncLocalStorage<string>();
 class ConversationChanged extends Error {}
 class Duplicate extends Error {}
 /** Two argument sets are the same request when every value matches, numbers within 5% (a redrawn region at a
@@ -127,7 +135,9 @@ export class ResponsesBackend implements DelegationBackend {
     const imageOwner = entries.findLast(memory => memory.images.length);
     const image = imageOwner?.images.at(-1);
     return {
-      summary: { truncated: this.historyTruncated, tasks: entries.map(({ images, ...memory }) => ({ ...memory, retainedImageCount: images.length })) },
+      summary: { truncated: this.historyTruncated, tasks: entries.map(({ images, ...memory }) => ({ ...memory, retainedImageCount: images.length,
+        // A question Penny asked is void once a new request arrives, unless that request is its answer.
+        ...(memory.status === 'completed' && memory.answer?.trim().endsWith('?') ? { askedQuestion: 'superseded by the latest request unless it answers this question' } : {}) })) },
       image: image && imageOwner ? { ...image, taskId: imageOwner.id } : undefined,
     };
   }
@@ -148,7 +158,8 @@ export class ResponsesBackend implements DelegationBackend {
     if (!model.trim()) throw new Error('An explicitly selected backend model is required.');
     if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 4096) throw new Error('Invalid backend output limit.');
   }
-  async run(task: DelegatedTask) {
+  run(task: DelegatedTask) { return toolTask.run(task.id, () => this.runTask(task)); }
+  private async runTask(task: DelegatedTask) {
     if (this.memories.filter(memory => memory.status === 'running').length >= 4) throw new Error('Finish or interrupt an existing backend task before starting more work.');
     const history: InputItem[] = [];
     const memory: TaskMemory = { id: task.id, offsetMs: task.offsetMs, status: 'running', calls: [], images: [], truncated: false, origin: { contextKey: task.context.contextKey, imageName: task.context.image?.name ?? null, project: task.context.project ?? null, primarySelectedId: task.context.primarySelectedId ?? null, selectionCount: task.context.selectionCount ?? null } };
@@ -156,6 +167,8 @@ export class ResponsesBackend implements DelegationBackend {
     const callIds = new Set<string>();
     let calls = 0; let images = 0; let acknowledged = false; const spokenSoFar: string[] = [];
     const observed = new Set<InputItem>();
+    // The outcome of the latest data/code action in this task: a reply after it failed must say so, never "Done.".
+    let lastAction: { name: string; failure?: string } | undefined;
     const utterance = () => task.conversation().fragments.filter(fragment => fragment.role === 'user').at(-1)?.text ?? '';
     const finish = (text: string, local: boolean) => {
       memory.answer = text; memory.status = 'completed'; if (task.spoken) memory.spoken = [...spokenSoFar, text]; if (local) memory.finishedLocally = true; this.trimMemory();
@@ -178,7 +191,7 @@ export class ResponsesBackend implements DelegationBackend {
       }) }] };
       observed.add(observations);
       const response = await abortable(task.signal, () => this.client.complete({ model: this.model,
-        instructions: profile.instructions + `\nThe host has already called ${contextTool} immediately before this request. ${profile.id}Observation is that fresh result and satisfies the context-refresh step; use it directly instead of making a duplicate ${contextTool} call solely to repeat the same observation. ${profile.id}AtDelegation and previousTasks are historical, not current state. Runtime still rechecks application context before dispatch.\nYou are the backend of a full-duplex voice conversation. Transcripts can be partial or corrected. Use the delegation timestamp, original application observation and latest context. If references became ambiguous after an independent application change, ask rather than silently retargeting. Prefer exact object IDs and avoid repeating completed actions. The host waits for actual human decisions; never manufacture approval. Return a concise factual result, not private reasoning. Tool dispatch is not verified scientific completion. ${contextTool} is not offered here because the host refreshes ${profile.id}Observation every round. Never say you changed, showed, zoomed, selected or ran anything unless a tool result in this task shows it; if no tool fits, say so. ` + profile.backendNotes + (task.spoken ? spokenStyle : ''),
+        instructions: profile.instructions + `\nThe host has already called ${contextTool} immediately before this request. ${profile.id}Observation is that fresh result and satisfies the context-refresh step; use it directly instead of making a duplicate ${contextTool} call solely to repeat the same observation. ${profile.id}AtDelegation and previousTasks are historical, not current state. Runtime still rechecks application context before dispatch.\nYou are the backend of a full-duplex voice conversation. Transcripts can be partial or corrected. Use the delegation timestamp, original application observation and latest context. If references became ambiguous after an independent application change, ask rather than silently retargeting. The latest user fragment is the current request: it replaces any question you asked earlier that the user did not answer; act on it and never repeat the old question. Prefer exact object IDs and avoid repeating completed actions. The host waits for actual human decisions; never manufacture approval. Return a concise factual result, not private reasoning. Tool dispatch is not verified scientific completion. ${contextTool} is not offered here because the host refreshes ${profile.id}Observation every round. Never say you changed, showed, zoomed, selected or ran anything unless a tool result in this task shows it; if no tool fits, say so. ` + profile.backendNotes + (task.spoken ? spokenStyle : ''),
         input: structuredClone([...history.map(item => observed.has(item) ? this.staleObservation : item), observations, ...(prior.image ? [{ role: 'user', content: [
           { type: 'input_text', text: `Historical viewer image from task ${prior.image.taskId}, call ${prior.image.callId}; not necessarily the current viewer.` },
           { type: 'input_image', image_url: prior.image.url, detail: 'auto' },
@@ -215,6 +228,7 @@ export class ResponsesBackend implements DelegationBackend {
           .flatMap(item => Array.isArray(item.content) ? item.content : [])
           .filter(part => part?.type === 'output_text' && typeof part.text === 'string').map(part => part.text).join('\n').trim();
         if (!text) throw new Error('Backend returned no user-facing result.');
+        if (lastAction?.failure && !admitsFailure(text)) { finish(task.spoken ? failureSentence(lastAction.failure) : `${failureSentence(lastAction.failure)}\n\n${text}`, false); return; }
         finish(text, false);
         return;
       }
@@ -263,7 +277,8 @@ export class ResponsesBackend implements DelegationBackend {
         }
         task.signal.throwIfAborted();
         remembered.output = result;
-        { let args: Record<string, unknown> = {}; try { args = JSON.parse(call.arguments as string) ?? {}; } catch { /* already failed at dispatch */ } executed.push({ name: call.name as string, args, result }); }
+        { let args: Record<string, unknown> = {}; try { args = JSON.parse(call.arguments as string) ?? {}; } catch { /* already failed at dispatch */ } executed.push({ name: call.name as string, args, result });
+          if (risk === 'data' || risk === 'code') lastAction = { name: call.name as string, failure: failureReason(profile, call.name as string, args, result) }; }
         if (call.name === snapshotTool && result && typeof result === 'object' && 'data' in result && 'mimeType' in result) {
           remembered.output = { imageAvailable: false, source: `${app} viewer`, note: 'Snapshot not yet accepted for vision input.' };
           const data = result.data;
@@ -287,6 +302,7 @@ export class ResponsesBackend implements DelegationBackend {
         const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
         if (sentences.every(sentence => sentence !== undefined)) {
           const text = sentences.filter(Boolean).join(' ');
+          if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true); return; }
           // A silent finish needs an acknowledgment to have carried the outcome; "Done." stays unspoken after one.
           if (text) { finish(text, true); return; }
           if (spokenSoFar.length) { finish('Done.', true); return; }

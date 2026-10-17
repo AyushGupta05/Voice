@@ -31,7 +31,7 @@ run("Select None");
 setOption("BlackBackground", true);
 run("Convert to Mask");
 if (area) makeSelection("polygon", rx, ry);
-getStatistics(pixels, mean);
+getRawStatistics(pixels, mean);
 fraction = mean / 255;
 getPixelSize(unit, pw, ph);
 close("penny-fraction");

@@ -1,7 +1,8 @@
 import type { AppProfile, FastRoute, PrepareInput } from './profile.js';
-import { bindUiControl, cleanUtterance, completedPayload, continuesGenerally, finite, highlightAcknowledgment } from './profile.js';
+import { bindUiControl, cleanUtterance, completedPayload, compoundRequest, continuesGenerally, finite, highlightAcknowledgment } from './profile.js';
 import { fijiTools, FIJI_BUNDLE_ID } from './fiji-tools.js';
 import { fijiInstructions } from './fiji-instructions.js';
+import { recipeTool } from './fiji-recipes.js';
 import type { Runtime } from '../runtime.js';
 
 /** Spoken at once when the model's first call is one of these (docs/FIJI-PROTOCOL.md, "Voice specifics"). */
@@ -18,6 +19,8 @@ const acknowledgments: Record<string, string> = {
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
   if (name === 'fiji_highlight') return highlightAcknowledgment(args);
+  if (name === 'fiji_run_recipe') return 'On it.';
+  if (name === 'fiji_recipes') return 'Checking.';
   if (name === 'fiji_run_workflow' && args.target !== 'open' && args.target !== 'folder') return 'Running the workflow.';
   return acknowledgments[name];
 }
@@ -26,12 +29,22 @@ const round = (value: number) => Number.isInteger(value) ? String(value) : value
 /** Unit of a result, if the bridge reports one; a sentence never guesses "px" or "µm". */
 const unitOf = (payload: Record<string, unknown> | undefined) => {
   const unit = payload?.unit ?? (payload?.calibration as { unit?: unknown } | undefined)?.unit;
-  return typeof unit === 'string' && unit.trim() ? ` ${unit.trim()}²` : '';
+  if (typeof unit !== 'string' || !unit.trim()) return '';
+  return /^pixels?$/i.test(unit.trim()) ? ' square pixels' : ` ${unit.trim()}²`;
 };
+/** A completed call that did nothing the researcher asked for, as a short spoken reason; undefined when it worked. */
+function unsuccessful(name: string, _args: Record<string, unknown>, result: unknown): string | undefined {
+  const inner = completedPayload(result);
+  // Without a checkpoint for the active image the bridge falls back to ImageJ's single-step Undo, which may revert nothing.
+  if (name === 'fiji_undo' && inner?.mode === 'imagej-undo') return 'No checkpoint to go back to; ImageJ\'s Undo only reverts the last filter.';
+  return undefined;
+}
 /** Spoken outcome built from the real result (docs/FIJI-PROTOCOL.md local sentences); '' stays silent, undefined asks the model. */
 function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown): string | undefined {
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
   if (silentFinishTools.has(name)) return '';
+  // A recipe's sentence is its @say line filled from the RESULT values the macro printed (fiji-recipes.ts).
+  if (name === 'fiji_run_recipe') { const spoken = (result as { status?: unknown; spoken?: unknown }).status === 'completed' ? (result as { spoken?: unknown }).spoken : undefined; return typeof spoken === 'string' && spoken ? spoken : undefined; }
   const inner = completedPayload(result);
   // Read operations return the bridge result itself, without a decision envelope.
   if (biologyReads.has(name)) return biologySentence(name, args, inner ?? result as Record<string, unknown>) ?? undefined;
@@ -69,7 +82,12 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     if (!title || width === undefined || height === undefined) return undefined;
     return `Opened ${title}, ${width}×${height}.`;
   }
-  if (name === 'fiji_undo') return 'Undone.';
+  if (name === 'fiji_undo') {
+    // Say what came back, so "undo" after the wrong step is visible: the checkpoint's label and the objects now present.
+    const why = unsuccessful(name, args, result); if (why) return why;
+    const label = text(inner?.label), objects = finite((inner?.counts as { roiManager?: unknown } | undefined)?.roiManager);
+    return label ? `Restored "${label.replace(/["“”]/g, '')}"${objects !== undefined ? `; ${plural(objects, 'object')} now` : ''}.` : 'Undone.';
+  }
   if (name === 'fiji_restore') return 'Went back to the earlier state.';
   if (name === 'fiji_filter') return 'Filter applied.';
   if (name === 'fiji_convert') return 'Converted.';
@@ -173,7 +191,7 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
     const per = Array.isArray(run.perImage) ? (run.perImage as Array<{ resultsRows?: unknown }>).map(entry => finite(entry?.resultsRows)).filter((v): v is number => v !== undefined) : [];
     const mean = per.length ? per.reduce((a, b) => a + b, 0) / per.length : undefined;
     const manual = Array.isArray(inner.notReplayed) ? inner.notReplayed.length : 0;
-    return `Ran the corrected analysis on ${plural(processed, 'image')}${mean !== undefined ? `, ${round(mean)} cells each on average` : ''}${failed ? `, ${failed} failed` : ''}${fileName(run.csv) ? `; results in ${fileName(run.csv)}` : ''}${manual ? `. ${plural(manual, 'hand edit')} not replayed` : ''}.`;
+    return `Ran the corrected analysis on ${plural(processed, 'image')}${mean !== undefined ? `, ${round(mean)} cells each on average` : ''}${failed ? `, ${failed} failed` : ''}${fileName(run.csv) ? (fileName(run.csv)!.length > 28 ? '; results saved as a CSV' : `; results in ${fileName(run.csv)}`) : ''}${manual ? `. ${plural(manual, 'hand edit')} not replayed` : ''}.`;
   }
   if (name === 'fiji_analysis_workflow') {
     const params = inner.params as Record<string, unknown> | undefined; if (!params) return undefined;
@@ -215,10 +233,14 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
   }
   return null;
 }
+const analysisWords = /\b(?:measur\w*|count\w*|segment\w*|detect\w*|quantif\w*|coloc\w*|correlat\w*|overlap\w*|track\w*|analy[sz]\w*|threshold\w*|classif\w*|how many|intensit\w*|percent\w*|compar\w*|subtract\w*|project\w*|export\w*|macro|tumou?r)\b/;
 /** Wording the local sentence cannot answer sends the turn back to the model. */
 function requestContinuesAfter(name: string, utterance: string): boolean {
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
+  // Viewing, opening or selecting answers only a pure view command: "measure the intensity of these cells" after a
+  // selection, or "open hela cells, do the channels colocalise?" after the open, still has its analysis to do.
+  if ((silentFinishTools.has(name) || name === 'fiji_open_path') && (analysisWords.test(said) || compoundRequest(utterance))) return true;
   // Marker positivity needs fiji_classify_intensity after the segmentation.
   // Re-segmenting with a stricter/looser method is the whole answer to a threshold-strictness request.
   if (name === 'fiji_segment_cells' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative)\b/.test(said)) return false;
@@ -270,7 +292,12 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     const calibrated = !/pixel/.test(smaller[2]) || imageUnit(context) === 'pixel';
     if (calibrated) return { tool: 'fiji_filter_objects', arguments: { minArea: Number(smaller[1]) }, reply: `Removing anything under ${smaller[1]}.` };
   }
-  if (objects > 0 && /\b(apply|run|do)\b.*\b(this|that|it|same|analysis|workflow)\b.*\b(folder|all (?:the )?(?:other )?images|other \d+ images|every image|rest of the images|other images|whole dataset|dataset|everything)\b/.test(said)) return { tool: 'fiji_apply_analysis', arguments: {}, reply: 'Running it on the whole folder.' };
+  if (objects > 0 && /\b(apply|run|do)\b.*\b(this|that|it|same|analysis|workflow)\b.*\b(folder|all (?:the )?(?:other )?images|other \d+ images|every image|rest of the images|other images|whole dataset|dataset|everything)\b/.test(said)) {
+    // "…in the bbbc folder" names a folder for the host to resolve; "the whole/this folder" is the active image's own.
+    const named = said.match(/\b(?:in|on|for|to|from) (?:the |my )?([a-z0-9][\w'-]*(?: [a-z0-9][\w'-]*)?) (?:folder|directory|dataset)\b/)?.[1]
+      ?.split(' ').filter(word => !/^(?:the|whole|entire|this|that|same|other|current|rest|its|image's|images?|all|my)$/.test(word)).join(' ');
+    return { tool: 'fiji_apply_analysis', arguments: {}, reply: 'Running it on the whole folder.', ...(named ? { folderQuery: named } : {}) };
+  }
   if (objects > 0 && /^(?:show (?:me )?(?:the )?(?:workflow|steps|parameters|analysis)|what (?:did you do|steps|parameters)\b)/.test(said)) return { tool: 'fiji_analysis_workflow', arguments: {}, reply: 'Here is the workflow.' };
   if (objects > 0 && !/\b(and then|then|after that|channels?)\b/.test(said)) {
     if (/\b(remove|drop|delete|get rid of|filter out|exclude|ignore|lose)\b.*\b(tiny|small|little|specks?|debris|dots?|noise|junk|fragments?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' };
@@ -338,9 +365,10 @@ export const fiji: AppProfile = {
   skillDir: 'skills/fiji', knowledgeSources: ['skills/fiji', '.local/upstream/imagej-docs'], apiSource: false,
   launcherScript: './script/run-fiji.sh', bridgeJar: 'dist/luma-fiji-bridge.jar', buildManifest: '.local/fiji-bridge-build.json', buildScript: 'script/build-fiji-bridge.sh',
   doctorArtifacts: [['dist/luma-fiji-bridge.jar', 'Fiji bridge build'], ['.local/fiji/Fiji.app/Contents/MacOS/ImageJ-macosx', 'Fiji launcher']],
-  fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
-  longRunningTools: new Set(['fiji_apply_analysis', 'fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
+  fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools, unsuccessful,
+  longRunningTools: new Set(['fiji_run_recipe', 'fiji_apply_analysis', 'fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
+  localTool: recipeTool,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.
     const importing = name === 'fiji_open_path' || (name === 'fiji_run_command' && /import|^open\b/i.test(String(args.name ?? '')));

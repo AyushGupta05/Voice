@@ -1,5 +1,5 @@
 #!/bin/bash
-# Starts the pinned Fiji with the Luma bridge: symlinks the built jar into Fiji.app/plugins, exports the shared token and root, logs to .local/fiji.log.
+# Starts the pinned Fiji with the Luma bridge: copies the built jar into Fiji.app/plugins, exports the shared token and root, logs to .local/fiji.log.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 FIJI_APP="${LUMA_FIJI_APP:-$PWD/.local/fiji/Fiji.app}"
@@ -31,8 +31,10 @@ if lsof -nP -iTCP:49557 -sTCP:LISTEN >/dev/null 2>&1; then echo 'Port 127.0.0.1:
 mkdir -p .local/state
 if [[ ! -f .local/state/bridge-token ]]; then (umask 077; openssl rand -hex 32 > .local/state/bridge-token); fi
 if [[ ! -f dist/luma-fiji-bridge.jar ]]; then ./script/build-fiji-bridge.sh; fi
-# The only change inside Fiji.app: one symlink to the built bridge jar (Fiji scans plugins/ for plugins.config and SciJava plugins).
-ln -sfn "$PWD/dist/luma-fiji-bridge.jar" "$FIJI_APP/plugins/luma-fiji-bridge.jar"
+# The only change inside Fiji.app: one copy of the built bridge jar (Fiji scans plugins/ for plugins.config and SciJava plugins).
+# A copy, not a symlink: rebuilding dist/ while Fiji runs must not swap classes under the running JVM (lazy loading would crash it).
+rm -f "$FIJI_APP/plugins/luma-fiji-bridge.jar"
+cp -f "$PWD/dist/luma-fiji-bridge.jar" "$FIJI_APP/plugins/luma-fiji-bridge.jar"
 export LUMA_BRIDGE_TOKEN="$(cat .local/state/bridge-token)"
 export LUMA_ROOT="$PWD"
 # Tell the companion-owned gateway which application profile to load (LUMA_APP overrides).

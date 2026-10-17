@@ -9,6 +9,9 @@ second = pennyParam("second", "auto");
 fusion = pennyParam("fusion", "Linear Blending");
 
 if (nImages < 2) { print("RESULT error=needs_two_open_images"); exit; }
+fusions = newArray("Linear Blending", "Average", "Median", "Max. Intensity", "Min. Intensity", "Overlay into composite image");
+known = false; for (k = 0; k < fusions.length; k++) if (fusion == fusions[k]) known = true;
+if (!known) { print("RESULT error=unknown_fusion_method"); exit; }
 first = getTitle(); firstId = getImageID();
 if (second == "auto") {
   if (nImages != 2) { print("RESULT error=name_the_second_image"); exit; }
@@ -20,8 +23,10 @@ fused = first + "<->" + second;
 options = "first_image=[" + first + "] second_image=[" + second + "] fusion_method=[" + fusion + "] fused_image=[" + fused + "] check_peaks=5 compute_overlap subpixel_accuracy x=0.0000 y=0.0000 registration_channel_image_1=[Average all channels] registration_channel_image_2=[Average all channels]";
 // The plugin logs the shift; without a Log window (batch sessions) the log goes to the console, so both are read.
 logStart = lengthOf(getInfo("log"));
+// The options (with image titles) travel as a system property, never spliced into the script text.
+call("java.lang.System.setProperty", "penny.recipe.options", options);
 js = "var S = java.lang.System, old = S.out, buffer = new java.io.ByteArrayOutputStream(); S.setOut(new java.io.PrintStream(buffer, true));"
-  + "var failure = ''; try { Packages.ij.IJ.run('Pairwise stitching', '" + options + "'); } catch (e) { failure = 'FAILED ' + e; } finally { S.setOut(old); } failure + buffer.toString();";
+  + "var failure = ''; try { Packages.ij.IJ.run('Pairwise stitching', S.getProperty('penny.recipe.options')); } catch (e) { failure = 'FAILED ' + e; } finally { S.setOut(old); S.clearProperty('penny.recipe.options'); } failure + buffer.toString();";
 console = eval("js", js);
 text = substring(getInfo("log"), logStart) + "\n" + console;
 lines = split(text, "\n");

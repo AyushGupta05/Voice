@@ -10,7 +10,7 @@ import { Runtime } from './runtime.js';
 import { TextConversation } from './text-session.js';
 import { BedrockBackendClient, loadTextConfig } from './bedrock-client.js';
 import { BEDROCK_MODEL } from './aws-credit-proof.js';
-import type { BackendClient } from './backend.js';
+import { toolTask, type BackendClient } from './backend.js';
 import type { Arguments } from './tools.js';
 import { activeProfile, type AppProfile } from './apps/index.js';
 import { fundingStatus } from './funding.js';
@@ -70,7 +70,8 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   const voiceSessions=new Map<WebSocket,SpeechSession>();let voiceOwner:{peer:WebSocket;requestId:string}|undefined;
   const emit=(event:Record<string,unknown>)=>{for(const peer of peers) if(peer.readyState===WebSocket.OPEN)peer.send(JSON.stringify(event));};
   runtime.on('action',action=>emit({type:'action',action}));
-  runtime.on('tool',event=>emit(compactToolEvent({type:'tool',...event})));
+  // taskId (additive) names the conversation task that made the call; absent for direct /tools/call and MCP calls.
+  runtime.on('tool',event=>{const taskId=toolTask.getStore();emit(compactToolEvent({type:'tool',...event,...(taskId?{taskId}:{})}));});
   const server=createServer(async(req,res)=>{
     try {
       if(req.headers.origin){json(res,403,{error:'Browser-origin requests are not permitted.'});return;}

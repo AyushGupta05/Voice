@@ -6,7 +6,8 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 const IMAGE_EXTENSIONS = new Set(['.ndpi', '.svs', '.tif', '.tiff', '.czi', '.scn', '.mrxs', '.vsi', '.bif', '.qptiff', '.ome.tif', '.ome.tiff', '.qpproj', '.jpg', '.jpeg', '.png', '.gif', '.lsm', '.nd2', '.lif', '.oib', '.oif', '.ims']);
-export type LocalImage = { path: string; name: string; sizeBytes: number; kind: 'image' | 'project' };
+/** `folder` entries are directories whose name matches and that directly hold `images` image files ("the bbbc folder"). */
+export type LocalImage = { path: string; name: string; sizeBytes: number; kind: 'image' | 'project' | 'folder'; images?: number };
 
 function extension(name: string) {
   const lower = name.toLowerCase();
@@ -14,12 +15,26 @@ function extension(name: string) {
   if (lower.endsWith('.ome.tiff')) return '.ome.tiff';
   return extname(lower);
 }
-/** Loose match: every word of the query appears in the file name, ignoring case, spaces, dashes and underscores. */
+/** Words that describe what the researcher wants rather than name it ("the mitosis movie" is mitosis.tif). */
+const FILLER = /^(?:the|a|an|my|this|that|one|movie|video|image|images|picture|pictures|photo|file|files|stack|sample|series|folder|directory|dataset)$/;
+/** Spoken names for what file names abbreviate: a query word matches when the name contains any of these. */
+const ALIASES: Array<[RegExp, RegExp]> = [
+  [/^(?:h&e|he|hne)$/, /histopath|h&e|hne|eosin|idc|(?:^|[^a-z])he(?:[^a-z]|$)/],
+  [/^(?:nuclei|nucleus|nuclear)$/, /nucle|bbbc|dapi|hoechst/],
+];
+/** Query words with spoken "h and e" joined and filler dropped; every word is kept when all of them are filler. */
+export function queryWords(query: string) {
+  const words = query.toLowerCase().replace(/\bh\s*(?:&|and|n)\s*e\b/g, 'h&e').split(/[\s,]+/).filter(Boolean);
+  const kept = words.filter(word => !FILLER.test(word));
+  return kept.length ? kept : words;
+}
+/** Loose match: every query word (filler dropped, aliases expanded) appears in the name, ignoring case, spaces, dashes and underscores. */
 export function imageNameMatches(name: string, query: string) {
   const normalise = (value: string) => value.toLowerCase().replace(/[\s_\-.]+/g, '');
-  const target = normalise(name);
-  const words = query.toLowerCase().split(/[\s,]+/).filter(Boolean).map(normalise);
-  return words.length === 0 || words.every(word => target.includes(word));
+  const target = normalise(name), raw = name.toLowerCase();
+  const words = queryWords(query);
+  // An aliased word matches through its alias only, so a short "he" never matches inside "hela".
+  return words.length === 0 || words.every(word => { const alias = ALIASES.find(([spoken]) => spoken.test(word)); return alias ? alias[1].test(raw) : target.includes(normalise(word)); });
 }
 /** Edit distance between a spoken word and the closest same-length window of a file name ("gala" vs "hela-cells" = 2). */
 export function nameDistance(name: string, word: string) {
@@ -35,7 +50,7 @@ export function nameDistance(name: string, word: string) {
 }
 /** Misheard names ("Gala cells" for HeLa cells): every word must match exactly or within half its letters, and at least one word exactly. */
 export function fuzzyNameScore(name: string, query: string): number | undefined {
-  const words = query.toLowerCase().split(/[\s,]+/).filter(word => word.length >= 3 && !/^(the|image|picture|file|one|open)$/.test(word));
+  const words = queryWords(query).filter(word => word.length >= 3 && !/^(the|image|picture|file|one|open)$/.test(word));
   if (!words.length) return undefined;
   let total = 0, exact = 0;
   for (const word of words) { const d = nameDistance(name, word); if (d === 0) exact++; else if (word.length < 4 || d > Math.ceil(word.length / 2)) return undefined; total += d; }
@@ -43,6 +58,10 @@ export function fuzzyNameScore(name: string, query: string): number | undefined 
 }
 /** The last two folder names of a path, e.g. "bbbc008 images". */
 const folderWords = (directory: string) => directory.split('/').filter(Boolean).slice(-2).join(' ');
+async function directImageCount(directory: string) {
+  try { return (await readdir(directory, { withFileTypes: true })).filter(entry => entry.isFile() && !entry.name.startsWith('.') && IMAGE_EXTENSIONS.has(extension(entry.name)) && extension(entry.name) !== '.qpproj').length; }
+  catch { return 0; }
+}
 /** Where a researcher's slides usually are: the project's data folder first, then common user folders, two levels deep. */
 export function searchRoots(root: string, home = homedir()) {
   return [join(root, '.local', 'data'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
@@ -57,7 +76,14 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const path = join(directory, entry.name);
-      if (entry.isDirectory()) { if (depth < 3) await visit(path, depth + 1); continue; }
+      if (entry.isDirectory()) {
+        // A named folder ("run it on the bbbc folder") is a match of its own when it directly holds images.
+        if (query.trim() && !seen.has(path) && imageNameMatches(folderWords(path), query)) {
+          const images = await directImageCount(path);
+          if (images > 0) { if (matches.length >= limit) { truncated = true; return; } seen.add(path); matches.push({ path, name: entry.name, sizeBytes: 0, kind: 'folder', images }); }
+        }
+        if (depth < 3) await visit(path, depth + 1); continue;
+      }
       if (!entry.isFile()) continue;
       const ext = extension(entry.name);
       // The folder names count too: "the BBBC nuclei image" lives in …/bbbc008/images/.
@@ -98,7 +124,8 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     seen.add(path);
     matches.push({ path, name: basename(path), sizeBytes: size, kind: extension(path) === '.qpproj' ? 'project' : 'image' });
   }
-  matches.sort((a, b) => b.sizeBytes - a.sizeBytes);
+  // Images largest first, then folders with the most images.
+  matches.sort((a, b) => Number(a.kind === 'folder') - Number(b.kind === 'folder') || b.sizeBytes - a.sizeBytes || (b.images ?? 0) - (a.images ?? 0));
   return { matches, searched: useSpotlight ? [...roots, 'Spotlight: home folder'] : roots, truncated };
 }
 /** macOS Spotlight query for slide/project files by extension; silent on any failure (non-macOS, indexing off, timeout). */

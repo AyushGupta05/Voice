@@ -1,5 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { LocalToolInput } from './profile.js';
+import { completedPayload } from './profile.js';
 
 /** Verified, parameterised ImageJ macro recipes under skills/fiji/recipes (see VERIFIED.md there). Each file starts
  * with a header block (`// @recipe`, `@title`, `@when`, `@param name = default | note`, `@output`, `@say`) and prints one
@@ -47,9 +49,10 @@ export async function loadRecipes(root: string): Promise<Recipe[]> {
   return recipes.sort((a, b) => a.id.localeCompare(b.id));
 }
 const words = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+const stop = new Set(['the', 'an', 'of', 'in', 'on', 'my', 'me', 'this', 'that', 'these', 'those', 'to', 'for', 'and', 'with', 'how', 'what', 'is', 'are', 'do', 'it', 'can', 'you', 'please', 'all', 'from']);
 /** Recipes ranked by how many query words their id, title and "when" text contain; all of them without a query. */
 export function searchRecipes(recipes: Recipe[], query = '', limit = 30) {
-  const terms = [...new Set(words(query).filter(word => word.length > 1))];
+  const terms = [...new Set(words(query).filter(word => word.length > 1 && !stop.has(word)))];
   const scored = recipes.map(recipe => {
     const haystack = `${recipe.id} ${recipe.title} ${recipe.when}`.toLowerCase();
     const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? (recipe.id.includes(term) || recipe.title.toLowerCase().includes(term) ? 2 : 1) : 0), 0);
@@ -75,7 +78,8 @@ export function recipeArgument(recipe: Recipe, params: Record<string, RecipeValu
     if (declared.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) throw new Error(`Recipe ${recipe.id} parameter ${name} must be a number.`);
     if (declared.type === 'boolean' && typeof value !== 'boolean') throw new Error(`Recipe ${recipe.id} parameter ${name} must be true or false.`);
     const text = String(value);
-    if (/[\]\n\r]/.test(text)) throw new Error(`Recipe ${recipe.id} parameter ${name} cannot contain "]" or line breaks.`);
+    // pennyParam() finds " key=" anywhere in the argument and ends a bracketed value at the first "]".
+    if (/[\]=\n\r]/.test(text)) throw new Error(`Recipe ${recipe.id} parameter ${name} cannot contain "]", "=" or line breaks.`);
     parts.push(`${name}=${text === '' || /\s/.test(text) ? `[${text}]` : text}`);
   }
   return parts.join(' ');
@@ -118,4 +122,24 @@ export function recipeSentence(template: string | undefined, values: Record<stri
     missing = true; return '';
   });
   return missing ? undefined : sentence;
+}
+/** fiji_recipes and fiji_run_recipe. A recipe runs as a nested fiji_run_macro call, so it takes the same recorded
+ * decision, audit and checkpoint path (and, under LUMA_APPROVALS=review, the same review card with the exact code). */
+export function recipeTool(input: LocalToolInput): Promise<unknown> | undefined {
+  if (input.name === 'recipes') return loadRecipes(input.root).then(recipes => searchRecipes(recipes, input.args.query as string | undefined, (input.args.limit as number | undefined) ?? 30));
+  if (input.name !== 'run_recipe') return undefined;
+  return (async () => {
+    const id = input.args.id as string;
+    const recipe = (await loadRecipes(input.root)).find(entry => entry.id === id);
+    if (!recipe) throw new Error(`No recipe "${id}". List them with fiji_recipes.`);
+    const argument = recipeArgument(recipe, (input.args.params ?? {}) as Record<string, RecipeValue>);
+    const outcome = await input.runtime.call('fiji_run_macro', { code: recipe.code, argument }, input.signal, input.beforeDispatch) as Record<string, unknown>;
+    const payload = completedPayload(outcome);
+    const summary = parseResultLine(payload?.log);
+    const spoken = payload?.completed === true ? recipeSentence(recipe.say, summary) : undefined;
+    const note = payload?.running === true ? 'Still running; fiji_status shows when it finishes and fiji_log then holds the RESULT line.'
+      : payload && !summary ? 'No RESULT line came back; read the log for the macro error.' : summary?.error !== undefined ? `The recipe stopped: ${summary.error}.` : undefined;
+    // The macro text is the recipe file; the model gets its id and argument instead of 32 kB of code.
+    return { ...outcome, arguments: { recipe: recipe.id, argument }, recipe: recipe.id, title: recipe.title, ...(summary ? { summary } : {}), ...(spoken ? { spoken } : {}), ...(note ? { note } : {}) };
+  })();
 }

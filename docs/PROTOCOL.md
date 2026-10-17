@@ -16,7 +16,7 @@ The MCP stdio process is a client of the existing gateway, not a second independ
 | `GET /tools` | Gateway or companion | Current tool schemas and risk classes |
 | `POST /tools/call` | Gateway or companion | `{name, arguments}` validated against the tool schema |
 | `POST /approvals/:id` | Companion only | `{approved: boolean}` decides one pending action |
-| WebSocket `/events` | Companion only | Connection, action and tool events; voice-start reports funding blocker |
+| WebSocket `/events` | Companion only | Connection, action and tool events (a tool event carries the `taskId` of the conversation task that made the call; absent for `/tools/call`, MCP and human-approved review cards); voice-start reports funding blocker |
 
 The JSON request limit is 256 KiB. Unknown fields and invalid tool arguments fail schema validation. A model cannot attach an `approved` flag to tool arguments. MCP has no route for obtaining the companion token and no approval tool.
 

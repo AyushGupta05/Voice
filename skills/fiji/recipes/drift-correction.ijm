@@ -11,6 +11,7 @@ transformation = pennyParam("transformation", "Translation");
 maxError = parseFloat(pennyParam("maxError", "25"));
 
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
+if (transformation != "Translation" && transformation != "Rigid" && transformation != "Similarity" && transformation != "Affine") { print("RESULT error=unknown_transformation"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
 getDimensions(w, h, channels, slices, frames);
@@ -25,8 +26,10 @@ options = "initial_gaussian_blur=1.60 steps_per_scale_octave=3 minimum_image_siz
 // SIFT logs one matrix per consecutive frame pair. Without a Log window (batch sessions) ImageJ prints the log to the
 // console, so the console is captured while the plugin runs and combined with the Log window text.
 logStart = lengthOf(getInfo("log"));
+// The options travel as a system property, never spliced into the script text.
+call("java.lang.System.setProperty", "penny.recipe.options", options);
 js = "var S = java.lang.System, old = S.out, buffer = new java.io.ByteArrayOutputStream(); S.setOut(new java.io.PrintStream(buffer, true));"
-  + "var failure = ''; try { Packages.ij.IJ.run('Linear Stack Alignment with SIFT', '" + options + "'); } catch (e) { failure = 'SIFT_FAILED ' + e; } finally { S.setOut(old); } failure + buffer.toString();";
+  + "var failure = ''; try { Packages.ij.IJ.run('Linear Stack Alignment with SIFT', S.getProperty('penny.recipe.options')); } catch (e) { failure = 'SIFT_FAILED ' + e; } finally { S.setOut(old); S.clearProperty('penny.recipe.options'); } failure + buffer.toString();";
 console = eval("js", js);
 aligned = getImageID();
 if (aligned == input || startsWith(console, "SIFT_FAILED") || indexOf(console, "not enough to solve the Model") >= 0) {
@@ -40,14 +43,20 @@ rename(title + "-aligned");
 n = nSlices;
 text = substring(getInfo("log"), logStart) + "\n" + console;
 lines = split(text, "\n");
-// Matrices map each frame onto the previous one; their translations add up to the drift of frame k from frame 1.
-dx = 0; dy = 0; maxShift = 0; pairs = 0;
+// Each matrix maps frame k+1 onto frame k. Composing them gives the transform of frame k onto frame 1; the drift is
+// how far that transform moves the image centre (for Translation this is the summed translation).
+a00 = 1; a01 = 0; a10 = 0; a11 = 1; tx = 0; ty = 0; cx = getWidth() / 2; cy = getHeight() / 2;
+maxShift = 0; pairs = 0; dx = 0; dy = 0;
 for (k = 0; k < lines.length; k++) {
   i = indexOf(lines[k], "AffineTransform[[");
   if (i < 0) continue;
-  values = split(replace(substring(lines[k], i + 17), "[\\[\\] ]", ""), ",");
-  if (values.length < 6) continue;
-  dx += parseFloat(values[2]); dy += parseFloat(values[5]); pairs++;
+  m = split(replace(substring(lines[k], i + 17), "[\\[\\] ]", ""), ",");
+  if (m.length < 6) continue;
+  m00 = parseFloat(m[0]); m01 = parseFloat(m[1]); m02 = parseFloat(m[2]); m10 = parseFloat(m[3]); m11 = parseFloat(m[4]); m12 = parseFloat(m[5]);
+  ntx = a00 * m02 + a01 * m12 + tx; nty = a10 * m02 + a11 * m12 + ty;
+  n00 = a00 * m00 + a01 * m10; n01 = a00 * m01 + a01 * m11; n10 = a10 * m00 + a11 * m10; n11 = a10 * m01 + a11 * m11;
+  a00 = n00; a01 = n01; a10 = n10; a11 = n11; tx = ntx; ty = nty; pairs++;
+  dx = a00 * cx + a01 * cy + tx - cx; dy = a10 * cx + a11 * cy + ty - cy;
   maxShift = maxOf(maxShift, sqrt(dx * dx + dy * dy));
 }
 selectImage(input); close();

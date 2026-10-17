@@ -35,6 +35,9 @@ export class Runtime extends EventEmitter {
     args=structuredClone(args);
     // Tools without a bridge operation are answered here, whatever the application prefix.
     const local = spec.operation ? undefined : name.slice(this.profile.toolPrefix.length + 1);
+    // Profile-answered tools (e.g. Fiji recipes); any action they take is a nested call of a real operation tool.
+    const answered = local ? this.profile.localTool?.({ runtime: this, name: local, args, root: join(this.stateDirectory, '..', '..'), signal, beforeDispatch }) : undefined;
+    if (answered !== undefined) return answered;
     if (local === 'knowledge') return this.knowledge.search(args.query as string);
     if (local === 'find_images') return findLocalImages(join(this.stateDirectory, '..', '..'), (args.query as string | undefined) ?? '', (args.limit as number | undefined) ?? 20);
     if (local === 'api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
@@ -45,6 +48,7 @@ export class Runtime extends EventEmitter {
       if (!action) throw new Error('Action not found (history is scoped to the running gateway).');
       return action;
     }
+    if (!spec.operation) throw new Error(`${name} is not available in this gateway.`);
     if (spec.risk === 'data' || spec.risk === 'code') {
       const context = await this.adapter.execute('context') as Context;
       signal?.throwIfAborted(); beforeDispatch?.(context);

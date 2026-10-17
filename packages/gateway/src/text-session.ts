@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { ResponsesBackend, type BackendClient } from './backend.js';
+import { ResponsesBackend, failureSentence, toolTask, type BackendClient } from './backend.js';
+import { failureReason } from './apps/profile.js';
 import type { Runtime } from './runtime.js';
 import type { Context } from './bridge.js';
 import type { TranscriptFragment } from './live.js';
@@ -29,15 +30,23 @@ export class TextConversation {
   this.append('user',text.trim());this.emit({type:'task_state',state:'working',taskId:active.id});
   try{
    const {profile}=this.runtime;
-   const context=await this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal) as Context;
+   const context=await toolTask.run(active.id,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal)) as Context;
    active.controller.signal.throwIfAborted();
    // Spoken display-only commands with one unambiguous meaning skip the model entirely; a data route (undo) only
    // when policy executes it at once, since a review card needs the model's conversation to carry it.
    let route=spoken?profile.fastRoute(text,context):undefined;
    if(route&&!this.runtime.autoApprove){const risk=profile.tools.find(tool=>tool.name===route!.tool)?.risk;if(risk==='data'||risk==='code')route=undefined;}
+   if(route?.folderQuery){
+    // A folder the utterance names is resolved locally; the first matching folder replaces the default (the active image's).
+    const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:route.folderQuery},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;
+    active.controller.signal.throwIfAborted();
+    const folder=found?.matches?.find(match=>match.kind==='folder'&&typeof match.path==='string');
+    const {folderQuery:_query,...rest}=route;
+    route=folder?{...rest,arguments:{...rest.arguments,folder:folder.path},reply:`Running it on the ${String(folder.name)} folder.`}:rest;
+   }
    if(route){
     let result:Record<string,unknown>|undefined;
-    try{result=await this.runtime.call(route.tool,route.arguments,active.controller.signal) as Record<string,unknown>|undefined;}
+    try{result=await toolTask.run(active.id,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal)) as Record<string,unknown>|undefined;}
     catch(error){
      active.controller.signal.throwIfAborted();
      // The bridge's refusals are short, speakable sentences ("No cell under the pointer; point at it."): say them.
@@ -50,6 +59,15 @@ export class TextConversation {
     active.controller.signal.throwIfAborted();
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||('status' in result&&result.status!=='completed');
+    // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
+    // with no checkpoint), never its success phrase.
+    const risk=profile.tools.find(tool=>tool.name===route!.tool)?.risk;
+    const reason=(risk==='data'||risk==='code')?failureReason(profile,route.tool,route.arguments,result):undefined;
+    if(reason){
+     active.answered=true;this.append('assistant',`${failureSentence(reason)} (${route.tool} ${JSON.stringify(route.arguments)})`);
+     this.emit({type:'text_result',taskId:active.id,text:failureSentence(reason),fastPath:true});
+     return;
+    }
     // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
     const phrased=failed?'':(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
     // Only numbers add information after the route's own phrase ("Undoing." needs no "Undone.").

@@ -25,7 +25,7 @@ for (s = 1; s <= 3; s++) {
   setAutoThreshold(method);
   getThreshold(lower, upper);
   // Stained pixels are dark (low transmittance); the mask covers 0..upper.
-  getStatistics(pixels, mean, min, max, std, histogram);
+  getRawStatistics(pixels, mean, min, max, std, histogram);
   inside = 0; sumOD = 0;
   for (v = lower; v <= upper; v++) { inside += histogram[v]; sumOD += histogram[v] * -log(maxOf(v, 1) / 255) / log(10); }
   fraction[s - 1] = inside / pixels; density[s - 1] = sumOD / maxOf(inside, 1);

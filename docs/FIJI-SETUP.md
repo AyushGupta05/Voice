@@ -15,7 +15,7 @@ python3 script/setup-fiji.py
 - Restores the 223 symlinks that Python's `zipfile` writes as text files (the bundled Zulu JDK 21 needs `bin -> zulu-21.jdk/Contents/Home/bin`; without this the launcher reports "No matching Java installations found"). The repair pass runs on every invocation and is safe while Fiji is running.
 - Needs `.local/jdk` from `python3 script/setup.py` first: the bridge compiles with that JDK 25 (`--release 21`), Fiji itself runs on its bundled Java 21.
 
-Nothing inside `Fiji.app` is modified except one symlink, `plugins/luma-fiji-bridge.jar -> dist/luma-fiji-bridge.jar`, created by `script/run-fiji.sh`. Fiji's updater rewrites `db.xml.gz` and `.checksums` on its own when it checks update sites.
+Nothing inside `Fiji.app` is modified except one file, `plugins/luma-fiji-bridge.jar`, a copy of `dist/luma-fiji-bridge.jar` that `script/run-fiji.sh` refreshes at every launch (a copy rather than a symlink, so rebuilding `dist/` while Fiji runs cannot swap classes under the running JVM). Fiji's updater rewrites `db.xml.gz` and `.checksums` on its own when it checks update sites.
 
 ## What the 2026 distribution looks like
 
@@ -46,7 +46,7 @@ The jar also registers a SciJava service (`LumaBridgeService`, tagged `SciJavaSe
 
 ```bash
 ./script/build-fiji-bridge.sh     # dist/luma-fiji-bridge.jar + .local/fiji-bridge-build.json (sourceSha256 stamped into the jar)
-./script/run-fiji.sh              # symlink jar, export LUMA_BRIDGE_TOKEN/LUMA_ROOT, start Fiji, log to .local/fiji.log
+./script/run-fiji.sh              # copy jar into plugins/, export LUMA_BRIDGE_TOKEN/LUMA_ROOT, start Fiji, log to .local/fiji.log
 ./script/test-fiji-bridge.sh      # contract tests, no running Fiji needed
 ```
 

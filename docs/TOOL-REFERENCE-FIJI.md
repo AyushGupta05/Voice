@@ -64,6 +64,8 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_status`](#fiji-status) | read | No |
 | [`fiji_plugins`](#fiji-plugins) | read | No |
 | [`fiji_undo`](#fiji-undo) | data | Yes |
+| [`fiji_recipes`](#fiji-recipes) | read | No |
+| [`fiji_run_recipe`](#fiji-run-recipe) | code | Yes |
 | [`fiji_knowledge`](#fiji-knowledge) | read | No |
 | [`fiji_find_images`](#fiji-find-images) | read | No |
 | [`fiji_action_status`](#fiji-action-status) | read | No |
@@ -755,6 +757,28 @@ Undo the last pixel operation (Edit > Undo) when ImageJ can, otherwise restore t
 
 Input: `{}`.
 
+<a id="fiji-recipes"></a>
+
+## fiji_recipes
+
+Find a verified one-call recipe for the request: 2D/3D nuclei counts, spots, local threshold, area fraction, skeleton/neurite length, local thickness, fibre orientation, bleach correction, Coloc 2, H&E/DAB deconvolution, kymograph, denoise, CLAHE, drift correction, FRAP, TrackMate, stitching, per-cell intensities, nearest neighbours. Returns id, title, when, params with defaults and output. Check before writing a macro. Read only.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `query` | No | string; max 200 characters |
+| `limit` | No | integer; min 1; max 50 |
+
+<a id="fiji-run-recipe"></a>
+
+## fiji_run_recipe
+
+Run a recipe from fiji_recipes on the active image (and its selection) by id; pass only params you change. Returns the macro result, the Log and summary (its RESULT numbers). Pixels are checkpointed; result images and tables stay open.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `id` | Yes | string; max 80 characters; pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$` |
+| `params` | No | object |
+
 <a id="fiji-knowledge"></a>
 
 ## fiji_knowledge
@@ -769,7 +793,7 @@ Search Penny’s Fiji guidance and the locally downloaded official ImageJ docume
 
 ## fiji_find_images
 
-Find images on this computer by a loose name ("the blobs tif", "embryos"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder.
+Find images on this computer by a loose name ("the blobs tif", "embryos"): searches Penny’s data folder, Desktop, Downloads and Documents. Use before fiji_open_path when the researcher names an image instead of a path; never ask them for a folder. Matching folders come back as kind "folder" with an image count, for folder-wide runs.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
