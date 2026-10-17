@@ -51,9 +51,9 @@ public final class Bootstrap {
             smoke(ij);
             return;
         }
-        // The engine is created here and published through Engines.current(); the UI picks it up from there
-        // until Workspace.launch(ij, engine, args) replaces the two-argument overload.
-        sc.fidelis.engine.DefaultEngine.create(ij);
+        // The real engine is created here and handed to the UI through EngineProvider; the UI falls back to
+        // its development stub only when nothing was registered (a launch that bypasses Bootstrap).
+        sc.fidelis.ui.EngineProvider.register(sc.fidelis.engine.DefaultEngine.create(ij));
         SwingUtilities.invokeLater(() -> sc.fidelis.ui.Workspace.launch(ij, args));
     }
 

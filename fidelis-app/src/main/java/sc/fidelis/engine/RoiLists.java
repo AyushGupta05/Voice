@@ -17,17 +17,18 @@ final class RoiLists {
 
     /** The hidden ROI Manager singleton (created on first use, on the EDT). */
     synchronized RoiManager manager() {
-        if (manager == null) {
-            RoiManager existing = RoiManager.getRawInstance();
-            if (existing != null) {
-                manager = existing;
-            } else {
-                manager = Edt.call(() -> {
-                    RoiManager rm = new RoiManager();
-                    rm.setVisible(false);
-                    return rm;
-                });
-            }
+        // Always resolve the live singleton: IJ1 nulls it on close (a macro's roiManager("close"), a user) and
+        // Analyze Particles creates a new one through "ROI Manager..."; a cached reference would then be a
+        // detached frame that no plugin writes to.
+        RoiManager existing = RoiManager.getRawInstance();
+        if (existing != null) {
+            manager = existing;
+        } else {
+            manager = Edt.call(() -> {
+                RoiManager rm = new RoiManager();
+                rm.setVisible(false);
+                return rm;
+            });
         }
         return manager;
     }

@@ -30,11 +30,14 @@ class EngineDocumentsTest {
     @Test
     void openRegistersHiddenHostedDocumentAndCloseRemovesIt() throws Exception {
         DefaultEngine engine = EngineFixture.engine();
+        int docsBefore = engine.documents().size(); // the engine is shared by the whole test JVM
+        int imagesBefore = WindowManager.getImageCount();
         ActionResult r = engine.open(EngineFixture.repoFile("fixtures/two-squares.png")).get(60, TimeUnit.SECONDS);
         assertEquals(OperationState.COMPLETED, r.state(), String.valueOf(r.error()));
         List<DocumentInfo> docs = engine.documents();
-        assertEquals(1, docs.size());
-        DocumentInfo info = docs.get(0);
+        assertEquals(docsBefore + 1, docs.size());
+        assertEquals(1, r.digest().added().size());
+        DocumentInfo info = docs.stream().filter(d -> d.id().equals(r.digest().added().get(0))).findFirst().orElseThrow();
         assertEquals("two-squares.png", info.title());
         assertEquals(64, info.width());
         assertEquals(64, info.height());
@@ -51,8 +54,8 @@ class EngineDocumentsTest {
         ActionResult c = engine.submit(ActionRequest.session(Origin.PANEL, ActionRequest.Operations.CLOSE,
                 Map.of("discard", true), TargetScope.of(id))).get(30, TimeUnit.SECONDS);
         assertEquals(OperationState.COMPLETED, c.state(), String.valueOf(c.error()));
-        assertTrue(engine.documents().isEmpty());
-        assertEquals(0, WindowManager.getImageCount());
+        assertEquals(docsBefore, engine.documents().size());
+        assertEquals(imagesBefore, WindowManager.getImageCount());
     }
 
     @Test

@@ -394,7 +394,14 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
 
     private void killNow() {
         Process p = process;
-        if (p != null && p.isAlive()) p.destroyForcibly();
+        if (p != null && p.isAlive()) {
+            p.destroyForcibly();
+            try {
+                p.waitFor(3, TimeUnit.SECONDS); // release the worker's log file before a caller deletes it
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     private void fail(String reason) {

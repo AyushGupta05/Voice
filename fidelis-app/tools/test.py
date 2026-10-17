@@ -1,6 +1,6 @@
 """Run the Fidelis JUnit 5 tests inside the pinned Fiji runtime.
 
-Usage:  python fidelis-app/tools/test.py [--select-class FQCN] [--tag TAG] [--heap 4g] [--timeout SEC]
+Usage:  python fidelis-app/tools/test.py [--select-class FQCN ...] [--tag TAG] [--heap 4g] [--timeout SEC]
 
 Tests run in one JVM with the same flags as the application (tools/fijienv.py) and an isolated
 user.home, so ImageJ preferences never touch the developer's profile (NFR-MAINT-004).
@@ -30,7 +30,9 @@ def main() -> None:
     launcher = ["org.junit.platform.console.ConsoleLauncher", "execute", "--disable-banner",
                 "--details=tree", "--fail-if-no-tests"]
     if "--select-class" in argv:
-        launcher += ["--select-class", argv[argv.index("--select-class") + 1]]
+        for i, a in enumerate(argv):
+            if a == "--select-class":
+                launcher += ["--select-class", argv[i + 1]]
     else:
         launcher += ["--scan-classpath", str(env.TEST_CLASSES)]
     if "--tag" in argv:

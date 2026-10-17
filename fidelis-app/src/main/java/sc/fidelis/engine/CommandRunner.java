@@ -494,15 +494,17 @@ final class CommandRunner {
 
         // success: capture results and register the undo snapshot's survival
         int captured = 0;
-        if ("RESULTS_ROWS".equals(en.family()) && resultsAfter > resultsBefore) {
-            captured = eng.results.capture(resultsBefore, doc == null ? null : doc.id, actionId);
+        // A command that clears the system table first (Analyze Particles with clear=true) restarts its rows at 0.
+        int rowsFrom = Boolean.TRUE.equals(typed.get("clear")) ? 0 : resultsBefore;
+        if ("RESULTS_ROWS".equals(en.family()) && resultsAfter > rowsFrom) {
+            captured = eng.results.capture(rowsFrom, doc == null ? null : doc.id, actionId);
         }
         eng.results.markSeen();
         if (snap != null && before != null && after != null && before.hash().equals(after.hash())
                 && before.width() == after.width() && before.type() == after.type()) {
             eng.snapshots.release(snap); // a no-op leaves nothing to undo
         }
-        return Outcome.ok(digest(en, doc, before, after, change, resultsBefore, resultsAfter, gDelta, ex, true), rec);
+        return Outcome.ok(digest(en, doc, before, after, change, rowsFrom, resultsAfter, gDelta, ex, true), rec);
     }
 
     private OperationState restoreOrPartial(Doc checkDoc, Snapshots.Snapshot snap, State before, State after,

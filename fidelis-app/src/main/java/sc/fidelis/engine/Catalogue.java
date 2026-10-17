@@ -208,8 +208,11 @@ final class Catalogue {
             "Skeletonize", "Watershed");
     private static final Set<String> NO_IMAGE_NEEDED = Set.of("Clear Results", "Image...", "Open...", "Summarize",
             "Merge Channels...", "Image Calculator...", "Set Measurements...", "Options...");
+    // Commands that must change pixels: a legitimate identity is treated as a silent failure. Not listed:
+    // "Subtract Background..." (the pinned Fiji leaves FX-001 unchanged at J-12 step s02: rolling=50 on a
+    // flat 64x64 image is an identity, verified by verification/baselines).
     private static final Set<String> LOOSE_STRICT = Set.of("Invert", "Gaussian Blur...", "Unsharp Mask...", "Smooth",
-            "Sharpen", "Find Edges", "Subtract Background...");
+            "Sharpen", "Find Edges");
     private static final Set<String> TYPE_LABELS = Set.of("8-bit", "16-bit", "32-bit", "8-bit Color", "RGB Color");
     private static final Set<String> IN_PLACE_LABELS = Set.of("Invert", "Smooth", "Sharpen", "Find Edges", "Enhance Contrast...",
             "Subtract Background...", "Fill", "Clear", "Clear Outside", "Draw", "Apply LUT", "Convert to Mask", "Make Binary",

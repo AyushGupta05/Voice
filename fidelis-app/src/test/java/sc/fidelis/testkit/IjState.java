@@ -12,12 +12,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import javax.swing.SwingUtilities;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.WindowManager;
 import ij.measure.ResultsTable;
 import ij.plugin.frame.RoiManager;
+import ij.text.TextWindow;
 
 /**
  * Helpers for tests that drive the shared in-JVM ImageJ: a clean slate before a scenario and macro
@@ -47,7 +50,15 @@ public final class IjState {
         ResultsTable.getResultsTable().reset();
         for (String title : new String[] {"Results", "Summary", "Log"}) {
             Frame f = WindowManager.getFrame(title);
-            if (f != null) f.dispose();
+            if (f instanceof TextWindow tw) tw.close(false); // close(), not dispose(): clears IJ's Results text panel
+            else if (f != null) f.dispose();
+        }
+        // A Results window unregistered by someone else (the engine hides and adopts legacy windows) would still
+        // make IJ.isResultsWindow() true, and Set Measurements... then writes headings into the empty table.
+        if (IJ.isResultsWindow()) {
+            Window w = SwingUtilities.getWindowAncestor(IJ.getTextPanel());
+            if (w instanceof TextWindow tw) tw.close(false);
+            else IJ.setTextPanel(null);
         }
         Prefs.blackBackground = false;
     }
