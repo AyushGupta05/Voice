@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { Adapter, Context } from './bridge.js';
 import { validateTool, type Arguments, type Tool } from './tools.js';
 import type { Knowledge } from './knowledge.js';
+import { findLocalImages } from './local-images.js';
 
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
@@ -30,6 +31,7 @@ export class Runtime extends EventEmitter {
     // Own the request before asynchronous observations/previews can yield.
     args=structuredClone(args);
     if (name === 'qupath_knowledge') return this.knowledge.search(args.query as string);
+    if (name === 'qupath_find_images') return findLocalImages(join(this.stateDirectory, '..', '..'), (args.query as string | undefined) ?? '', (args.limit as number | undefined) ?? 20);
     if (name === 'qupath_api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
     if (name === 'qupath_api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
     if (name === 'qupath_action_status') {

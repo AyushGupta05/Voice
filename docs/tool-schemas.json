@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "application": "QuPath",
-  "toolCount": 36,
+  "toolCount": 37,
   "tools": [
     {
       "name": "qupath_context",
@@ -212,8 +212,29 @@
       }
     },
     {
+      "name": "qupath_find_images",
+      "description": "Find slide images and QuPath projects on this computer by a loose name (\"OS-2\", \"the CMU slide\"): searches the project data folder, Desktop, Downloads and Documents. Use before qupath_open_path when the researcher names a slide instead of a path; never ask them for a folder.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "qupath_open_path",
-      "description": "Open an exact existing absolute local image path or .qpproj using QuPath’s native opening/import workflow after human approval. Refuses unsaved current-image changes; may open image-reader, project-import or other dialogs. Dispatch is not completion. URLs and .qpdata are excluded. Does not bypass native prompts.",
+      "description": "Open an exact existing absolute local image path or .qpproj using QuPath’s native opening workflow. Refuses unsaved current-image changes; may open the native \"Set image type\" or reader dialogs: inspect with qupath_ui and press the right option/Apply with qupath_ui_action, then re-read context to verify the active image. Dispatch is not completion. URLs and .qpdata are excluded.",
       "operation": "open_path",
       "risk": "code",
       "inputSchema": {

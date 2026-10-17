@@ -12,6 +12,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_measurement_summary`](#qupath-measurement-summary) | read | No |
 | [`qupath_analysis_catalog`](#qupath-analysis-catalog) | read | No |
 | [`qupath_project_images`](#qupath-project-images) | read | No |
+| [`qupath_find_images`](#qupath-find-images) | read | No |
 | [`qupath_open_path`](#qupath-open-path) | code | Required |
 | [`qupath_open_project_image`](#qupath-open-project-image) | code | Required |
 | [`qupath_inspect_import`](#qupath-inspect-import) | read | No |
@@ -116,11 +117,22 @@ List images in the actual open project with stable entry IDs, source fingerprint
 | `offset` | No | integer; min 0 |
 | `limit` | No | integer; min 1; max 200 |
 
+<a id="qupath-find-images"></a>
+
+## qupath_find_images
+
+Find slide images and QuPath projects on this computer by a loose name ("OS-2", "the CMU slide"): searches the project data folder, Desktop, Downloads and Documents. Use before qupath_open_path when the researcher names a slide instead of a path; never ask them for a folder.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `query` | No | string; max 200 characters |
+| `limit` | No | integer; min 1; max 50 |
+
 <a id="qupath-open-path"></a>
 
 ## qupath_open_path
 
-Open an exact existing absolute local image path or .qpproj using QuPath’s native opening/import workflow after human approval. Refuses unsaved current-image changes; may open image-reader, project-import or other dialogs. Dispatch is not completion. URLs and .qpdata are excluded. Does not bypass native prompts.
+Open an exact existing absolute local image path or .qpproj using QuPath’s native opening workflow. Refuses unsaved current-image changes; may open the native "Set image type" or reader dialogs: inspect with qupath_ui and press the right option/Apply with qupath_ui_action, then re-read context to verify the active image. Dispatch is not completion. URLs and .qpdata are excluded.
 
 | Parameter | Required | Accepted value |
 |---|---|---|

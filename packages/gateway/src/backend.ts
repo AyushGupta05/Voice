@@ -32,6 +32,7 @@ export function acknowledgmentFor(name: string, args: Record<string, unknown>, c
   if (name === 'qupath_import_annotations') return 'Importing.';
   if (name === 'qupath_save_workflow') return 'Saving the workflow.';
   if (name === 'qupath_class_summary') return 'Counting.';
+  if (name === 'qupath_find_images') return 'Finding it.';
   if (name === 'qupath_select') return 'Selecting them.';
   if (name === 'qupath_measurement_summary' || name === 'qupath_measurements' || name === 'qupath_objects') return 'Checking.';
   return undefined;
