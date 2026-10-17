@@ -35,7 +35,7 @@ Penny's second application is Fiji (ImageJ2 + ImageJ1 compatibility). The same v
 | `display` | view | `min?,max?`, `auto?:boolean`, `lut?:name`, `channel?` | brightness/contrast/LUT |
 | `stack` | view | `slice?`, `channel?`, `frame?`, `project?:max|sum|avg` | navigate or project stacks (project is `data`) |
 | `commands` | read | `query` | searches ImageJ1 menu commands (`Menus.getCommands()`) and SciJava `CommandService` commands → `[{name, menuPath, source}]` |
-| `run_command` | code | `name`, `options?` | `IJ.run(imp, name, options)` on the EDT, with a dialog watcher: if a dialog opens and stays, return `{dispatched:true, dialog:{title, controls:[…]}}` via `ui` |
+| `run_command` | code | `name`, `options?` | `IJ.run(imp, name, options)` on the EDT, with a dialog watcher: if a dialog opens and stays, return `{dispatched:true, dialog:{title, controls:[…]}}` via `ui` | Commands whose first act is an OS file/folder chooser (Bio-Formats Importer, Open..., Image Sequence..., Raw..., Save As..., …) are refused unless `options` carries `open=`/`path=`/`dir=`, because a native file chooser cannot be driven or seen by `ui`; `open_path` is the route. |
 | `ui` | read | | AWT/Swing windows and controls (buttons, text fields, checkboxes, choices, sliders) with ids and screen bounds, for `GenericDialog`s and plugin windows |
 | `ui_action` | code | `nodeId`, `action:fire|set_text|select|toggle`, `value?` | operate a control seen by `ui` |
 | `run_macro` | code | `code`, `argument?` | `IJ.runMacro` with result/log text (bounded) |

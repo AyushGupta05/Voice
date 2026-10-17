@@ -133,6 +133,8 @@ final class Scripting {
         return described;
     }
 
+    /** ImageJ/Bio-Formats commands whose first act is an OS file or folder chooser. */
+    static final Set<String> FILE_CHOOSER_COMMANDS = Set.of("Bio-Formats Importer", "Bio-Formats", "Bio-Formats (Windowless)", "Open...", "Open Next", "Image Sequence...", "Raw...", "LUT...", "Text Image...", "Text File...", "Results...", "Table...", "AVI...", "XY Coordinates...", "TIFF Virtual Stack...", "Open as Hyperstack", "Bio-Formats Exporter", "Image Sequence... ", "Save As...", "Save", "Tiff...", "Jpeg...", "PNG...");
     Map<String, Object> runCommand(JsonObject args, ImagePlus imp, long timeoutMs) throws Exception {
         String requested = Operations.string(args, "name", "").strip();
         if (requested.isEmpty()) throw new IllegalArgumentException("Provide the exact command name (see fiji_commands).");
@@ -140,6 +142,10 @@ final class Scripting {
         if (resolved == null) throw new IllegalArgumentException("Unknown command \"" + requested + "\". Search with fiji_commands for the exact label.");
         final String name = resolved;
         String options = args.has("options") && !args.get("options").isJsonNull() ? args.get("options").getAsString() : null;
+        // Commands that open a native macOS file chooser park the worker on a dialog no bridge or window tree can see;
+        // without a path in options they are refused in favour of open_path (fiji_find_images locates the file).
+        if (FILE_CHOOSER_COMMANDS.contains(name) && (options == null || !options.matches("(?s).*\\b(open|path|file|dir|directory)=.*")))
+            throw new IllegalArgumentException("\"" + name + "\" opens a native file chooser that cannot be driven. Use fiji_open_path with the exact path (fiji_find_images finds it), or pass options like open=[/absolute/path].");
         journal.record("run_command", Journal.runLine(name, options));
         String logBefore = Objects.toString(IJ.getLog(), "");
         var watched = watch("command", imp, () -> { if (imp == null) { if (options == null) IJ.run(name); else IJ.run(name, options); } else IJ.run(imp, name, options); return null; }, timeoutMs);
