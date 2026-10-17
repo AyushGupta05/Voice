@@ -117,6 +117,14 @@ public final class IsolationState {
             fixed.add("disposed dialog '" + d.getTitle() + "'");
             Edt.run(d::dispose);
         }
+        // IJ1 keeps a per-thread "temporary current image" that wins over the active window in getCurrentImage(); an
+        // earlier class's macro on this (JUnit) thread can leave one pointing at an image that no longer exists, and the
+        // next macro's getImageID() or a current-image check then sees that image instead of the one just opened
+        ImagePlus temp = WindowManager.getCurrentImage();
+        int[] listed = WindowManager.getIDList();
+        if (temp != null && (listed == null || java.util.Arrays.stream(listed).noneMatch(id -> id == temp.getID())))
+            fixed.add("cleared stale current image '" + temp.getTitle() + "' (" + temp.getID() + ")");
+        WindowManager.setTempCurrentImage(null);
 
         RoiManager live = RoiManager.getRawInstance();
         for (RoiManager stale : staleRoiManagers(live)) {

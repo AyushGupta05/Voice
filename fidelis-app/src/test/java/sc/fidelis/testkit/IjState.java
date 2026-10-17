@@ -60,6 +60,7 @@ public final class IjState {
             if (w instanceof TextWindow tw) tw.close(false);
             else IJ.setTextPanel(null);
         }
+        WindowManager.setTempCurrentImage(null); // a stale per-thread current image would win over the active window
         Prefs.blackBackground = false;
     }
 
