@@ -40,20 +40,19 @@ struct MeasurementBin: Decodable {
 struct MeasurementReportView: View {
     let report: MeasurementReport
     let currentContextKey: String?
-    private let mint = Color(red: 0.64, green: 0.92, blue: 0.79)
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "chart.bar.xaxis").foregroundStyle(mint)
+                Image(systemName: "chart.bar.xaxis").foregroundStyle(PennyPalette.accent)
                 Text("Measured results").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("\(report.total) objects").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("\(report.total) objects").font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary)
             }
-            Text(report.imageName).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-            Text(report.scope.label).font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(report.imageName).font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).lineLimit(1).truncationMode(.middle)
+            Text(report.scope.label).font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
             if currentContextKey != report.contextKey {
                 Text("Earlier observation · refresh the analysis for current objects.")
-                    .font(.system(size: 10)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 10)).foregroundStyle(PennyPalette.warning).fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array(report.measurements.keys.sorted().prefix(2)), id: \.self) { name in
                 if let distribution = report.measurements[name] {
@@ -62,25 +61,26 @@ struct MeasurementReportView: View {
             }
             if report.measurements.count > 2 {
                 Text("Plots show 2 of \(report.measurements.count) measurements. Ask for a specific measurement to plot it.")
-                    .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
             }
-        }.padding(12).background(mint.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+        }.padding(12).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(PennyPalette.border))
     }
     private func distributionView(_ name: String, _ value: MeasurementDistribution) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(name).font(.system(size: 11, weight: .medium)).textSelection(.enabled)
             Text("Mean \(format(value.mean)) · n = \(value.count) · missing/invalid \(value.missingOrNonFinite)")
-                .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 10)).foregroundStyle(PennyPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
             if !value.histogram.isEmpty {
                 Chart(Array(value.histogram.enumerated()), id: \.offset) { entry in
                     BarMark(x: .value("Bin", String(entry.offset)), y: .value("Objects", entry.element.count), width: .ratio(0.85))
-                        .foregroundStyle(mint)
+                        .foregroundStyle(PennyPalette.accent.gradient)
                         .accessibilityLabel("\(format(entry.element.lower)) to \(format(entry.element.upper))")
                         .accessibilityValue("\(entry.element.count) objects")
                 }.chartXAxis(.hidden).frame(height: 95)
                 HStack {
                     Text(format(value.min)); Spacer(); Text(format(value.max))
-                }.font(.system(size: 9)).foregroundStyle(.secondary)
+                }.font(.system(size: 9)).foregroundStyle(PennyPalette.textSecondary)
             }
         }
     }

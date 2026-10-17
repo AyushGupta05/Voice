@@ -1,12 +1,47 @@
-.local/
-.build/
+.venv/
+.venv-stt/
+external/models/
+external/downloads/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 node_modules/
 dist/
+build/
 .env
 .env.*
 !.env.example
-.DS_Store
 *.log
+data/
+outputs/
+.DS_Store
+Thumbs.db
+
+# Documentation-stage catalogues and probe evidence (DEC-006)
+!docs/data/
+!docs/01-analysis/references/probes/*.log
+
+# Fidelis Java application (fidelis-app): build outputs and fetched test runner
+fidelis-app/build/
+fidelis-app/lib/*.jar
+
+# Verification harness: fixture cache (licence-restricted downloads) and large baseline dumps
+fixtures/cache/
+verification/baselines/**/raw/
+verification/runs/
+# Licence-restricted (CC BY-NC-SA) fixtures: keep only the aggregate summary.json (counts and hashes), never per-step ROI/pixel data
+verification/baselines/FX-030/*/*/
+verification/baselines/FX-031/*/*/
+
+# Penny (voice gateway, companion, Fiji bridge): local state, tokens, downloads, builds
+.local/
+.build/
 coverage/
-__pycache__/
-*.pyc
+
+# Generated decks and exports never live at the root or in output/ (decks belong in docs/pitch/)
+output/
+/*.pptx

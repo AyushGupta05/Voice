@@ -1,0 +1,773 @@
+{
+ "fixture": "FX-001",
+ "key": "FX-001",
+ "lock16": "9403b6197ac4bf75",
+ "modes": {
+  "gui": {
+   "reference_mode_rationale": "authoritative: GUI because Open.../Threshold.../Watershed are not headless_probe=pass and Analyze Particles... add fails headless",
+   "run": {
+    "exit_code": 0,
+    "seconds": 6.55,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493",
+    "with_add": true,
+    "saved_tiff_sha256": "e034f63d70eb56710a95c57f5d69d6852f801beb28a3bc61cf460a07f1db93a9",
+    "saved_tiff_bytes": 4724
+   },
+   "measure_row": {
+    "Area": "4096.0",
+    "Mean": "30.87890625",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "126480.0",
+    "RawIntDen": "126480.0"
+   },
+   "particle_count_results_rows": 2,
+   "particle_summary": {
+    "Slice": "NaN",
+    "Count": "2.0",
+    "Total Area": "496.0",
+    "Average Size": "248.0",
+    "%Area": "12.109375",
+    "Mean": "255.0",
+    "IntDen": "63240.0"
+   },
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "5c2160ce8ed782d5eded314be06e32b2d9526ffe589a6342c5771f567b85f245",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "5c2160ce8ed782d5eded314be06e32b2d9526ffe589a6342c5771f567b85f245",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "e5973385d42aaac873f27ece86586acb2b5e736925a801afffec7fdc3237d986",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "e5973385d42aaac873f27ece86586acb2b5e736925a801afffec7fdc3237d986",
+       "invertedLut": false,
+       "threshold": [
+        "63.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 2,
+     "roiManagerCount": 2,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "two-squares-mask.tif",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 2,
+     "roiManagerCount": 2,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  },
+  "headless": {
+   "reference_mode_rationale": "cross-check: headless-safe prefix; Analyze Particles without `add`",
+   "run": {
+    "exit_code": 0,
+    "seconds": 5.92,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493",
+    "with_add": false,
+    "saved_tiff_sha256": "a0f8c24a9906a39ca691fe9f0db12923708b1055a7719704998e70a33b289412",
+    "saved_tiff_bytes": 4256
+   },
+   "measure_row": {
+    "Area": "4096.0",
+    "Mean": "30.87890625",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "126480.0",
+    "RawIntDen": "126480.0"
+   },
+   "particle_count_results_rows": 2,
+   "particle_summary": null,
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "5c2160ce8ed782d5eded314be06e32b2d9526ffe589a6342c5771f567b85f245",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "5c2160ce8ed782d5eded314be06e32b2d9526ffe589a6342c5771f567b85f245",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "e5973385d42aaac873f27ece86586acb2b5e736925a801afffec7fdc3237d986",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "e5973385d42aaac873f27ece86586acb2b5e736925a801afffec7fdc3237d986",
+       "invertedLut": false,
+       "threshold": [
+        "63.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 2,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "two-squares-mask.tif",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of two-squares.png",
+       "type": 0,
+       "size": [
+        64,
+        64
+       ],
+       "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 2,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  }
+ }
+}

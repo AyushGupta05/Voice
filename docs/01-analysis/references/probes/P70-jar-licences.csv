@@ -1,0 +1,663 @@
+jar,groupId:artifactId:version,declared licence(s),licence family,source
+jars/ahocorasick-0.2.4.jar,org.ahocorasick:ahocorasick:0.2.4,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/org.ahocorasick/ahocorasick/pom.xml
+jars/aircompressor-2.0.3.jar,io.airlift:aircompressor:2.0.3,Apache License 2.0,Apache-2.0,pom:META-INF/maven/io.airlift/aircompressor/pom.xml
+jars/alphanumeric-comparator-1.4.1.jar,se.sawano.java:alphanumeric-comparator:1.4.1,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/se.sawano.java/alphanumeric-comparator/pom.xml
+jars/animal-sniffer-annotations-1.27.jar,org.codehaus.mojo:animal-sniffer-annotations:1.27,(none),NONE DECLARED,(none)
+jars/annotations-13.0.jar,org.jetbrains:annotations:13.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/org.jetbrains/annotations/pom.xml
+jars/ant-1.10.15.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/ant-launcher-1.10.15.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/antlr-3.5.3.jar,org.antlr:antlr:3.5.3,(none),NONE DECLARED,(none)
+jars/antlr-runtime-3.5.3.jar,org.antlr:antlr-runtime:3.5.3,(none),NONE DECLARED,(none)
+jars/antlr.antlr-2.7.7.jar,(no pom),(none),NONE DECLARED,(none)
+jars/apache5-client-2.46.15.jar,software.amazon.awssdk:apache5-client:${awsjavasdk.version},[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/apfloat-1.10.1.jar,org.apfloat:apfloat:1.10.1,(none),NONE DECLARED,(none)
+jars/api-common-2.53.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/app-launcher-2.3.1.jar,org.scijava:app-launcher:2.3.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/app-launcher/pom.xml
+jars/appose-0.12.0.jar,org.apposed:appose:0.12.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.apposed/appose/pom.xml
+jars/args4j-2.33.jar,args4j:args4j:2.33,http://www.opensource.org/licenses/mit-license.php;[file LICENSE -> MIT],MIT,manifest:Bundle-License;licfile:LICENSE
+jars/arns-2.46.15.jar,software.amazon.awssdk:arns:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/asm-9.8.jar,(no pom),BSD-3-Clause;link=https://asm.ow2.io/LICENSE.txt,BSD-3,manifest:Bundle-License
+jars/asm-analysis-9.8.jar,(no pom),BSD-3-Clause;link=https://asm.ow2.io/LICENSE.txt,BSD-3,manifest:Bundle-License
+jars/asm-commons-9.8.jar,(no pom),BSD-3-Clause;link=https://asm.ow2.io/LICENSE.txt,BSD-3,manifest:Bundle-License
+jars/asm-tree-9.8.jar,(no pom),BSD-3-Clause;link=https://asm.ow2.io/LICENSE.txt,BSD-3,manifest:Bundle-License
+jars/asm-util-9.8.jar,(no pom),BSD-3-Clause;link=https://asm.ow2.io/LICENSE.txt,BSD-3,manifest:Bundle-License
+jars/auth-2.46.15.jar,software.amazon.awssdk:auth:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/auto-value-annotations-1.11.0.jar,com.google.auto.value:auto-value-annotations:1.11.0,(none),NONE DECLARED,(none)
+jars/autocomplete-3.3.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/aws-core-2.46.15.jar,software.amazon.awssdk:aws-core:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/aws-query-protocol-2.46.15.jar,software.amazon.awssdk:aws-query-protocol:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/aws-xml-protocol-2.46.15.jar,software.amazon.awssdk:aws-xml-protocol:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/base-18.09.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/base64-2.3.8.jar,net.iharder:base64:2.3.8,Public domain,CC0/Public domain,pom:META-INF/maven/net.iharder/base64/pom.xml
+jars/batch-processor-0.4.2.jar,org.scijava:batch-processor:0.4.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/batch-processor/pom.xml
+jars/batik-anim-1.19.jar,org.apache.xmlgraphics:batik-anim:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-awt-util-1.19.jar,org.apache.xmlgraphics:batik-awt-util:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-bridge-1.19.jar,org.apache.xmlgraphics:batik-bridge:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-constants-1.19.jar,org.apache.xmlgraphics:batik-constants:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-css-1.19.jar,org.apache.xmlgraphics:batik-css:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-dom-1.19.jar,org.apache.xmlgraphics:batik-dom:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-ext-1.19.jar,org.apache.xmlgraphics:batik-ext:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-gvt-1.19.jar,org.apache.xmlgraphics:batik-gvt:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-i18n-1.19.jar,org.apache.xmlgraphics:batik-i18n:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-parser-1.19.jar,org.apache.xmlgraphics:batik-parser:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-script-1.19.jar,org.apache.xmlgraphics:batik-script:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-shared-resources-1.19.jar,org.apache.xmlgraphics:batik-shared-resources:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-svg-dom-1.19.jar,org.apache.xmlgraphics:batik-svg-dom:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-svggen-1.19.jar,org.apache.xmlgraphics:batik-svggen:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-util-1.19.jar,org.apache.xmlgraphics:batik-util:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/batik-xml-1.19.jar,org.apache.xmlgraphics:batik-xml:1.19,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/bcpkix-jdk15on-1.62.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bcpkix-jdk18on-1.78.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bcprov-jdk15on-1.62.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bcprov-jdk18on-1.78.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bcutil-jdk18on-1.78.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bigdataviewer-core-10.6.11.jar,sc.fiji:bigdataviewer-core:10.6.11,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/bigdataviewer-core/pom.xml
+jars/bigdataviewer-n5-1.0.2.jar,org.bigdataviewer:bigdataviewer-n5:1.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.bigdataviewer/bigdataviewer-n5/pom.xml
+jars/bigdataviewer_fiji-6.4.1.jar,sc.fiji:bigdataviewer_fiji:6.4.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/bigdataviewer_fiji/pom.xml
+jars/BigStitcher-3.0.8.jar,net.preibisch:BigStitcher:3.0.8,GNU General Public License v2+,GPL-2,pom:META-INF/maven/net.preibisch/BigStitcher/pom.xml
+jars/bij-1.0.0.jar,sc.fiji:bij:1.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/bij/pom.xml
+jars/blas-0.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bounce-0.18.jar,edankert.com:bounce:0.18,BSD License;http://www.opensource.org/licenses/bsd-license.php,BSD (unversioned),pom:META-INF/maven/edankert.com/bounce/pom.xml;manifest:Bundle-License
+jars/bsh-2.1.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/bytelist-1.0.15.jar,org.jruby.extras:bytelist:1.0.15,MIT License,MIT,pom:META-INF/maven/org.jruby.extras/bytelist/pom.xml
+jars/caffeine-2.9.3.jar,(no pom),https://www.apache.org/licenses/LICENSE-2.0;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/cdm-core-5.6.0.jar,(no pom),[file META-INF/LICENSE -> BSD-3],BSD-3,licfile:META-INF/LICENSE
+jars/checker-qual-3.50.0.jar,(no pom),MIT;[file META-INF/LICENSE.txt -> MIT],MIT,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/checksums-2.46.15.jar,software.amazon.awssdk:checksums:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/checksums-spi-2.46.15.jar,software.amazon.awssdk:checksums-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/classgraph-4.8.181.jar,io.github.classgraph:classgraph:4.8.181,The MIT License (MIT);[file LICENSE-ClassGraph.txt -> MIT],MIT,pom:META-INF/maven/io.github.classgraph/classgraph/pom.xml;licfile:LICENSE-ClassGraph.txt
+jars/clojure-1.12.0.jar,org.clojure:clojure:1.12.0,Eclipse Public License 1.0,EPL,pom:META-INF/maven/org.clojure/clojure/pom.xml
+jars/codemodel-2.6.jar,com.sun.codemodel:codemodel:2.6,(none),NONE DECLARED,(none)
+jars/collections-generic-4.01.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/com.google.android.annotations-4.1.1.4.jar,com.google.android:annotations:4.1.1.4,Apache 2.0,Apache-2.0,pom:META-INF/maven/com.google.android/annotations/pom.xml
+jars/commons-beanutils-1.11.0.jar,commons-beanutils:commons-beanutils:1.11.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-codec-1.19.0.jar,commons-codec:commons-codec:1.19.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-collections-3.2.2.jar,commons-collections:commons-collections:3.2.2,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-collections4-4.5.0.jar,org.apache.maven.plugins:commons-collections4:4.5.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-compress-1.28.0.jar,org.apache.commons:commons-compress:1.28.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-io-2.20.0.jar,commons-io:commons-io:2.20.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-lang-2.6.jar,commons-lang:commons-lang:2.6,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-lang3-3.18.0.jar,org.apache.commons:commons-lang3:3.18.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-logging-1.3.5.jar,commons-logging:commons-logging:1.3.5,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-math-2.2.jar,org.apache.commons:commons-math:2.2,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-math3-3.6.1.jar,org.apache.commons:commons-math3:3.6.1,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-pool2-2.12.1.jar,org.apache.commons:commons-pool2:2.12.1,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-text-1.14.0.jar,org.apache.commons:commons-text:1.14.0,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/commons-vfs2-2.0.jar,org.apache.commons:commons-vfs2:2.0,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/compiler-interface-1.3.5.jar,(no pom),(none),NONE DECLARED,(none)
+jars/conscrypt-openjdk-uber-2.5.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/core.specs.alpha-0.4.74.jar,org.clojure:core.specs.alpha:0.4.74,Eclipse Public License 1.0,EPL,pom:META-INF/maven/org.clojure/core.specs.alpha/pom.xml
+jars/Correct_3D_Drift-1.0.7.jar,sc.fiji:Correct_3D_Drift:1.0.7,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Correct_3D_Drift/pom.xml
+jars/crt-core-2.46.15.jar,software.amazon.awssdk:crt-core:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/datasets-0.8.1906.jar,org.renjin:datasets:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/datasets/pom.xml
+jars/detector-resources-support-0.33.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/directories-26.jar,(no pom),(none),NONE DECLARED,(none)
+jars/dirgra-0.3.jar,org.jruby:dirgra:0.3,EPL,EPL,pom:META-INF/maven/org.jruby/dirgra/pom.xml
+jars/ejml-all-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-cdense-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-core-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-ddense-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-dsparse-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-fdense-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-fsparse-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-simple-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ejml-zdense-0.41.jar,(no pom),(none),NONE DECLARED,(none)
+jars/endpoints-spi-2.46.15.jar,software.amazon.awssdk:endpoints-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/error_prone_annotations-2.41.0.jar,com.google.errorprone:error_prone_annotations:2.41.0,"Apache 2.0;""Apache 2.0"";link=""http://www.apache.org/licenses/LICENSE-2.0.txt""",Apache-2.0,pom:META-INF/maven/com.google.errorprone/error_prone_annotations/pom.xml;manifest:Bundle-License
+jars/eventstream-1.0.1.jar,software.amazon.eventstream:eventstream:1.0.1,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/software.amazon.eventstream/eventstream/pom.xml
+jars/exporter-metrics-0.33.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/f2jutil-0.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/failureaccess-1.0.3.jar,com.google.guava:failureaccess:1.0.3,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/ffmpeg-6.1.1-1.5.10.jar,org.bytedeco:ffmpeg:6.1.1-${project.parent.version},(none),NONE DECLARED,(none)
+jars/fiji-2.18.1-SNAPSHOT.jar,sc.fiji:fiji:2.18.1-SNAPSHOT,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/fiji/pom.xml
+jars/fiji-lib-2.1.3.jar,sc.fiji:fiji-lib:2.1.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/fiji-lib/pom.xml
+jars/fiji-links-1.0.0.jar,sc.fiji:fiji-links:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/fiji-links/pom.xml
+jars/FilamentDetector-3.0.0.jar,sc.fiji:FilamentDetector:3.0.0,MIT License,MIT,pom:META-INF/maven/sc.fiji/FilamentDetector/pom.xml
+jars/filters-2.0.235.jar,com.jhlabs:filters:2.0.235,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.jhlabs/filters/pom.xml
+jars/flatlaf-3.6.1.jar,(no pom),[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/flimlib-2.1.1.jar,flimlib:flimlib:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/flimlib/flimlib/pom.xml
+jars/fontchooser-2.5.2.jar,org.drjekyll:fontchooser:2.5.2,GNU Lesser General Public License Version 3,LGPL,pom:META-INF/maven/org.drjekyll/fontchooser/pom.xml
+jars/formats-api-8.5.0.jar,ome:formats-api:8.5.0,Simplified BSD License,BSD-2,pom:META-INF/maven/ome/formats-api/pom.xml
+jars/formats-bsd-8.5.0.jar,ome:formats-bsd:8.5.0,Simplified BSD License,BSD-2,pom:META-INF/maven/ome/formats-bsd/pom.xml
+jars/formats-gpl-8.5.0.jar,ome:formats-gpl:8.5.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/ome/formats-gpl/pom.xml
+jars/gapic-google-cloud-storage-v2-2.70.0.jar,com.google.api.grpc:gapic-google-cloud-storage-v2:2.70.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/gapic-google-cloud-storage-v2/pom.xml
+jars/gax-2.70.1.jar,com.google.api:gax:2.70.1,(none),NONE DECLARED,(none)
+jars/gax-grpc-2.70.1.jar,com.google.api:gax-grpc:2.70.1,(none),NONE DECLARED,(none)
+jars/gax-httpjson-2.70.1.jar,com.google.api:gax-httpjson:2.70.1,(none),NONE DECLARED,(none)
+jars/gcc-runtime-0.8.1906.jar,org.renjin:gcc-runtime:0.8.1906,(none),NONE DECLARED,(none)
+jars/gluegen-rt-2.6.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/google-api-client-2.8.1.jar,com.google.api-client:google-api-client:2.8.1,http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/google-api-services-cloudresourcemanager-v1-rev20250606-2.0.0.jar,com.google.apis:google-api-services-cloudresourcemanager:v1-rev20250606-2.0.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.google.apis/google-api-services-cloudresourcemanager/pom.xml
+jars/google-api-services-storage-v1-rev20260524-2.0.0.jar,com.google.apis:google-api-services-storage:v1-rev20260524-2.0.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.google.apis/google-api-services-storage/pom.xml
+jars/google-auth-library-credentials-1.39.0.jar,com.google.auth:google-auth-library-credentials:1.39.0,(none),NONE DECLARED,(none)
+jars/google-auth-library-oauth2-http-1.39.0.jar,com.google.auth:google-auth-library-oauth2-http:1.39.0,(none),NONE DECLARED,(none)
+jars/google-cloud-core-2.72.0.jar,com.google.cloud:google-cloud-core:2.72.0,(none),NONE DECLARED,(none)
+jars/google-cloud-core-grpc-2.72.0.jar,com.google.cloud:google-cloud-core-grpc:2.72.0,(none),NONE DECLARED,(none)
+jars/google-cloud-core-http-2.72.0.jar,com.google.cloud:google-cloud-core-http:2.72.0,(none),NONE DECLARED,(none)
+jars/google-cloud-monitoring-3.52.0.jar,com.google.cloud:google-cloud-monitoring:3.52.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.cloud/google-cloud-monitoring/pom.xml
+jars/google-cloud-resourcemanager-1.96.0.jar,com.google.cloud:google-cloud-resourcemanager:1.96.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.cloud/google-cloud-resourcemanager/pom.xml
+jars/google-cloud-storage-2.70.0.jar,com.google.cloud:google-cloud-storage:2.70.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.cloud/google-cloud-storage/pom.xml
+jars/google-http-client-1.47.1.jar,com.google.http-client:google-http-client:1.47.1,http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/google-http-client-apache-v2-1.47.1.jar,com.google.http-client:google-http-client-apache-v2:1.47.1,http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/google-http-client-appengine-1.47.1.jar,com.google.http-client:google-http-client-appengine:1.47.1,(none),NONE DECLARED,(none)
+jars/google-http-client-gson-1.47.1.jar,com.google.http-client:google-http-client-gson:1.47.1,(none),NONE DECLARED,(none)
+jars/google-http-client-jackson2-1.47.1.jar,com.google.http-client:google-http-client-jackson2:1.47.1,(none),NONE DECLARED,(none)
+jars/google-http-client-xml-1.47.1.jar,com.google.http-client:google-http-client-xml:1.47.1,(none),NONE DECLARED,(none)
+jars/google-oauth-client-1.39.0.jar,com.google.oauth-client:google-oauth-client:1.39.0,https://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/gpars-1.2.1.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0];[file META-INF/LICENSE_JUnit.txt -> BSD-3],Apache-2.0;BSD-3,licfile:META-INF/LICENSE.txt;licfile:META-INF/LICENSE_JUnit.txt
+jars/graphics-0.8.1906.jar,org.renjin:graphics:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/graphics/pom.xml
+jars/grDevices-0.8.1906.jar,org.renjin:grDevices:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/grDevices/pom.xml
+jars/groovy-4.0.28.jar,(no pom),Apache-2.0;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/groovy-dateutil-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/groovy-json-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/groovy-jsr223-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/groovy-swing-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/groovy-templates-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/groovy-xml-4.0.28.jar,(no pom),Apache-2.0,Apache-2.0,manifest:Bundle-License
+jars/grpc-alts-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-api-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-auth-1.68.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-context-1.68.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-core-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-google-cloud-storage-v2-2.70.0.jar,com.google.api.grpc:grpc-google-cloud-storage-v2:2.70.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/grpc-google-cloud-storage-v2/pom.xml
+jars/grpc-googleapis-1.68.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-grpclb-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-inprocess-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-netty-shaded-1.75.0.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/grpc-opentelemetry-1.81.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-protobuf-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-protobuf-lite-1.81.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-rls-1.81.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-services-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-stub-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-util-1.81.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/grpc-xds-1.75.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/gson-2.14.0.jar,com.google.code.gson:gson:2.14.0,"Apache-2.0;""Apache-2.0"";link=""https://www.apache.org/licenses/LICENSE-2.0.txt""",Apache-2.0,pom:META-INF/maven/com.google.code.gson/gson/pom.xml;manifest:Bundle-License
+jars/guava-33.4.8-jre.jar,com.google.guava:guava:33.4.8-jre,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/http-auth-2.46.15.jar,software.amazon.awssdk:http-auth:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/http-auth-aws-2.46.15.jar,software.amazon.awssdk:http-auth-aws:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/http-auth-aws-eventstream-2.46.15.jar,software.amazon.awssdk:http-auth-aws-eventstream:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/http-auth-spi-2.46.15.jar,software.amazon.awssdk:http-auth-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/http-client-spi-2.46.15.jar,software.amazon.awssdk:http-client-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/httpclient-4.5.14.jar,org.apache.httpcomponents:httpclient:4.5.14,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpclient5-5.6.1.jar,org.apache.httpcomponents.client5:httpclient5:5.6.1,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpcore-4.4.16.jar,org.apache.httpcomponents:httpcore:4.4.16,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpcore5-5.4.2.jar,org.apache.httpcomponents.core5:httpcore5:5.4.2,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpcore5-h2-5.4.jar,org.apache.httpcomponents.core5:httpcore5-h2:5.4,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpmime-4.5.14.jar,org.apache.httpcomponents:httpmime:4.5.14,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/httpservices-5.6.0.jar,(no pom),[file META-INF/LICENSE -> BSD-3],BSD-3,licfile:META-INF/LICENSE
+jars/icu4j-77.1.jar,com.ibm.icu:core:77.1;com.ibm.icu:collate:77.1;com.ibm.icu:currdata:77.1;com.ibm.icu:langdata:77.1;com.ibm.icu:regiondata:77.1;com.ibm.icu:translit:77.1;com.ibm.icu:icu4j:77.1,Unicode-3.0,Other,pom:META-INF/maven/com.ibm.icu/icu4j/pom.xml
+jars/identity-spi-2.46.15.jar,software.amazon.awssdk:identity-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/ij-1.54p.jar,net.imagej:ij:1.54p,Public domain,CC0/Public domain,pom:META-INF/maven/net.imagej/ij/pom.xml
+jars/ij1-patcher-2.0.0.jar,net.imagej:ij1-patcher:2.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/ij1-patcher/pom.xml
+jars/image4j-0.7.jar,org.jclarion:image4j:0.7,GNU Lesser General Public License (LGPL),LGPL,pom:META-INF/maven/org.jclarion/image4j/pom.xml
+jars/imagej-2.18.0.jar,net.imagej:imagej:2.18.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej/pom.xml
+jars/imagej-common-2.1.2.jar,net.imagej:imagej-common:2.1.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-common/pom.xml
+jars/imagej-deprecated-0.2.0.jar,net.imagej:imagej-deprecated:0.2.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-deprecated/pom.xml
+jars/imagej-legacy-3.0.0.jar,net.imagej:imagej-legacy:3.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-legacy/pom.xml
+jars/imagej-mesh-0.8.2.jar,net.imagej:imagej-mesh:0.8.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-mesh/pom.xml
+jars/imagej-mesh-io-0.1.2.jar,net.imagej:imagej-mesh-io:0.1.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-mesh-io/pom.xml
+jars/imagej-notebook-0.7.1.jar,net.imagej:imagej-notebook:0.7.1,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-notebook/pom.xml
+jars/imagej-opencv-0.1.4.jar,net.imagej:imagej-opencv:0.1.4,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-opencv/pom.xml
+jars/imagej-ops-2.2.0.jar,net.imagej:imagej-ops:2.2.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-ops/pom.xml
+jars/imagej-plugins-batch-0.1.1.jar,net.imagej:imagej-plugins-batch:0.1.1,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-plugins-batch/pom.xml
+jars/imagej-plugins-commands-1.0.0.jar,net.imagej:imagej-plugins-commands:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-plugins-commands/pom.xml
+jars/imagej-plugins-tools-0.3.1.jar,net.imagej:imagej-plugins-tools:0.3.1,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-plugins-tools/pom.xml
+jars/imagej-plugins-uploader-ssh-0.3.2.jar,net.imagej:imagej-plugins-uploader-ssh:0.3.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-plugins-uploader-ssh/pom.xml
+jars/imagej-plugins-uploader-webdav-0.3.3.jar,net.imagej:imagej-plugins-uploader-webdav:0.3.3,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-plugins-uploader-webdav/pom.xml
+jars/imagej-scripting-1.0.0.jar,net.imagej:imagej-scripting:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-scripting/pom.xml
+jars/imagej-ui-awt-0.3.1.jar,net.imagej:imagej-ui-awt:0.3.1,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-ui-awt/pom.xml
+jars/imagej-ui-swing-1.2.2.jar,net.imagej:imagej-ui-swing:1.2.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-ui-swing/pom.xml
+jars/imagej-updater-2.0.3.jar,net.imagej:imagej-updater:2.0.3,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imagej/imagej-updater/pom.xml
+jars/imglib2-8.0.0.jar,net.imglib2:imglib2:8.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2/pom.xml
+jars/imglib2-algorithm-0.18.3.jar,net.imglib2:imglib2-algorithm:0.18.3,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-algorithm/pom.xml
+jars/imglib2-algorithm-fft-0.2.1.jar,net.imglib2:imglib2-algorithm-fft:0.2.1,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-algorithm-fft/pom.xml
+jars/imglib2-algorithm-gpl-0.3.1.jar,net.imglib2:imglib2-algorithm-gpl:0.3.1,GNU General Public License v2+,GPL-2,pom:META-INF/maven/net.imglib2/imglib2-algorithm-gpl/pom.xml
+jars/imglib2-appose-0.5.0-ctr.jar,net.imglib2:imglib2-appose:0.5.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-appose/pom.xml
+jars/imglib2-cache-1.0.0-beta-20.jar,net.imglib2:imglib2-cache:1.0.0-beta-20,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-cache/pom.xml
+jars/imglib2-ij-2.0.3.jar,net.imglib2:imglib2-ij:2.0.3,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-ij/pom.xml
+jars/imglib2-label-multisets-0.15.2.jar,net.imglib2:imglib2-label-multisets:0.15.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-label-multisets/pom.xml
+jars/imglib2-mesh-1.1.0.jar,net.imglib2:imglib2-mesh:1.1.0,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-mesh/pom.xml
+jars/imglib2-realtransform-4.0.5.jar,net.imglib2:imglib2-realtransform:4.0.5,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-realtransform/pom.xml
+jars/imglib2-roi-0.15.2.jar,net.imglib2:imglib2-roi:0.15.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.imglib2/imglib2-roi/pom.xml
+jars/invokebinder-1.10.jar,com.headius:invokebinder:1.10,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.headius/invokebinder/pom.xml;manifest:Bundle-License
+jars/ion-java-1.0.2.jar,software.amazon.ion:ion-java:1.0.2,"The Apache License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/software.amazon.ion/ion-java/pom.xml;manifest:Bundle-License
+jars/istack-commons-runtime-3.0.12.jar,com.sun.istack:istack-commons-runtime:3.0.12,http://www.eclipse.org/org/documents/edl-v10.php;[file META-INF/LICENSE.md -> BSD-3],BSD-3,manifest:Bundle-License;licfile:META-INF/LICENSE.md
+jars/itextpdf-5.5.13.4.jar,com.itextpdf:itextpdf:5.5.13.4,GNU Affero General Public License v3;http://www.fsf.org/licensing/licenses/agpl-3.0.html,AGPL,pom:META-INF/maven/com.itextpdf/itextpdf/pom.xml;manifest:Bundle-License
+jars/ivy-2.5.2.jar,(no pom),[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/j2objc-annotations-3.1.jar,com.google.j2objc:j2objc-annotations:3.1,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.google.j2objc/j2objc-annotations/pom.xml
+jars/j3dcore-1.6.0-scijava-2.jar,org.scijava:j3dcore:1.6.0-scijava-2,GPLv2 with Classpath exception,GPL+CPE,pom:META-INF/maven/org.scijava/j3dcore/pom.xml
+jars/j3dutils-1.6.0-scijava-2.jar,org.scijava:j3dutils:1.6.0-scijava-2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/j3dutils/pom.xml
+jars/jackrabbit-webdav-2.21.22.jar,org.apache.jackrabbit:jackrabbit-webdav:2.21.22,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-annotations-2.19.2.jar,com.fasterxml.jackson.core:jackson-annotations:2.19.2,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/com.fasterxml.jackson.core/jackson-annotations/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-core-2.19.2.jar,com.fasterxml.jackson.core:jackson-core:2.19.2,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-databind-2.19.2.jar,com.fasterxml.jackson.core:jackson-databind:2.19.2,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-dataformat-cbor-2.18.0.jar,com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.18.0,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other]",Apache-2.0,pom:META-INF/maven/com.fasterxml.jackson.dataformat/jackson-dataformat-cbor/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-dataformat-toml-2.19.2.jar,com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.19.2,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other]",Apache-2.0,pom:META-INF/maven/com.fasterxml.jackson.dataformat/jackson-dataformat-toml/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-dataformat-xml-2.18.3.jar,com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.3,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-dataformat-yaml-2.19.2.jar,com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.2,https://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-datatype-jsr310-2.18.3.jar,com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.3,http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/jackson-jq-1.0.0-preview.20191208.jar,net.thisptr:jackson-jq:1.0.0-preview.20191208,http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/jai-codec-1.1.3.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jai-core-1.1.3.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jakarta.activation-api-1.2.2.jar,jakarta.activation:jakarta.activation-api:1.2.2,http://www.eclipse.org/org/documents/edl-v10.php;[file META-INF/LICENSE.md -> BSD-3],BSD-3,manifest:Bundle-License;licfile:META-INF/LICENSE.md
+jars/jakarta.xml.bind-api-2.3.3.jar,jakarta.xml.bind:jakarta.xml.bind-api:2.3.3,http://www.eclipse.org/org/documents/edl-v10.php;[file META-INF/LICENSE.md -> BSD-3],BSD-3,manifest:Bundle-License;licfile:META-INF/LICENSE.md
+jars/jama-1.0.3.jar,(no pom),(none),NONE DECLARED,(none)
+jars/java-cup-11b-20160615.jar,com.github.vbmacher:java-cup:11b-20160615,"CUP Parser Generator Copyright Notice, License, and Disclaimer",Other,pom:META-INF/maven/com.github.vbmacher/java-cup/pom.xml
+jars/java-sizeof-0.0.5.jar,com.carrotsearch:java-sizeof:0.0.5,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.carrotsearch/java-sizeof/pom.xml
+jars/java3d-core-1.7.2.jar,org.jogamp.java3d:java3d-core:1.7.2,GPLv2 with Classpath exception,GPL+CPE,pom:META-INF/maven/org.jogamp.java3d/java3d-core/pom.xml
+jars/java3d-utils-1.7.2.jar,org.jogamp.java3d:java3d-utils:1.7.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.jogamp.java3d/java3d-utils/pom.xml
+jars/javacpp-1.5.10.jar,org.bytedeco:javacpp:1.5.10,"Apache License, Version 2.0;GNU General Public License (GPL) version 2, or any later version;GPLv2 with Classpath exception;""Apache License, Version 2.0"";link=""http://www.apache.org/licenses/LICENSE-2.0"",""GNU General Public License (GPL) version 2, or any later version"";link=""http://www.gnu.org/licenses/"",""GPLv2 with Classpath exception"";link=""http://www.gnu.org/software/classpath/license.html""",Apache-2.0;GPL+CPE;GPL-2,pom:META-INF/maven/org.bytedeco/javacpp/pom.xml;manifest:Bundle-License
+jars/javafx-base-23.0.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/javafx-controls-23.0.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/javafx-graphics-23.0.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/javafx-media-23.0.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/javaGeom-0.11.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/javassist-3.30.2-GA.jar,org.javassist:javassist:3.30.2-GA,"MPL 1.1;LGPL 2.1;Apache License 2.0;https://www.mozilla.org/en-US/MPL/1.1/, https://www.gnu.org/licenses/lgpl-2.1.html, https://www.apache.org/licenses/LICENSE-2.0",Apache-2.0;LGPL;MPL,pom:META-INF/maven/org.javassist/javassist/pom.xml;manifest:Bundle-License
+jars/javax.servlet-api-3.1.0.jar,javax.servlet:javax.servlet-api:3.1.0,CDDL + GPLv2 with classpath exception;https://glassfish.dev.java.net/nonav/public/CDDL+GPL.html;[file META-INF/LICENSE.txt -> CDDL],CDDL;GPL (unversioned);GPL+CPE,pom:META-INF/maven/javax.servlet/javax.servlet-api/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/jaxb-runtime-2.3.5.jar,org.glassfish.jaxb:jaxb-runtime:2.3.5,http://www.eclipse.org/org/documents/edl-v10.php;[file META-INF/LICENSE.md -> BSD-3],BSD-3,manifest:Bundle-License;licfile:META-INF/LICENSE.md
+jars/jblosc-1.0.1.jar,org.lasersonlab:jblosc:1.0.1,BSD License for jblosc;BSD License for blosc,BSD (unversioned),pom:META-INF/maven/org.lasersonlab/jblosc/pom.xml
+jars/jclipboardhelper-0.1.0.jar,com.github.fracpete:jclipboardhelper:0.1.0,GNU General Public License 3,GPL-3,pom:META-INF/maven/com.github.fracpete/jclipboardhelper/pom.xml
+jars/jcodings-1.0.63.jar,org.jruby.jcodings:jcodings:1.0.63,MIT License,MIT,pom:META-INF/maven/org.jruby.jcodings/jcodings/pom.xml
+jars/jcommander-1.48.jar,com.beust:jcommander:1.48,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.beust/jcommander/pom.xml;manifest:Bundle-License
+jars/jcommon-1.0.24.jar,org.jfree:jcommon:1.0.24,GNU Lesser General Public Licence,LGPL,pom:META-INF/maven/org.jfree/jcommon/pom.xml
+jars/jdatepicker-1.3.2.jar,net.sourceforge.jdatepicker:jdatepicker:1.3.2,Simplified BSD License,BSD-2,pom:META-INF/maven/net.sourceforge.jdatepicker/jdatepicker/pom.xml
+jars/jdom2-2.0.6.1.jar,(no pom),[file META-INF/LICENSE.txt -> BSD-3],BSD-3,licfile:META-INF/LICENSE.txt
+jars/jep-2.4.2.jar,org.scijava:jep:2.4.2,GNU Public License v3,GPL-3,pom:META-INF/maven/org.scijava/jep/pom.xml
+jars/jffi-1.3.13-native.jar,(no pom),"http://www.apache.org/licenses/LICENSE-2.0.txt, https://www.gnu.org/licenses/lgpl-3.0.txt",LGPL,manifest:Bundle-License
+jars/jffi-1.3.13.jar,com.github.jnr:jffi:1.3.13,"The Apache Software License, Version 2.0;GNU Lesser General Public License version 3",Apache-2.0;LGPL,pom:META-INF/maven/com.github.jnr/jffi/pom.xml
+jars/jfilechooser-bookmarks-0.1.6.jar,com.github.fracpete:jfilechooser-bookmarks:0.1.6,GNU General Public License 3,GPL-3,pom:META-INF/maven/com.github.fracpete/jfilechooser-bookmarks/pom.xml
+jars/jfreechart-1.5.6.jar,org.jfree:jfreechart:1.5.6,GNU Lesser General Public Licence,LGPL,pom:META-INF/maven/org.jfree/jfreechart/pom.xml
+jars/jfreesvg-3.4.4.jar,org.jfree:jfreesvg:3.4.4,GNU General Public License (GPL),GPL (unversioned),pom:META-INF/maven/org.jfree/jfreesvg/pom.xml
+jars/jgoodies-common-1.7.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jgoodies-forms-1.7.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jgrapht-core-1.5.2.jar,org.jgrapht:jgrapht-core:1.5.2,"GNU Lesser General Public License Version 2.1, February 1999;Eclipse Public License (EPL) 2.0;http://jgrapht.sourceforge.net/LGPL.html, http://www.eclipse.org/legal/epl-v20.html",EPL;LGPL,pom:META-INF/maven/org.jgrapht/jgrapht-core/pom.xml;manifest:Bundle-License
+jars/jgraphx-4.2.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jhdf5-19.04.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jheaps-0.14.jar,(no pom),http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,manifest:Bundle-License
+jars/jhotdraw-7.6.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jitk-tps-3.0.4.jar,jitk:jitk-tps:3.0.4,"Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/jitk/jitk-tps/pom.xml
+jars/jline-2.14.6.jar,jline:jline:2.14.6,The BSD License;http://www.opensource.org/licenses/bsd-license.php,BSD (unversioned),pom:META-INF/maven/jline/jline/pom.xml;manifest:Bundle-License
+jars/jline-native-3.30.5.jar,org.jline:jline-native:3.30.5,https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/jline-reader-3.30.5.jar,org.jline:jline-reader:3.30.5,https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/jline-terminal-3.30.5.jar,org.jline:jline-terminal:3.30.5,https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/jline-terminal-jna-3.30.5.jar,org.jline:jline-terminal-jna:3.30.5,https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/jna-5.14.0.jar,(no pom),[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/jna-platform-5.14.0.jar,(no pom),[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/jnr-a64asm-1.0.0.jar,com.github.jnr:jnr-a64asm:1.0.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-a64asm/pom.xml
+jars/jnr-constants-0.10.4.jar,com.github.jnr:jnr-constants:0.10.4,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-constants/pom.xml;manifest:Bundle-License
+jars/jnr-enxio-0.16.jar,com.github.jnr:jnr-enxio:0.16,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-enxio/pom.xml;manifest:Bundle-License
+jars/jnr-ffi-2.2.17.jar,com.github.jnr:jnr-ffi:2.2.17,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-ffi/pom.xml;manifest:Bundle-License
+jars/jnr-netdb-1.2.0.jar,com.github.jnr:jnr-netdb:1.2.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-netdb/pom.xml
+jars/jnr-posix-3.1.20.jar,com.github.jnr:jnr-posix:3.1.20,"Eclipse Public License - v 2.0;GNU General Public License Version 2;GNU Lesser General Public License Version 2.1;https://www.eclipse.org/legal/epl-2.0/, http://www.gnu.org/copyleft/gpl.html, http://www.gnu.org/licenses/lgpl.html",EPL;GPL-2;LGPL,pom:META-INF/maven/com.github.jnr/jnr-posix/pom.xml;manifest:Bundle-License
+jars/jnr-unixsocket-0.17.jar,com.github.jnr:jnr-unixsocket:0.17,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.github.jnr/jnr-unixsocket/pom.xml;manifest:Bundle-License
+jars/jnr-x86asm-1.0.2.jar,com.github.jnr:jnr-x86asm:1.0.2,MIT License,MIT,pom:META-INF/maven/com.github.jnr/jnr-x86asm/pom.xml
+jars/joda-time-2.14.0.jar,joda-time:joda-time:2.14.0,"Apache License, Version 2.0;Apache 2.0;[file META-INF/LICENSE.txt -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/joda-time/joda-time/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/jogl-all-2.6.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/joml-1.10.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/joni-2.2.6.jar,org.jruby.joni:joni:2.2.6,MIT License,MIT,pom:META-INF/maven/org.jruby.joni/joni/pom.xml
+jars/jpedalSTD-2.80b11.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jply-0.2.1.jar,org.smurn:jply:0.2.1,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/org.smurn/jply/pom.xml
+jars/jruby-core-9.1.17.0.jar,org.jruby:jruby-core:9.1.17.0;com.github.jnr:jnr-ffi:2.1.7;me.qmx.jitescript:jitescript:0.4.1,"The Apache Software License, Version 2.0;[file META-INF/LICENSE.RUBY -> CC0/Public domain];[file META-INF/COPYING -> LGPL]",Apache-2.0;CC0/Public domain;LGPL,pom:META-INF/maven/com.github.jnr/jnr-ffi/pom.xml;pom:META-INF/maven/me.qmx.jitescript/jitescript/pom.xml;licfile:META-INF/LICENSE.RUBY;licfile:META-INF/COPYING
+jars/jruby-stdlib-9.4.12.0.jar,org.jruby:jruby-stdlib:9.4.12.0,[file META-INF/COPYING -> LGPL];[file META-INF/LICENSE.RUBY -> CC0/Public domain],CC0/Public domain;LGPL,licfile:META-INF/COPYING;licfile:META-INF/LICENSE.RUBY
+jars/jsch-0.1.55.jar,com.jcraft:jsch:0.1.55,Revised BSD,BSD-3,pom:META-INF/maven/com.jcraft/jsch/pom.xml
+jars/json-20250517.jar,org.json:json:20250517,Public Domain;https://github.com/stleary/JSON-java/blob/master/LICENSE,CC0/Public domain;Other,pom:META-INF/maven/org.json/json/pom.xml;manifest:Bundle-License
+jars/json-simple-1.1.1.jar,com.googlecode.json-simple:json-simple:1.1.1,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.googlecode.json-simple/json-simple/pom.xml;manifest:Bundle-License
+jars/json-utils-2.46.15.jar,software.amazon.awssdk:json-utils:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/jsoup-1.7.2.jar,org.jsoup:jsoup:1.7.2,The MIT License;http://jsoup.com/license,MIT;Other,pom:META-INF/maven/org.jsoup/jsoup/pom.xml;manifest:Bundle-License
+jars/jspecify-1.0.0.jar,(no pom),https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/jsr166y-1.7.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jsr305-3.0.2.jar,com.google.code.findbugs:jsr305:3.0.2,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/com.google.code.findbugs/jsr305/pom.xml;manifest:Bundle-License
+jars/jtransforms-2.4.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jung-api-2.0.1.jar,net.sf.jung:jung-api:2.0.1,(none),NONE DECLARED,(none)
+jars/jung-graph-impl-2.0.1.jar,net.sf.jung:jung-graph-impl:2.0.1,(none),NONE DECLARED,(none)
+jars/JWlz-1.4.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/jxrlib-all-0.2.4.jar,ome:jxrlib-all:0.2.4;ome:jxrlib:0.2.4;ome:jxrlib-native-windows_64:0.2.4;ome:jxrlib-native-linux_64:0.2.4;ome:jxrlib-native-osx_64:0.2.4,Simplified BSD License,BSD-2,pom:META-INF/maven/ome/jxrlib-all/pom.xml;pom:META-INF/maven/ome/jxrlib/pom.xml;pom:META-INF/maven/ome/jxrlib-native-windows_64/pom.xml;pom:META-INF/maven/ome/jxrlib-native-linux_64/pom.xml;pom:META-INF/maven/ome/jxrlib-native-osx_64/pom.xml
+jars/jython-slim-2.7.4.jar,(no pom),[file LICENSE.txt -> BSD-3],BSD-3,licfile:LICENSE.txt
+jars/jzlib-1.1.3.jar,com.jcraft:jzlib:1.1.3,BSD,BSD (unversioned),pom:META-INF/maven/com.jcraft/jzlib/pom.xml
+jars/Kappa-2.0.0.jar,sc.fiji:Kappa:2.0.0,MIT License,MIT,pom:META-INF/maven/sc.fiji/Kappa/pom.xml
+jars/kotlin-stdlib-1.9.22.jar,(no pom),(none),NONE DECLARED,(none)
+jars/kotlin-stdlib-common-1.8.22.jar,(no pom),(none),NONE DECLARED,(none)
+jars/kotlin-stdlib-jdk7-1.9.22.jar,(no pom),(none),NONE DECLARED,(none)
+jars/kotlin-stdlib-jdk8-1.9.22.jar,(no pom),(none),NONE DECLARED,(none)
+jars/kryo-5.6.2.jar,com.esotericsoftware:kryo:5.6.2,https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/KymographBuilder-3.0.2.jar,sc.fiji:KymographBuilder:3.0.2,MIT License,MIT,pom:META-INF/maven/sc.fiji/KymographBuilder/pom.xml
+jars/labkit-pixel-classification-0.1.18.jar,sc.fiji:labkit-pixel-classification:0.1.18,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/labkit-pixel-classification/pom.xml
+jars/labkit-ui-0.4.0.jar,sc.fiji:labkit-ui:0.4.0,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/labkit-ui/pom.xml
+jars/languagesupport-3.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/lapack-0.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/legacy-imglib1-1.1.11.jar,sc.fiji:legacy-imglib1:1.1.11,Simplified BSD License;GNU General Public License v2+,BSD-2;GPL-2,pom:META-INF/maven/sc.fiji/legacy-imglib1/pom.xml
+jars/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar,com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava,(none),NONE DECLARED,(none)
+jars/logback-classic-1.3.16.jar,ch.qos.logback:logback-classic:1.3.16,"http://www.eclipse.org/legal/epl-v10.html, http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html",LGPL,manifest:Bundle-License
+jars/logback-core-1.3.16.jar,ch.qos.logback:logback-core:1.3.16,"http://www.eclipse.org/legal/epl-v10.html, http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html",LGPL,manifest:Bundle-License
+jars/lz4-java-1.9-inv.jar,(no pom),(none),NONE DECLARED,(none)
+jars/markdownj-0.3.0-1.0.2b4.jar,(no pom),(none),NONE DECLARED,(none)
+jars/maven-scm-api-1.4.jar,org.apache.maven.scm:maven-scm-api:1.4,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/maven-scm-provider-svn-commons-1.4.jar,org.apache.maven.scm:maven-scm-provider-svn-commons:1.4,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/maven-scm-provider-svnexe-1.4.jar,org.apache.maven.scm:maven-scm-provider-svnexe:1.4,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/metadata-extractor-2.19.0.jar,com.drewnoakes:metadata-extractor:2.19.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.drewnoakes/metadata-extractor/pom.xml
+jars/metakit-5.3.10.jar,org.openmicroscopy:metakit:5.3.10,GNU General Public License v2+,GPL-2,pom:META-INF/maven/org.openmicroscopy/metakit/pom.xml
+jars/methods-0.8.1906.jar,org.renjin:methods:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/methods/pom.xml
+jars/metrics-spi-2.46.15.jar,software.amazon.awssdk:metrics-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/miglayout-core-5.3.jar,com.miglayout:miglayout-core:5.3,http://www.debian.org/misc/bsd.license,BSD (unversioned),manifest:Bundle-License
+jars/miglayout-swing-5.3.jar,com.miglayout:miglayout-swing:5.3,http://www.debian.org/misc/bsd.license,BSD (unversioned),manifest:Bundle-License
+jars/mines-jtk-20151125.jar,(no pom),(none),NONE DECLARED,(none)
+jars/minimaven-2.2.3.jar,org.scijava:minimaven:2.2.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/minimaven/pom.xml
+jars/minio-5.0.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/minlog-1.3.1.jar,com.esotericsoftware:minlog:1.3.1,3-Clause BSD License;https://opensource.org/licenses/BSD-3-Clause,BSD-3,pom:META-INF/maven/com.esotericsoftware/minlog/pom.xml;manifest:Bundle-License
+jars/modulator-1.0.jar,com.headius:modulator:1.0,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.headius/modulator/pom.xml
+jars/mpicbg-1.6.6.jar,mpicbg:mpicbg:1.6.6,GNU General Public License v2+;[file LICENSE -> Other],GPL-2,pom:META-INF/maven/mpicbg/mpicbg/pom.xml;licfile:LICENSE
+jars/mtj-1.0.4.jar,com.googlecode.matrix-toolkits-java:mtj:1.0.4,GNU Lesser General Public License,LGPL,pom:META-INF/maven/com.googlecode.matrix-toolkits-java/mtj/pom.xml
+jars/multiverse-core-0.7.0.jar,org.multiverse:multiverse-core:0.7.0,(none),NONE DECLARED,(none)
+jars/multiview-reconstruction-9.0.11.jar,net.preibisch:multiview-reconstruction:9.0.11,GNU General Public License v2+;[file LICENSE -> Other],GPL-2,pom:META-INF/maven/net.preibisch/multiview-reconstruction/pom.xml;licfile:LICENSE
+jars/multiview-simulation-0.3.1.jar,net.preibisch:multiview-simulation:0.3.1,GNU General Public License v2+,GPL-2,pom:META-INF/maven/net.preibisch/multiview-simulation/pom.xml
+jars/n5-4.0.1.jar,org.janelia.saalfeldlab:n5:4.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5/pom.xml
+jars/n5-aws-s3-5.0.1.jar,org.janelia.saalfeldlab:n5-aws-s3:5.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-aws-s3/pom.xml
+jars/n5-blosc-2.0.0.jar,org.janelia.saalfeldlab:n5-blosc:2.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-blosc/pom.xml
+jars/n5-google-cloud-6.0.1.jar,org.janelia.saalfeldlab:n5-google-cloud:6.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-google-cloud/pom.xml
+jars/n5-hdf5-3.0.0.jar,org.janelia.saalfeldlab:n5-hdf5:3.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-hdf5/pom.xml
+jars/n5-ij-5.0.0.jar,org.janelia.saalfeldlab:n5-ij:5.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-ij/pom.xml
+jars/n5-imglib2-8.0.0.jar,org.janelia.saalfeldlab:n5-imglib2:8.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-imglib2/pom.xml
+jars/n5-universe-3.0.2.jar,org.janelia.saalfeldlab:n5-universe:3.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-universe/pom.xml
+jars/n5-zarr-2.0.1.jar,org.janelia.saalfeldlab:n5-zarr:2.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.janelia.saalfeldlab/n5-zarr/pom.xml
+jars/n5-zstandard-2.0.0.jar,org.janelia:n5-zstandard:2.0.0,3-clause BSD License,BSD-3,pom:META-INF/maven/org.janelia/n5-zstandard/pom.xml
+jars/nailgun-server-0.9.1.jar,com.martiansoftware:nailgun-server:0.9.1,(none),NONE DECLARED,(none)
+jars/nashorn-core-15.6.jar,(no pom),(none),NONE DECLARED,(none)
+jars/native-lib-loader-2.5.0.jar,org.scijava:native-lib-loader:2.5.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/native-lib-loader/pom.xml
+jars/netlib-java-0.9.3-renjin-patched-2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/netty-buffer-4.1.73.Final.jar,io.netty:netty-buffer:4.1.73.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-codec-4.1.73.Final.jar,io.netty:netty-codec:4.1.73.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-codec-http-4.1.135.Final.jar,io.netty:netty-codec-http:4.1.135.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-codec-http2-4.1.135.Final.jar,io.netty:netty-codec-http2:4.1.135.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-common-4.1.73.Final.jar,io.netty:netty-common:4.1.73.Final;org.jctools:jctools-core:3.1.0,"Apache License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0",Apache-2.0,pom:META-INF/maven/org.jctools/jctools-core/pom.xml;manifest:Bundle-License
+jars/netty-handler-4.1.73.Final.jar,io.netty:netty-handler:4.1.73.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-nio-client-2.46.15.jar,software.amazon.awssdk:netty-nio-client:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/netty-resolver-4.1.73.Final.jar,io.netty:netty-resolver:4.1.73.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-tcnative-classes-2.0.46.Final.jar,io.netty:netty-tcnative-classes:2.0.46.Final,(none),NONE DECLARED,(none)
+jars/netty-transport-4.1.73.Final.jar,io.netty:netty-transport:4.1.73.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-transport-classes-epoll-4.1.135.Final.jar,io.netty:netty-transport-classes-epoll:4.1.135.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/netty-transport-native-unix-common-4.1.135.Final.jar,io.netty:netty-transport-native-unix-common:4.1.135.Final,https://www.apache.org/licenses/LICENSE-2.0,Apache-2.0,manifest:Bundle-License
+jars/object-inspector-0.1.jar,com.github.sbridges.object-inspector:object-inspector:0.1,(none),NONE DECLARED,(none)
+jars/objenesis-3.4.jar,(no pom),http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/ojalgo-45.1.1.jar,org.ojalgo:ojalgo:45.1.1,MIT,MIT,pom:META-INF/maven/org.ojalgo/ojalgo/pom.xml
+jars/okhttp-4.12.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/okio-3.16.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/okio-jvm-3.16.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/ome-codecs-1.1.3.jar,org.openmicroscopy:ome-codecs:1.1.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.openmicroscopy/ome-codecs/pom.xml
+jars/ome-common-6.2.1.jar,org.openmicroscopy:ome-common:6.2.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.openmicroscopy/ome-common/pom.xml
+jars/ome-mdbtools-5.3.4.jar,org.openmicroscopy:ome-mdbtools:5.3.4,GNU Lesser General Public License v2.1+,LGPL,pom:META-INF/maven/org.openmicroscopy/ome-mdbtools/pom.xml
+jars/ome-poi-5.3.11.jar,org.openmicroscopy:ome-poi:5.3.11,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/org.openmicroscopy/ome-poi/pom.xml
+jars/ome-xml-6.5.3.jar,org.openmicroscopy:ome-xml:6.5.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.openmicroscopy/ome-xml/pom.xml
+jars/OMEVisual-3.0.0.jar,sc.fiji:OMEVisual:3.0.0,MIT License,MIT,pom:META-INF/maven/sc.fiji/OMEVisual/pom.xml
+jars/op-finder-0.1.4.jar,net.imagej:op-finder:0.1.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/net.imagej/op-finder/pom.xml
+jars/openblas-0.3.26-1.5.10.jar,org.bytedeco:openblas:0.3.26-${project.parent.version},(none),NONE DECLARED,(none)
+jars/opencensus-api-0.31.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opencensus-contrib-http-util-0.31.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opencensus-proto-0.2.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opencsv-5.12.0.jar,com.opencsv:opencsv:5.12.0,Apache 2;http://www.apache.org/licenses/LICENSE-2.0.txt,Apache-2.0,pom:META-INF/maven/com.opencsv/opencsv/pom.xml;manifest:Bundle-License
+jars/opencv-4.9.0-1.5.10.jar,org.bytedeco:opencv:4.9.0-${project.parent.version},(none),NONE DECLARED,(none)
+jars/opentelemetry-api-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-common-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-context-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-gcp-resources-1.37.0-alpha.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-common-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-extension-autoconfigure-spi-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-logs-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-metrics-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-sdk-trace-1.62.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/opentelemetry-semconv-1.29.0-alpha.jar,(no pom),(none),NONE DECLARED,(none)
+jars/options-1.4.jar,com.headius:options:1.4,"The Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.headius/options/pom.xml
+jars/org.renjin.utils-0.8.1906.jar,org.renjin:utils:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/utils/pom.xml
+jars/pal-optimization-2.0.1.jar,sc.fiji:pal-optimization:2.0.1,GNU Lesser General Public License v3+,LGPL,pom:META-INF/maven/sc.fiji/pal-optimization/pom.xml
+jars/parsington-3.1.0.jar,org.scijava:parsington:3.1.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/parsington/pom.xml
+jars/perf4j-0.9.16.jar,org.perf4j:perf4j:0.9.16,Apache 2,Apache-2.0,pom:META-INF/maven/org.perf4j/perf4j/pom.xml
+jars/perfmark-api-0.27.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/picocli-4.7.7.jar,(no pom),(none),NONE DECLARED,(none)
+jars/plexus-utils-4.0.2.jar,org.codehaus.plexus:plexus-utils:4.0.2,[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/postgresql-42.7.7.jar,(no pom),BSD-2-Clause;[file META-INF/LICENSE -> BSD-2],BSD-2,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/prettytime-4.0.1.Final.jar,org.ocpsoft.prettytime:prettytime:4.0.1.Final,http://www.apache.org/licenses/,Apache-2.0,manifest:Bundle-License
+jars/profiles-2.46.15.jar,software.amazon.awssdk:profiles:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/proto-google-cloud-monitoring-v3-3.52.0.jar,com.google.api.grpc:proto-google-cloud-monitoring-v3:3.52.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/proto-google-cloud-monitoring-v3/pom.xml
+jars/proto-google-cloud-resourcemanager-v3-1.96.0.jar,com.google.api.grpc:proto-google-cloud-resourcemanager-v3:1.96.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/proto-google-cloud-resourcemanager-v3/pom.xml
+jars/proto-google-cloud-storage-v2-2.70.0.jar,com.google.api.grpc:proto-google-cloud-storage-v2:2.70.0,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/proto-google-cloud-storage-v2/pom.xml
+jars/proto-google-common-protos-2.61.1.jar,com.google.api.grpc:proto-google-common-protos:2.61.1,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/proto-google-common-protos/pom.xml
+jars/proto-google-iam-v1-1.56.1.jar,com.google.api.grpc:proto-google-iam-v1:1.56.1,Apache-2.0,Apache-2.0,pom:META-INF/maven/com.google.api.grpc/proto-google-iam-v1/pom.xml
+jars/protobuf-java-4.32.0.jar,(no pom),https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/protobuf-java-util-4.32.0.jar,(no pom),https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/protocol-core-2.46.15.jar,software.amazon.awssdk:protocol-core:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/re2j-1.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/reactive-streams-1.0.4.jar,(no pom),(none),NONE DECLARED,(none)
+jars/reflectasm-1.11.9.jar,com.esotericsoftware:reflectasm:1.11.9,3-Clause BSD License;https://opensource.org/licenses/BSD-3-Clause,BSD-3,pom:META-INF/maven/com.esotericsoftware/reflectasm/pom.xml;manifest:Bundle-License
+jars/regexp-1.3.jar,(no pom),(none),NONE DECLARED,(none)
+jars/regions-2.46.15.jar,software.amazon.awssdk:regions:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/reload4j-1.2.26.jar,ch.qos.reload4j:reload4j:1.2.26,"The Apache Software License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/ch.qos.reload4j/reload4j/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/renjin-appl-0.8.1906.jar,org.renjin:renjin-appl:0.8.1906,(none),NONE DECLARED,(none)
+jars/renjin-core-0.8.1906.jar,org.renjin:renjin-core:0.8.1906,(none),NONE DECLARED,(none)
+jars/renjin-gnur-runtime-0.8.1906.jar,org.renjin:renjin-gnur-runtime:0.8.1906,(none),NONE DECLARED,(none)
+jars/renjin-script-engine-0.8.1906.jar,org.renjin:renjin-script-engine:0.8.1906,(none),NONE DECLARED,(none)
+jars/retries-2.46.15.jar,software.amazon.awssdk:retries:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/retries-spi-2.46.15.jar,software.amazon.awssdk:retries-spi:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/rhino-1.7.14.jar,(no pom),[file META-INF/LICENSE.txt -> LGPL],LGPL,licfile:META-INF/LICENSE.txt
+jars/rsyntaxtextarea-3.6.0.jar,(no pom),BSD-3-Clause;[file META-INF/LICENSE -> BSD-3],BSD-3,manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/s3-2.46.15.jar,software.amazon.awssdk:s3:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/scala-asm-9.4.0-scala-1.jar,(no pom),http://opensource.org/licenses/BSD-3-Clause;description=BSD 3-clause,BSD-3,manifest:Bundle-License
+jars/scala-library-2.13.10.jar,(no pom),[file LICENSE -> Apache-2.0],Apache-2.0,licfile:LICENSE
+jars/scala3-compiler_3-3.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/scala3-interfaces-3.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/scala3-library_3-3.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/scifio-0.49.2.jar,io.scif:scifio:0.49.2,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio/pom.xml
+jars/scifio-bf-compat-4.1.1.jar,io.scif:scifio-bf-compat:4.1.1,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-bf-compat/pom.xml
+jars/scifio-cli-0.6.1.jar,io.scif:scifio-cli:0.6.1,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-cli/pom.xml
+jars/scifio-hdf5-0.2.2.jar,io.scif:scifio-hdf5:0.2.2,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-hdf5/pom.xml
+jars/scifio-jai-imageio-1.1.1.jar,io.scif:scifio-jai-imageio:1.1.1,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-jai-imageio/pom.xml
+jars/scifio-labeling-0.4.0.jar,io.scif:scifio-labeling:0.4.0,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-labeling/pom.xml
+jars/scifio-lifesci-0.9.0.jar,io.scif:scifio-lifesci:0.9.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/io.scif/scifio-lifesci/pom.xml
+jars/scifio-ome-xml-0.17.1.jar,io.scif:scifio-ome-xml:0.17.1,Simplified BSD License,BSD-2,pom:META-INF/maven/io.scif/scifio-ome-xml/pom.xml
+jars/scijava-collections-1.0.1-SNAPSHOT.jar,org.scijava:scijava-collections:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-collections/pom.xml
+jars/scijava-common-2.101.0.jar,org.scijava:scijava-common:2.101.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-common/pom.xml
+jars/scijava-common3-1.0.1-SNAPSHOT.jar,org.scijava:scijava-common3:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-common3/pom.xml
+jars/scijava-concurrent-1.0.1-SNAPSHOT.jar,org.scijava:scijava-concurrent:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-concurrent/pom.xml
+jars/scijava-config-2.0.3.jar,org.scijava:scijava-config:2.0.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-config/pom.xml
+jars/scijava-desktop-1.0.0.jar,org.scijava:scijava-desktop:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-desktop/pom.xml
+jars/scijava-discovery-1.0.1-SNAPSHOT.jar,org.scijava:scijava-discovery:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-discovery/pom.xml
+jars/scijava-discovery-test-1.0.1-SNAPSHOT.jar,org.scijava:scijava-discovery-test:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-discovery-test/pom.xml
+jars/scijava-function-1.0.1-SNAPSHOT.jar,org.scijava:scijava-function:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-function/pom.xml
+jars/scijava-io-http-0.3.0.jar,org.scijava:scijava-io-http:0.3.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-io-http/pom.xml
+jars/scijava-legacy-1.0.1-SNAPSHOT.jar,org.scijava:scijava-legacy:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-legacy/pom.xml
+jars/scijava-listeners-1.0.0-beta-3.jar,org.scijava:scijava-listeners:1.0.0-beta-3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-listeners/pom.xml
+jars/scijava-meta-1.0.1-SNAPSHOT.jar,org.scijava:scijava-meta:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-meta/pom.xml
+jars/scijava-ops-api-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-api:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-api/pom.xml
+jars/scijava-ops-engine-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-engine:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-engine/pom.xml
+jars/scijava-ops-ext-parser-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-ext-parser:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-ext-parser/pom.xml
+jars/scijava-ops-flim-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-flim:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-flim/pom.xml
+jars/scijava-ops-image-2.0.0-SNAPSHOT.jar,org.scijava:scijava-ops-image:2.0.0-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-image/pom.xml
+jars/scijava-ops-indexer-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-indexer:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-indexer/pom.xml
+jars/scijava-ops-opencv-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-opencv:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-opencv/pom.xml
+jars/scijava-ops-spi-1.0.1-SNAPSHOT.jar,org.scijava:scijava-ops-spi:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ops-spi/pom.xml
+jars/scijava-optional-1.0.2.jar,org.scijava:scijava-optional:1.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-optional/pom.xml
+jars/scijava-plot-0.2.0.jar,org.scijava:scijava-plot:0.2.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-plot/pom.xml
+jars/scijava-plugins-commands-0.2.5.jar,org.scijava:scijava-plugins-commands:0.2.5,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-plugins-commands/pom.xml
+jars/scijava-plugins-text-markdown-0.1.3.jar,org.scijava:scijava-plugins-text-markdown:0.1.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-plugins-text-markdown/pom.xml
+jars/scijava-plugins-text-plain-0.1.4.jar,org.scijava:scijava-plugins-text-plain:0.1.4,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-plugins-text-plain/pom.xml
+jars/scijava-priority-1.0.1-SNAPSHOT.jar,org.scijava:scijava-priority:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-priority/pom.xml
+jars/scijava-progress-1.0.1-SNAPSHOT.jar,org.scijava:scijava-progress:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-progress/pom.xml
+jars/scijava-search-3.0.2.jar,org.scijava:scijava-search:3.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-search/pom.xml
+jars/scijava-struct-1.0.1-SNAPSHOT.jar,org.scijava:scijava-struct:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-struct/pom.xml
+jars/scijava-table-1.0.3.jar,org.scijava:scijava-table:1.0.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-table/pom.xml
+jars/scijava-taglets-1.0.1-SNAPSHOT.jar,org.scijava:scijava-taglets:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-taglets/pom.xml
+jars/scijava-types-1.0.1-SNAPSHOT.jar,org.scijava:scijava-types:1.0.1-SNAPSHOT,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-types/pom.xml
+jars/scijava-ui-awt-0.1.7.jar,org.scijava:scijava-ui-awt:0.1.7,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ui-awt/pom.xml
+jars/scijava-ui-swing-1.0.5.jar,org.scijava:scijava-ui-swing:1.0.5,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scijava-ui-swing/pom.xml
+jars/scijava-vecmath-1.6.0-scijava-2.jar,org.scijava:vecmath:1.6.0-scijava-2,GPLv2 with Classpath exception,GPL+CPE,pom:META-INF/maven/org.scijava/vecmath/pom.xml
+jars/script-editor-1.4.0.jar,org.scijava:script-editor:1.4.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/script-editor/pom.xml
+jars/script-editor-jython-1.1.0.jar,org.scijava:script-editor-jython:1.1.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/script-editor-jython/pom.xml
+jars/script-editor-scala-0.2.1.jar,org.scijava:script-editor-scala:0.2.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/script-editor-scala/pom.xml
+jars/scripting-appose-python-0.1.0.jar,org.scijava:scripting-appose-python:0.1.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-appose-python/pom.xml
+jars/scripting-beanshell-1.0.0.jar,org.scijava:scripting-beanshell:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-beanshell/pom.xml
+jars/scripting-clojure-1.0.0.jar,org.scijava:scripting-clojure:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-clojure/pom.xml
+jars/scripting-groovy-1.0.0.jar,org.scijava:scripting-groovy:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-groovy/pom.xml
+jars/scripting-java-1.0.1.jar,org.scijava:scripting-java:1.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-java/pom.xml
+jars/scripting-javascript-1.0.0.jar,org.scijava:scripting-javascript:1.0.0,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-javascript/pom.xml
+jars/scripting-jruby-0.3.1.jar,org.scijava:scripting-jruby:0.3.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-jruby/pom.xml
+jars/scripting-jython-1.0.1.jar,org.scijava:scripting-jython:1.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-jython/pom.xml
+jars/scripting-python-0.4.3.jar,org.scijava:scripting-python:0.4.3,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-python/pom.xml
+jars/scripting-renjin-0.2.3.jar,org.scijava:scripting-renjin:0.2.3,GNU General Public License v2+,GPL-2,pom:META-INF/maven/org.scijava/scripting-renjin/pom.xml
+jars/scripting-scala-0.3.2.jar,org.scijava:scripting-scala:0.3.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/scripting-scala/pom.xml
+jars/sdk-core-2.46.15.jar,software.amazon.awssdk:sdk-core:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/serializer-2.7.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/shared-resourcemapping-0.33.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/slf4j-api-2.0.17.jar,org.slf4j:slf4j-api:2.0.17,https://opensource.org/license/mit;[file META-INF/LICENSE.txt -> Other],MIT,manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/snakeyaml-2.5.jar,org.yaml:snakeyaml:2.5,"Apache License, Version 2.0;http://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/org.yaml/snakeyaml/pom.xml;manifest:Bundle-License
+jars/software.amazon.awssdk.annotations-2.46.15.jar,software.amazon.awssdk:annotations:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/spec.alpha-0.5.238.jar,org.clojure:spec.alpha:0.5.238,Eclipse Public License 1.0,EPL,pom:META-INF/maven/org.clojure/spec.alpha/pom.xml
+jars/specification-6.5.3.jar,org.openmicroscopy:specification:6.5.3,Simplified BSD License;Creative Commons Attribution 3.0 Unported License,BSD-2;CC-BY,pom:META-INF/maven/org.openmicroscopy/specification/pom.xml
+jars/spim_data-2.3.5.jar,sc.fiji:spim_data:2.3.5,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/spim_data/pom.xml
+jars/sqlite-jdbc-3.49.1.0.jar,org.xerial:sqlite-jdbc:3.49.1.0,"The Apache Software License, Version 2.0;https://www.apache.org/licenses/LICENSE-2.0.txt",Apache-2.0,pom:META-INF/maven/org.xerial/sqlite-jdbc/pom.xml;manifest:Bundle-License
+jars/ST4-4.3.4.jar,org.antlr:ST4:4.3.4,The BSD License,BSD (unversioned),pom:META-INF/maven/org.antlr/ST4/pom.xml
+jars/stats-0.8.1906.jar,org.renjin:stats:0.8.1906,Part of R 2.14.2,Other,pom:META-INF/maven/org.renjin/stats/pom.xml
+jars/stax2-api-4.2.2.jar,org.codehaus.woodstox:stax2-api:4.2.2,The BSD 2-Clause License;http://www.opensource.org/licenses/bsd-license.php;[file META-INF/LICENSE -> Other],BSD (unversioned);BSD-2,pom:META-INF/maven/org.codehaus.woodstox/stax2-api/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/swing-checkbox-tree-1.0.2.jar,org.scijava:swing-checkbox-tree:1.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/swing-checkbox-tree/pom.xml
+jars/swing-worker-1.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/swingx-1.6.1.jar,(no pom),(none),NONE DECLARED,(none)
+jars/T2-NIT-1.1.4.jar,sc.fiji:T2-NIT:1.1.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/T2-NIT/pom.xml
+jars/T2-TreelineGraph-1.1.4.jar,sc.fiji:T2-TreelineGraph:1.1.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/T2-TreelineGraph/pom.xml
+jars/tasty-core_3-3.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/third-party-jackson-core-2.46.15.jar,(no pom),[file META-INF/LICENSE.txt -> Apache-2.0];[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt;licfile:META-INF/LICENSE
+jars/threetenbp-1.7.2.jar,org.threeten:threetenbp:1.7.2,BSD-3-Clause;https://raw.githubusercontent.com/ThreeTen/threetenbp/main/LICENSE.txt;[file META-INF/LICENSE.txt -> BSD-3],BSD-3;Other,pom:META-INF/maven/org.threeten/threetenbp/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE.txt
+jars/TrackMate-8.1.6.jar,sc.fiji:TrackMate:8.1.6,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/TrackMate/pom.xml
+jars/trakem2-transform-1.0.1.jar,sc.fiji:trakem2-transform:1.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/trakem2-transform/pom.xml
+jars/trove4j-3.0.3.jar,(no pom),(none),NONE DECLARED,(none)
+jars/turbojpeg-8.5.0.jar,ome:turbojpeg:1.2.1,Simplified BSD License,BSD-2,pom:META-INF/maven/ome/turbojpeg/pom.xml
+jars/txw2-2.3.5.jar,org.glassfish.jaxb:txw2:2.3.5,[file META-INF/LICENSE.md -> BSD-3],BSD-3,licfile:META-INF/LICENSE.md
+jars/udunits-4.3.18.jar,edu.ucar:udunits:4.3.18,(none),NONE DECLARED,(none)
+jars/ui-behaviour-2.0.8.jar,org.scijava:ui-behaviour:2.0.8,Simplified BSD License,BSD-2,pom:META-INF/maven/org.scijava/ui-behaviour/pom.xml
+jars/unsafe-fences-1.0.jar,com.headius:unsafe-fences:1.0,"Apache License, Version 2.0",Apache-2.0,pom:META-INF/maven/com.headius/unsafe-fences/pom.xml
+jars/util-interface-1.3.0.jar,(no pom),(none),NONE DECLARED,(none)
+jars/utils-2.46.15.jar,software.amazon.awssdk:utils:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/utils-lite-2.46.15.jar,software.amazon.awssdk:utils-lite:2.46.15,[file META-INF/LICENSE.txt -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE.txt
+jars/vecmath-1.7.2.jar,org.jogamp.java3d:vecmath:1.7.2,GPLv2 with Classpath exception,GPL+CPE,pom:META-INF/maven/org.jogamp.java3d/vecmath/pom.xml
+jars/VectorGraphics2D-0.13.jar,(no pom),(none),NONE DECLARED,(none)
+jars/VectorString-3.0.0.jar,sc.fiji:VectorString:3.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/VectorString/pom.xml
+jars/VIB-lib-2.2.0.jar,sc.fiji:VIB-lib:2.2.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/VIB-lib/pom.xml
+jars/weave_jy2java-2.1.1.jar,sc.fiji:weave_jy2java:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/weave_jy2java/pom.xml
+jars/weka-dev-3.9.6.jar,nz.ac.waikato.cms.weka:weka-dev:3.9.6,GNU General Public License 3,GPL-3,pom:META-INF/maven/nz.ac.waikato.cms.weka/weka-dev/pom.xml
+jars/win64/ffmpeg-6.1.1-1.5.10-windows-x86_64.jar,org.bytedeco:ffmpeg:6.1.1-${project.parent.version},(none),NONE DECLARED,(none)
+jars/win64/flimlib-2.1.1-natives-windows_64.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/gluegen-rt-2.6.0-natives-windows-amd64.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-base-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-controls-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-fxml-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-graphics-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-media-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-swing-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/javafx-web-23.0.2-win.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/jogl-all-2.6.0-natives-windows-amd64.jar,(no pom),(none),NONE DECLARED,(none)
+jars/win64/openblas-0.3.26-1.5.10-windows-x86_64.jar,org.bytedeco:openblas:0.3.26-${project.parent.version},(none),NONE DECLARED,(none)
+jars/win64/opencv-4.9.0-1.5.10-windows-x86_64.jar,org.bytedeco:opencv:4.9.0-${project.parent.version},(none),NONE DECLARED,(none)
+jars/woodstox-core-7.0.0.jar,com.fasterxml.woodstox:woodstox-core:7.0.0;net.java.dev.msv:xsdlib:2022.7;com.sun.xml.bind.jaxb:isorelax:20090621,"The Apache License, Version 2.0;BSD;http://www.apache.org/licenses/LICENSE-2.0.txt;[file META-INF/LICENSE -> Other]",Apache-2.0;BSD (unversioned),pom:META-INF/maven/com.fasterxml.woodstox/woodstox-core/pom.xml;pom:META-INF/maven/net.java.dev.msv/xsdlib/pom.xml;manifest:Bundle-License;licfile:META-INF/LICENSE
+jars/xalan-2.7.2.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xchart-3.5.4.jar,org.knowm.xchart:xchart:3.5.4,(none),NONE DECLARED,(none)
+jars/xerbla-0.8.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xercesImpl-2.12.2.jar,(no pom),[file META-INF/LICENSE -> Apache-2.0],Apache-2.0,licfile:META-INF/LICENSE
+jars/xml-apis-1.4.01.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xml-apis-ext-1.3.04.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xmlgraphics-commons-2.11.jar,org.apache.xmlgraphics:xmlgraphics-commons:2.11,"The Apache Software License, Version 2.0;[file META-INF/LICENSE -> Apache-2.0]",Apache-2.0,pom:META-INF/maven/org.apache.xmlgraphics/xmlgraphics-commons/pom.xml;licfile:META-INF/LICENSE
+jars/xmlunit-1.5.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xmpcore-6.1.11.jar,(no pom),https://opensource.org/licenses/BSD-3-Clause,BSD-3,manifest:Bundle-License
+jars/xpp3-1.1.4c.jar,(no pom),(none),NONE DECLARED,(none)
+jars/xz-1.10.jar,(no pom),0BSD,BSD (unversioned),manifest:Bundle-License
+jars/zstd-jni-1.5.7-4.jar,(no pom),https://opensource.org/licenses/BSD-2-Clause;description=BSD 2-Clause License,BSD-2,manifest:Bundle-License
+plugins/3D_Blob_Segmentation-4.0.0.jar,sc.fiji:3D_Blob_Segmentation:4.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/3D_Blob_Segmentation/pom.xml
+plugins/3D_Objects_Counter-2.0.1.jar,sc.fiji:3D_Objects_Counter:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/3D_Objects_Counter/pom.xml
+plugins/3D_Viewer-5.0.1.jar,sc.fiji:3D_Viewer:5.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/3D_Viewer/pom.xml
+plugins/AnalyzeSkeleton_-3.4.2.jar,sc.fiji:AnalyzeSkeleton_:3.4.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/AnalyzeSkeleton_/pom.xml
+plugins/Anisotropic_Diffusion_2D-2.0.1.jar,sc.fiji:Anisotropic_Diffusion_2D:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Anisotropic_Diffusion_2D/pom.xml
+plugins/Archipelago_Plugins-0.5.4.jar,sc.fiji:Archipelago_Plugins:0.5.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Archipelago_Plugins/pom.xml
+plugins/Arrow_-2.0.2.jar,sc.fiji:Arrow_:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Arrow_/pom.xml
+plugins/Auto_Local_Threshold-1.11.0.jar,sc.fiji:Auto_Local_Threshold:1.11.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Auto_Local_Threshold/pom.xml
+plugins/Auto_Threshold-1.18.0.jar,sc.fiji:Auto_Threshold:1.18.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Auto_Threshold/pom.xml
+plugins/BalloonSegmentation_-3.0.1.jar,sc.fiji:BalloonSegmentation_:3.0.1,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/BalloonSegmentation_/pom.xml
+plugins/bigwarp_fiji-9.4.0.jar,sc.fiji:bigwarp_fiji:9.4.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/bigwarp_fiji/pom.xml
+plugins/bio-formats_plugins-8.5.0.jar,ome:bio-formats_plugins:8.5.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/ome/bio-formats_plugins/pom.xml
+plugins/blockmatching_-2.1.4.jar,sc.fiji:blockmatching_:2.1.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/blockmatching_/pom.xml
+plugins/Bug_Submitter-2.1.1.jar,sc.fiji:Bug_Submitter:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Bug_Submitter/pom.xml
+plugins/bUnwarpJ_-2.6.13.jar,sc.fiji:bUnwarpJ_:2.6.13,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/bUnwarpJ_/pom.xml
+plugins/Calculator_Plus-2.0.1.jar,sc.fiji:Calculator_Plus:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Calculator_Plus/pom.xml
+plugins/Cell_Counter-3.0.0.jar,sc.fiji:Cell_Counter:3.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Cell_Counter/pom.xml
+plugins/Colocalisation_Analysis-3.1.0.jar,sc.fiji:Colocalisation_Analysis:3.1.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Colocalisation_Analysis/pom.xml
+plugins/Color_Histogram-2.0.7.jar,sc.fiji:Color_Histogram:2.0.7,GNU General Public License v3+;[file License.txt -> GPL-2],GPL-2;GPL-3,pom:META-INF/maven/sc.fiji/Color_Histogram/pom.xml;licfile:License.txt
+plugins/Color_Inspector_3D-2.5.0.jar,sc.fiji:Color_Inspector_3D:2.5.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Color_Inspector_3D/pom.xml
+plugins/Colour_Deconvolution-3.0.3.jar,sc.fiji:Colour_Deconvolution:3.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Colour_Deconvolution/pom.xml
+plugins/CorrectBleach_-2.1.0.jar,sc.fiji:CorrectBleach_:2.1.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/CorrectBleach_/pom.xml
+plugins/CPU_Meter-2.0.2.jar,sc.fiji:CPU_Meter:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/CPU_Meter/pom.xml
+plugins/Descriptor_based_registration-3.0.3.jar,sc.fiji:Descriptor_based_registration:3.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Descriptor_based_registration/pom.xml
+plugins/Dichromacy_-2.1.2.jar,sc.fiji:Dichromacy_:2.1.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Dichromacy_/pom.xml
+plugins/Directionality_-2.3.0.jar,sc.fiji:Directionality_:2.3.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Directionality_/pom.xml
+plugins/Feature_Detection-2.0.3.jar,sc.fiji:Feature_Detection:2.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Feature_Detection/pom.xml
+plugins/Fiji_Archipelago-2.0.1.jar,sc.fiji:Fiji_Archipelago:2.0.1,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/Fiji_Archipelago/pom.xml
+plugins/Fiji_Developer-2.0.8.jar,sc.fiji:Fiji_Developer:2.0.8,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Fiji_Developer/pom.xml
+plugins/Fiji_Package_Maker-2.1.1.jar,sc.fiji:Fiji_Package_Maker:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Fiji_Package_Maker/pom.xml
+plugins/Fiji_Plugins-3.2.0.jar,sc.fiji:Fiji_Plugins:3.2.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/Fiji_Plugins/pom.xml
+plugins/FlowJ_-2.0.1.jar,sc.fiji:FlowJ_:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/FlowJ_/pom.xml
+plugins/FS_Align_TrakEM2-2.0.4.jar,sc.fiji:FS_Align_TrakEM2:2.0.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/FS_Align_TrakEM2/pom.xml
+plugins/Graph_Cut-1.0.2.jar,sc.fiji:Graph_Cut:1.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Graph_Cut/pom.xml
+plugins/Gray_Morphology-2.3.5.jar,sc.fiji:Gray_Morphology:2.3.5,GNU General Public License v3+;[file License.txt -> GPL-2],GPL-2;GPL-3,pom:META-INF/maven/sc.fiji/Gray_Morphology/pom.xml;licfile:License.txt
+plugins/H5J_Loader_Plugin-1.1.5.jar,org.janelia:H5J_Loader_Plugin:1.1.5,Janelia Farm Research Campus Software Copyright 1.1,Other,pom:META-INF/maven/org.janelia/H5J_Loader_Plugin/pom.xml
+plugins/HDF5_Vibez-1.1.1.jar,sc.fiji:HDF5_Vibez:1.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/HDF5_Vibez/pom.xml
+plugins/Helmholtz_Analysis-2.0.2.jar,sc.fiji:Helmholtz_Analysis:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Helmholtz_Analysis/pom.xml
+plugins/ij_ridge_detect-1.4.1.jar,de.biomedical-imaging.imagej:ij_ridge_detect:1.4.1,GPLv2,GPL-2,pom:META-INF/maven/de.biomedical-imaging.imagej/ij_ridge_detect/pom.xml
+plugins/IJ_Robot-2.0.1.jar,sc.fiji:IJ_Robot:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/IJ_Robot/pom.xml
+plugins/Image_5D-2.0.2.jar,sc.fiji:Image_5D:2.0.2,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/Image_5D/pom.xml
+plugins/Image_Expression_Parser-3.0.1.jar,sc.fiji:Image_Expression_Parser:3.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Image_Expression_Parser/pom.xml
+plugins/Interactive_3D_Surface_Plot-3.0.1.jar,sc.fiji:Interactive_3D_Surface_Plot:3.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Interactive_3D_Surface_Plot/pom.xml
+plugins/IO_-4.3.0.jar,sc.fiji:IO_:4.3.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/IO_/pom.xml
+plugins/IsoData_Classifier-2.0.1.jar,sc.fiji:IsoData_Classifier:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/IsoData_Classifier/pom.xml
+plugins/Kuwahara_Filter-2.0.1.jar,sc.fiji:Kuwahara_Filter:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Kuwahara_Filter/pom.xml
+plugins/Lasso_and_Blow_Tool-2.0.2.jar,sc.fiji:Lasso_and_Blow_Tool:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Lasso_and_Blow_Tool/pom.xml
+plugins/level_sets-1.0.2.jar,sc.fiji:level_sets:1.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/level_sets/pom.xml
+plugins/Linear_Kuwahara-2.0.1.jar,sc.fiji:Linear_Kuwahara:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Linear_Kuwahara/pom.xml
+plugins/LocalThickness_-5.0.0.jar,sc.fiji:LocalThickness_:5.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/LocalThickness_/pom.xml
+plugins/LSM_Reader-4.1.2.jar,sc.fiji:LSM_Reader:4.1.2,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/LSM_Reader/pom.xml
+plugins/LSM_Toolbox-4.1.2.jar,sc.fiji:LSM_Toolbox:4.1.2,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/LSM_Toolbox/pom.xml
+plugins/M_I_P-2.0.1.jar,sc.fiji:M_I_P:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/M_I_P/pom.xml
+plugins/Manual_Tracking-2.1.1.jar,sc.fiji:Manual_Tracking:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Manual_Tracking/pom.xml
+plugins/mpicbg_-1.6.6.jar,mpicbg:mpicbg_:1.6.6,GNU General Public License v2+;[file LICENSE -> Other],GPL-2,pom:META-INF/maven/mpicbg/mpicbg_/pom.xml;licfile:LICENSE
+plugins/MTrack2_-2.0.1.jar,sc.fiji:MTrack2_:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/MTrack2_/pom.xml
+plugins/Multi_Kymograph-3.0.1.jar,sc.fiji:Multi_Kymograph:3.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Multi_Kymograph/pom.xml
+plugins/n5-viewer_fiji-6.2.0.jar,org.janelia.saalfeldlab:n5-viewer_fiji:6.2.0,GNU General Public License v3.0,GPL-3,pom:META-INF/maven/org.janelia.saalfeldlab/n5-viewer_fiji/pom.xml
+plugins/panorama_-3.0.2.jar,sc.fiji:panorama_:3.0.2,GNU General Public License v3+;[file LICENSE.GPL -> Other],GPL-3,pom:META-INF/maven/sc.fiji/panorama_/pom.xml;licfile:LICENSE.GPL
+plugins/PIV_analyser-2.0.0.jar,sc.fiji:PIV_analyser:2.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/PIV_analyser/pom.xml
+plugins/QuickPALM_-1.1.2.jar,sc.fiji:QuickPALM_:1.1.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/QuickPALM_/pom.xml
+plugins/RATS_-2.0.2.jar,sc.fiji:RATS_:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/RATS_/pom.xml
+plugins/Reconstruct_Reader-2.0.5.jar,sc.fiji:Reconstruct_Reader:2.0.5,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Reconstruct_Reader/pom.xml
+plugins/register_virtual_stack_slices-3.0.8.jar,sc.fiji:register_virtual_stack_slices:3.0.8,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/register_virtual_stack_slices/pom.xml
+plugins/registration_3d-2.0.1.jar,sc.fiji:registration_3d:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/registration_3d/pom.xml
+plugins/Samples_-2.0.3.jar,sc.fiji:Samples_:2.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Samples_/pom.xml
+plugins/Series_Labeler-2.0.1.jar,sc.fiji:Series_Labeler:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Series_Labeler/pom.xml
+plugins/Siox_Segmentation-1.0.5.jar,sc.fiji:Siox_Segmentation:1.0.5,"Apache Software License, Version 2.0",Apache-2.0,pom:META-INF/maven/sc.fiji/Siox_Segmentation/pom.xml
+plugins/Skeletonize3D_-2.1.1.jar,sc.fiji:Skeletonize3D_:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Skeletonize3D_/pom.xml
+plugins/SPIM_Opener-2.0.2.jar,sc.fiji:SPIM_Opener:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/SPIM_Opener/pom.xml
+plugins/SPIM_Registration-5.0.26.jar,sc.fiji:SPIM_Registration:5.0.26,GNU Public License v2;[file LICENSE -> Other],GPL-2,pom:META-INF/maven/sc.fiji/SPIM_Registration/pom.xml;licfile:LICENSE
+plugins/SplineDeformationGenerator_-2.0.2.jar,sc.fiji:SplineDeformationGenerator_:2.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/SplineDeformationGenerator_/pom.xml
+plugins/Stack_Manipulation-2.1.2.jar,sc.fiji:Stack_Manipulation:2.1.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Stack_Manipulation/pom.xml
+plugins/Statistical_Region_Merging-2.0.1.jar,sc.fiji:Statistical_Region_Merging:2.0.1,Simplified BSD License,BSD-2,pom:META-INF/maven/sc.fiji/Statistical_Region_Merging/pom.xml
+plugins/Stitching_-3.1.10.jar,sc.fiji:Stitching_:3.1.10,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/Stitching_/pom.xml
+plugins/Sync_Win-1.7-fiji4.jar,sc.fiji:Sync_Win:1.7-fiji4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Sync_Win/pom.xml
+plugins/Thread_Killer-2.0.1.jar,sc.fiji:Thread_Killer:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Thread_Killer/pom.xml
+plugins/Time_Lapse-2.1.1.jar,sc.fiji:Time_Lapse:2.1.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Time_Lapse/pom.xml
+plugins/Time_Stamper-2.1.0.jar,sc.fiji:Time_Stamper:2.1.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Time_Stamper/pom.xml
+plugins/ToAST_-25.0.2.jar,sc.fiji:ToAST_:25.0.2,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/ToAST_/pom.xml
+plugins/TopoJ_-2.0.1.jar,sc.fiji:TopoJ_:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/TopoJ_/pom.xml
+plugins/Trainable_Segmentation-4.0.0.jar,sc.fiji:Trainable_Segmentation:4.0.0,GNU General Public License v3+;[file LICENSE-FastRandomForest.txt -> GPL-2],GPL-2;GPL-3,pom:META-INF/maven/sc.fiji/Trainable_Segmentation/pom.xml;licfile:LICENSE-FastRandomForest.txt
+plugins/TrakEM2_-2.0.0.jar,sc.fiji:TrakEM2_:2.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/TrakEM2_/pom.xml
+plugins/TrakEM2_Archipelago-2.0.4.jar,sc.fiji:TrakEM2_Archipelago:2.0.4,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/TrakEM2_Archipelago/pom.xml
+plugins/trakem2_tps-2.0.0.jar,sc.fiji:trakem2_tps:2.0.0,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/trakem2_tps/pom.xml
+plugins/Vaa3d_Reader-2.0.3.jar,sc.fiji:Vaa3d_Reader:2.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Vaa3d_Reader/pom.xml
+plugins/Vaa3d_Writer-1.0.3.jar,sc.fiji:Vaa3d_Writer:1.0.3,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Vaa3d_Writer/pom.xml
+plugins/VIB_-4.0.0.jar,sc.fiji:VIB_:4.0.0,GNU General Public License v3+;[file LICENSE.VIB -> Other],GPL-3,pom:META-INF/maven/sc.fiji/VIB_/pom.xml;licfile:LICENSE.VIB
+plugins/Video_Editing-2.0.1.jar,sc.fiji:Video_Editing:2.0.1,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Video_Editing/pom.xml
+plugins/View5D_-2.5.6.jar,de.nanoimaging:View5D_:2.5.6,MIT License,MIT,pom:META-INF/maven/de.nanoimaging/View5D_/pom.xml
+plugins/Volume_Calculator-3.0.0.jar,sc.fiji:Volume_Calculator:3.0.0,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Volume_Calculator/pom.xml
+plugins/Volume_Viewer-2.01.4.jar,sc.fiji:Volume_Viewer:2.01.4,GNU General Public License v3+,GPL-3,pom:META-INF/maven/sc.fiji/Volume_Viewer/pom.xml
+plugins/z_spacing-1.1.3.jar,sc.fiji:z_spacing:1.1.3,GNU General Public License v2+,GPL-2,pom:META-INF/maven/sc.fiji/z_spacing/pom.xml

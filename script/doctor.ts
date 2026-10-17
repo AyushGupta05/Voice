@@ -3,11 +3,15 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { Knowledge } from '../packages/gateway/src/knowledge.js';
-import {bridgeReadiness} from '../packages/gateway/src/bridge-readiness.js';
+import {bridgeReadiness,bridgeReady} from '../packages/gateway/src/bridge-readiness.js';
+import {bridgeHealth} from '../packages/gateway/src/bridge.js';
 import { activeProfile } from '../packages/gateway/src/apps/index.js';
 
 type Check = { name: string; status: 'pass' | 'fail' | 'note'; detail: string };
 const root=resolve(process.env.LUMA_ROOT??fileURLToPath(new URL('..',import.meta.url)));
+// LUMA_GATEWAY_PORT checks a second gateway (another app profile, a worktree) beside the companion's default 49555.
+const gatewayPort=Number(process.env.LUMA_GATEWAY_PORT??49555);
+if(!Number.isInteger(gatewayPort)||gatewayPort<1024||gatewayPort>65535)throw new Error('LUMA_GATEWAY_PORT must be an unprivileged loopback port.');
 // Diagnostics follow the selected application (LUMA_APP): its bridge artifact, launcher, tools and knowledge.
 const profile=activeProfile();const {tools}=profile;const app=profile.displayName;
 const checks:Check[]=[{name:'application',status:'note',detail:`${app} profile (LUMA_APP=${profile.id}); ${tools.length} tools.`}];
@@ -16,7 +20,7 @@ const exists=async(path:string)=>{try{await access(resolve(root,path));return tr
 add('platform',process.platform==='darwin'&&process.arch==='arm64','Apple Silicon macOS.','The native companion/bootstrap currently require Apple Silicon macOS.');
 add('node',Number(process.versions.node.split('.')[0])>=22,`Node ${process.versions.node}.`,'Use Node.js 22 or newer.');
 for(const [path,name] of [['node_modules/tsx/dist/loader.mjs','TypeScript loader'] as [string,string],...profile.doctorArtifacts,['dist/Luma.app/Contents/MacOS/LumaCompanion','Companion build'] as [string,string]]) {
-  add(name,await exists(path),'Local artifact exists; runtime checks follow.',`Missing ${path}. Follow docs/SETUP.md; this command installs nothing.`);
+  add(name,await exists(path),'Local artifact exists; runtime checks follow.',`Missing ${path}. Follow docs/PENNY-SETUP.md; this command installs nothing.`);
 }
 const manifest=JSON.parse(await readFile(new URL('./dependencies.json',import.meta.url),'utf8'));
 for(const [directory,expected] of profile.id==='qupath'?[['qupath',manifest.qupath.sourceCommit],['qupath-docs',manifest.qupathDocs.commit]]:[]) {
@@ -29,16 +33,22 @@ let readyForVoice=false;
 try {
   const token=(await readFile(resolve(root,'.local/state/gateway-token'),'utf8')).trim();
   const headers={Authorization:`Bearer ${token}`};
-  const healthResponse=await fetch('http://127.0.0.1:49555/health',{headers,signal:AbortSignal.timeout(4000)});
+  const healthResponse=await fetch(`http://127.0.0.1:${gatewayPort}/health`,{headers,signal:AbortSignal.timeout(4000)});
   if(!healthResponse.ok)throw new Error('Authentication or gateway response failed.');
   const health=await healthResponse.json() as {application?:unknown;app?:{id?:unknown};bridgeError?:unknown;context?:{image?:unknown};voice?:{enabled?:unknown}};
   add('gateway',health.application==='Luma','Authenticated Luma gateway is reachable.','Unexpected service on the gateway port.');
   add('gateway application',health.app?.id===profile.id,`The running gateway drives ${app}.`,`The running gateway drives ${String(health.app?.id??'an older build without an app field')}, not ${profile.id}; restart it with LUMA_APP=${profile.id}.`);
   add(`${app} bridge`,!health.bridgeError&&!!health.context,'Real application context is reachable.',`Bridge unavailable or busy. Start ${app} with ${profile.launcherScript} and inspect local logs.`);
-  const loadedBridge=await bridgeReadiness(root,health.context,profile);
-  add(`loaded ${app} build`,loadedBridge.status==='matches_build',loadedBridge.message,loadedBridge.message);
+  // A profile without a bridge build identity (Fidelis) declares its operations in context.adapter, or on the bridge's own /health.
+  let identity:unknown=health.context;
+  if(profile.bridgeIdentity==='operations'&&health.context&&!(health.context as {adapter?:unknown}).adapter){
+    let bridgeToken:string|undefined;try{bridgeToken=(await readFile(resolve(root,'.local/state/bridge-token'),'utf8')).trim();}catch{bridgeToken=undefined;}
+    identity={...health.context,adapter:(await bridgeHealth(profile.bridgePort,bridgeToken))?.adapter};
+  }
+  const loadedBridge=await bridgeReadiness(root,identity,profile);
+  add(`loaded ${app} build`,bridgeReady(loadedBridge),loadedBridge.message,loadedBridge.message);
   if(health.context&&!health.context.image)checks.push({name:'active image',status:'note',detail:'Open an image and select a region for scientific tools.'});
-  const schemaResponse=await fetch('http://127.0.0.1:49555/tools',{headers,signal:AbortSignal.timeout(2000)});
+  const schemaResponse=await fetch(`http://127.0.0.1:${gatewayPort}/tools`,{headers,signal:AbortSignal.timeout(2000)});
   if(!schemaResponse.ok)throw new Error('Tool schema request failed.');
   const schema=await schemaResponse.json() as {tools?:unknown};
   add('running tool schemas',JSON.stringify(schema.tools)===JSON.stringify(tools),`All ${tools.length} running definitions match this checkout.`,'Gateway definitions differ. Restart its owning companion or development gateway after work has finished.');

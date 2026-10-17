@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fidelis"
+version = "0.2.0"
+description = "Local Fiji/ImageJ workflow companion for Reinvent the Wheel"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "Pillow==12.0.0"]
+
+[project.optional-dependencies]
+dev = ["httpx>=0.28,<1", "pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.setuptools.packages.find]
+where = ["backend/src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/backend"]
+markers = ["integration: invokes real external Fiji or speech runtime"]
+
+[tool.ruff]
+target-version = "py311"
+# 120 columns: the workstation Python (fidelis-app/tools, verification/, speech/) and its Java use 120;
+# the prototype already complies with the earlier 100.
+line-length = 120
+src = ["backend/src"]
+# Archived probe scripts are research evidence (docs F04 §9), kept verbatim; they are not product code.
+extend-exclude = ["docs/01-analysis/references/probes"]
+
+[tool.ruff.lint.per-file-ignores]
+# The index generator embeds whole Markdown table rows as string literals.
+"docs/tools/check_docs.py" = ["E501"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

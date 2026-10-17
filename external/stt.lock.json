@@ -1,0 +1,11 @@
+{
+  "implementation": "https://github.com/SYSTRAN/faster-whisper",
+  "version": "1.2.1",
+  "commit": "65882eee9f5cdbeeb2d877f1131d48cf241b327d",
+  "license": "MIT",
+  "model": "Systran/faster-whisper-tiny.en",
+  "revision": "0d3d19a32d3338f10357c0889762bd8d64bbdeba",
+  "model_license": "MIT",
+  "device": "cpu",
+  "compute_type": "int8"
+}

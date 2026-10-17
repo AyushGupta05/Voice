@@ -2,7 +2,7 @@ import type { Tool, Arguments } from '../tools.js';
 import type { Adapter, Context } from '../bridge.js';
 import type { Runtime } from '../runtime.js';
 
-export type AppId = 'qupath' | 'fiji';
+export type AppId = 'qupath' | 'fiji' | 'fidelis';
 /** Instant spoken route: a whole-utterance match that dispatches one tool with a fixed reply and no model round. */
 export type FastRoute = { tool: string; arguments: Record<string, unknown>; reply: string;
   /** A known prerequisite is missing; report this reason without dispatching an action or asking the model to guess. */
@@ -52,10 +52,35 @@ export type AppProfile = {
   buildScript: string;
   /** Local files whose presence the doctor reports: [path, name]. */
   doctorArtifacts: Array<[string, string]>;
+  /** How readiness identifies the loaded bridge. 'build' (the default) compares the context's `adapter` identity with
+   * the completed build manifest and JAR (QuPath, Fiji). 'operations' checks the operations the bridge's `GET /health`
+   * declares in `adapter.operations` (Fidelis, built by its own tools with no separate bridge artifact). */
+  bridgeIdentity?: 'build' | 'operations';
+  /** The bridge takes the conversation envelope with every `/execute`: `spoken`, `taskId` and the latest user
+   * `utterance` (docs/FIDELIS-PROTOCOL.md). Other bridges receive the original body unchanged. */
+  conversationEnvelope?: boolean;
+  /** Instant routes are dispatched bound to the context they were chosen from: a changed contextKey refuses the route
+   * before dispatch, and view operations carry it as `expectedContext` (a "no" meant for one plan never cancels another). */
+  bindInstantRoutes?: boolean;
+  /** Spoken stop words ("stop", "cancel that"), which the voice transport consumes as barge-in, are also offered to this
+   * profile's instant routes (Fidelis: cancel a waiting plan); without a route nothing else happens. */
+  controlRoutes?: boolean;
   fastRoute(text: string, context: unknown): FastRoute | undefined;
   acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined;
-  localSentenceFor(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
-  requestContinuesAfter(name: string, utterance: string): boolean;
+  /** `context` is the application observation the call was dispatched from, when the host has it. */
+  localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, context?: unknown): string | undefined;
+  /** Whether the request still needs the model after this call; `result` is the call's outcome when known (a plan that
+   * waits for confirmation is the whole answer, whatever else the request asked for). */
+  requestContinuesAfter(name: string, utterance: string, result?: unknown): boolean;
+  /** A completed instant-route result that still needs the model (a Fidelis command whose original dialog waits): the
+   * request continues with the backend instead of finishing. */
+  needsModel?(name: string, result: unknown, context?: unknown): boolean;
+  /** What a completed bridge call achieved short of running (Fidelis: a waiting plan or dialog, a command cancelled at its
+   * dialog), recorded as the action's `outcome` so the audit and action status never read it as run. */
+  outcomeOf?(name: string, result: unknown): 'awaiting_confirmation' | 'dialog' | 'cancelled' | undefined;
+  /** A completed call whose plan now waits for the researcher (Fidelis `awaiting_confirmation`), as the sentence that
+   * ends the request; nothing later in the request runs. Undefined for every other result. */
+  pausesRequest?(name: string, result: unknown): string | undefined;
   /** A completed call that achieved nothing (e.g. an undo with no checkpoint), as a short spoken reason; undefined when it worked. */
   unsuccessful?(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
   /** Tools whose spoken outcome is the acknowledgment already playing, so a local finish stays silent. */
@@ -116,7 +141,8 @@ export function failureReason(profile: Pick<AppProfile, 'unsuccessful'>, name: s
   };
   if (!result || typeof result !== 'object') return undefined;
   const envelope = result as { status?: unknown; error?: unknown; ok?: unknown; message?: unknown };
-  if (envelope.status === 'duplicate' || envelope.status === 'approval_required') return undefined;
+  // A plan that waits for the researcher (Fidelis) has not failed; a view operation reports it without an envelope.
+  if (envelope.status === 'duplicate' || envelope.status === 'approval_required' || envelope.status === 'awaiting_confirmation') return undefined;
   if (envelope.error != null) return short(envelope.error, 'it reported an error');
   if (typeof envelope.status === 'string' && envelope.status !== 'completed') return short(undefined, `it ended ${envelope.status}`);
   if (envelope.ok === false) return short(envelope.message, 'it reported failure');

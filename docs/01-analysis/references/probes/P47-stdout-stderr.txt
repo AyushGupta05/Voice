@@ -1,0 +1,8 @@
+[INFO] Overriding BigStitcher; identifier: command:net.preibisch.stitcher.plugin.BigStitcher; jar: file:/C:/Users/arnav/Documents/dev/Fiji/jars/BigStitcher-3.0.8.jar
+Reading IFDs
+Populating metadata
+Reading IFDs
+Populating metadata
+OMETiffReader initializing C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G3\out\P47-work\ref.ome.tif
+Reading IFDs
+Populating metadata

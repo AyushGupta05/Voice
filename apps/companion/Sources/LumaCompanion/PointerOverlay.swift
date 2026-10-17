@@ -262,6 +262,7 @@ final class PointerOverlay: ObservableObject {
         if panel == nil {
             let p = NSPanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             p.isOpaque = false; p.backgroundColor = .clear; p.hasShadow = false
+            p.appearance = PennyPalette.appearance
             p.level = .statusBar; p.ignoresMouseEvents = true
             p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             p.contentView = NSHostingView(rootView: OverlayView(overlay: self))
@@ -311,7 +312,7 @@ private struct ArcTrail: Shape {
 private struct OverlayView: View {
     @ObservedObject var overlay: PointerOverlay
     @State private var progress: CGFloat = 1
-    private let accent = Color(red: 0.36, green: 0.92, blue: 0.78)
+    private let accent = PennyPalette.overlayAccent
     var body: some View {
         ZStack(alignment: .topLeading) {
             highlights
@@ -375,7 +376,7 @@ struct CursorBuddy: View {
                 moodLayer
                 BuddyArrow()
                     .fill(accent)
-                    .overlay(BuddyArrow().stroke(Color.black.opacity(0.55), lineWidth: 1.2))
+                    .overlay(BuddyArrow().stroke(PennyPalette.overlayOutline, lineWidth: 1.3))
                     .frame(width: 20, height: 26)
                     .shadow(color: accent.opacity(breathe ? 0.9 : 0.45), radius: breathe ? 14 : 8)
                     .scaleEffect(breathe ? 1.06 : 1, anchor: .topLeading)
@@ -385,10 +386,11 @@ struct CursorBuddy: View {
             if !label.isEmpty {
                 Text(label)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(PennyPalette.textPrimary)
                     .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Color.black.opacity(0.82), in: Capsule())
-                    .overlay(Capsule().stroke(accent.opacity(0.7), lineWidth: 1))
+                    .background(PennyPalette.surface, in: Capsule())
+                    .overlay(Capsule().stroke(PennyPalette.border, lineWidth: 1))
+                    .shadow(color: PennyPalette.shadow, radius: 6, y: 2)
                     .offset(y: 16)
                     .transition(.scale(scale: 0.6, anchor: .topLeading).combined(with: .opacity))
             }
@@ -478,9 +480,11 @@ struct HighlightShape: View {
             if hovered {
                 Text(target.name.isEmpty ? "#\(target.id + 1)" : target.name)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(PennyPalette.textPrimary)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(accent, in: Capsule())
+                    .background(PennyPalette.surface, in: Capsule())
+                    .overlay(Capsule().stroke(PennyPalette.border, lineWidth: 1))
+                    .shadow(color: PennyPalette.shadow, radius: 4, y: 1)
                     .fixedSize()
                     .offset(y: -18)
                     .transition(.scale(scale: 0.7, anchor: .bottomLeading).combined(with: .opacity))

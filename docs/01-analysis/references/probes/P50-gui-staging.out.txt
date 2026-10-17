@@ -1,0 +1,134 @@
+# P50 raw output: status.txt written by P50-gui-staging.groovy (final run, Fiji PID 32508, 2026-10-17)
+08:20:23.889 P50 start; java=21.0.7 ij=1.54p99 autocheckDisabled=true
+08:20:25.926 ImageJ instance present: (Fiji Is Just) ImageJ
+08:20:29.079 placed 'hyperstack-demo' at 0,150 size java.awt.Dimension[width=346,height=366]
+08:20:29.083 placed 'synthetic-blobs' at 360,150 size java.awt.Dimension[width=282,height=314]
+08:20:29.084 placed 'synthetic-blobs-threshold' at 640,150 size java.awt.Dimension[width=282,height=314]
+08:20:29.092 placed 'ROI Manager' at 920,150 size java.awt.Dimension[width=205,height=292]
+08:20:29.096 placed 'Results' at 0,560 size java.awt.Dimension[width=400,height=250]
+08:20:29.102 placed 'Histogram of synthetic-blobs' at 360,520 size java.awt.Dimension[width=326,height=334]
+08:20:29.108 placed 'Plot of synthetic-blobs' at 1150,560 size java.awt.Dimension[width=722,height=493]
+08:20:29.117 placed 'B&C' at 1180,120 size java.awt.Dimension[width=176,height=344]
+08:20:29.123 placed 'Threshold' at 1350,120 size java.awt.Dimension[width=294,height=318]
+08:20:29.127 placed 'Channels' at 1180,450 size java.awt.Dimension[width=201,height=192]
+08:20:29.129 placed 'Log' at 0,860 size java.awt.Dimension[width=400,height=250]
+08:20:29.131 placed 'Recorder' at 560,860 size java.awt.Dimension[width=596,height=307]
+08:20:29.148 window: '(Fiji Is Just) ImageJ' class=ij.ImageJ bounds=java.awt.Rectangle[x=870,y=0,width=625,height=116]
+08:20:29.150 window: 'Recorder' class=ij.plugin.frame.Recorder bounds=java.awt.Rectangle[x=560,y=860,width=596,height=307]
+08:20:29.151 window: 'synthetic-blobs' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=360,y=150,width=282,height=314]
+08:20:29.152 window: 'ROI Manager' class=null bounds=java.awt.Rectangle[x=920,y=150,width=205,height=292]
+08:20:29.152 window: 'Results' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=560,width=400,height=250]
+08:20:29.153 window: 'Histogram of synthetic-blobs' class=ij.gui.HistogramWindow bounds=java.awt.Rectangle[x=360,y=520,width=326,height=334]
+08:20:29.154 window: 'Plot of synthetic-blobs' class=ij.gui.PlotWindow bounds=java.awt.Rectangle[x=1150,y=560,width=722,height=493]
+08:20:29.154 window: 'synthetic-blobs-threshold' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=640,y=150,width=282,height=314]
+08:20:29.155 window: 'hyperstack-demo' class=ij.gui.StackWindow bounds=java.awt.Rectangle[x=0,y=150,width=346,height=366]
+08:20:29.155 window: 'Log' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=860,width=400,height=250]
+08:20:29.156 window: 'Channels' class=ij.plugin.frame.Channels bounds=java.awt.Rectangle[x=1180,y=450,width=201,height=192]
+08:20:29.157 window: 'Threshold' class=ij.plugin.frame.ThresholdAdjuster bounds=java.awt.Rectangle[x=1350,y=120,width=294,height=318]
+08:20:29.157 window: 'B&C' class=ij.plugin.frame.ContrastAdjuster bounds=java.awt.Rectangle[x=1180,y=120,width=176,height=344]
+08:20:29.158 window: '*New_' class=org.scijava.ui.swing.script.TextEditor bounds=java.awt.Rectangle[x=560,y=600,width=640,height=420]
+08:20:30.727 inproc snap 'p1-fiji-is-just-imagej' 625x116
+08:20:30.760 inproc snap 'p1-recorder' 596x307
+08:20:30.786 inproc snap 'p1-synthetic-blobs' 282x314
+08:20:30.805 inproc snap 'p1-roi-manager' 205x292
+08:20:30.823 inproc snap 'p1-results' 400x250
+08:20:30.843 inproc snap 'p1-histogram-of-synthetic-blobs' 326x334
+08:20:30.869 inproc snap 'p1-plot-of-synthetic-blobs' 722x493
+08:20:30.884 inproc snap 'p1-synthetic-blobs-threshold' 282x314
+08:20:30.904 inproc snap 'p1-hyperstack-demo' 346x366
+08:20:30.916 inproc snap 'p1-log' 400x250
+08:20:30.928 inproc snap 'p1-channels' 201x192
+08:20:30.950 inproc snap 'p1-threshold' 294x318
+08:20:30.968 inproc snap 'p1-b-c' 176x344
+08:20:30.988 inproc snap 'p1-new' 640x420
+08:20:30.989 phase1-ready
+08:20:30.990 waiting for go-phase2.flag
+08:20:41.621 got go-phase2.flag
+08:20:44.173 inproc snap 'p2-command-finder' 668x499
+08:20:44.174 phase2-ready
+08:20:44.174 waiting for go-phase3.flag
+08:20:44.699 got go-phase3.flag
+08:20:47.240 inproc snap 'p3-gaussian-blur-dialog' 192x166
+08:20:47.240 phase3-ready
+08:20:47.241 waiting for go-end.flag
+08:22:33.915 got go-end.flag
+08:22:33.916 end
+
+# Earlier attempts (same script, before in-process snapshot fixes):
+## attempt 1 (PID 14580)
+08:12:18.479 P50 start; java=21.0.7 ij=1.54p99 autocheckDisabled=true
+08:12:20.513 ImageJ instance present: (Fiji Is Just) ImageJ
+08:12:24.005 placed 'hyperstack-demo' at 0,150 size java.awt.Dimension[width=346,height=366]
+08:12:24.009 placed 'synthetic-blobs' at 360,150 size java.awt.Dimension[width=282,height=314]
+08:12:24.013 placed 'synthetic-blobs-threshold' at 640,150 size java.awt.Dimension[width=282,height=314]
+08:12:24.025 placed 'ROI Manager' at 920,150 size java.awt.Dimension[width=205,height=292]
+08:12:24.034 placed 'Results' at 0,560 size java.awt.Dimension[width=400,height=250]
+08:12:24.042 placed 'Histogram of synthetic-blobs' at 360,520 size java.awt.Dimension[width=326,height=334]
+08:12:24.049 placed 'Plot of synthetic-blobs' at 1150,560 size java.awt.Dimension[width=722,height=493]
+08:12:24.072 placed 'B&C' at 1180,120 size java.awt.Dimension[width=176,height=344]
+08:12:24.080 placed 'Threshold' at 1350,120 size java.awt.Dimension[width=294,height=318]
+08:12:24.087 placed 'Channels' at 1180,450 size java.awt.Dimension[width=201,height=192]
+08:12:24.090 placed 'Log' at 0,860 size java.awt.Dimension[width=400,height=250]
+08:12:24.094 placed 'Recorder' at 560,860 size java.awt.Dimension[width=596,height=307]
+08:12:24.116 window: '(Fiji Is Just) ImageJ' class=ij.ImageJ bounds=java.awt.Rectangle[x=870,y=0,width=625,height=116]
+08:12:24.122 window: '' class=org.scijava.ui.swing.viewer.SwingDisplayWindow bounds=java.awt.Rectangle[x=21,y=96,width=618,height=540]
+08:12:24.123 window: 'Recorder' class=ij.plugin.frame.Recorder bounds=java.awt.Rectangle[x=560,y=860,width=596,height=307]
+08:12:24.124 window: 'synthetic-blobs' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=360,y=150,width=282,height=314]
+08:12:24.125 window: 'ROI Manager' class=null bounds=java.awt.Rectangle[x=920,y=150,width=205,height=292]
+08:12:24.126 window: 'Results' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=560,width=400,height=250]
+08:12:24.127 window: 'Histogram of synthetic-blobs' class=ij.gui.HistogramWindow bounds=java.awt.Rectangle[x=360,y=520,width=326,height=334]
+08:12:24.128 window: 'Plot of synthetic-blobs' class=ij.gui.PlotWindow bounds=java.awt.Rectangle[x=1150,y=560,width=722,height=493]
+08:12:24.129 window: 'synthetic-blobs-threshold' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=640,y=150,width=282,height=314]
+08:12:24.129 window: 'hyperstack-demo' class=ij.gui.StackWindow bounds=java.awt.Rectangle[x=0,y=150,width=346,height=366]
+08:12:24.130 window: 'Log' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=860,width=400,height=250]
+08:12:24.131 window: 'Channels' class=ij.plugin.frame.Channels bounds=java.awt.Rectangle[x=1180,y=450,width=201,height=192]
+08:12:24.132 window: 'Threshold' class=ij.plugin.frame.ThresholdAdjuster bounds=java.awt.Rectangle[x=1350,y=120,width=294,height=318]
+08:12:24.132 window: 'B&C' class=ij.plugin.frame.ContrastAdjuster bounds=java.awt.Rectangle[x=1180,y=120,width=176,height=344]
+08:12:24.133 window: '*New_' class=org.scijava.ui.swing.script.TextEditor bounds=java.awt.Rectangle[x=560,y=600,width=640,height=420]
+08:12:24.140 phase1-ready
+08:12:24.141 waiting for go-phase2.flag
+## attempt 3 (PID 12916)
+08:19:55.190 P50 start; java=21.0.7 ij=1.54p99 autocheckDisabled=true
+08:19:57.231 ImageJ instance present: (Fiji Is Just) ImageJ
+08:20:01.383 placed 'hyperstack-demo' at 0,150 size java.awt.Dimension[width=346,height=366]
+08:20:01.387 placed 'synthetic-blobs' at 360,150 size java.awt.Dimension[width=282,height=314]
+08:20:01.389 placed 'synthetic-blobs-threshold' at 640,150 size java.awt.Dimension[width=282,height=314]
+08:20:01.395 placed 'ROI Manager' at 920,150 size java.awt.Dimension[width=205,height=292]
+08:20:01.400 placed 'Results' at 0,560 size java.awt.Dimension[width=400,height=250]
+08:20:01.405 placed 'Histogram of synthetic-blobs' at 360,520 size java.awt.Dimension[width=326,height=334]
+08:20:01.410 placed 'Plot of synthetic-blobs' at 1150,560 size java.awt.Dimension[width=722,height=493]
+08:20:01.416 placed 'B&C' at 1180,120 size java.awt.Dimension[width=176,height=344]
+08:20:01.422 placed 'Threshold' at 1350,120 size java.awt.Dimension[width=294,height=318]
+08:20:01.425 placed 'Channels' at 1180,450 size java.awt.Dimension[width=201,height=192]
+08:20:01.427 placed 'Log' at 0,860 size java.awt.Dimension[width=400,height=250]
+08:20:01.429 placed 'Recorder' at 560,860 size java.awt.Dimension[width=596,height=307]
+08:20:01.443 window: '(Fiji Is Just) ImageJ' class=ij.ImageJ bounds=java.awt.Rectangle[x=870,y=0,width=625,height=116]
+08:20:01.446 window: 'Recorder' class=ij.plugin.frame.Recorder bounds=java.awt.Rectangle[x=560,y=860,width=596,height=307]
+08:20:01.446 window: 'synthetic-blobs' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=360,y=150,width=282,height=314]
+08:20:01.447 window: 'ROI Manager' class=null bounds=java.awt.Rectangle[x=920,y=150,width=205,height=292]
+08:20:01.448 window: 'Results' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=560,width=400,height=250]
+08:20:01.448 window: 'Histogram of synthetic-blobs' class=ij.gui.HistogramWindow bounds=java.awt.Rectangle[x=360,y=520,width=326,height=334]
+08:20:01.449 window: 'Plot of synthetic-blobs' class=ij.gui.PlotWindow bounds=java.awt.Rectangle[x=1150,y=560,width=722,height=493]
+08:20:01.449 window: 'synthetic-blobs-threshold' class=ij.gui.ImageWindow bounds=java.awt.Rectangle[x=640,y=150,width=282,height=314]
+08:20:01.450 window: 'hyperstack-demo' class=ij.gui.StackWindow bounds=java.awt.Rectangle[x=0,y=150,width=346,height=366]
+08:20:01.450 window: 'Log' class=ij.text.TextWindow bounds=java.awt.Rectangle[x=0,y=860,width=400,height=250]
+08:20:01.451 window: 'Channels' class=ij.plugin.frame.Channels bounds=java.awt.Rectangle[x=1180,y=450,width=201,height=192]
+08:20:01.452 window: 'Threshold' class=ij.plugin.frame.ThresholdAdjuster bounds=java.awt.Rectangle[x=1350,y=120,width=294,height=318]
+08:20:01.452 window: 'B&C' class=ij.plugin.frame.ContrastAdjuster bounds=java.awt.Rectangle[x=1180,y=120,width=176,height=344]
+08:20:01.453 window: '*New_' class=org.scijava.ui.swing.script.TextEditor bounds=java.awt.Rectangle[x=560,y=600,width=640,height=420]
+08:20:03.025 inproc snap 'p1-fiji-is-just-imagej' 625x116
+08:20:03.066 inproc snap 'p1-recorder' 596x307
+08:20:03.081 inproc snap 'p1-synthetic-blobs' 282x314
+08:20:03.100 inproc snap 'p1-roi-manager' 205x292
+08:20:03.114 inproc snap 'p1-results' 400x250
+08:20:03.125 inproc snap FAILED 'p1-histogram-of-synthetic-blobs': java.lang.reflect.InvocationTargetException
+08:20:03.140 inproc snap FAILED 'p1-plot-of-synthetic-blobs': java.lang.reflect.InvocationTargetException
+08:20:03.151 inproc snap 'p1-synthetic-blobs-threshold' 282x314
+08:20:03.163 inproc snap FAILED 'p1-hyperstack-demo': java.lang.reflect.InvocationTargetException
+08:20:03.174 inproc snap 'p1-log' 400x250
+08:20:03.185 inproc snap 'p1-channels' 201x192
+08:20:03.209 inproc snap 'p1-threshold' 294x318
+08:20:03.229 inproc snap 'p1-b-c' 176x344
+08:20:03.249 inproc snap 'p1-new' 640x420
+08:20:03.249 phase1-ready
+08:20:03.252 waiting for go-phase2.flag

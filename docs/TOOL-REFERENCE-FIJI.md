@@ -1,6 +1,6 @@
 # MCP tool reference (Fiji)
 
-Generated from `packages/gateway/src/apps/fiji-tools.ts`; this profile is active when `LUMA_APP=fiji`. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](tool-schemas-fiji.json) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions. Other applications: [QuPath](TOOL-REFERENCE.md).
+Generated from `packages/gateway/src/apps/fiji-tools.ts`; this profile is active when `LUMA_APP=fiji`. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](tool-schemas-fiji.json) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions. Other applications: [QuPath](TOOL-REFERENCE.md), [Fidelis](TOOL-REFERENCE-FIDELIS.md).
 
 All inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately. Data and code tools go through the recorded decision path: executed at once under the default `LUMA_APPROVALS=auto` policy, shown as human review cards under `review`. The approval control is absent from the MCP tool list.
 
@@ -888,4 +888,4 @@ Click at exact global screen coordinates (top-left origin, from a frame returned
 | `app` | No | string; max 200 characters | Bundle id to bring forward first: "sc.fiji.fiji" (default), "frontmost" or "none". |
 | `label` | No | string; max 80 characters | Two to six words shown beside Penny’s cursor while it flies to the target. |
 
-See [analysis semantics and verification limits](CAPABILITIES.md), [setup](SETUP.md) and [scientific task guidance](../skills/fiji/SKILL.md).
+See [analysis semantics and verification limits](CAPABILITIES.md), [setup](PENNY-SETUP.md) and [scientific task guidance](../skills/fiji/SKILL.md).

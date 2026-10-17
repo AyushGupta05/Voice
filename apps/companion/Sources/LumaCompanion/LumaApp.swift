@@ -29,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.title = "Penny"
         panel.contentView = NSHostingView(rootView: CompanionSurface(model: model))
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
+        // Penny is light whatever the system appearance; the SwiftUI surface also pins `.colorScheme(.light)`.
+        panel.appearance = PennyPalette.appearance
         panel.level = .floating; panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ResponsesBackend, failureSentence, toolTask, type BackendClient } from './backend.js';
+import { toolUtterance, type ToolUtterance } from './tool-request.js';
 import { failureReason } from './apps/profile.js';
 import type { Runtime } from './runtime.js';
 import type { Context } from './bridge.js';
@@ -26,16 +27,24 @@ export class TextConversation {
   const offset=Date.now()-this.startedAt;this.fragments.push({role,text,startMs:offset,endMs:offset});
   while(this.fragments.length>128||this.fragments.reduce((sum,item)=>sum+item.text.length,0)>24_000){this.fragments.shift();this.truncated=true;}
  }
- async submit(text:unknown,spoken=false){
+ /** A spoken stop word the voice transport consumed as barge-in ("stop", "cancel that"): offered to the profile's instant
+  * routes when it declares `controlRoutes` (Fidelis cancels a waiting plan), never to the model. */
+ async control(text:string){if(this.runtime.profile.controlRoutes)await this.submit(text,true,{instantOnly:true});}
+ async submit(text:unknown,spoken=false,options:{instantOnly?:boolean}={}){
   if(typeof text!=='string'||!text.trim()||text.length>4000)throw new Error('Enter a message of 1–4000 characters.');
   this.active?.controller.abort();
   const active:Active={id:randomUUID(),controller:new AbortController(),answered:false};this.active=active;
   this.append('user',text.trim());this.emit({type:'task_state',state:'working',taskId:active.id});
   try{
    const {profile}=this.runtime;
-   const context=await toolTask.run(active.id,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal)) as Context;
+   // The conversation envelope (task, spoken, these words) for bridges that record it (Fidelis); the backend sets its own.
+   let observed:Context|undefined;
+   const request:ToolUtterance={spoken,utterance:()=>text.trim(),observed:()=>observed};
+   const context=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal))) as Context;
+   observed=context;
    active.controller.signal.throwIfAborted();
-   const image=context.image as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;
+   // QuPath and Fiji report the open image as `image`, Fidelis as `document`.
+   const image=(context.image??context.document) as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;
    const identity=image?['id','path','name','title'].map(key=>[key,image[key as keyof typeof image]] as const).find(([,value])=>typeof value==='string'||typeof value==='number'):undefined;
    const imageKey=identity?`${profile.id}:${identity[0]}:${String(identity[1])}`:undefined;
    if(imageKey!==this.objectImage){this.objectWord='cells';this.objectImage=imageKey;}
@@ -68,7 +77,9 @@ export class TextConversation {
     const acknowledged=(risk==='data'||risk==='code')&&profile.longRunningTools.has(route.tool);
     if(acknowledged)this.emit({type:'text_ack',taskId:active.id,text:route.reply});
     let result:Record<string,unknown>|undefined;
-    try{result=await toolTask.run(active.id,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal)) as Record<string,unknown>|undefined;}
+    // A profile that binds instant routes refuses one whose application state changed since it was chosen.
+    const bound=profile.bindInstantRoutes?(current?:Context)=>{if(current&&current.contextKey!==context.contextKey)throw new Error(`${profile.displayName} changed before that ran; nothing was done. Say it again.`);}:undefined;
+    try{result=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal,bound))) as Record<string,unknown>|undefined;}
     catch(error){
      active.controller.signal.throwIfAborted();
      // The bridge's refusals are short, speakable sentences ("No cell under the pointer; point at it."): say them.
@@ -79,8 +90,11 @@ export class TextConversation {
      return;
     }
     active.controller.signal.throwIfAborted();
+    // A plan that waits for the researcher's confirmation (Fidelis, even a view plan under fidelis.penny.confirm=always)
+    // is a real answer, not a failure: the profile's sentence says so.
+    const waiting=result?profile.pausesRequest?.(route.tool,result)!==undefined:false;
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
-    const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
+    const failed=!waiting&&(!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed'));
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);
@@ -89,6 +103,11 @@ export class TextConversation {
      this.emit({type:'text_result',taskId:active.id,text:failureSentence(reason),outcome:'failed',fastPath:true});
      return;
     }
+    // An instant step can leave work only the model can finish (a command's original Fiji dialog waiting): the request
+    // continues with the backend, which sees what the step returned, instead of finishing as done.
+    if(!failed&&profile.needsModel?.(route.tool,result,context)){
+     this.append('assistant',`(${route.tool} ${JSON.stringify(route.arguments)} returned ${String(JSON.stringify(result)).slice(0,2000)})`);
+    }else{
     // Object terminology belongs to this image and a successful request. Opening another image must also
     // preserve its real name, e.g. "hela cells" must never be spoken as "hela nuclei".
     if(!failed){
@@ -98,7 +117,7 @@ export class TextConversation {
     const echoObjects=!/_(?:open_path|activate_image|context)$/.test(route.tool);
     const echo=(sentence:string)=>echoObjects&&(this.objectWord==='nuclei'||/\bnucle(?:i|us|ar)\b/i.test(text))?sentence.replace(/\b(?:cells|objects)\b/g,'nuclei').replace(/\b(?:cell|object)\b/g,'nucleus'):sentence;
     // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
-    const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
+    const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result,context)??'');
     // Long-running routes already spoke the action start; their final sentence carries only the real result.
     // Instant routes use the measured numeric outcome directly instead of repeating an action-start phrase.
     const detail=/\d/.test(phrased)?phrased:'';
@@ -106,7 +125,10 @@ export class TextConversation {
     active.answered=true;this.append('assistant',`${reply} (${route.tool} ${JSON.stringify(route.arguments)})`);
     this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true,...(failed?{outcome:'failed'}:{})});
     return;
+    }
    }
+   // A control word without an instant route ends here: nothing is sent to the model.
+   if(options.instantOnly)return;
    await this.backend.run({id:active.id,spoken,
     acknowledge:text=>{if(this.active===active&&!active.controller.signal.aborted)this.emit({type:'text_ack',taskId:active.id,text});},offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
     conversation:()=>({fragments:structuredClone(this.fragments),truncated:this.truncated}),

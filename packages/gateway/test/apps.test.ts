@@ -33,8 +33,8 @@ test('LUMA_APP selects the profile, QuPath by default, and refuses unknown appli
   const empty = join(tmpdir(), 'luma-no-app-file');
   assert.equal(selectApp(undefined, undefined), 'qupath', 'without LUMA_ROOT no state file is consulted');
   assert.equal(selectApp(undefined, empty), 'qupath'); assert.equal(selectApp('', empty), 'qupath'); assert.equal(selectApp('fiji', empty), 'fiji'); assert.equal(selectApp('qupath', empty), 'qupath');
-  assert.throws(() => selectApp('imagej', empty), /LUMA_APP must be one of "qupath", "fiji"/);
-  assert.deepEqual(appIds, ['qupath', 'fiji']);
+  assert.throws(() => selectApp('imagej', empty), /LUMA_APP must be one of "qupath", "fiji", "fidelis"/);
+  assert.deepEqual(appIds, ['qupath', 'fiji', 'fidelis']);
   // This test process runs without LUMA_APP, so every QuPath-facing export is unchanged.
   assert.equal(activeProfile(), qupath); assert.equal(tools, qupathTools); assert.equal(instructions, qupath.instructions);
   assert.equal(profileForTool('fiji_measure'), fiji); assert.equal(profileForTool('qupath_focus'), qupath); assert.equal(profileForTool('desktop_act'), undefined);

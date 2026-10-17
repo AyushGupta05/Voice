@@ -6,7 +6,7 @@ A researcher keeps using QuPath exactly as before. They talk to Penny the way th
 
 ## Preparation
 
-1. Follow [SETUP.md](SETUP.md); launch the development QuPath and Penny (`./script/run-qupath.sh`, `./script/build_and_run.sh --verify`).
+1. Follow [PENNY-SETUP.md](PENNY-SETUP.md); launch the development QuPath and Penny (`./script/run-qupath.sh`, `./script/build_and_run.sh --verify`).
 2. Enable voice once: `npm run enable:speech -- --authorized-aws-speech` (read-only AWS checks), then restart Penny. `/health` reports `voice.enabled: true`.
 3. Ask Penny to open the public OS-2 slide ("Open the OS-2 slide") and choose **Brightfield H-DAB** in QuPath's native image-type dialog. Penny points at the Apply button.
 4. Click the mic in Penny's top bar. The bar says "Voice on"; Penny's cursor rides beside your pointer while it listens.

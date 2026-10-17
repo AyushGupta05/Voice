@@ -1,0 +1,40 @@
+mode	id	operation	status	detail	rc	elapsed_s
+nobatch	01	Invert	pass	cks 48764102->325206100	0	4.7
+nobatch	02	Gaussian Blur...	pass	cks 48764102->69768574	TIMEOUT	120.2
+nobatch	03	Subtract Background...	pass	mean 53.3008->33.138	0	4.5
+nobatch	04	Median...	pass	cks 48776020->48764102	TIMEOUT	120.2
+nobatch	05	Convert to Mask	pass	bins=2 inverting=0	0	4.4
+nobatch	06	Auto Threshold	pass	bins=2	0	4.4
+nobatch	07	setAutoThreshold (macro fn)	pass	220-255	0	4.4
+nobatch	08	Set Measurements...	pass	 	Area	Mean	Min	Max	X	Y	0	4.4
+nobatch	09	Measure	pass	rows=1 mean=33.3008	0	4.4
+nobatch	10	Analyze Particles... (display)	pass	rows=4	0	4.5
+nobatch	11	Analyze Particles... (add)	aborted	no result file (macro aborted at or after the operation)	0	6.6
+nobatch	12	Histogram	fail	current=blobs	0	4.6
+nobatch	13	Duplicate...	pass	current=dup	0	4.3
+nobatch	14	Crop	pass	100x80	0	4.4
+nobatch	15	Scale...	pass	scaled w=128	0	4.5
+nobatch	16	Rotate... (Image>Transform, trailing space)	pass	cks 48764102->49466578	0	4.4
+nobatch	16b	Rotate... (Edit>Selection, no ROI)	aborted	no result file (macro aborted at or after the operation)	0	4.6
+nobatch	17	Z Project...	pass	MAX_stack	0	4.3
+nobatch	18	Make Substack...	pass	Substack (1-2) n=2	0	4.4
+nobatch	19	Split Channels	pass	current=rgb (blue) nImages=3	0	4.3
+nobatch	20	Merge Channels...	pass	Composite n=2	0	4.3
+nobatch	21	Enhance Contrast...	pass	cks 48885712->49281176	0	4.5
+nobatch	22	Apply LUT	pass	cks 48764102->49281176	0	4.5
+nobatch	23	Fill (ROI)	fail	pixel=220	0	4.5
+nobatch	23b	Fill (ROI, no prior setColor)	pass	pixel=255	0	4.4
+nobatch	24	Clear (ROI)	pass	pixel=0	0	4.4
+nobatch	25	ROI Manager add/measure	aborted	no result file (macro aborted at or after the operation)	0	6.3
+nobatch	26	Brightness/Contrast...	fail	returned; no effect measurable; range 0-255	0	4.4
+nobatch	27	Threshold...	fail	returned; threshold -1--1	0	4.5
+nobatch	28	Undo	pass	orig=48764102 inv=325206100 undo=48764102	0	4.6
+nobatch	29	8-bit	pass	bitDepth=8	0	4.4
+nobatch	30a	Save As>Tiff...	pass	exists=1	0	4.6
+nobatch	30b	File>Open... (run)	fail	nImages=0 title=-	0	4.5
+nobatch	30c	open(path) macro fn	pass	nImages=1 title=p14c.tif	0	4.7
+nobatch	31	Find Maxima...	fail	nResults=0 Count=-1	0	4.5
+nobatch	32	Image Calculator...	pass	Result of a	0	4.4
+nobatch	33	Set Scale...	pass	pw=0.1 unit=µm	0	4.5
+nobatch	34	Add Slice	pass	n=4	0	4.4
+nobatch	35	Histogram (stack)	fail	current=stack	0	4.4

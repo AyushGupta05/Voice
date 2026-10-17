@@ -35,7 +35,7 @@ npm run doctor
 npm run smoke
 ```
 
-The diagnostic/smoke commands are read-only and make no model call. Check the actual loaded adapter identity, schema agreement and desired open image before requesting an operation. New Java classes are loaded at QuPath startup; replacing a JAR on disk does not update a running application. Current launcher settings use QuPath's supported separate preference node; earlier running instances did not establish that isolation. See [preservation details](ARCHITECTURE.md#preserving-qupath).
+The diagnostic/smoke commands are read-only and make no model call. Check the actual loaded adapter identity, schema agreement and desired open image before requesting an operation. New Java classes are loaded at QuPath startup; replacing a JAR on disk does not update a running application. Current launcher settings use QuPath's supported separate preference node; earlier running instances did not establish that isolation. See [preservation details](PENNY-ARCHITECTURE.md#preserving-qupath).
 
 The compact bar and native text submission have now been inspected in the foreground. The human approved the real public-slide opening proposal; actual OS-2 dimensions/name are present and the native image-type prompt is waiting. Dispatch remains queued while that modal is open, so full completion is not yet claimed. Measurement plots/navigation need their own checks. The separately authorized synthetic import test passed at 07:34 BST in its own disposable QuPathGUI instance with two fixture-only decisions; it restored the empty baseline and stopped safely. Ordinary production approvals are unchanged. See [foreground demo](LIVE-DEMO.md), [import test boundaries](SYNTHETIC-IMPORT-TEST.md) and [task coverage](SOFTWARE-COVERAGE.md).
 

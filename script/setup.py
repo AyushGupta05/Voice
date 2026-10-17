@@ -47,7 +47,7 @@ def clone(repository, directory, revision):
 
 def main():
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
-        raise RuntimeError('This bootstrap currently targets Apple Silicon macOS. See docs/SETUP.md for portability notes.')
+        raise RuntimeError('This bootstrap currently targets Apple Silicon macOS. See docs/PENNY-SETUP.md for portability notes.')
     for command in ['node', 'npm', 'git', 'swift', 'pkgutil', 'codesign']:
         if not shutil.which(command):
             raise RuntimeError('Missing prerequisite: ' + command)

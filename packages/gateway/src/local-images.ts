@@ -74,9 +74,17 @@ async function directImageCount(directory: string) {
   try { return (await readdir(directory, { withFileTypes: true })).filter(entry => entry.isFile() && !entry.name.startsWith('.') && IMAGE_EXTENSIONS.has(extension(entry.name)) && extension(entry.name) !== '.qpproj').length; }
   catch { return 0; }
 }
-/** Where a researcher's slides usually are: the project's data folder first, then common user folders, two levels deep. */
+/** The checkout a git worktree under `<checkout>/.local/worktrees/<name>` belongs to (its data folder is shared the way
+ * Fidelis's tooling shares its Fiji), else undefined. */
+export function enclosingCheckout(root: string): string | undefined {
+  const match = /^(.*?)[\/\\]\.local[\/\\]worktrees[\/\\][^\/\\]+[\/\\]?$/.exec(root);
+  return match?.[1] || undefined;
+}
+/** Where a researcher's slides usually are: the project's data folder first (a worktree's own, then its enclosing
+ * checkout's), then common user folders, two levels deep. */
 export function searchRoots(root: string, home = homedir()) {
-  return [join(root, '.local', 'data'), join(root, '.local', 'downloads'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
+  const projects = [root, ...(enclosingCheckout(root) ? [enclosingCheckout(root)!] : [])];
+  return [...projects.flatMap(project => [join(project, '.local', 'data'), join(project, '.local', 'downloads')]), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
 }
 export async function findLocalImages(root: string, query = '', limit = 20, roots = searchRoots(root), useSpotlight = true): Promise<{ matches: LocalImage[]; searched: string[]; truncated: boolean }> {
   const pool = Math.max(limit, 500);

@@ -4,7 +4,7 @@ Penny drives the real Fiji (ImageJ2 2.18.0 / ImageJ 1.54p) the way it drives QuP
 
 ## Preparation
 
-1. Install and build as in [SETUP.md](SETUP.md); Fiji is pinned by `script/setup-fiji.py`. Fetch the demo data once:
+1. Install and build as in [PENNY-SETUP.md](PENNY-SETUP.md); Fiji is pinned by `script/setup-fiji.py`. Fetch the demo data once:
 
    ```bash
    python3 -I script/setup-fiji-samples.py

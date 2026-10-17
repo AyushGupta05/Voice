@@ -1,6 +1,6 @@
 # Contributing
 
-Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md) and [setup](SETUP.md). The aim is to make existing scientific software easier to operate while keeping its real data, algorithms and interface.
+Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md) and [setup](PENNY-SETUP.md). The aim is to make existing scientific software easier to operate while keeping its real data, algorithms and interface.
 
 ## Add a structured QuPath tool
 
