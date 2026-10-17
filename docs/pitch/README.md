@@ -1,14 +1,14 @@
 # Pitch material
 
-[Luma-Pitch-v6.pptx](Luma-Pitch-v6.pptx) is the current seven-slide editable deck. It keeps the actual QuPath images and now shows 32 MCP tools and pinned API lookup, while stating that real AWS-credit OpenAI text works and live voice remains funding-blocked. [Version 3](Luma-Pitch-v3.pptx) and [version 4](Luma-Pitch-v4.pptx) are retained as earlier snapshots.
+[Luma-Pitch-v7.pptx](Luma-Pitch-v7.pptx) is the current seven-slide editable deck. It keeps the actual QuPath images and now presents the actual OpenAI scientific workflow, its 899/49 results and the 21.5-second controlled run with simulated test approvals. It explains that the original application stays intact and that live voice remains funding-blocked. [Version 3](Luma-Pitch-v3.pptx), [version 4](Luma-Pitch-v4.pptx) and [version 6](Luma-Pitch-v6.pptx) remain as earlier snapshots.
 
 The measured analysis fixture is recorded in [integration-evidence.json](integration-evidence.json). Its counts describe a chosen detection and threshold on a public sample, not validated biological ground truth. The separate [direct text model](text-model-evidence.json) and [authenticated companion-route](companion-text-evidence.json) records distinguish actual inference from protocol mocks and native foreground inspection.
 
-Later source milestones retain their own evidence: [original-app preservation](qupath-preservation-evidence.json) and [the same-request text follow-up](companion-text-fresh-context-evidence.json). The latter took two model requests / 4665 ms in one run; it is not a voice latency benchmark. Deck v6's dated presenter notes describe its earlier milestone; current funding totals and remaining work are in [FUNDING.md](../FUNDING.md) and the [build journal](../BUILD-JOURNAL.md).
+Later source milestones retain their own evidence: [original-app preservation](qupath-preservation-evidence.json), [loaded-extension readiness](bridge-readiness-evidence.json) and [the same-request text follow-up](companion-text-fresh-context-evidence.json). The latter took two model requests / 4665 ms in one run; it is not a voice latency benchmark. Current funding totals and remaining work are in [FUNDING.md](../FUNDING.md) and the [build journal](../BUILD-JOURNAL.md).
 
 The later [actual scientific-agent run](analysis-model-evidence.json) completed the fixed 899-cell analysis/classification/comparison/restoration sequence. Its [test guide](../SCIENTIFIC-AGENT-TEST.md) explains the narrow preauthorized simulated approvals and preserves the initial safely stopped attempt. It does not establish live voice or unrestricted autonomous science.
 
-All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v6`.
+All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v7`.
 
 To rebuild in an environment with that bundled runtime, obtain Node, node_modules and Python paths from `load_workspace_dependencies`, then supply them along with the installed presentation skill directory:
 
