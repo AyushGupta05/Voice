@@ -201,10 +201,10 @@ final class ScreenshotJ12 {
         int histBefore = w.engine().history().size();
         if (out != null) shoot(w, out);
         if (!opts.confirm()) return;
-        if (!sheet[0].confirmEnabled()) throw new IllegalStateException("proposal cannot be confirmed");
         var dec = sheet[0].decision();
         System.out.println("[fidelis] confirmation policy: required=" + dec.required() + " explicit=" + dec.explicit() + " reasons=" + dec.reasons());
         if (dec.explicit()) SwingUtilities.invokeAndWait(sheet[0]::acknowledgeNow);
+        if (!sheet[0].confirmEnabled()) throw new IllegalStateException("proposal cannot be confirmed");
         SwingUtilities.invokeAndWait(sheet[0]::confirmNow);
         waitUntil(() -> sheet[0].outcome != null, 10);
         Boolean ok = sheet[0].outcome.get(180, java.util.concurrent.TimeUnit.SECONDS);
