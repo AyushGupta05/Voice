@@ -1,0 +1,38 @@
+# Contributing
+
+Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md) and [setup](SETUP.md). The aim is to make existing scientific software easier to operate while keeping its real data, algorithms and interface.
+
+## Add a structured QuPath tool
+
+1. Define a narrow operation and JSON schema in `packages/gateway/src/tools.ts`. Decide whether it reads state, changes display, changes scientific data or runs code.
+2. Implement the QuPath operation in `LumaExtension.java`. Use actual image/object APIs and JavaFX ownership. Validate prerequisites and return verifiable results with units.
+3. For data changes, preserve recoverable hierarchy state and require explicit approval. State what cannot be recovered.
+4. Add a meaningful gateway or adapter test for the failure that matters: stale selection, invalid parameter, cancelled analysis, missing measurement, duplicate approval, unavailable plugin or changed dialog.
+5. Update task guidance, capability status and any protocol/setup changes.
+6. Run focused checks and autoreview. Verify the visible application when UI or scientific outcomes change.
+
+The same tool list feeds MCP and the realtime transport. Do not duplicate provider-specific scientific tool implementations.
+
+## Validation layers
+
+- `npm run check`: TypeScript compilation and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
+- `./script/build-bridge.sh`: compile against the pinned real QuPath API.
+- `./script/build_and_run.sh --verify`: build/sign/launch the native companion and confirm its process.
+- `npm run smoke`: actual MCP SDK client through the running gateway to QuPath. Read-only.
+- `node --import tsx script/integration.ts --public-fixture`: specifically authorized destructive test on a clean, disposable OS-2 sample session. It checks exact metadata and an empty hierarchy, simulates companion approvals only for a fixed test sequence, and restores the empty baseline. Never use it on research data or generalize it into an agent auto-approval feature.
+
+The current real fixture checks image-type dialog control, annotation creation, exact focus coordinates, actual detection, measured values, threshold classification, comparison, a viewer screenshot and hierarchy recovery. A passing fixture verifies software behavior, not scientific validity.
+
+## Documentation expectations
+
+A new contributor should be able to answer what an operation does, why its parameters matter, what it reads/writes, how it fails, what needs approval, what can be undone, and how it was tested. Keep those answers next to the implementation or in the appropriate linked guide.
+
+Record evidence separately from claims. Mark a feature implemented, locally protocol-tested, real-app-tested or blocked. A successful build cannot substitute for a rendered or end-to-end check.
+
+## Publication
+
+Use ordinary incremental commits. Do not commit `.local`, tokens, caches, source datasets or raw logs. Public documentation may include screenshots of freely distributable sample data with provenance. The approved progress destination is the personal fork at https://github.com/AyushGupta05/Voice . Keep the original remote intact and do not force-push.
+
+Run `./script/test-bridge.sh` after Java adapter changes. It tests parameter rejection and workflow replay against the installed QuPath jars using a synthetic in-memory image. The public slide integration fixture requires the explicit disposable-fixture authorization described in the demo documentation.
+
+`./script/test-bridge-ui.sh` additionally checks isolated JavaFX list/table selection fingerprints and selectable menu actions. It needs a desktop JavaFX runtime, opens no windows and touches no scientific session. The headless bridge checks now also cover exact hierarchy recovery and scientific-notation parsing.

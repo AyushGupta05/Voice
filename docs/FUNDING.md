@@ -1,0 +1,32 @@
+# Credit-only funding decision
+
+The user permits **$1,000 maximum in AWS credits total**, with **$200 maximum before waking**, and authorizes **no cash billing**.
+
+## Verified on 17 October 2026
+
+The signed-in AWS Billing Credits UI showed an active hackathon promotional credit expiring 31 October 2026. Its applicable-products list includes Amazon Bedrock, AmazonBedrockFoundationModels and EC2. This establishes credit eligibility for those listed services, not for every vendor endpoint reachable from an EC2 instance.
+
+Official documentation lists supported OpenAI models on Bedrock and Responses/Chat Completions endpoints. It did not establish a Bedrock endpoint for OpenAI Realtime or GPT-Live. OpenAI's direct realtime service uses its own API authentication and billing.
+
+Therefore this build has made **zero project inference calls**, created **no project cloud resources**, and incurred **$0 of project API/cloud spend**. These statements do not describe unrelated existing AWS usage.
+
+## Enforced behavior
+
+`packages/gateway/src/funding.ts` fails closed. The server's voice-start handler reports the blocker and never opens an upstream model connection. There is no fallback to a personal OpenAI API key, no environment switch that silently authorizes cash billing, and no pretend live voice result.
+
+The standalone Realtime transport has a local WebSocket protocol test. It is not activated in the production server. GPT-Live is a distinct protocol and would require a separate implementation and verification.
+
+## What would unblock live voice
+
+Either establish an officially supported AWS-credit-covered OpenAI voice endpoint for this account and implement its authentication/protocol, or obtain a new explicit funding decision from the user for a different credit/prepaid arrangement. Hosting a proxy on AWS, using an OpenAI-shaped SDK, or finding an AWS Marketplace listing does not prove that inference is covered by the user's credits.
+
+Before any paid test, document the exact service/SKU, credit eligibility, region, model, authentication, conservative spend guard, duration cap and shutdown behavior. AWS credit balances and billing estimates update with delay and are not instantaneous hard spending limits.
+
+Sources:
+- [OpenAI on Amazon Bedrock](https://developers.openai.com/api/docs/guides/amazon-bedrock)
+- [AWS endpoint/model availability](https://docs.aws.amazon.com/bedrock/latest/userguide/models-endpoint-availability.html)
+- [OpenAI Realtime WebSockets](https://developers.openai.com/api/docs/guides/voice-websockets?voice-api=realtime)
+- [GPT-Live and backend delegation](https://developers.openai.com/api/docs/guides/live)
+- [AWS promotional credit terms](https://aws.amazon.com/awscredits/)
+
+Account balances, account IDs and credit IDs remain in the private console/local evidence rather than public documentation.

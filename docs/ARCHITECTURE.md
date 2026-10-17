@@ -4,7 +4,7 @@
 flowchart LR
     Researcher[Researcher: voice / text / mouse] --> Companion[Native macOS companion]
     Companion <--> Gateway[Loopback gateway]
-    Gateway <--> Voice[OpenAI Realtime: funding gated]
+    Gateway -. planned .-> Voice[GPT-Live: funding blocked]
     Gateway <--> MCP[MCP stdio clients]
     Gateway --> Approval[Human approval + bound action]
     Approval --> Bridge[Authenticated QuPath extension]
@@ -23,8 +23,10 @@ Only loopback interfaces are used. Per-install random tokens protect the bridge 
 
 ## Provider and budget policy
 
-Realtime uses OpenAI's documented protocol. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
+The standalone Realtime transport is locally protocol-tested. The requested GPT-Live integration is a separate remaining implementation; see GPT-LIVE-PLAN.md. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
 
 ## Extensibility
 
 Application adapters implement capability discovery, context observation and tool execution. QuPath-specific APIs remain in the adapter. Knowledge is Markdown with source references and version notes. Add a narrow structured operation before resorting to general scripting.
+
+The native companion supervises a project-local Node child when no authenticated gateway is available. It reuses external development gateways and terminates only a child it owns. The launcher records the resolved Node executable in the local app bundle. No login item or system service is installed. Quitting the companion does not roll back or cancel QuPath work already underway.

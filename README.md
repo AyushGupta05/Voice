@@ -1,20 +1,65 @@
-# Luma — make scientific software conversational
+# Luma
 
-A voice-native scientific companion inspired by [Clicky](https://github.com/farzaa/clicky), built for **QuPath** at Reinvent the Wheel: Tools for Science (17–18 October 2026).
+**Make scientific software conversational.**
 
-Speak while working in the real application. Luma reads the current image and selection, uses structured tools to act, and shows what it is doing. The researcher can interrupt, inspect parameters, approve risky operations, and recover earlier results.
+Luma is a native companion for QuPath, inspired by [Clicky](https://github.com/farzaa/clicky). It bridges a researcher's intent and the application's actual state through a reusable agent interface. The researcher keeps using the original scientific software.
 
-## Build in progress
+Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16–18 October 2026.
 
-See [the build journal](docs/BUILD-JOURNAL.md), [product brief](docs/PRODUCT.md), and [architecture](docs/ARCHITECTURE.md). Status and limitations are recorded explicitly; configured support is not evidence of a live funded voice session.
+![Actual QuPath viewer with threshold-positive cells on the public OS-2 sample](docs/images/ki67-positive-view.png)
 
-## Repository layout
+## Current prototype
 
-- `apps/companion/` — native macOS floating companion and pointer overlay.
-- `packages/gateway/` — local agent runtime, OpenAI realtime relay, approvals, audit history and MCP server.
-- `adapters/qupath/` — QuPath extension exposing authenticated local operations.
-- `skills/qupath/` — task guidance and application knowledge for agents.
-- `script/` — reproducible setup, build and verification entrypoints.
-- `docs/` — architecture, contributor guidance, demo, pitch and verification evidence.
+- A floating macOS companion follows the active image and selected objects, highlights work and shows action history.
+- **23 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
+- Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
+- Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
+- A real public-slide fixture detected **899 cells**, classified **49** above a chosen DAB measurement threshold, compared results and restored the empty object hierarchy.
 
-Existing Apache-2.0 license applies to original project code. Upstream QuPath is GPLv3 and remains separately licensed; no QuPath source is relicensed by this repository.
+Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
+
+**Live voice is blocked by funding.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The realtime transport has local protocol tests, but production voice is deliberately disabled. No paid project API calls or cloud resources have been used. [Funding decision](docs/FUNDING.md)
+
+## Start locally
+
+Apple Silicon macOS, Xcode command-line tools, Node.js 22+, Git and Python 3.9+ are required.
+
+```sh
+python3 script/setup.py
+./script/run-qupath.sh
+./script/build_and_run.sh --verify
+```
+
+The bootstrap verifies pinned official downloads and keeps the JDK, QuPath, upstream source and documentation in `.local`. It installs nothing globally. The local QuPath launcher needs the full JDK because its stock runtime omits the extension's HTTP module.
+
+Open an image in QuPath and select an object or region. Use Luma's quick actions, or connect an MCP client using the [setup guide](docs/SETUP.md). Risky actions appear in the companion for review.
+
+## Understand and extend it
+
+| Start here | Purpose |
+|---|---|
+| [Product brief](docs/PRODUCT.md) | Problem, accepted direction and scope |
+| [Setup](docs/SETUP.md) | Install, launch, MCP configuration and troubleshooting |
+| [Capability matrix](docs/CAPABILITIES.md) | Implemented, verified and blocked behavior |
+| [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
+| [GPT-Live integration](docs/GPT-LIVE-PLAN.md) | Remaining protocol and activation work |
+| [Protocol](docs/PROTOCOL.md) | Requests, tool execution and approval semantics |
+| [Contributor guide](docs/CONTRIBUTING.md) | Add adapters/tools and verify changes |
+| [QuPath agent skill](skills/qupath/SKILL.md) | Scientific operating guidance and task references |
+| [Demo guide](docs/DEMO.md) | Run the demonstration honestly |
+| [Editable pitch deck](docs/pitch/README.md) | Seven slides with actual application evidence |
+| [Review and verification](docs/REVIEW.md) | Commands, accepted fixes and proof boundaries |
+| [Build journal](docs/BUILD-JOURNAL.md) | Decisions, evidence and outstanding work |
+
+## Repository map
+
+- `apps/companion/`: SwiftUI/AppKit floating interface, pointer and audio components.
+- `packages/gateway/`: TypeScript tool validation, MCP, approvals, local events and knowledge.
+- `adapters/qupath/`: Java 25 extension using the actual QuPath APIs.
+- `skills/qupath/`: source-backed application guidance.
+- `script/`: reproducible setup, build, launch, smoke and guarded fixture checks.
+- `docs/`: architecture, evidence, contributor and pitch material.
+
+`npm run check` runs focused tests and type checking. `npm run smoke` exercises a real MCP client through the running gateway and QuPath without changing data. See the contributor guide before running real mutation fixtures.
+
+Original project code retains the existing Apache-2.0 license. QuPath and the JDK retain their upstream licenses. This repository does not relicense upstream QuPath source. Public sample imagery has separate provenance in the dataset guide.

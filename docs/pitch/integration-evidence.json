@@ -1,0 +1,132 @@
+{
+  "startedAt": "2026-10-17T01:02:49.046Z",
+  "image": {
+    "name": "OS-2.ndpi",
+    "zSlices": 1,
+    "channels": [
+      "Red",
+      "Green",
+      "Blue"
+    ],
+    "timepoints": 1,
+    "pixelSizeMicrons": 0.22709982175592125,
+    "width": 126976,
+    "height": 73728,
+    "type": "UNSET"
+  },
+  "focus": {
+    "requested": [
+      51100,
+      27100
+    ],
+    "actual": [
+      51100,
+      27100
+    ],
+    "pointer": {
+      "screenX": 957.5,
+      "screenY": 474.49999999999994,
+      "coordinateSystem": "javafx-screen-top-left"
+    }
+  },
+  "detection": {
+    "counts": {
+      "annotations": 1,
+      "cells": 899
+    },
+    "measurementNames": [
+      "Nucleus: Area",
+      "Nucleus: Perimeter",
+      "Nucleus: Circularity",
+      "Nucleus: Max caliper",
+      "Nucleus: Min caliper",
+      "Nucleus: Eccentricity",
+      "Nucleus: Hematoxylin OD mean",
+      "Nucleus: Hematoxylin OD sum",
+      "Nucleus: Hematoxylin OD std dev",
+      "Nucleus: Hematoxylin OD max",
+      "Nucleus: Hematoxylin OD min",
+      "Nucleus: Hematoxylin OD range",
+      "Nucleus: DAB OD mean",
+      "Nucleus: DAB OD sum",
+      "Nucleus: DAB OD std dev",
+      "Nucleus: DAB OD max",
+      "Nucleus: DAB OD min",
+      "Nucleus: DAB OD range",
+      "Cell: Area",
+      "Cell: Perimeter",
+      "Cell: Circularity",
+      "Cell: Max caliper",
+      "Cell: Min caliper",
+      "Cell: Eccentricity",
+      "Cell: Hematoxylin OD mean",
+      "Cell: Hematoxylin OD std dev",
+      "Cell: Hematoxylin OD max",
+      "Cell: Hematoxylin OD min",
+      "Cell: DAB OD mean",
+      "Cell: DAB OD std dev",
+      "Cell: DAB OD max",
+      "Cell: DAB OD min",
+      "Cytoplasm: Hematoxylin OD mean",
+      "Cytoplasm: Hematoxylin OD std dev",
+      "Cytoplasm: Hematoxylin OD max",
+      "Cytoplasm: Hematoxylin OD min",
+      "Cytoplasm: DAB OD mean",
+      "Cytoplasm: DAB OD std dev",
+      "Cytoplasm: DAB OD max",
+      "Cytoplasm: DAB OD min",
+      "Nucleus/Cell area ratio"
+    ]
+  },
+  "selectionPreview": {
+    "fullCount": 899,
+    "previewCount": 100,
+    "truncated": true,
+    "contextKeyLength": 64
+  },
+  "classification": {
+    "result": {
+      "result": {
+        "positive": 49,
+        "threshold": 0.2,
+        "measurement": "Nucleus: DAB OD mean",
+        "negative": 850
+      },
+      "contextKey": "e7b9a76faee9fde568ebe461663e53ac2940a9746a7a4961fa038b9548bd35ea",
+      "checkpoint": {
+        "scope": "object hierarchy only; not files, scripts or image settings",
+        "id": "75fc9544-32a5-41c1-9c2a-38f89a4546ef",
+        "label": "Before classify",
+        "counts": {
+          "annotations": 1,
+          "cells": 899
+        }
+      }
+    },
+    "counts": {
+      "annotations": 1,
+      "cells": 899,
+      "class:Negative": 850,
+      "class:Positive": 49
+    }
+  },
+  "comparison": {
+    "delta": {
+      "annotations": 1,
+      "cells": 899,
+      "class:Negative": 850,
+      "class:Positive": 49
+    },
+    "baseline": {},
+    "current": {
+      "annotations": 1,
+      "cells": 899,
+      "class:Negative": 850,
+      "class:Positive": 49
+    }
+  },
+  "restoredSelection": [],
+  "restoredCounts": {},
+  "completedAt": "2026-10-17T01:02:50.805Z",
+  "status": "passed"
+}

@@ -1,0 +1,55 @@
+# Capability matrix
+
+There are 23 MCP tools. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
+
+| Surface | Behavior | Approval | Evidence / limit |
+|---|---|---|---|
+| Active image, metadata, calibration, selection and ROI | Real application API | No | Read from running public slides through actual MCP |
+| Objects and measurements | Scoped listing and measured values | No | Actual measurements read from the 899-cell public-slide fixture; truncation explicit |
+| Focus and pointer | Center image/ROI, zoom, return real screen target | No | Corrected mouse-anchored zoom behavior; actual center verified at (51100, 27100) |
+| Overlays | Detections, annotations, fills, opacity and exact class filter | No | Display-only; does not change counts |
+| Annotation creation | Rectangle/ellipse on active z/t plane | Yes | Tested on disposable H&E slide through native approval |
+| Cell detection | QuPath watershed plugin, explicit calibrated/pixel parameters | Yes | Real OS-2 fixture detected 899 cells with explicit Hematoxylin OD parameters |
+| Threshold classification | Existing measurement >= threshold | Yes | Real fixture yielded 49 Positive / 850 Negative at nuclear DAB OD mean >= 0.2; not a diagnosis |
+| Hierarchy checkpoints, comparison and restore | Bounded in-memory hierarchy snapshots | Restore: yes | Real fixture compared counts and restored the empty baseline; max 6, 200k objects/64 MiB each |
+| Image type | Explicit QuPath interpretation | Yes | Native approval tested; not restored by hierarchy checkpoints |
+| Deletion | Selected objects only, retain children | Yes | Checkpoint before mutation; selection cleared; TMA cores refused in favor of grid-aware commands |
+| Menu catalog | Live exact paths and enabled state | No | Real measurement commands discovered through MCP |
+| Menu invocation | Dispatch exact discovered command | Yes | May open modal dialog; dispatched is not completed |
+| JavaFX UI | Observe visible windows, controls, labels and options | No | Real image-type dialog inspected; OS-owned dialogs excluded |
+| JavaFX control action | Fire, edit text, select exact combo option | Yes | Image-type dialog toggle and Apply verified; bound to reviewed dialog fingerprint and revalidated at dispatch; password fields excluded |
+| Groovy execution | Full QuPath scripting context | Yes | Requires open project + image; full local privileges; exact-source review; external effects not recoverable |
+| Knowledge | Authored guides + pinned official documentation | No | 66 documents indexed in the current local checkout |
+| Native companion | Floating panel, action history, approvals, knowledge search | N/A | Builds, launches and visually inspected on this Mac |
+| Realtime voice transport | Continuous PCM protocol, VAD, function calls, interruption events | Funding gate | Local protocol fixture passes; no live provider session; production activation intentionally absent |
+| GPT-Live | Different delegation protocol | Not implemented | Do not label the Realtime transport GPT-Live compatible |
+
+## Analysis semantics
+
+`scope=region` means object centroids inside the selected ROI on the same image plane. `scope=selection` means selected objects themselves. A first page of objects or measurements is not the entire population; use total, offset and truncation.
+
+“Positive” in the structured classifier is a threshold class replacing existing classes. Its denominator, threshold, measurement and segmentation quality must be stated. It is not automatically a tumor-cell Ki67 score.
+
+## Recovery boundary
+
+Hierarchy checkpoints preserve objects, measurements and classes. They do not restore files, image type, stains, viewport, trained models, arbitrary plugin effects or external script effects. They are volatile and disappear when QuPath closes. “Undo anything” would be an inaccurate claim.
+
+## Detection completion and responsiveness
+
+Detection orchestration runs outside the JavaFX thread so QuPath can show its native progress/cancellation UI. The operation captures the approved annotation set before work begins. QuPath can log and swallow individual tile failures, so a returned plugin boolean is not a proof of complete segmentation. The adapter returns `executionFinished: true` with `completionVerified: false` and asks the researcher to inspect contours and logs. The fixed public fixture separately verifies actual counts and measured values.
+
+Primary selection is part of approval binding, not merely the unordered set of selected objects. Restore clears detached selections. Object focus navigates to the ROI's image plane; multi-plane datasets still need a dedicated real-stack validation beyond the current single-plane fixture.
+
+Detection parameters are checked against the active plugin parameter list before execution. Unsupported choices and hidden/unavailable settings are rejected rather than silently using defaults. Workflow history records the upstream plugin class and executed parameters for replay. Deferred UI/menu failures are available in `context.lastDispatch` and shown in the companion.
+
+## Broader recovery and UI contracts
+
+Checkpoints use QuPath's native binary hierarchy serialization in private memory, not precision-limited JSON. The synthetic contract test preserves ROI coordinates, class probability, image/root measurements and metadata, UUIDs and TMA-grid relationships. Serialized client/file uploads are never accepted. The 64 MiB capture limit is enforced while writing.
+
+Approval keys include the active project even when no image is open, and hash selection identity into a bounded key. The approval panel shows the project. Dialog fingerprints include list/table/tree selections and common scalar controls, with bounded selection previews. Check/radio menu commands apply native selection semantics before firing their event. Numeric detection parameters are normalized before QuPath parsing and checked afterward against approved values, including scientific notation.
+
+Approved scripts now execute on a worker using QuPath script parameters captured from the reviewed project and image. Scripts that directly manipulate JavaFX controls must marshal those fragments to JavaFX, as in QuPath’s script editor. Arbitrary scripts can still query changing UI state explicitly; prefer exact object IDs for scientific targets. Main-window commands are refused while a modal dialog is active, including a second check immediately before deferred dispatch.
+
+Context includes `selectionCount` and `selectionTruncated`; the array is a preview of at most 100 objects. Query paginated objects for full IDs. Unnamed image servers use QuPath's display-name fallback. RichTextFX source editors include a complete source digest and selected range/caret in UI fingerprints. Explicit script execution requires both an open project and an image: absent QuPath thread bindings would otherwise fall back to later GUI defaults. This is an explicit prototype restriction; structured tools still work on standalone images.
+
+Native editable source-window actions are refused. QuPath’s Run button captures context later in its own worker, which cannot be safely bound by a pre-fire fingerprint. Use `qupath_run_script`, which captures the reviewed project/image before background execution. Source-editor text remains fingerprinted for observation; this does not imply its Run action is exposed.
