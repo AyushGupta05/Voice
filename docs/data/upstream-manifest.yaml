@@ -189,6 +189,15 @@ components:
     revision: {note: not cloned; studied via documentation in A06}
     licence_declared: BSD-3-Clause (per project docs; see A06/A24)
     usage: [reference]
+  - id: UP-23
+    name: fiji-llm
+    repo: https://github.com/fiji/fiji-llm
+    revision: {branch: main, sha: 3e564f2b0de1afd84e2222b7c58bd2c82df7637c, date: 2026-10-12, latest_release_tag: fiji-llm-0.1.0 (8ff214bd)}
+    installed: not installed (distributed via the unlisted "Fiji-chat" update site, https://sites.imagej.net/Fiji-chat/)
+    licence_declared: BSD-2-Clause (GitHub API; LICENSE.txt)
+    role: Official Fiji LLM integration — in-JVM chat UI, embedded Jetty MCP server (127.0.0.1:9090), SciJava AiToolPlugin tool registry (command search/run, macro/script run, Results/ROI read, UI/dialog inspection, environment snapshots)
+    usage: [reference, candidate]
+    note: discovered by G6 (A06); cloned 2026-10-17 into the research cache
 bundled_in_runtime_of_note:   # VERIFIED by filename in Fiji/jars; relevance assessed in A21
   - flatlaf-3.6.1.jar          # modern Swing look-and-feel
   - javafx-base/controls/graphics/media-23.0.2.jar

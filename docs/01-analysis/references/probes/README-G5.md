@@ -1,0 +1,16 @@
+# Probes by agent G5 (A16, A17)
+
+All probes run on 2026-10-17 on the development laptop: Intel(R) Core(TM) Ultra 9 285H (16 cores / 16 logical processors, from `Get-CimInstance Win32_Processor`), 33,752,936,448 bytes RAM, NVIDIA GeForce RTX 5070 Laptop GPU 8 GB (driver 616.56), Windows 11 Home 10.0.26200. Commands run from the repository root (`C:\Users\arnav\Documents\dev\click-to-batch`) in Git Bash unless stated. No probe starts Fiji; the pin was still checked after the probes.
+
+| Probe | Purpose | Exact command | Date | Pin check |
+|---|---|---|---|---|
+| P60 | Separate import, model-load and transcription time of faster-whisper 1.2.1 / tiny.en (CPU, int8, worker settings), 5 fresh processes plus int8/float32 × VAD matrix | `.venv-stt/Scripts/python.exe -I docs/01-analysis/references/probes/P60-faster-whisper-timing.py fixtures/invert-command.wav cold` (×5) and `... matrix` (×1); output `P60-faster-whisper-timing.out.txt` | 2026-10-17 | `f66953972bb5ed85b8ab0273e4294af5b03136c28c9ef617e24556bca523bafa` (match) |
+| P61 | Effect of `initial_prompt` and `hotwords` on scientific vocabulary; output on 5 s silence and noise with/without VAD | `powershell -NoProfile -ExecutionPolicy Bypass -File docs/01-analysis/references/probes/P61-synthesise-scientific-phrases.ps1 <scratch>\G5\p61-clips` then `.venv-stt/Scripts/python.exe -I docs/01-analysis/references/probes/P61-vocabulary-biasing-and-silence.py <scratch>\G5\p61-clips`; output `P61-vocabulary-biasing-and-silence.out.txt`. Clips are synthetic TTS (Microsoft Hazel Desktop, en-GB) kept in the scratch folder, not committed | 2026-10-17 | match (as above) |
+| P62 | Inspect, without executing, the official whisper.cpp Windows x64 release archives at the latest release (v1.9.5 → build tag b5454, commit d1be6fde) | `bash docs/01-analysis/references/probes/P62-whispercpp-windows-packaging.sh <scratch>\G5\dl-whispercpp-b5454`; output `P62-whispercpp-windows-packaging.out.txt` | 2026-10-17 | match |
+| P63 | End-to-end wall time of the unmodified prototype worker `speech/worker.py` (one subprocess per request) and cost of its per-call SHA-256 model check | `bash docs/01-analysis/references/probes/P63-worker-end-to-end.sh`; output `P63-worker-end-to-end.out.txt` | 2026-10-17 | match |
+| P64 | Whether the installed ctranslate2 4.8.3 wheel can run on the local NVIDIA GPU without extra NVIDIA libraries | `.venv-stt/Scripts/python.exe -I docs/01-analysis/references/probes/P64-ctranslate2-cuda-check.py`; output `P64-ctranslate2-cuda-check.out.txt` | 2026-10-17 | match |
+| P65 | Feasibility of A17 approach (c): local LLM (Ollama 0.40.5, `qwen3:8b`, already installed) emitting a JSON-schema-constrained command plan over a 10-command catalogue stand-in, 16 labelled instructions × 2 repeats, followed by a key-level validator | `python -I docs/01-analysis/references/probes/P65-local-llm-constrained-commands.py qwen3:8b 2`; output `P65-local-llm-constrained-commands.out.txt` | 2026-10-17 | match |
+
+Pin command: `./.venv/Scripts/python.exe -c "from fidelis.adapters.fiji import verify_runtime; from fidelis.config import fiji_executable; print(verify_runtime(fiji_executable()))"`.
+
+Note on P61: the glob `s*.wav` also matched `silence.wav`, so a `silence` row appears in the `speech` section; it is a duplicate of the non-speech test with VAD on and does not affect the speech rows.

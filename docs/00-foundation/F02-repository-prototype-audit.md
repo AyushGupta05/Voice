@@ -38,7 +38,7 @@ The React UI and the per-run execution model should not be inherited (see A21, A
 | Naming | The repo, directory and remote are still `click-to-batch`. The Python package, UI label and workspace are `fidelis` (renamed by the previous session, uncommitted until the snapshot). New planning docs use the working title "Fiji Modernisation Project" (DEC-001). |
 | Ignored local state | `.env` (sets `FIJI_EXECUTABLE`), `.venv` (Python 3.14.3), `.venv-stt` (Python 3.11.16), `external/models/tiny.en`, `data/inputs/` (4 uploaded PNGs before this stage; 5 after the re-run in §3), `outputs/` (18 run directories after the re-run, plus test XML and two screenshots), `frontend/dist`, and stale `*.egg-info` for both the old `click_to_batch` and new `fidelis` packages |
 | CLAUDE.md | None present |
-| External runtime | `C:\Users\arnav\Documents\dev\Fiji`: Fiji 2.18.1-SNAPSHOT, ImageJ 1.54p, Zulu 21.0.7, 557 jars, 99 `plugins/` entries, Jaunch launcher. Pinned by `external/fiji.lock.json` (1,379 hashes). `verify_runtime` passes (lock SHA `f6695397…`). |
+| External runtime | `C:\Users\arnav\Documents\dev\Fiji`: Fiji 2.18.1-SNAPSHOT, ImageJ 1.54p, Zulu 21.0.7, 556 jars in `jars/` plus 13 in `jars/win64/`, 99 `plugins/` entries (93 of them jars, per P70), Jaunch launcher. Pinned by `external/fiji.lock.json` (1,379 hashes). `verify_runtime` passes (lock SHA `f6695397…`). |
 
 **Incident record.** During reconnaissance in this stage, a `jar xf` command wrote a stray `IJ_Props.txt` into the Fiji root. It was byte-identical to the jar entry and outside the paths the lock hashes. The file was deleted, and the pin was re-verified as passing before any further work.
 
