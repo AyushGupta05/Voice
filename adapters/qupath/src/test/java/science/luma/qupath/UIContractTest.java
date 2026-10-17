@@ -23,6 +23,16 @@ public final class UIContractTest {
                 table.getSelectionModel().select(1);after=fingerprint(bridge,table);
                 if(before.equals(after))throw new AssertionError("Table selection must invalidate approval fingerprint");
                 classifiers.setSelectionModel(null);fingerprint(bridge,classifiers);
+                var choices=new ChoiceBox<String>();choices.getItems().addAll("Option A","Option B");
+                before=fingerprint(bridge,choices);LumaExtension.selectControlOption(choices,"Option B");
+                if(!choices.getValue().equals("Option B")||before.equals(fingerprint(bridge,choices)))throw new AssertionError("Choice selection must apply and invalidate approval");
+                var tabs=new TabPane(new Tab("Image"),new Tab("Project"));
+                LumaExtension.selectControlOption(tabs,"Project");if(!tabs.getSelectionModel().getSelectedItem().getText().equals("Project"))throw new AssertionError("Tab navigation failed");
+                before=fingerprint(bridge,tabs);tabs.getTabs().getFirst().setDisable(true);
+                if(before.equals(fingerprint(bridge,tabs)))throw new AssertionError("Disabled tab state must invalidate approval");
+                try{LumaExtension.selectControlOption(tabs,"Image");throw new AssertionError("Disabled tab selected");}catch(IllegalArgumentException expected){}
+                choices.getItems().add("Option B");
+                try{LumaExtension.selectControlOption(choices,"Option B");throw new AssertionError("Ambiguous choice selected");}catch(IllegalArgumentException expected){}
                 var editor=new CodeArea();editor.replaceText("println 'Original'");editor.moveTo(0);
                 before=fingerprint(bridge,editor);
                 editor.replaceText("println 'Modified'");editor.moveTo(0);

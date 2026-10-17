@@ -33,6 +33,7 @@ final class CompanionModel: ObservableObject {
     @Published var selectedTab = 0
     @Published var busy = false
     @Published var microphoneLevel: Float = 0
+    @Published var measurementReport: MeasurementReport?
     private let root: URL
     private var token = ""
     private var gateway: GatewaySupervisor?
@@ -168,6 +169,10 @@ final class CompanionModel: ObservableObject {
             if name == "qupath_context" { Task { await refresh() }; return }
             let result = event["result"] as? [String: Any] ?? [:]
             let nested = result["result"] as? [String: Any] ?? result
+            if name == "qupath_measurement_summary", let data = try? JSONSerialization.data(withJSONObject: nested),
+               let report = try? JSONDecoder().decode(MeasurementReport.self, from: data) {
+                measurementReport = report
+            }
             activities.insert(Activity(title: friendly(name), detail: summary(nested)), at: 0)
             if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
             activities = Array(activities.prefix(40))
@@ -259,6 +264,15 @@ final class CompanionModel: ObservableObject {
     func stopTextTask() {
         send(["type": "stop_task"])
         textBusy = false
+    }
+    func reviewImportSource(_ path: String) {
+        let source = URL(fileURLWithPath: path)
+        guard path.hasPrefix("/"), ["json", "geojson"].contains(source.pathExtension.lowercased()) else { return }
+        NSWorkspace.shared.open([source], withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"), configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            if let error {
+                Task { @MainActor in self?.activities.insert(Activity(title: "Source review unavailable", detail: error.localizedDescription, isError: true), at: 0) }
+            }
+        }
     }
     func toggleVoice() {
         if voiceActive { send(["type": "stop_voice"]); audio.stop(); voiceActive = false }

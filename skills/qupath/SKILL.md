@@ -16,6 +16,10 @@ Use `qupath_context` first. Read actual image type, calibration, channel names, 
 5. Read context or measurements again to verify the outcome. A menu command's `dispatched` is not scientific completion.
 6. Keep explanations short. Let visible actions carry the demonstration.
 
+## Import and analysis
+
+Use `qupath_analysis_catalog` before unfamiliar parameter or measurement requests, then `qupath_measurement_summary` for full-scope distributions rather than a truncated row preview. Use project entry discovery/fingerprints for navigation. Import local annotations through inspect_import → reviewed import_annotations with the exact SHA256 and confirmed full-resolution pixel coordinates. Read the [import/exploration guide](references/import-and-explore.md) first.
+
 ## Breadth and fallback
 
 - `qupath_commands` discovers the installed menus, including plugins. Search terms such as measurements, classifier, stain, TMA, export, density, project, or display.

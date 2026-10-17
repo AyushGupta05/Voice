@@ -11,7 +11,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 ## Current prototype
 
 - A floating macOS companion follows the active image and selected objects, highlights work and shows action history.
-- **23 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
+- **30 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
 - Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
 - Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
 - A real public-slide fixture detected **899 cells**, classified **49** above a chosen DAB measurement threshold, compared results and restored the empty object hierarchy.
@@ -41,6 +41,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 | [Product brief](docs/PRODUCT.md) | Problem, accepted direction and scope |
 | [Setup](docs/SETUP.md) | Install, launch, MCP configuration and troubleshooting |
 | [Tool reference](docs/TOOL-REFERENCE.md) | Current schemas, parameters and approval requirements |
+| [Task coverage](docs/SOFTWARE-COVERAGE.md) | Import, analysis and navigation routes with proof boundaries |
 | [Capability matrix](docs/CAPABILITIES.md) | Implemented, verified and blocked behavior |
 | [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
 | [AWS text adapter](docs/AWS-TEXT.md) | Credit/access checks, conservative reserves and explicit model test |

@@ -1,3 +1,4 @@
+import { tools as toolDefinitions } from '../src/tools.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -17,7 +18,7 @@ test('loopback gateway separates model tools from human approval and blocks brow
     assert.equal((await fetch(base+'/tools')).status,401);
     assert.equal((await fetch(base+'/tools',{headers:{Authorization:`Bearer ${model}`,Origin:'https://attacker.example'}})).status,403);
     const tools=await fetch(base+'/tools',{headers:{Authorization:`Bearer ${model}`}});assert.equal(tools.status,200);
-    assert.equal((await tools.json()).tools.length,23);
+    assert.deepEqual((await tools.json()).tools.map((tool:{name:string})=>tool.name),toolDefinitions.map(tool=>tool.name));
     const denied=await fetch(base+'/approvals/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',{method:'POST',headers:{Authorization:`Bearer ${model}`,'Content-Type':'application/json'},body:'{"approved":true}'});assert.equal(denied.status,403);
     const ws=new WebSocket(`ws://127.0.0.1:${address.port}/events`,{headers:{Authorization:`Bearer ${human}`}});
     await once(ws,'open');

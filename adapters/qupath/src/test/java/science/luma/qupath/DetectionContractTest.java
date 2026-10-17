@@ -36,6 +36,13 @@ public final class DetectionContractTest {
         plugin.addWorkflowStep(image,tiny);
         var tinyStep=(SimplePluginWorkflowStep)image.getHistoryWorkflow().getLastStep();
         if (Double.parseDouble(tinyStep.getParameterMap().get("threshold").toString())!=1e-7) throw new AssertionError("Scientific notation changed approved threshold");
+        var fluorescence8=new ImageData<BufferedImage>(new WrappedBufferedImageServer("8-bit fluorescence",new BufferedImage(32,32,BufferedImage.TYPE_BYTE_GRAY)),ImageData.ImageType.FLUORESCENCE);
+        var fluorescence16=new ImageData<BufferedImage>(new WrappedBufferedImageServer("16-bit fluorescence",new BufferedImage(32,32,BufferedImage.TYPE_USHORT_GRAY)),ImageData.ImageType.FLUORESCENCE);
+        for(var fixture:java.util.List.of(fluorescence8,fluorescence16)){
+            double expected=fixture.getServer().getPixelType().getBitsPerPixel()==8?25:100;
+            var catalog=LumaExtension.detectionParameters(fixture);var threshold=catalog.stream().filter(parameter->parameter.get("key").equals("threshold")).findFirst().orElseThrow();
+            if(((Number)threshold.get("default")).doubleValue()!=expected)throw new AssertionError("Catalog lost image-initialized fluorescence threshold");
+        }
         System.out.println("Detection parameter rejection, approved parent capture and replayable workflow: passed");
     }
     private static void expectRejected(ApprovedCellDetection plugin,ImageData<BufferedImage> image,String json) {

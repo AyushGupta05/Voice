@@ -1,3 +1,4 @@
+import { tools as toolDefinitions } from '../src/tools.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -30,7 +31,7 @@ async function runtimeFixture(adapter?:Adapter){
 test('backend waits for the real human decision and continues with actual tool results',async()=>{
   const f=await runtimeFixture();const t=task();let modelCalls=0;const shown:string[]=[];
   const client:BackendClient={complete:async request=>{
-    modelCalls++;assert.equal(request.store,false);assert.equal(request.tools.length,23);assert.equal(request.parallel_tool_calls,false);
+    modelCalls++;assert.equal(request.store,false);assert.deepEqual(request.tools.map(tool=>tool.name),toolDefinitions.map(tool=>tool.name));assert.equal(request.parallel_tool_calls,false);
     if(modelCalls===1)return {output:[annotate]};
     const result=request.input.find(item=>item.type==='function_call_output')!;
     assert.equal(JSON.parse(String(result.output)).status,'completed');assert.deepEqual(JSON.parse(String(result.output)).result,{created:true});

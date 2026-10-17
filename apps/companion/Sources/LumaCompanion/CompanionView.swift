@@ -90,6 +90,9 @@ struct CompanionView: View {
                 }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
+                        if let report = model.measurementReport {
+                            MeasurementReportView(report: report, currentContextKey: model.context["contextKey"] as? String)
+                        }
                         ForEach(model.activities) { activity in
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: activity.isError ? "exclamationmark.circle" : activity.icon).foregroundStyle(activity.isError ? Color.orange : mint).font(.system(size: 13)).padding(.top, 2)
@@ -138,6 +141,20 @@ struct CompanionView: View {
                         }
                         if let target = (action["context"] as? [String: Any])?["reviewTarget"] as? [String: Any] {
                             Text("\(target["window"] as? String ?? "QuPath") → \(target["text"] as? String ?? target["type"] as? String ?? "Control")").font(.system(size: 12, weight: .medium)).foregroundStyle(mint)
+                            if action["tool"] as? String == "qupath_import_annotations" {
+                                Text(pretty(target["classCounts"] ?? [])).font(.system(size: 10, design: .monospaced)).textSelection(.enabled)
+                                if target["classCountsTruncated"] as? Bool == true {
+                                    Text("Showing 50 of \(target["classCount"] as? Int ?? 0) classes. Review the full source before approval.").font(.system(size: 11)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                                }
+                                if let conversion = target["geometryConversion"] as? [String: Any], let changed = conversion["featuresChanged"] as? Int, changed > 0 {
+                                    Text("QuPath conversion changes \(changed) feature geometries at its native precision. Review source and contours before accepting the result.").font(.system(size: 11)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                                    Text("Maximum area change: \(String(describing: conversion["maxAbsoluteAreaChangePixels2"] ?? "unknown")) px²").font(.system(size: 10)).foregroundStyle(secondaryText)
+                                }
+                                if let path = target["path"] as? String {
+                                    Button("Review full source in TextEdit…") { model.reviewImportSource(path) }.buttonStyle(.bordered)
+                                }
+                                Text("Source stays unchanged. Imported annotations must use this image’s full-resolution pixel coordinates.").font(.system(size: 11)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                         Text(pretty(action["arguments"] ?? [:])).font(.system(size: 10, design: .monospaced)).textSelection(.enabled).padding(10).frame(maxWidth: .infinity, alignment: .leading).background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
                         Text(action["risk"] as? String == "code" ? "Runs with full local privileges. Files and external effects may not be recoverable." : action["tool"] as? String == "qupath_image_type" ? "Changes image interpretation. Hierarchy checkpoints do not restore this setting." : "A hierarchy checkpoint will be created. Review the scope and parameters before continuing.").font(.system(size: 11)).foregroundStyle(.orange.opacity(0.85)).fixedSize(horizontal: false, vertical: true)

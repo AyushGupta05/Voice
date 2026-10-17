@@ -125,3 +125,44 @@ test('pending-proposal eviction emits an expiry event for waiting conversations'
     assert.equal(expired.length,1);assert.equal(expired[0].id,first);assert.equal(f.adapter.mutations,0);
   }finally{await f.clean();}
 });
+
+test('import previews bind reviewed file hashes and never execute until a human decision',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-import-test-'));let sha='a'.repeat(64);let mutations=0;
+  const adapter:Adapter={async execute(operation,args={},options){
+    if(operation==='context')return{contextKey:'image-a',image:{name:'Synthetic'}};
+    if(operation==='inspect_import')return{sha256:sha,annotations:2,classCounts:[{classification:null,count:2}]};
+    if(operation==='import_annotations'){assert.equal(options?.approved,true);assert.equal(options.expectedContext,'image-a');assert.equal(args.sha256,sha);mutations++;return{imported:2};}
+    throw new Error('Unexpected operation');
+  }};
+  const runtime=new Runtime(adapter,new Knowledge(),directory);
+  try{
+    const args={path:'/synthetic/annotations.geojson',sha256:sha,coordinateSpace:'image_pixels'};
+    const proposal=await runtime.call('qupath_import_annotations',args) as {actionId:string};
+    assert.equal(mutations,0);assert.equal((runtime.actions.get(proposal.actionId)!.context.reviewTarget as Record<string,unknown>).annotations,2);
+    await runtime.decide(proposal.actionId,true);assert.equal(mutations,1);
+    sha='b'.repeat(64);await assert.rejects(runtime.call('qupath_import_annotations',args),/file changed/);
+    assert.equal(runtime.actions.size,1,'Changed file must not publish a new approval');
+    assert.throws(()=>validateTool('qupath_import_annotations',{...args,coordinateSpace:'lat_lon'}),/Invalid arguments/);
+    assert.throws(()=>validateTool('qupath_import_annotations',{...args,sha256:'unknown'}),/Invalid arguments/);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('project navigation reviews the discovered source fingerprint and rejects changed entries',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-project-test-'));let fingerprint='c'.repeat(64);let opens=0;
+  const adapter:Adapter={async execute(operation,args={},options){
+    if(operation==='context')return{contextKey:'project-a',image:{name:'Synthetic'}};
+    if(operation==='project_images')return{images:[{id:'entry-1',name:'Audience slide',fingerprint}]};
+    if(operation==='open_project_image'){assert.equal(options?.approved,true);opens++;return{dispatched:true,completionVerified:false};}
+    throw new Error('Unexpected operation');
+  }};
+  const runtime=new Runtime(adapter,new Knowledge(),directory);
+  try{
+    const args={entryId:'entry-1',entryFingerprint:fingerprint};
+    const proposal=await runtime.call('qupath_open_project_image',args) as {actionId:string};
+    assert.equal(opens,0);assert.equal((runtime.actions.get(proposal.actionId)!.context.reviewTarget as Record<string,unknown>).text,'Audience slide');
+    await runtime.decide(proposal.actionId,false);assert.equal(opens,0);
+    fingerprint='d'.repeat(64);await assert.rejects(runtime.call('qupath_open_project_image',args),/entry changed/);
+    assert.throws(()=>validateTool('qupath_open_project_image',{entryId:'entry-1'}),/Invalid arguments/);
+    assert.throws(()=>validateTool('qupath_measurement_summary',{measurements:['Score','Score']}),/Invalid arguments/);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});

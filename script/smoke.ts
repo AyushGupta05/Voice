@@ -1,3 +1,4 @@
+import { tools as toolDefinitions } from '../packages/gateway/src/tools.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import assert from 'node:assert/strict';
@@ -7,7 +8,7 @@ const transport=new StdioClientTransport({command:process.execPath,args:['--impo
 const client=new Client({name:'luma-integration-smoke',version:'0.1.0'});
 try {
  await client.connect(transport);
- const inventory=await client.listTools();assert.equal(inventory.tools.length,23);
+ const inventory=await client.listTools();assert.deepEqual(inventory.tools.map(tool=>tool.name),toolDefinitions.map(tool=>tool.name));
  const checkpoint=inventory.tools.find(tool=>tool.name==='qupath_checkpoint')!;
  assert.equal(checkpoint.annotations?.idempotentHint,false,'Creating checkpoints can evict old recovery state; clients must not treat it as idempotent');
  assert.equal(checkpoint.annotations?.readOnlyHint,false,'Checkpoint creation changes volatile server state');

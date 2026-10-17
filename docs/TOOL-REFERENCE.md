@@ -9,6 +9,13 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_context`](#qupath-context) | read | No |
 | [`qupath_objects`](#qupath-objects) | read | No |
 | [`qupath_measurements`](#qupath-measurements) | read | No |
+| [`qupath_measurement_summary`](#qupath-measurement-summary) | read | No |
+| [`qupath_analysis_catalog`](#qupath-analysis-catalog) | read | No |
+| [`qupath_project_images`](#qupath-project-images) | read | No |
+| [`qupath_open_path`](#qupath-open-path) | code | Required |
+| [`qupath_open_project_image`](#qupath-open-project-image) | code | Required |
+| [`qupath_inspect_import`](#qupath-inspect-import) | read | No |
+| [`qupath_import_annotations`](#qupath-import-annotations) | data | Required |
 | [`qupath_select`](#qupath-select) | view | No |
 | [`qupath_focus`](#qupath-focus) | view | No |
 | [`qupath_overlays`](#qupath-overlays) | view | No |
@@ -66,6 +73,85 @@ Read measured values, never infer them from appearance. Returns at most 200 rows
 | `classification` | No | string |
 | `ids` | No | array of string; max 1000 items |
 | `limit` | No | integer; min 1; max 200 |
+
+<a id="qupath-measurement-summary"></a>
+
+## qupath_measurement_summary
+
+Summarize the entire matching object scope, not a preview: finite counts, missing values, min/max/mean/sample standard deviation and histograms, optionally grouped by exact class. Read the actual measurement catalog first. Descriptive statistics are not biological conclusions.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `scope` | No | "all", "selection", "region" |
+| `kind` | No | "all", "annotation", "cell", "detection" |
+| `classification` | No | string |
+| `ids` | No | array of string; max 1000 items |
+| `measurements` | Yes | array of string; min 1 characters; max 20 items |
+| `histogramBins` | No | integer; min 1; max 50 |
+| `groupByClass` | No | boolean |
+
+<a id="qupath-analysis-catalog"></a>
+
+## qupath_analysis_catalog
+
+Discover actual stored measurement names/classes, current-image watershed detection parameters with units/ranges/choices, and recent workflow step names. Use before an unfamiliar analysis; no algorithm executes.
+
+Input: `{}`.
+
+<a id="qupath-project-images"></a>
+
+## qupath_project_images
+
+List images in the actual open project with stable entry IDs, source fingerprints, current-entry identity and saved-data availability. Paginated, or query an exact entryId; does not load or analyze other images.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `entryId` | No | string; min 1 characters; max 200 characters |
+| `offset` | No | integer; min 0 |
+| `limit` | No | integer; min 1; max 200 |
+
+<a id="qupath-open-path"></a>
+
+## qupath_open_path
+
+Open an exact existing absolute local image path or .qpproj using QuPath’s native opening/import workflow after human approval. Refuses unsaved current-image changes; may open image-reader, project-import or other dialogs. Dispatch is not completion. URLs and .qpdata are excluded. Does not bypass native prompts.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `path` | Yes | string; min 1 characters; max 4096 characters |
+
+<a id="qupath-open-project-image"></a>
+
+## qupath_open_project_image
+
+Open an exact entry ID and source fingerprint discovered in the current project after human approval. Refuses unsaved current-image changes and changed entry sources. Native reader/type dialogs can require interaction; re-read context to verify the active image.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `entryId` | Yes | string; min 1 characters; max 200 characters |
+| `entryFingerprint` | Yes | string |
+
+<a id="qupath-inspect-import"></a>
+
+## qupath_inspect_import
+
+Inspect an existing absolute local .geojson/.json annotation Features or FeatureCollection without changing QuPath. Returns SHA256, counts, preview and image-fit validation. Only leaf annotations, max 16MiB/10,000 objects; coordinates must already be full-resolution image pixels.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `path` | Yes | string; min 1 characters; max 4096 characters |
+
+<a id="qupath-import-annotations"></a>
+
+## qupath_import_annotations
+
+Add the inspected GeoJSON annotations to the current image after human review. Requires the exact inspect_import SHA256 and explicit image_pixels coordinate space. Revalidates file/geometry/IDs/image context, creates a hierarchy checkpoint, never replaces existing objects or writes source files.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `path` | Yes | string; min 1 characters; max 4096 characters |
+| `sha256` | Yes | string |
+| `coordinateSpace` | Yes | exactly "image_pixels" |
 
 <a id="qupath-select"></a>
 
@@ -137,7 +223,7 @@ Input: `{}`.
 
 ## qupath_ui_action
 
-Operate a previously observed visible QuPath JavaFX control after human approval. fire presses a button, set_text edits an input, select chooses an exact combo-box option. May have irreversible file/plugin effects; re-inspect afterward. Never bypass disabled controls.
+Operate a previously observed visible QuPath JavaFX control after human approval. fire presses a button, set_text edits an input, select chooses an exact combo-box/choice-box option or enabled tab title. May have irreversible file/plugin effects; re-inspect afterward. Never bypass disabled controls.
 
 | Parameter | Required | Accepted value |
 |---|---|---|

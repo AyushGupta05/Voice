@@ -1,11 +1,15 @@
 # Capability matrix
 
-There are 23 MCP tools. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
+There are 30 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
 
 | Surface | Behavior | Approval | Evidence / limit |
 |---|---|---|---|
 | Active image, metadata, calibration, selection and ROI | Real application API | No | Read from running public slides through actual MCP |
 | Objects and measurements | Scoped listing and measured values | No | Actual measurements read from the 899-cell public-slide fixture; truncation explicit |
+| Full-scope measurement summary | Finite counts, missing values, descriptive statistics, class groups and histogram bins | No | Synthetic actual-library contract passes; max one million objects / five million numeric values, 20 measurements, 50 displayed class groups; new native plots compile, foreground check pending |
+| Analysis catalog | Actual measurement/class names, visible watershed defaults/ranges/choices, recent workflow names | No | Compiles against pinned APIs; actual application observation pending new bridge load |
+| Project/image opening | Exact local paths or project entry IDs/source fingerprints through native QuPath opening | Yes | Unsaved changes refused; native dialogs/dispatch require real-app verification; no URL or .qpdata endpoint |
+| GeoJSON annotations | Inspect/hash/validate then add leaf annotations with a checkpoint | Import: yes | Synthetic real-library and gateway approval tests pass; actual isolated import instance test pending authorization |
 | Focus and pointer | Center image/ROI, zoom, return real screen target | No | Corrected mouse-anchored zoom behavior; actual center verified at (51100, 27100) |
 | Overlays | Detections, annotations, fills, opacity and exact class filter | No | Display-only; does not change counts |
 | Annotation creation | Rectangle/ellipse on active z/t plane | Yes | Tested on disposable H&E slide through native approval |
@@ -17,9 +21,9 @@ There are 23 MCP tools. Breadth comes from structured scientific operations, the
 | Menu catalog | Live exact paths and enabled state | No | Real measurement commands discovered through MCP |
 | Menu invocation | Dispatch exact discovered command | Yes | May open modal dialog; dispatched is not completed |
 | JavaFX UI | Observe visible windows, controls, labels and options | No | Real image-type dialog inspected; OS-owned dialogs excluded |
-| JavaFX control action | Fire, edit text, select exact combo option | Yes | Image-type dialog toggle and Apply verified; bound to reviewed dialog fingerprint and revalidated at dispatch; password fields excluded |
+| JavaFX control action | Fire, edit text, select exact combo/choice option or enabled tab title | Yes | Image-type dialog toggle and Apply verified; bound to reviewed dialog fingerprint and revalidated at dispatch; password fields excluded |
 | Groovy execution | Full QuPath scripting context | Yes | Requires open project + image; full local privileges; exact-source review; external effects not recoverable |
-| Knowledge | Authored guides + pinned official documentation | No | 66 documents indexed in the current local checkout |
+| Knowledge | Authored guides + pinned official documentation | No | 67 documents indexed in the current local checkout |
 | AWS-credit OpenAI text | Per-peer follow-ups, full answers, Stop, same Runtime and real human approvals | Data actions: yes | Real authenticated WebSocket → GPT-OSS-120B → exact QuPath focus passed; text-only, no viewer vision; native controls compile, foreground checks pending |
 | Native companion | Floating panel, action history, approvals, knowledge search | N/A | Builds, launches and visually inspected on this Mac |
 | Realtime voice transport | Continuous PCM protocol, VAD, function calls, interruption events | Funding gate | Local protocol fixture passes; no live provider session; production activation intentionally absent |

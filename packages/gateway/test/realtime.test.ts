@@ -1,3 +1,4 @@
+import { tools as toolDefinitions } from '../src/tools.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -19,7 +20,7 @@ test('realtime relay configures continuous audio and returns actual tool results
   const connection=once(server,'connection');session.connect(`ws://127.0.0.1:${address.port}`,{},3);
   const peer=(await connection)[0] as WebSocket;
   const first=JSON.parse((await once(peer,'message'))[0].toString());assert.equal(first.type,'session.update');
-  assert.equal(first.session.audio.input.turn_detection.interrupt_response,true);assert.equal(first.session.tools.length,23);
+  assert.equal(first.session.audio.input.turn_detection.interrupt_response,true);assert.deepEqual(first.session.tools.map((tool:{name:string})=>tool.name),toolDefinitions.map(tool=>tool.name));
   const received:Record<string,unknown>[]=[];peer.on('message',data=>received.push(JSON.parse(data.toString())));
   const call={type:'response.function_call_arguments.done',call_id:'call-1',name:'qupath_overlays',arguments:'{"fill":true}'};
   peer.send(JSON.stringify(call));peer.send(JSON.stringify(call));

@@ -34,6 +34,19 @@ export class Runtime extends EventEmitter {
         if (!control || control.disabled) throw new Error('Target control is absent or disabled. Inspect QuPath UI again.');
         context.reviewTarget = { window: window!.title, windowFingerprint: window!.fingerprint, ...control };
       }
+      if (name === 'qupath_import_annotations') {
+        const preview = await this.adapter.execute('inspect_import',{path:args.path},{expectedContext:context.contextKey}) as Record<string,unknown>;
+        signal?.throwIfAborted(); beforeDispatch?.(context);
+        if (preview.sha256 !== args.sha256) throw new Error('Import file changed since inspection. Inspect and review again.');
+        context.reviewTarget = { type:'GeoJSON annotations',text:`${preview.annotations} annotations in full-resolution image pixels`,...preview };
+      }
+      if (name === 'qupath_open_project_image') {
+        const listing = await this.adapter.execute('project_images',{entryId:args.entryId},{expectedContext:context.contextKey}) as {images:Array<Record<string,unknown>>};
+        signal?.throwIfAborted(); beforeDispatch?.(context);
+        const entry=listing.images.find(entry=>entry.id===args.entryId);
+        if (!entry || entry.fingerprint!==args.entryFingerprint) throw new Error('Project entry changed. Refresh project_images and review again.');
+        context.reviewTarget={type:'Project image',text:entry.name,...entry};
+      }
       const action: Action = {
         id: randomUUID(), tool: name, arguments: structuredClone(args), risk: spec.risk, status: 'pending',
         createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+5*60_000).toISOString(), context,

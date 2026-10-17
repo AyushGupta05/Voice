@@ -28,6 +28,10 @@ import qupath.lib.gui.scripting.QPEx;
 import qupath.lib.gui.scripting.languages.GroovyLanguage;
 import qupath.lib.scripting.ScriptParameters;
 import qupath.lib.projects.Project;
+import qupath.lib.projects.ProjectImageEntry;
+import qupath.lib.plugins.parameters.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import qupath.imagej.detect.cells.WatershedCellDetection;
 
 import javax.imageio.ImageIO;
@@ -102,6 +106,9 @@ public final class LumaExtension implements QuPathExtension {
             var result = switch (operation) {
                 case "detect" -> detect(args,request);
                 case "script" -> script(args,request);
+                case "inspect_import" -> inspectImport(args,request);
+                case "import_annotations" -> importAnnotations(args,request);
+                case "measurement_summary" -> measurementSummary(args,request);
                 default -> fx(() -> execute(operation,args,request));
             };
             respond(exchange, 200, Map.of("result", result == null ? Map.of() : result));
@@ -158,12 +165,14 @@ public final class LumaExtension implements QuPathExtension {
         catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
     private Object execute(String operation, JsonObject args, JsonObject request) throws Exception {
-        if (analysisRunning.get() && !Set.of("context","objects","measurements","commands","ui","snapshot","checkpoints","compare").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
+        if (analysisRunning.get() && !Set.of("context","objects","measurements","measurement_summary","analysis_catalog","project_images","commands","ui","snapshot","checkpoints","compare").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
         if (request.has("expectedContext") && !contextKey().equals(request.get("expectedContext").getAsString())) throw new IllegalStateException("QuPath image, selection or results changed. Review the action again.");
         return switch (operation) {
             case "context" -> context();
             case "objects" -> objects(args);
             case "measurements" -> measurements(args);
+            case "analysis_catalog" -> analysisCatalog();
+            case "project_images" -> projectImages(args);
             case "select" -> select(args);
             case "focus" -> focus(args);
             case "overlays" -> overlays(args);
@@ -173,7 +182,7 @@ public final class LumaExtension implements QuPathExtension {
             case "checkpoints" -> checkpointList();
             case "checkpoint" -> checkpoint(string(args, "label", "Researcher checkpoint"));
             case "compare" -> compare(args);
-            case "annotate", "classify", "delete", "restore", "command", "script", "image_type", "detect", "ui_action" -> {
+            case "annotate", "classify", "delete", "restore", "command", "script", "image_type", "detect", "ui_action", "open_path", "open_project_image" -> {
                 if (!request.has("approved") || !request.get("approved").getAsBoolean()) throw new IllegalStateException("This operation requires explicit human approval through the companion.");
                 if (!request.has("expectedContext")) throw new IllegalStateException("An approved operation must be bound to application context.");
                 yield mutate(operation, args, request);
@@ -194,6 +203,7 @@ public final class LumaExtension implements QuPathExtension {
         var calibration = image.getServer().getPixelCalibration();
         result.put("image", Map.of("name",Objects.toString(ServerTools.getDisplayableImageName(image.getServer()),"Unnamed image"), "width", image.getServer().getWidth(), "height", image.getServer().getHeight(), "channels", metadata.getChannels().stream().map(c -> c.getName()).toList(), "zSlices", image.getServer().nZSlices(), "timepoints", image.getServer().nTimepoints(), "type", image.getImageType().name(), "pixelSizeMicrons", finite(calibration.getAveragedPixelSizeMicrons())));
         result.put("counts", counts(image.getHierarchy()));
+        result.put("unsavedChanges",image.isChanged());
         result.put("analysisRunning", analysisRunning.get());
         var primary = image.getHierarchy().getSelectionModel().getSelectedObject();
         result.put("primarySelectedId", primary == null ? null : primary.getID().toString());
@@ -257,6 +267,64 @@ public final class LumaExtension implements QuPathExtension {
             return Map.of("object", describe(o), "measurements", values);
         }).toList();
         return Map.of("total", matches.size(), "rows", rows, "truncated", matches.size() > limit);
+    }
+    private Object measurementSummary(JsonObject args,JsonObject request) throws Exception {
+        var names = args.getAsJsonArray("measurements").asList().stream().map(JsonElement::getAsString).toList();
+        record Observation(MeasurementSummary.Snapshot data,String imageName,String key) {}
+        var observed=fx(()->{
+            if(analysisRunning.get())throw new IllegalStateException("Wait for the current analysis before summarizing measurements.");
+            String key=contextKey();
+            if(request.has("expectedContext")&&!key.equals(request.get("expectedContext").getAsString()))throw new IllegalStateException("Application context changed. Request a fresh summary.");
+            var captured=MeasurementSummary.capture(matching(args),names);
+            if(!key.equals(contextKey()))throw new IllegalStateException("Objects changed while reading measurements. Request a fresh summary.");
+            return new Observation(captured,Objects.toString(ServerTools.getDisplayableImageName(image().getServer()),"Unnamed image"),key);
+        });
+        // Only the immutable numeric snapshot leaves JavaFX; plots and arithmetic do not block the UI.
+        var result=MeasurementSummary.summarize(observed.data(),integer(args,"histogramBins",10,1,50),args.has("groupByClass")&&args.get("groupByClass").getAsBoolean());
+        result.put("imageName",observed.imageName());result.put("contextKey",observed.key());result.put("scope",args.deepCopy());return result;
+    }
+    private Object analysisCatalog() {
+        var image=image(); var objects=image.getHierarchy().getFlattenedObjectList(null);
+        if(objects.size()>1_000_000)throw new IllegalStateException("Catalog exceeds one million objects.");
+        var names=new TreeSet<String>(); var classes=new TreeSet<String>();
+        for(var object:objects) {
+            names.addAll(object.getMeasurementList().getNames());
+            if(object.getPathClass()!=null)classes.add(object.getPathClass().toString());
+            if(names.size()>10_000||classes.size()>10_000)throw new IllegalStateException("Catalog is too large; inspect a scoped measurement query.");
+        }
+        var parameters=detectionParameters(image);
+        var steps=image.getHistoryWorkflow().getSteps();
+        var result=new LinkedHashMap<String,Object>();result.put("measurementNames",names.stream().limit(500).toList());result.put("measurementNameCount",names.size());result.put("measurementNamesTruncated",names.size()>500);result.put("classifications",classes.stream().limit(500).toList());result.put("classificationCount",classes.size());result.put("classificationsTruncated",classes.size()>500);
+        result.put("cellDetection",Map.of("plugin",WatershedCellDetection.class.getName(),"parameters",parameters,"note","Current-image defaults and visible choices, not scientific recommendations or proof of applicability."));
+        result.put("workflow",Map.of("total",steps.size(),"steps",steps.stream().skip(Math.max(0,steps.size()-30)).map(step->Map.of("name",Objects.toString(step.getName(),"Unnamed step"),"type",step.getClass().getSimpleName())).toList(),"truncated",steps.size()>30));
+        return result;
+    }
+    static List<Map<String,Object>> detectionParameters(ImageData<BufferedImage> image) {
+        var parameters=new ArrayList<Map<String,Object>>();
+        for(var entry:new WatershedCellDetection().getDefaultParameterList(image).getParameters().entrySet()) {
+            var parameter=entry.getValue(); if(parameter.isHidden()||parameter instanceof EmptyParameter)continue;
+            var row=new LinkedHashMap<String,Object>();row.put("key",entry.getKey());row.put("prompt",parameter.getPrompt());row.put("help",parameter.getHelpText());row.put("default",parameter.getValueOrDefault());row.put("constructorDefault",parameter.getDefaultValue());
+            row.put("type",parameter.getClass().getSimpleName());
+            if(parameter instanceof NumericParameter<?> numeric){row.put("unit",numeric.getUnit());row.put("minimum",Double.isFinite(numeric.getLowerBound())?numeric.getLowerBound():null);row.put("maximum",Double.isFinite(numeric.getUpperBound())?numeric.getUpperBound():null);}
+            if(parameter instanceof ChoiceParameter<?> choice)row.put("choices",choice.getChoices().stream().map(String::valueOf).toList());
+            parameters.add(row);
+        }
+        return parameters;
+    }
+    private Object projectImages(JsonObject args) {
+        var project=qupath.getProject();if(project==null)return Map.of("open",false,"total",0,"images",List.of());
+        int offset=integer(args,"offset",0,0,Integer.MAX_VALUE),limit=integer(args,"limit",100,1,200);
+        var entries=project.getImageList().stream().filter(entry->!args.has("entryId")||entry.getID().equals(string(args,"entryId",""))).toList();var current=qupath.getImageData()==null?null:project.getEntry(qupath.getImageData());
+        return Map.of("open",true,"name",project.getName(),"total",entries.size(),"offset",offset,"images",entries.stream().skip(offset).limit(limit).map(entry->Map.of("id",entry.getID(),"name",Objects.toString(entry.getImageName(),"Unnamed image"),"fingerprint",entryFingerprint(entry),"active",entry==current,"hasSavedData",entry.hasImageData())).toList(),"truncated",offset+(long)limit<entries.size());
+    }
+    private static String entryFingerprint(ProjectImageEntry<BufferedImage> entry) { return digest(entry.getID()+":"+entry.getImageName()+":"+JSON.toJson(entry.getServerBuilder())); }
+    private static Path openablePath(String value) throws IOException {
+        Path path=Path.of(value);if(!path.isAbsolute()||!Files.isRegularFile(path)||!Files.isReadable(path))throw new IllegalArgumentException("Choose an existing readable absolute local file path.");
+        path=path.toRealPath();if(path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".qpdata"))throw new IllegalArgumentException("Saved .qpdata requires the native File > Open workflow; this endpoint accepts images and .qpproj only.");
+        return path;
+    }
+    private void requireSavedImage() {
+        if(qupath.getImageData()!=null&&qupath.getImageData().isChanged())throw new IllegalStateException("The current image has unsaved changes. Save or close it explicitly in QuPath before opening another path.");
     }
     private Object select(JsonObject args) {
         var matches = matching(args);
@@ -388,8 +456,11 @@ public final class LumaExtension implements QuPathExtension {
             if (control instanceof TableView<?> table && table.getSelectionModel() != null) item.put("selection",selectionState(table.getSelectionModel().getSelectedIndices(),table.getSelectionModel().getSelectedItems()));
             if (control instanceof TreeView<?> tree && tree.getSelectionModel() != null) item.put("selection",selectionState(tree.getSelectionModel().getSelectedIndices(),tree.getSelectionModel().getSelectedItems()));
             if (control instanceof TreeTableView<?> tree && tree.getSelectionModel() != null) item.put("selection",selectionState(tree.getSelectionModel().getSelectedIndices(),tree.getSelectionModel().getSelectedItems()));
-            if (control instanceof TabPane tabs && tabs.getSelectionModel() != null) item.put("selection",Map.of("index",tabs.getSelectionModel().getSelectedIndex(),"item",Objects.toString(tabs.getSelectionModel().getSelectedItem(),"")));
-            if (control instanceof ChoiceBox<?> choice) item.put("value",Objects.toString(choice.getValue(),""));
+            if (control instanceof TabPane tabs && tabs.getSelectionModel() != null) {
+                item.put("selection",Map.of("index",tabs.getSelectionModel().getSelectedIndex(),"item",Objects.toString(tabs.getSelectionModel().getSelectedItem(),"")));
+                item.put("options",tabs.getTabs().stream().limit(100).map(tab->Map.of("text",Objects.toString(tab.getText(),""),"disabled",tab.isDisable())).toList());
+            }
+            if (control instanceof ChoiceBox<?> choice) { item.put("value",Objects.toString(choice.getValue(),""));item.put("options",choice.getItems().stream().limit(100).map(String::valueOf).toList()); }
             if (control instanceof ColorPicker color) item.put("value",Objects.toString(color.getValue(),""));
             if (control instanceof Slider slider) item.put("value",slider.getValue());
             if (control instanceof Spinner<?> spinner) item.put("value",Objects.toString(spinner.getValue(),""));
@@ -462,16 +533,57 @@ public final class LumaExtension implements QuPathExtension {
                 if (!(node instanceof TextInputControl input)) throw new IllegalArgumentException("Target is not a text input.");
                 input.setText(string(args,"value",""));
             }
-            case "select" -> {
-                if (!(node instanceof ComboBox combo)) throw new IllegalArgumentException("Target is not a combo box.");
-                String requested=string(args,"value","");
-                var matches = ((javafx.collections.ObservableList<?>)combo.getItems()).stream().filter(value -> String.valueOf(value).equals(requested)).toList();
-                if (matches.size() != 1) throw new IllegalArgumentException("Value is absent or ambiguous. Inspect UI options again.");
-                combo.setValue(matches.getFirst());
-            }
+            case "select" -> selectControlOption(node,string(args,"value",""));
             default -> throw new IllegalArgumentException("Unknown UI action");
         }
         return Map.of("dispatched",true,"completionVerified",false,"note","Inspect UI and scientific state after dispatch.");
+    }
+    @SuppressWarnings({"rawtypes","unchecked"})
+    static void selectControlOption(Node node,String requested) {
+    if(node instanceof TabPane tabs) {
+        var matches=tabs.getTabs().stream().filter(tab->Objects.toString(tab.getText(),"").equals(requested)).toList();
+        if(matches.size()!=1||matches.getFirst().isDisable())throw new IllegalArgumentException("Tab is absent, ambiguous or disabled. Inspect UI again.");
+        tabs.getSelectionModel().select(matches.getFirst());
+    } else {
+        var options=node instanceof ComboBox combo?combo.getItems():node instanceof ChoiceBox choice?choice.getItems():null;
+        if(options==null)throw new IllegalArgumentException("Target must be a combo box, choice box or tab pane.");
+        var matches=((javafx.collections.ObservableList<?>)options).stream().filter(value->String.valueOf(value).equals(requested)).toList();
+        if(matches.size()!=1)throw new IllegalArgumentException("Value is absent or ambiguous. Inspect UI options again.");
+        if(node instanceof ComboBox combo)combo.setValue(matches.getFirst());else ((ChoiceBox)node).setValue(matches.getFirst());
+    }
+    }
+    private record ImportTarget(ImageData<BufferedImage> image,String key) {}
+    private Object inspectImport(JsonObject args,JsonObject request) throws Exception {
+        var target=fx(()->{
+            if(analysisRunning.get())throw new IllegalStateException("Wait for the current analysis before inspecting an import.");
+            if(request.has("expectedContext")&&!contextKey().equals(request.get("expectedContext").getAsString()))throw new IllegalStateException("Application context changed. Inspect again.");
+            return new ImportTarget(image(),contextKey());
+        });
+        var input=GeoJsonImport.read(string(args,"path",""),null);
+        var preview=input.preview();
+        return fx(()->{
+            if(qupath.getImageData()!=target.image()||!contextKey().equals(target.key()))throw new IllegalStateException("Image or objects changed during import inspection. Inspect again.");
+            GeoJsonImport.validateImage(input,target.image());return preview;
+        });
+    }
+    private Object importAnnotations(JsonObject args,JsonObject request) throws Exception {
+        if(!analysisRunning.compareAndSet(false,true))throw new IllegalStateException("An analysis or script is already running.");
+        try{
+            var target=fx(()->{
+                if(!request.has("approved")||!request.get("approved").getAsBoolean()||!request.has("expectedContext"))throw new IllegalStateException("Import requires approved, context-bound parameters.");
+                if(!contextKey().equals(request.get("expectedContext").getAsString()))throw new IllegalStateException("Image, selection or objects changed. Review import again.");
+                if(!string(args,"coordinateSpace","").equals("image_pixels")||!string(args,"sha256","").matches("[a-f0-9]{64}"))throw new IllegalArgumentException("Inspect the file first and explicitly confirm full-resolution image pixels.");
+                requireNoModal();return new ImportTarget(image(),contextKey());
+            });
+            // Parse and validate the exact reviewed bytes off JavaFX; never reread after approval validation.
+            var input=GeoJsonImport.read(string(args,"path",""),string(args,"sha256",""));
+            return fx(()->{
+                if(qupath.getImageData()!=target.image()||!contextKey().equals(target.key()))throw new IllegalStateException("Image or objects changed while parsing import. Review again.");
+                requireNoModal();GeoJsonImport.validateImage(input,target.image());var backup=checkpoint("Before import annotations");
+                target.image().getHierarchy().addObjects(input.objects());
+                return Map.of("result",Map.of("imported",input.objects().size(),"sha256",input.sha256(),"counts",counts(target.image().getHierarchy()),"sourceFileUnchanged",true),"checkpoint",backup,"contextKey",contextKey());
+            });
+        }finally{analysisRunning.set(false);}
     }
     private record DetectionPlan(ImageData<BufferedImage> image,List<PathObject> parents,JsonObject parameters,ApprovedCellDetection plugin,Object checkpoint) {}
     private Object detect(JsonObject args,JsonObject request) throws Exception {
@@ -534,6 +646,29 @@ public final class LumaExtension implements QuPathExtension {
         item.fire();
     }
     private Object mutate(String operation, JsonObject args, JsonObject request) throws Exception {
+        if(operation.equals("open_project_image")) {
+            requireNoModal();requireSavedImage();var project=qupath.getProject();if(project==null)throw new IllegalStateException("Open a project first.");
+            var entry=project.getImageList().stream().filter(item->item.getID().equals(string(args,"entryId",""))).findFirst().orElseThrow(()->new IllegalArgumentException("Project entry not found. Refresh project_images."));
+            if(!entryFingerprint(entry).equals(string(args,"entryFingerprint","")))throw new IllegalStateException("Project image source changed. Inspect and review again.");
+            if(qupath.getImageData()!=null&&project.getEntry(qupath.getImageData())==entry)return Map.of("alreadyActive",true,"entryId",entry.getID());
+            deferReviewed(request.get("expectedContext").getAsString(),()->{
+                requireNoModal();requireSavedImage();
+                if(qupath.getProject()!=project||!project.getImageList().contains(entry)||!entryFingerprint(entry).equals(string(args,"entryFingerprint","")))throw new IllegalStateException("Project entry changed. Review again.");
+                if(!qupath.openImageEntry(entry))throw new IllegalStateException("Native image open did not complete or was cancelled. Inspect QuPath.");
+            });
+            return Map.of("dispatched",true,"completionVerified",false,"entryId",entry.getID(),"note","Inspect native dialogs and refresh context to verify the active image.");
+        }
+        if(operation.equals("open_path")) {
+            requireNoModal();requireSavedImage();var path=openablePath(string(args,"path",""));
+            deferReviewed(request.get("expectedContext").getAsString(),()->{
+                requireNoModal();requireSavedImage();
+                try {
+                    if(!openablePath(string(args,"path","")).equals(path))throw new IllegalStateException("Resolved file path changed. Review again.");
+                    if(!qupath.openImage(qupath.getViewer(),path.toString(),true,false))throw new IllegalStateException("Native open/import did not complete or was cancelled. Inspect QuPath before retrying.");
+                }catch(IOException error){throw new IllegalStateException(error.getMessage(),error);}
+            });
+            return Map.of("dispatched",true,"completionVerified",false,"path",path.toString(),"note","Native reader/import dialogs may require interaction. Verify actual image/project and lastDispatch afterward; no file rollback is provided.");
+        }
         if (operation.equals("ui_action")) {
             Object backup = qupath.getImageData() == null ? Map.of("scope","No hierarchy to checkpoint") : checkpoint("Before UI action");
             return Map.of("result",uiAction(args, request.getAsJsonObject("expectedControl"),request.get("expectedContext").getAsString()),"checkpoint",backup);
