@@ -37,6 +37,7 @@ public final class LumaBridge implements PlugIn {
     static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo", "track_objects", "intensity_over_time", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
     static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results", "make_macro", "run_workflow", "capture_macro", "apply_analysis");
     /** Data/code operations that change an image's pixels, ROIs, overlay, manager or results and therefore get a checkpoint first. */
+    static final Set<String> TIDY_AFTER = Set.of("open_path", "activate_image", "segment_cells", "measure", "analyze_particles", "filter_objects", "split_objects", "merge_objects", "classify_intensity", "object_stats", "track_objects", "tumor_region", "colocalize");
     static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script", "track_objects", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
     private static final Object LOCK = new Object();
     private static LumaBridge current;
@@ -327,6 +328,8 @@ public final class LumaBridge implements PlugIn {
         };
         var observedImage = WindowManager.getCurrentImage();
         if (observedImage != null) pipeline(observedImage).observe(operation, args, result, observedImage);
+        // Analyses that open or fill ImageJ's side windows leave the cells in view (no-op without a GUI).
+        if (Operations.guiVisible() && TIDY_AFTER.contains(operation)) Pipeline.tidyAround(WindowManager.getCurrentImage());
         var out = new LinkedHashMap<>(result);
         if (checkpoint != null) out.put("checkpoint", checkpoint);
         if (!operation.equals("context")) out.put("contextKey", contextKey());

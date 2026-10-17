@@ -243,6 +243,44 @@ public final class Pipeline {
         y = Math.max(screen.y, Math.min(y, screen.y + screen.height - h));
         return new java.awt.Rectangle(x, y, w, h);
     }
+    /**
+     * Keeps the cells in view: ImageJ's side windows (ROI Manager, Results, Log, Summary, tables, plots) that cover the image
+     * window move to a free spot beside it, stacked so they don't cover each other; with no room left they are minimised.
+     */
+    static void tidyAround(ImagePlus imp) {
+        var image = imp == null ? null : imp.getWindow();
+        if (image == null || !image.isShowing()) return;
+        var screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        var taken = new ArrayList<java.awt.Rectangle>(); taken.add(image.getBounds());
+        var movers = new ArrayList<java.awt.Window>();
+        for (var window : java.awt.Window.getWindows()) {
+            if (window == image || !window.isShowing() || window instanceof java.awt.Dialog && ((java.awt.Dialog) window).isModal()) continue;
+            if (window instanceof ij.gui.ImageWindow && !(window instanceof ij.gui.PlotWindow)) continue; // other images stay put
+            if (window instanceof ij.ImageJ) continue; // the toolbar
+            String title = window instanceof java.awt.Frame f ? f.getTitle() : "";
+            boolean side = window instanceof RoiManager || window instanceof ij.text.TextWindow || window instanceof ij.gui.PlotWindow
+                || window instanceof javax.swing.JFrame && title.startsWith("Size distribution") || title.equals("Console") || title.equals("Log");
+            if (!side) continue;
+            if (window.getBounds().intersects(image.getBounds())) movers.add(window); else taken.add(window.getBounds());
+        }
+        for (var window : movers) {
+            var b = image.getBounds(); int w = window.getWidth(), h = window.getHeight(), gap = 10;
+            java.awt.Rectangle spot = null;
+            // Columns right and left of the image, top to bottom, skipping places already used.
+            outer:
+            for (int x : new int[]{b.x + b.width + gap, b.x - w - gap}) {
+                for (int y = Math.max(screen.y, b.y); y + h <= screen.y + screen.height; y += 24) {
+                    var candidate = new java.awt.Rectangle(x, y, w, h);
+                    if (!screen.contains(candidate)) break;
+                    boolean free = true; for (var t : taken) if (t.intersects(candidate)) { free = false; break; }
+                    if (free) { spot = candidate; break outer; }
+                }
+            }
+            if (spot != null) { window.setLocation(spot.x, spot.y); taken.add(spot); }
+            else if (window instanceof java.awt.Frame frame) frame.setState(java.awt.Frame.ICONIFIED);
+        }
+        if (!movers.isEmpty()) image.toFront();
+    }
     /** After "apply this to the folder": a per-image summary table and the generated macro, side by side with the image. */
     @SuppressWarnings("unchecked")
     static void showBatch(ImagePlus imp, Map<String, Object> applied) {
