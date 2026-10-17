@@ -256,7 +256,7 @@ Mean intensity of the active ROI (scope active) or ROI Manager entries (scope ma
 
 ## fiji_tumor_region
 
-Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight. H&E/IHC: areaFraction is of the tissue.
+Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight. H&E/IHC: areaFraction is of the tissue. Draws its own outline; no fiji_overlay needed.
 
 | Parameter | Required | Accepted value |
 |---|---|---|

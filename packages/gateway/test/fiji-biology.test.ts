@@ -190,3 +190,11 @@ test('expert arguments the researcher never said are dropped so the bridge defau
   assert.deepEqual(clean('fiji_segment_cells', { channel: 2, minSize: 50 }, 'segment the green channel, ignore anything smaller than 50 pixels'), { channel: 2, minSize: 50 });
   assert.deepEqual(clean('fiji_measure', { scope: 'manager' }, 'measure'), { scope: 'manager' });
 });
+
+test('brighter/darker move the live display range instantly and never filter pixels', () => {
+  const ctx = { image: { slices: 1, displayRange: [0, 255] }, counts: { roiManager: 0 } };
+  assert.deepEqual(fiji.fastRoute!('Make it brighter.', ctx), { tool: 'fiji_display', arguments: { min: 0, max: 178.5 }, reply: 'Brighter.' });
+  assert.equal(fiji.fastRoute!('a bit darker', ctx)?.arguments.max, 357);
+  assert.deepEqual(fiji.fastRoute!('auto contrast', ctx)?.arguments, { auto: true });
+  assert.equal(fiji.fastRoute!('make it brighter and count the cells', ctx), undefined);
+});

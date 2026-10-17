@@ -307,6 +307,14 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     // "How many are left?" reads the ROI Manager; re-segmenting would discard the researcher's corrections.
     if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' };
   }
+  // Brightness is display-only: move the display range from the live values, never filter the pixels.
+  const range = (context as { image?: { displayRange?: unknown } } | undefined)?.image?.displayRange;
+  if (Array.isArray(range) && range.length === 2 && range.every(v => typeof v === 'number')) {
+    const [low, high] = range as [number, number], span = Math.max(1e-6, high - low);
+    if (/^(?:make (?:it|the image|this) |a (?:bit|little) )*(?:a (?:bit|little) )?(brighter|lighter)(?: please)?$/.test(said)) return { tool: 'fiji_display', arguments: { min: low, max: low + span * 0.7 }, reply: 'Brighter.' };
+    if (/^(?:make (?:it|the image|this) |a (?:bit|little) )*(?:a (?:bit|little) )?darker(?: please)?$/.test(said)) return { tool: 'fiji_display', arguments: { min: low, max: low + span * 1.4 }, reply: 'Darker.' };
+    if (/^(?:(?:auto|fix|improve|boost|enhance|more) (?:the )?contrast|auto(?:matic)? (?:brightness|contrast)|make (?:it|this) (?:clearer|easier to see|pop))$/.test(said)) return { tool: 'fiji_display', arguments: { auto: true }, reply: 'Auto contrast.' };
+  }
   // "Find all the nuclei" is the whole request: the bridge picks the nuclear channel and respects a selection.
   if (/^(?:hey fiji |penny |okay |ok |now |please |can you |could you )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: (?:here|in this (?:area|region|selection)|in the selection|please))?$/.test(said)) return { tool: 'fiji_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
   const overlay = said.match(/^(show|hide) (?:the )?(?:overlay|outlines)$/);
