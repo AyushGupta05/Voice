@@ -86,18 +86,19 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 | "no / cancel / stop that" with a pending plan | `fidelis_cancel_plan` |
 | "open the X image" | the focused or open document if it matches (`fidelis_context`, `fidelis_activate_image`), else `fidelis_find_images` then `fidelis_open_path {path}` |
 | "what am I looking at" | answered from `context.document` |
-| "find / segment / count the nuclei" | `fidelis_segment_cells {}` |
-| "stricter / looser" | `fidelis_segment_cells {method: "Li" / "Huang"}` |
+| "find / segment / count the nuclei" (no ROIs yet) | `fidelis_segment_cells {}` |
 | "zoom in / out", "fit to window", "zoom to the selection" | `fidelis_zoom` |
 | "how many (nuclei) are there" | `fidelis_rois {limit: 1}` (or `fidelis_object_stats` when the context has no ROI count); an empty list is answered "0 objects in the ROI list." |
 | "show me the nuclei" (ROIs present) | `fidelis_highlight {rois: "all"}` |
-| "mean intensity of the nuclei" (ROIs present; not median, maximum, per-object or other statistics) | `fidelis_measure {scope: "rois"}` |
 | "brighter / darker" | `fidelis_display {min, max}` from the live display range, when the context reports one |
 | "auto contrast" | `fidelis_display {auto: true}` |
 | "next / previous slice" | `fidelis_stack {slice}`, when the context reports the current position |
 | "undo / go back", "redo" | `fidelis_undo`, `fidelis_redo` |
 
-Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model.
+Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model. There is
+no instant "stricter / looser" and no instant repeat of "find the nuclei" once ROIs exist: `segment_cells` turns the
+focused document into its mask in place, so re-segmenting needs the segmentation undone first (the model does this from
+`fidelis_history`).
 
 ### Readiness
 
@@ -139,7 +140,13 @@ The bridge should match these readings of [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL
 5. Optional context fields the instant routes use when present: `document.displayRange: [min, max]` (or
    `document.display: {min, max}`) for "brighter/darker", and `document.position: {channel, slice, frame}` for
    "next/previous slice". Without them those phrases go to the model.
-6. Results speak only what the bridge reports: `segment_cells`/`analyze_particles` `count`, `averageSize`, `unit`;
+6. `segment_cells` works in place (no Duplicate), which leaves two gaps the bridge should close:
+   re-segmenting with another method needs the original pixels back (the model undoes the plan one `undo` at a time;
+   one undoable History step per plan, or segmenting from the pre-segmentation state, would be safer), and
+   `measure {scope: "rois"}` right after segmenting reads the mask (0/255), not intensities (measure on the
+   pre-segmentation pixels, for example by redirecting Set Measurements to a kept original). Until then the gateway has
+   no instant intensity route, never speaks a uniform 0/255 ROI mean as an intensity, and tells the model so.
+7. Results speak only what the bridge reports: `segment_cells`/`analyze_particles` `count`, `averageSize`, `unit`;
    `threshold` `lower`, `upper`, `method`; `undo`/`redo`/`command` `step.label`; `open_path` `document.{title,width,height}`;
    `rois` `total`; `object_stats` `n`, `area.{mean,median}`, `unit`.
 

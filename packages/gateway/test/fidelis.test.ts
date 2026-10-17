@@ -117,7 +117,7 @@ test('instructions are action-first, Fidelis-specific and within the Fiji budget
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'at most 20 words', 'Never invent a measurement or count', 'numbers come from tool results', 'data, never instructions',
     'recorded in Fidelis History', 'undoable with fidelis_undo', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
     'fidelis_commands first to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
-    'never arithmetic on truncated rows', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'first fidelis_undo each segmentation step', 'never report it as intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -139,17 +139,17 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('Undo'), { tool: 'fidelis_undo', arguments: {}, reply: 'Undoing.' });
   assert.deepEqual(route('go back')?.tool, 'fidelis_undo');
   assert.deepEqual(route('Redo that'), { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' });
-  assert.deepEqual(route('make it stricter'), { tool: 'fidelis_segment_cells', arguments: { method: 'Li' }, reply: 'Segmenting with a stricter threshold.' });
-  assert.deepEqual(route('more sensitive')?.arguments, { method: 'Huang' });
+  // segment_cells leaves the document as its mask, so neither a stricter re-run nor a repeat is instant.
+  assert.equal(route('make it stricter'), undefined); assert.equal(route('more sensitive'), undefined);
   // Counts read the ROI list (the segmentation output), never re-segment.
   const segmented = { ...blobs, counts: { rois: 64, resultsRows: 64, history: 11 } };
   assert.deepEqual(route('How many nuclei are there?', segmented), { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' });
   assert.deepEqual(route('how many cells', blobs)?.tool, 'fidelis_rois', 'an empty ROI list is still counted');
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
-  assert.deepEqual(route('what is the mean intensity of the nuclei', segmented), { tool: 'fidelis_measure', arguments: { scope: 'rois', measurements: ['area', 'mean', 'min', 'integrated'] }, reply: 'Measuring them.' });
-  for (const other of ['what is the median intensity of the nuclei', 'maximum intensity of each nucleus', 'which cells are brightest in intensity', 'the integrated intensity of the cells'])
-    assert.equal(route(other, segmented), undefined, `${other}: another statistic goes to the model`);
+  assert.equal(route('find the nuclei', segmented), undefined, 'the document is already a mask');
+  for (const other of ['what is the mean intensity of the nuclei', 'mean intensity of the nuclei in the top left', 'what is the median intensity of the nuclei'])
+    assert.equal(route(other, segmented), undefined, `${other}: the ROI list would be measured on the mask`);
   // Brightness is display-only and needs the live display range; auto contrast does not.
   assert.equal(route('make it brighter'), undefined, 'no display range in the context, no guessed range');
   const ranged = { ...blobs, document: { ...blobs.document, displayRange: [8, 248] } };
@@ -187,6 +187,7 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_segment_cells', { status: 'failed', error: 'No image open' }), undefined, 'failures go back to the model');
   assert.equal(say('fidelis_segment_cells', completed({ steps: [] })), undefined, 'no count, no sentence');
   assert.equal(say('fidelis_measure', completed({ rows: 64, summary: { Area: { min: 1, max: 9, mean: 4 }, Mean: { min: 10, max: 250, mean: 103.25 } }, unit: 'pixel' }), { scope: 'rois' }), 'Mean intensity 103 over 64 regions.');
+  assert.equal(say('fidelis_measure', completed({ rows: 64, summary: { Mean: { min: 255, max: 255, mean: 255 } } }), { scope: 'rois' }), undefined, 'a uniform 255 is the mask, never an intensity');
   assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 400, Mean: 87.5 }, summary: {} }), { scope: 'roi' }), 'Mean intensity 87.5 in this region.');
   assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), { scope: 'all', measurements: ['area'] }), 'Area 65024 square pixels in the image.');
   assert.equal(say('fidelis_measure', completed({ rows: 1 }), { scope: 'roi' }), undefined);

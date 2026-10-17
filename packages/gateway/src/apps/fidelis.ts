@@ -71,6 +71,9 @@ function measureSentence(args: Record<string, unknown>, inner: Record<string, un
     const mean = column(inner.summary, 'Mean') as { mean?: unknown; count?: unknown } | undefined;
     const value = finite(mean?.mean), rows = finite(mean?.count) ?? finite(inner.rows);
     if (value === undefined) return undefined;
+    // Every object reading exactly 0 or 255 is a binary mask (segment_cells works in place), not an intensity.
+    const low = finite((mean as { min?: unknown }).min), high = finite((mean as { max?: unknown }).max);
+    if (low === high && (value === 0 || value === 255) && low === value) return undefined;
     return rows === undefined ? `Mean intensity ${round(value)} across the regions.` : `Mean intensity ${round(value)} over ${plural(rows, 'region')}.`;
   }
   const last = record(inner.lastRow); const where = args.scope === 'all' ? 'in the image' : 'in this region';
@@ -219,22 +222,15 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   if (zoom) return { tool: 'fidelis_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
   if (/^(?:zoom to fit|fit (?:to|the) (?:window|screen|view)|fit to window)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' };
   if (/^zoom (?:in )?(?:to|on) (?:the |this |my )?(?:selection|selected region|roi)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { selection: true }, reply: 'Zooming to the selection.' };
-  // Threshold strictness is answered deterministically by re-segmenting with a stricter or looser method.
-  const strictness = said.match(/^(?:(?:now |please )?(?:make (?:it|that|the threshold|the segmentation) )?)(?:a (?:bit|little) )?(stricter|tighter|more strict|more conservative|less sensitive|looser|more sensitive|less strict|more aggressive)(?: threshold)?$/);
-  if (strictness) {
-    const stricter = /strict(?!.*less)|tight|conservative|less sensitive/.test(strictness[1]) && !/less strict/.test(strictness[1]);
-    return { tool: 'fidelis_segment_cells', arguments: { method: stricter ? 'Li' : 'Huang' }, reply: stricter ? 'Segmenting with a stricter threshold.' : 'Segmenting with a looser threshold.' };
-  }
+  // No instant "stricter/looser": segment_cells converts the focused document to its mask in place
+  // (docs/FIDELIS-PROTOCOL.md), so a second run would threshold the mask. The model undoes the segmentation first.
   const objects = finite(state?.counts?.rois);
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
   if (objects && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here)?$/.test(said)) return { tool: 'fidelis_highlight', arguments: { rois: 'all', label: `${objects} objects` }, reply: 'Here they are.' };
-  // "What is the mean intensity of the nuclei?" measures the existing objects instead of re-segmenting. Only the mean
-  // across them is answered here; another statistic or a per-object answer goes to the model.
-  if (objects && /\b(intensit\w*|brightness|how bright|signal)\b/.test(said) && /\b(nuclei|cells|objects|them|those)\b/.test(said)
-    && !/\b(over time|frame|change|channel \w+|green|red|blue|positive|threshold|median|max\w*|min\w*|standard|sd|deviation|variance|integrated|total|sum|range|distribution|histogram|each|every|per|individual|which|highest|lowest|brightest|dimmest|largest|smallest)\b/.test(said))
-    return { tool: 'fidelis_measure', arguments: { scope: 'rois', measurements: ['area', 'mean', 'min', 'integrated'] }, reply: 'Measuring them.' };
+  // No instant "mean intensity of the nuclei": segment_cells leaves the focused document as its mask, so measuring the ROI
+  // list right after it would read mask values (0/255), not intensities. The model handles intensity requests.
   // Brightness is display-only: move the display range from the live values, never filter the pixels.
   const range = Array.isArray(doc.displayRange) ? doc.displayRange : [doc.display?.min, doc.display?.max];
   if (range.length === 2 && range.every(value => finite(value) !== undefined)) {
@@ -243,8 +239,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
     if (/^(?:make (?:it|the image|this) |a (?:bit|little) )*(?:a (?:bit|little) )?darker$/.test(said)) return { tool: 'fidelis_display', arguments: { min: low, max: low + span * 1.4 }, reply: 'Darker.' };
   }
   if (/^(?:(?:auto|fix|improve|boost|enhance|more) (?:the )?contrast|auto(?:matic)? (?:brightness|contrast)|make (?:it|this) (?:clearer|easier to see|pop))$/.test(said)) return { tool: 'fidelis_display', arguments: { auto: true }, reply: 'Auto contrast.' };
-  // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document.
-  if (/^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
+  // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document. Once the
+  // ROI list holds objects the document is already a mask, so a repeat goes to the model (undo first, or show them).
+  if (!objects && /^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {
     const slices = finite(doc.slices), current = finite(doc.position?.slice);
