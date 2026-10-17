@@ -55,7 +55,8 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 ### Verification status (bridge, 17 Oct 2026, macOS arm64)
 
-- Implemented: all 28 operations of the contract.
+- Implemented: the 28 operations of the contract plus `dialog` and `dialog_action` (any catalogue command through Penny,
+  its original Fiji dialog filled or cancelled through the bridge).
 - Protocol-tested (`python3 -I fidelis-app/tools/test.py --select-class …`, JUnit in a live Fiji JVM with the product
   engine): `sc.fidelis.penny.FidelisBridgeTest` (10: token, Origin, approval, context binding, contextKey, plans and
   workspace hooks, failures, legacy Sharpen and its refused undo, particle counts with display on/off, macro
@@ -65,7 +66,10 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   exported macro replayed in plain ImageJ gives the same 67 objects and 21886 px²; `undo {steps: undoSteps}` restores the
   original pixels; segmenting again with Li replaces the Otsu segmentation and matches Li on a fresh copy, 68; per-ROI
   measurements on a 3-slice stack use each ROI's plane, 62.0 and 162.0 as read from the pixels; a second Analyze Particles
-  replaces the ROI list). The three classes together: 21 tests, 0 failed. With the NL, UI-confirmation
+  replaces the ROI list), `FidelisCatalogueWalkTest` (3: 36 catalogue commands across File/Edit/Image/Process/Analyze/
+  Plugins complete, stop at their dialog and cancel cleanly, or are refused with a reason, none hangs; Variance… filled and
+  pressed OK through `dialog_action`; `commands` finds TrackMate, Bio-Formats Importer, Coloc 2, 3D Objects Counter,
+  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 24 tests, 0 failed. With the NL, UI-confirmation
   and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
   installed on this Mac). Full suite (`test.py`, all classes, before the last two bridge fixes): 412 tests, 6 failed, none
   in or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
@@ -81,6 +85,9 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   11 findings (3 P1: context check before plan construction, ImageJ statistics mutating the live processor's ROI, per-ROI
   plane; 8 P2: atomic confirm, keeping the bridge busy until the engine ends, failure wording, highlight with `add:false`,
   `true` defaults, `display auto` channel, `undoSteps` as an upper bound, `object_stats` units); all were checked against
-  the code, accepted and fixed with tests.
+  the code, accepted and fixed with tests. The third reported 5 (3 P1: segmentation replacement must check the undo
+  history, the context binding must hold at execution, reads must not call ImageJ's side-effecting getters; 2 P2: ROI
+  planes resolved against the starting plane, `object_stats` with an empty latest population); all accepted and fixed
+  (pre-step foreign-operation wait and history check, plane pinning, `LiveRead`, the replacement allow-list).
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.
