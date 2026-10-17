@@ -9,7 +9,7 @@ mic (AVAudioEngine, voice processing / echo cancellation)
   → 24 kHz PCM16 frames over the authenticated /events socket
   → SpeechSession → Transcribe streaming (en-GB, stable partials)
   → final transcript → TextConversation.submit(text, spoken=true) → Runtime → QuPath
-  → short final answer → Polly neural "Amy" 16 kHz PCM → resampled to 24 kHz → companion playback
+  → short final answer → Polly generative voice (default Danielle; `LUMA_VOICE=Amy:neural` etc.) 16 kHz PCM → resampled to 24 kHz → companion playback
 ```
 
 - **Barge-in:** the first partial transcript of a new utterance interrupts current playback and stops the running agent task. Pending human approvals stay pending.
