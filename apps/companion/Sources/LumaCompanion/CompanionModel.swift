@@ -147,6 +147,8 @@ final class CompanionModel: ObservableObject {
             voiceReady = (health["voice"] as? [String: Any])?["enabled"] as? Bool ?? false
             application = CompanionApplication(id: (health["app"] as? [String: Any])?["id"] as? String)
             if let name = (health["app"] as? [String: Any])?["displayName"] as? String, !name.isEmpty { appName = name }
+            // Outlines are clipped to this application's windows (PointerOverlay).
+            if let bundle = (health["app"] as? [String: Any])?["bundleId"] as? String, !bundle.isEmpty { pointer.appBundleID = bundle }
             armVoiceIfWanted()
             let text = health["text"] as? [String: Any] ?? [:]
             textReady = text["configured"] as? Bool ?? false

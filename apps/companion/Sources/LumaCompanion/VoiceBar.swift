@@ -51,6 +51,9 @@ private struct VoiceBar: View {
         .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.82), value: status.phase)
         .animation(.easeInOut(duration: 0.2), value: status.title)
         .animation(.easeInOut(duration: 0.2), value: status.showsResult)
+        // The companion cursor shows the same phase: listening ring, thinking orbit, speaking ripple.
+        .onChange(of: status, initial: true) { _, now in model.pointer.setMood(CursorMood(now)) }
+        .onChange(of: model.microphoneLevel) { _, level in model.pointer.setLevel(level) }
     }
 
     /// Mic glyph when idle, stop control while voice is on, spinner while the speech connection is starting.
