@@ -43,6 +43,7 @@ import sc.fidelis.engine.api.Enums.OperationState;
 import sc.fidelis.engine.api.Enums.Origin;
 import sc.fidelis.engine.api.HistoryRecord;
 import sc.fidelis.engine.api.MeasurementRow;
+import sc.fidelis.engine.RoiSignature;
 import sc.fidelis.engine.api.RoiGeometry;
 import sc.fidelis.engine.api.TargetScope;
 import sc.fidelis.nl.ConfirmationPolicy;
@@ -152,6 +153,8 @@ final class PennyOps {
         int undoSteps;
         /** History size when the plan was approved (its contextKey includes it). */
         int approvedHistory = -1;
+        /** RoiSignature of the plan document's selection when the plan was approved; the first step is bound to it. */
+        String approvedRoi;
         /** Request ids submitted to the engine (for the event bookkeeping). */
         final List<String> submitted = new ArrayList<>();
         /** The approved plane of a stack document ({c, z, t}); COMMAND steps are pinned to it. Null for single planes. */
@@ -335,6 +338,7 @@ final class PennyOps {
         assess(p);
         p.approvedHistory = engine.history().size();
         p.contextKey = contextKey();
+        p.approvedRoi = p.doc == null ? null : RoiSignature.of(engine.activeRoi(p.doc).orElse(null));
         // the workspace may have changed focus or selection while the plan was being built
         if (p.call.expectedContext() != null && !p.call.expectedContext().equals(p.contextKey))
             throw new Failure(409, "Fidelis image, selection, results or history changed while the action was being prepared. Review it again.",
@@ -485,6 +489,15 @@ final class PennyOps {
                 // the engine refuses the step (STATE_CHANGED) if anything else enters the history before its worker starts it
                 Map<String, Object> bound = new LinkedHashMap<>(r.params());
                 bound.put("expectedHistorySize", cursor);
+                // ... and (STATE_CHANGED too) if the target's selection is not the one this step was planned against: the
+                // approved selection for the first step, the selection as the previous step left it for the rest. Canvas
+                // edits are recorded late, so the history check alone misses a selection drawn just before a step runs.
+                DocumentId target = r.target() == null ? null : r.target().document();
+                if (target != null) {
+                    String expectedRoi = i == 0 && target.equals(p.doc) && p.approvedRoi != null ? p.approvedRoi
+                            : RoiSignature.of(engine.activeRoi(target).orElse(null));
+                    bound.put("expectedRoi", expectedRoi);
+                }
                 r = new ActionRequest(r.requestId(), r.origin(), r.kind(), r.commandId(), r.operation(), bound, r.target(),
                         r.confirmationToken(), r.replayOf());
                 byRequest.put(r.requestId(), p);

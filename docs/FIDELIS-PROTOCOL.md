@@ -92,36 +92,12 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
   entered the history in between (a workspace action queued just ahead of it), so the approval holds at execution, not
   only at admission (verified: a workspace CLEAR_ROI queued before step 3 of segment_cells ran, step 3 was refused,
   nothing after it ran). This is an additive, opt-in engine change (`DefaultEngine.runOp`, `Options.RESERVED`) for
-  the engine owner's review; requests without the key are unaffected. Residual (documented, not fixed): the binding
-  covers what reaches the history; a native selection edit on the canvas is recorded about 250 ms late by the engine's
-  observer, so an edit made in the last moment before a step can still be in effect when it runs. The engine now offers
-  the selection fingerprint for that (opt-in reserved key `expectedRoi`, engine branch `integration/engine-fixes`): the
-  `sc.fidelis.engine.RoiSignature` of the target document's active selection at approval (`none`, or
-  `TYPE:x,y,w,h:HASH`, computed as `RoiSignature.of(engine.activeRoi(doc).orElse(null))`), compared with the live
-  selection on the EDT when the worker starts the step; a difference refuses it with PRECONDITION_FAILED / `STATE_CHANGED`
-  and runs nothing (`EngineExpectedRoiTest`). The bridge does not send it yet. Threshold and display DIRECT operations apply an
-  explicit TargetScope plane (`DirectOps`, opt-in) and the bridge pins them like COMMAND steps. COMMAND
-  steps on a stack are pinned to the approved plane (TargetScope channel/slice/frame), so a plane change in the workspace
-  cannot redirect them. The bridge's own reads of the live image (plane pixels, threshold levels, the inverted-LUT flag,
-  position) never call `ImagePlus.getProcessor()`/`getStack()`, which change the processor's ROI and the stack.
-- Running: plans run one at a time on the bridge's own thread (`fidelis-penny-plan`, never the EDT); each step is awaited
-  until the engine reports a terminal state (no timeout: an original Fiji dialog waits for the user, and the bridge stays
-  busy until it is answered) and the plan **stops at the first step the engine does not report COMPLETED**. The HTTP request
-  waits up to 115 s; after that it answers 409 `{error, planId, running:true}` and the plan continues (`context.running`
-  shows it). On a stack, commands whose catalogue schema has no `stack` key (Invert, Smooth, Sharpen, Find Edges) make
-  ImageJ ask "Process all N images?" in Fidelis; the plan waits for that answer.
-- Completed result: `{status:"completed", planId, operation, confirmed?, …operation fields…, steps:[step], undoSteps,
-  contextKey}`; `step` = `{actionId, label, commandId, outcome, durationMs, macroLines[]}` (`label` is the plan's label,
-  `commandId` the engine's command id or DIRECT operation); `undoSteps` = steps that changed pixels or type through a
-  catalogued command, i.e. the `undo {steps}` that would revert the plan. It is an upper bound: 0 for virtual stacks, and
-  the engine keeps no snapshot over its undo budget, in which case `undo` stops at the first step without one (409, the
-  steps undone so far stay undone and are listed). Failure: 409 `{error, code, subcode, suggestions, state, planId,
-  failedStep, failedLabel, completedSteps[], step?, note}`; `error` is the engine's `EngineError.message`, prefixed with
-  "Step k of n (label) did not complete:" for multi-step plans; `note` says what is known about the failed step (rolled
-  back by the engine, refused before running, or "may have changed the image, ROIs or results"). Nothing is reported as
-  done unless the engine said COMPLETED; earlier completed steps stay in History.
-- The workspace calls back through `sc.fidelis.penny.PennyPlans`: `confirm(planId)` → `CompletableFuture<Map>` (runs off the
-  EDT, same checks as `confirm`, the plan keeps its NL origin and transcriptRef), `cancel(planId)`, `bridgeRunning()`.
+  the engine owner's review; requests without the key are unaffected. The selection is bound too: every step carries the reserved key `expectedRoi`, the `sc.fidelis.engine.RoiSignature`
+  of its target document's active selection (`none`, or `TYPE:x,y,w,h:HASH`) — the selection at approval for the first
+  step, the selection the previous step left for the rest. The engine reads the live selection on the EDT when the worker
+  starts the step and refuses it (`STATE_CHANGED`) if it differs, so a selection drawn on the canvas in the last moment
+  before a step (recorded ~250 ms late by the observer, invisible to the history check) can no longer change what the
+  step acts on. Requests without the key are unaffected (`EngineExpectedRoiTest`).
 
 ## Operations
 
