@@ -191,6 +191,13 @@ final class DirectOps {
                         synchronized (src.roiList) {
                             for (Roi x : src.roiList) copies.add((Roi) x.clone());
                         }
+                        // the plane the objects were found on, for a stack target ({c, z, t}; 0 = any)
+                        if (r.params().get("position") instanceof List<?> pl && pl.size() == 3 && imp.getStackSize() > 1) {
+                            int[] pos = new int[3];
+                            for (int k = 0; k < 3; k++) pos[k] = pl.get(k) instanceof Number n ? n.intValue() : 0;
+                            for (Roi x : copies) x.setPosition(pos[0], pos[1], pos[2]);
+                            params.put("position", List.of(pos[0], pos[1], pos[2]));
+                        }
                         eng.emitState(op, OperationState.RUNNING, null);
                         synchronized (doc.roiList) {
                             if (replace) doc.roiList.clear();

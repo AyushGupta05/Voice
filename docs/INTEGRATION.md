@@ -77,7 +77,7 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   replaces the ROI list), `FidelisCatalogueWalkTest` (3: 36 catalogue commands across File/Edit/Image/Process/Analyze/
   Plugins complete, stop at their dialog and cancel cleanly, or are refused with a reason, none hangs; Variance… filled and
   pressed OK through `dialog_action`; `commands` finds TrackMate, Bio-Formats Importer, Coloc 2, 3D Objects Counter,
-  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 27 tests, 0 failed (FidelisBridgeTest
+  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 28 tests, 0 failed (FidelisBridgeTest
   includes the execution-binding test, a workspace action queued before step 3 stops the plan there, and the
   competing-analysis test, a workspace Analyze Particles right after Penny's stops the plan before it copies objects). With the NL, UI-confirmation
   and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
@@ -106,6 +106,9 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   the engine owner should review. The fifth reported 6 (3 P1: the step baseline taken before validation, undo
   snapshot identities for the automatic replacement, plane binding of threshold/display steps; 3 P2: statistics after a
   competing action, failures without a record, queued EDT edits after a timeout); all accepted and fixed (the
-  replacement finding was resolved by segmenting a duplicate, which needs no undo at all).
+  replacement finding was resolved by segmenting a duplicate, which needs no undo at all). The sixth reported 5: the
+  selection before duplicating (P1), mask-ROI planes, EDT task start tracking and results while foreign work is still
+  active (P2) were fixed; the remaining P1 (a native canvas selection edit recorded 250 ms late can slip past the
+  execution binding) is documented as a residual needing an engine-level selection fingerprint.
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.

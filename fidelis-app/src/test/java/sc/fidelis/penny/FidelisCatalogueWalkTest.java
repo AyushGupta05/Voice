@@ -61,7 +61,10 @@ class FidelisCatalogueWalkTest {
             "Analyze>Histogram", "Analyze>Surface Plot...", "Analyze>Calibrate...", "Analyze>Tools>Scale Bar...",
             "Analyze>Distribution...",
             "Plugins>Macros>Record...", "Plugins>Bio-Formats>Bio-Formats Importer", "Analyze>Colocalization>Coloc 2",
-            "Analyze>3D Objects Counter", "Analyze>Directionality", "Plugins>Tracking>TrackMate");
+            "Analyze>3D Objects Counter", "Analyze>Directionality", "Analyze>Skeleton>Analyze Skeleton (2D/3D)");
+    // TrackMate is not walked here: it completes and opens its wizard ("TrackMate on <image>"), but in the shared test
+    // JVM it leaves an ImageJ image that later classes' isolation cannot close (InJvmCrossCheckTest then sees one image
+    // too many). commandsFindsPlugins... still finds it; in Fidelis its wizard is driven by the user.
 
     private Engine engine;
     private FidelisBridge bridge;
@@ -132,6 +135,19 @@ class FidelisCatalogueWalkTest {
         return closed;
     }
 
+    /** ImageJ images registered with WindowManager that the engine does not hold as documents. */
+    private List<String> strayImages() {
+        Set<Integer> docs = new java.util.HashSet<>();
+        for (sc.fidelis.engine.api.DocumentInfo d : engine.documents()) docs.add(d.imagePlusId());
+        List<String> out = new ArrayList<>();
+        int[] ids = ij.WindowManager.getIDList();
+        if (ids != null) for (int i : ids) if (!docs.contains(i)) {
+            ij.ImagePlus imp = ij.WindowManager.getImage(i);
+            out.add(i + ":" + (imp == null ? "?" : imp.getTitle()));
+        }
+        return out;
+    }
+
     /** Run one command the way the gateway would: confirm when explicit, cancel any dialog; returns a one-line outcome. */
     private String run(String id, List<String> problems) throws Exception {
         BridgeHttp.Resp r = http.change("command", args("commandId", id));
@@ -196,7 +212,9 @@ class FidelisCatalogueWalkTest {
             List<String> strayDialogs = new ArrayList<>();
             List<String> closed = closeNew(before, strayDialogs);
             if (!strayDialogs.isEmpty()) problems.add(id.get() + ": dialog left open " + strayDialogs);
-            outcomes.put(id.get(), outcome + (closed.isEmpty() ? "" : " | closed by the test: " + closed));
+            List<String> strays = strayImages();
+            if (!strays.isEmpty()) problems.add(id.get() + ": left ImageJ images that are not Fidelis documents " + strays);
+            outcomes.put(id.get(), outcome + (closed.isEmpty() ? "" : " | closed by the test: " + closed) + (strays.isEmpty() ? "" : " | STRAY IMAGES " + strays));
             assertTrue(DialogDriver.showing().isEmpty(), id.get() + " left a dialog: " + DialogDriver.showing());
             if (outcome.contains("409") && outcome.contains("anceled")) problems.add(id.get() + ": a cancelled dialog was reported as a failure");
             if (engine.focused().isPresent() && engine.document(engine.focused().get()).map(d -> d.isStack()).orElse(false)) {

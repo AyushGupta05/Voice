@@ -95,7 +95,11 @@ final class DialogDriver {
                 throw new IllegalStateException(e);
             }
         }
-        FutureTask<T> task = new FutureTask<>(c);
+        java.util.concurrent.atomic.AtomicBoolean started = new java.util.concurrent.atomic.AtomicBoolean();
+        FutureTask<T> task = new FutureTask<>(() -> {
+            started.set(true);
+            return c.call();
+        });
         SwingUtilities.invokeLater(task);
         try {
             return task.get(20, TimeUnit.SECONDS);
@@ -106,8 +110,9 @@ final class DialogDriver {
         } catch (java.util.concurrent.TimeoutException | InterruptedException e) {
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             // a queued task must not fill or press the dialog later, after the caller was told it failed
-            boolean notStarted = task.cancel(false);
-            throw new EdtTimeout(notStarted);
+            // FutureTask.run skips a cancelled task, so "cancelled and not started" means it will never run
+            boolean cancelled = task.cancel(false);
+            throw new EdtTimeout(cancelled && !started.get());
         }
     }
 

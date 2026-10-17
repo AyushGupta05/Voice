@@ -225,6 +225,22 @@ class FidelisBridgeJourneyTest {
      * the new method sees the original pixels; a fresh copy segmented once with the same method gives the same count.
      */
     @Test
+    void aSelectionNeitherCropsNorFiltersTheMaskAndIsRestored() throws Exception {
+        Path blobs = Fixtures.require("FX-003", "blobs.gif");
+        DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
+                .getAsJsonObject("document").get("id").getAsString());
+        http.exec("select_roi", args("type", "rectangle", "x", 10, "y", 10, "width", 60, "height", 40), null, null).result();
+        JsonObject seg = http.change("segment_cells", args()).result();
+        DocumentId mask = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
+        assertEquals(256, engine.document(mask).orElseThrow().width(), "the mask is the whole image");
+        assertEquals(254, engine.document(mask).orElseThrow().height());
+        assertEquals(67, seg.get("count").getAsInt(), "the same objects as without a selection");
+        JsonObject roi = http.read("context", null).getAsJsonObject("roi");
+        assertEquals(60.0, roi.getAsJsonObject("bounds").get("width").getAsDouble(), "the selection is back on the original");
+        assertTrue(engine.activeRoi(mask).isEmpty(), "the mask carries no selection");
+    }
+
+    @Test
     void segmentingAgainReplacesThePreviousSegmentation() throws Exception {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()

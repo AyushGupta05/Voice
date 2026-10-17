@@ -536,7 +536,7 @@ final class PennyOps {
             // results are read from the live mirrors: if another action ran after the plan, they may describe it instead
             waitForForeignOpsQuietly();
             int before = engine.history().size();
-            boolean foreign = sinceMark(cursor, before).stream().anyMatch(h -> !mine(p, ours, h));
+            boolean foreign = !foreignOps.isEmpty() || sinceMark(cursor, before).stream().anyMatch(h -> !mine(p, ours, h));
             boolean virtual = p.doc != null && engine.document(p.doc).map(DocumentInfo::virtualStack).orElse(false);
             p.undoSteps = virtual ? 0 : undoable;
             Map<String, Object> out = new LinkedHashMap<>();
@@ -546,7 +546,8 @@ final class PennyOps {
             if (confirmed) out.put("confirmed", true);
             if (!foreign) {
                 Map<String, Object> fin = p.finish.finish(p, results);
-                if (engine.history().size() != before || sinceMark(cursor, engine.history().size()).stream().anyMatch(h -> !mine(p, ours, h))) foreign = true;
+                if (!foreignOps.isEmpty() || engine.history().size() != before
+                        || sinceMark(cursor, engine.history().size()).stream().anyMatch(h -> !mine(p, ours, h))) foreign = true;
                 else out.putAll(fin);
             }
             if (foreign) {
@@ -1448,7 +1449,11 @@ final class PennyOps {
             if (d.nChannels() > 1) p.steps.add(directStep(p, "channel", Operations.SET_POSITION, "Channel " + ch, "Image>Stacks>Set Channel",
                     map("channel", ch), prov("channel", Params.USER), "Stack.setChannel(" + ch + ");", ts));
         }
-        // the current plane of the original, whole image (an active selection is ignored), as a new document
+        // an active selection would be restored onto the duplicate (and can crop it): clear it first, restore it at the end
+        Optional<RoiGeometry> selection = engine.activeRoi(d.id());
+        if (selection.isPresent()) p.steps.add(directStep(p, "unselect", Operations.CLEAR_ROI, "Select None (restored afterwards)",
+                "Edit>Selection>Select None", Map.of(), Map.of(), "run(\"Select None\");", ts));
+        // the current plane of the original, whole image, as a new document
         String base = d.title().replaceFirst("\\.[A-Za-z0-9]{2,4}$", "");
         int[] pos = position(p);
         String c0 = pos == null ? "1" : String.valueOf(pos[0]), z0 = pos == null ? "1" : String.valueOf(pos[1]), t0 = pos == null ? "1" : String.valueOf(pos[2]);
@@ -1489,12 +1494,17 @@ final class PennyOps {
         Step copy = directStep(p, "copy", Operations.ROI_LIST_ADD, "Copy the objects to " + d.title(), "Analyze>Tools>ROI Manager...",
                 map("fromDocument", "(the mask)", "replace", replace), prov("fromDocument", Params.DERIVED, "replace", PennyJson.has(a, "replace") ? Params.USER : Params.DERIVED),
                 "roiManager(\"" + (replace ? "reset" : "add") + "\"); // objects of the mask", ts);
+        final int[] segmentedPlane = position(p) == null ? null : position(p).clone();
         p.steps.add(new Step(copy.role(), copy.label(), copy.menuPath(), copy.request(), copy.provenance(), copy.preview(), res -> {
             Map<String, Object> params = new LinkedHashMap<>(copy.request().params());
             params.put("fromDocument", created(res.get(dup)).value());
+            if (segmentedPlane != null)
+                params.put("position", List.of(d.nChannels() > 1 ? segmentedPlane[0] : 0, segmentedPlane[1], d.nFrames() > 1 ? segmentedPlane[2] : 0));
             return new ActionRequest(UUID.randomUUID().toString(), copy.request().origin(), ActionKind.DIRECT, null, Operations.ROI_LIST_ADD, params,
                     TargetScope.of(d.id()), null, null);
         }));
+        if (selection.isPresent()) p.steps.add(directStep(p, "reselect", Operations.SET_ROI, "Restore the selection", "Edit>Selection>Restore Selection",
+                map("roi", selection.get()), prov("roi", Params.DERIVED), "run(\"Restore Selection\");", ts));
         p.finish = (plan, res) -> {
             DocumentId mask = created(res.get(dup));
             engine.focus(d.id()); // the original stays the document Penny and the user work on
