@@ -55,6 +55,9 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 ### Verification status (bridge, 17 Oct 2026, macOS arm64)
 
+- Engine change for review (Arnav): `DefaultEngine.runOp` refuses a request whose reserved `expectedHistorySize` no
+  longer matches the history (PRECONDITION_FAILED, `STATE_CHANGED`), `Options.RESERVED` lists the key, and
+  `CommandRunner.runLegacy` ignores reserved keys instead of refusing them; opt-in, requests without the key unchanged.
 - Implemented: the 28 operations of the contract plus `dialog` and `dialog_action` (any catalogue command through Penny,
   its original Fiji dialog filled or cancelled through the bridge).
 - Protocol-tested (`python3 -I fidelis-app/tools/test.py --select-class …`, JUnit in a live Fiji JVM with the product
@@ -69,7 +72,8 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   replaces the ROI list), `FidelisCatalogueWalkTest` (3: 36 catalogue commands across File/Edit/Image/Process/Analyze/
   Plugins complete, stop at their dialog and cancel cleanly, or are refused with a reason, none hangs; Variance… filled and
   pressed OK through `dialog_action`; `commands` finds TrackMate, Bio-Formats Importer, Coloc 2, 3D Objects Counter,
-  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 24 tests, 0 failed. With the NL, UI-confirmation
+  Skeletonize, Directionality and Analyze Skeleton). The four classes together: 25 tests, 0 failed (FidelisBridgeTest
+  gained the execution-binding test: a workspace action queued before step 3 stops the plan there). With the NL, UI-confirmation
   and speech-to-execution classes in the same run: 297 tests, 0 failed (4 skipped: the Whisper interpreter is not
   installed on this Mac). Full suite (`test.py`, all classes, before the last two bridge fixes): 412 tests, 6 failed, none
   in or using the bridge: `EngineNativeSyncTest` ×3 (known, engine work in progress), `MacroReplayTest` ×2
@@ -88,6 +92,10 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   the code, accepted and fixed with tests. The third reported 5 (3 P1: segmentation replacement must check the undo
   history, the context binding must hold at execution, reads must not call ImageJ's side-effecting getters; 2 P2: ROI
   planes resolved against the starting plane, `object_stats` with an empty latest population); all accepted and fixed
-  (pre-step foreign-operation wait and history check, plane pinning, `LiveRead`, the replacement allow-list).
+  (pre-step foreign-operation wait and history check, plane pinning, `LiveRead`, the replacement allow-list). The fourth
+  reported 5 (2 P1: the approval must hold when the engine dequeues a step, and the history cursor must be taken before
+  submission; 3 P2: dialog answers bound to their dialog, the cancel marker set before the press, the smoke exit status);
+  all accepted and fixed, the first with an opt-in engine check (`expectedHistorySize`, subcode `STATE_CHANGED`) that
+  the engine owner should review.
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.

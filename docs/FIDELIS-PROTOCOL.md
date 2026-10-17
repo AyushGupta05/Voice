@@ -28,7 +28,8 @@ and the workspace voice surface (`sc.fidelis.penny.ui`).
   `.local/state/bridge-token` walking up from the Fidelis jar, `-Dfidelis.repo.dir` and the working directory (a git
   worktree under `<root>/.local/worktrees/` finds the main checkout). `Bootstrap.exit` stops it. A plain `--smoke` never
   starts it (there is no engine in smoke); `run.py --smoke --prop fidelis.penny=true` creates the engine, starts the bridge and runs a
-  self-check over HTTP (`/health` 200, `context` 200, an `Origin` request 403).
+  self-check over HTTP (`/health` 200, `context` 200, an `Origin` request 403); the smoke exits 5 when that check fails
+  (verified with the port held by another process) and 0 when it passes.
 - HTTP on `127.0.0.1:49558` (`-Dfidelis.penny.port`), 4 handler threads. **Every** request, `/health` included, needs
   `Authorization: Bearer <token>` (as the Fiji bridge); any request with an `Origin` header is refused with 403 first.
   `GET /health` → `{application:"Fidelis", version, engine, confirmPolicy, adapter:{adapterVersion:"fidelis-bridge-1",
@@ -38,8 +39,8 @@ and the workspace voice surface (`sc.fidelis.penny.ui`).
   409 `{error, …}` for refusals and engine failures (below).
 - `spoken:true` → requests use `Origin.NL_SPOKEN`, else `Origin.NL_TYPED`. Every engine request carries
   `params.transcriptRef = taskId` (reserved key; the engine records it in `HistoryRecord.transcriptRef`); without a `taskId`
-  the plan id (`penny-plan-…`) is used, so Penny's steps are always traceable. Exception: commands without a catalogued
-  schema go through the engine's legacy route, which refuses any params, so their step carries no `transcriptRef`. Steps a confirmed macro runs are recorded by
+  the plan id (`penny-plan-…`) is used, so Penny's steps are always traceable (legacy-route commands included: the
+  engine's legacy route now ignores reserved keys instead of refusing them). Steps a confirmed macro runs are recorded by
   the engine as `MACRO` children of the `NL_*` CODE step and carry the same `transcriptRef`.
 - Data, session and code operations (`open_path command segment_cells measure threshold analyze_particles filter convert
   duplicate undo redo run_macro confirm`) need `approved:true` and `expectedContext` equal to the current `contextKey`
@@ -85,7 +86,13 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
 - Before every step the plan thread waits (up to 30 s) until no engine operation other than Penny's is queued or running
   (the workspace's, tracked from the engine's events), checks the `contextKey` against the approved one before the first
   step, and before each later step refuses any history record since its previous step that is not its own (a workspace
-  action, a native canvas edit); the refusal stops the plan before that step (409, "Step k was not started"). COMMAND
+  action, a native canvas edit); the refusal stops the plan before that step (409, "Step k was not started"). Every step
+  also carries the reserved request key `expectedHistorySize` (the history size when it was submitted): the engine checks
+  it when its worker dequeues the request and refuses with PRECONDITION_FAILED / subcode `STATE_CHANGED` if anything else
+  entered the history in between (a workspace action queued just ahead of it), so the approval holds at execution, not
+  only at admission (verified: a workspace CLEAR_ROI queued before step 3 of segment_cells ran, step 3 was refused,
+  nothing after it ran). This is an additive, opt-in engine change (`DefaultEngine.runOp`, `Options.RESERVED`) for
+  the engine owner's review; requests without the key are unaffected. COMMAND
   steps on a stack are pinned to the approved plane (TargetScope channel/slice/frame), so a plane change in the workspace
   cannot redirect them. The bridge's own reads of the live image (plane pixels, threshold levels, the inverted-LUT flag,
   position) never call `ImagePlus.getProcessor()`/`getStack()`, which change the processor's ROI and the stack.
@@ -127,7 +134,7 @@ image use the **focused** document (409 "No image is open/focused" otherwise).
 | `measure` | data | `measurements?:[…]` (area, mean, min/max, standard, modal, centroid, center, perimeter, bounding, fit, shape, feret, integrated, median, skewness, kurtosis, area_fraction, stack), `scope:roi\|all\|rois` (`manager` = `rois`) | Set Measurements (current ∪ requested) **only when a requested column is not recorded** (AC5 → explicit), then `roi`: Measure (the selection, or the whole image without one); `all`: [Select None] Measure [restore the selection]; `rois`: one Measure per ROI-list entry (≤ 1000), each targeted at the plane the ROI was recorded on (its c/z/t; 0 = current), then the plane position and the selection restored → `{rows, totalRows, columns, lastRow, summary:{area:{min,max,mean,count}, …}, unit, scope, highlight}` (summary keys lower-case without '.') |
 | `threshold` | data | `method?` (Otsu), `dark?` (as segment_cells), or `lower` + `upper` | `SET_AUTO_THRESHOLD` or `SET_THRESHOLD` → `{lower, upper, method, dark?, highlight}` (levels read back from the image) |
 | `analyze_particles` | data | Analyze Particles schema keys (`size`, `circularity`, `show`, `display`, `exclude`, `clear`, `include`, `summarize`, `add`, …); aliases `minSize`, `maxSize`, `minCircularity`, `addToManager` | defaults show Nothing, display, clear, add → `{count, countedFrom, averageSize, totalArea, unit, rois, resultsRows, document, highlight}`; `count` is the Results rows of that action, or the ROI list when `display` is off and `add` on; with `add:false` the highlight is the image (the ROI list then holds earlier objects); a second run replaces the ROI list (verified) |
-| `filter` | data | `name: gaussian\|median\|mean\|unsharp\|subtract_background\|enhance_contrast\|invert\|smooth\|sharpen\|find_edges`, `sigma?` (2), `radius?` (2; unsharp 1), `mask?` (0.6), `rolling?` (50), `light?`, `sliding?`, `saturated?` (0.35), `normalize?`, `equalize?`, `stack?` | the catalogue command (sharpen and find_edges have no catalogued options: they run at once through the engine's legacy route, which refuses any params, so their history step carries no `transcriptRef`, and keeps no undo snapshot, so `undo` answers 409 "nothing to undo" and `undoSteps` does not count them) → `{step, highlight}` |
+| `filter` | data | `name: gaussian\|median\|mean\|unsharp\|subtract_background\|enhance_contrast\|invert\|smooth\|sharpen\|find_edges`, `sigma?` (2), `radius?` (2; unsharp 1), `mask?` (0.6), `rolling?` (50), `light?`, `sliding?`, `saturated?` (0.35), `normalize?`, `equalize?`, `stack?` | the catalogue command (sharpen and find_edges have no catalogued options: they run at once through the engine's legacy route, which keeps no undo snapshot, so `undo` answers 409 "nothing to undo" and `undoSteps` does not count them) → `{step, highlight}` |
 | `convert` | data | `to: 8-bit\|16-bit\|32-bit\|RGB` | `ij1:Image>Type>…` → `{step, document}` |
 | `duplicate` | data | `title?` | `ij1:Image>Duplicate...` (whole stack for stacks) → `{document, step, highlight}` |
 | `select_roi` | view | `type: rectangle\|oval\|polygon\|none`, `x,y,width,height` or `points:[[x,y],…]` (image px), `name?` | `SET_ROI`/`CLEAR_ROI` → `{roi, highlight}` |
@@ -145,7 +152,7 @@ image use the **focused** document (409 "No image is open/focused" otherwise).
 | `confirm` | data | `planId?` (default: the waiting plan) | runs the waiting plan → its result with `confirmed:true` |
 | `cancel_plan` | view | `planId?` | the waiting plan, or (when none waits) Cancel on the Fiji dialog Penny's running plan is stopped at → `{cancelled, planId?, dialogCancelled?}` |
 | `dialog` | read | | the original Fiji dialog Penny's running plan waits on → `{pending:true, status:"dialog", planId, operation, step, dialog, contextKey}`, else `{pending:false, others:[{title, kind, buttons}]}` (dialogs not waiting for Penny; never operated) |
-| `dialog_action` | data | `fields?:{<id\|key\|label>: value}`, `press?` (button label, default "OK"; "" fills without pressing) | fills and presses that dialog, then waits for the plan again → its result: `completed`, another `dialog`, `cancelled` (Cancel/No pressed) or a failure. 400 for an unknown field, a value of the wrong type, or an unknown button (nothing is touched); 409 when no dialog waits for Penny |
+| `dialog_action` | data | `dialogId` (from the dialog result; required), `fields?:{<id\|key\|label>: value}`, `press?` (button label, default "OK"; "" fills without pressing) | fills and presses that exact dialog window, then waits for the plan again → its result: `completed`, another `dialog` (new `dialogId`), `cancelled` (Cancel/No pressed) or a failure. 400 for a missing `dialogId`, an unknown field, a value of the wrong type, or an unknown button (nothing is touched); 409 when no dialog waits for Penny or `dialogId` names an earlier dialog |
 
 Verified numbers (17 Oct 2026, macOS arm64, pinned Fiji 1.54p, FX-003 Blobs 256×254, uncalibrated): `segment_cells` with
 defaults finds **67** objects, mean area **326.657 px²**, total 21886 px² (Gaussian σ1, Otsu not-dark because Blobs has an
@@ -180,7 +187,7 @@ Guard reports `DialogPending` and WAITING_FOR_DIALOG), the bridge answers as soo
 still blocked on it after 500 ms, with HTTP 200:
 
 ```json
-{"status": "dialog", "planId": "plan-…", "operation": "command", "step": {"index": 1, "of": 1, "label": "Variance..."},
+{"status": "dialog", "dialogId": "dlg-7", "planId": "plan-…", "operation": "command", "step": {"index": 1, "of": 1, "label": "Variance..."},
  "dialog": {"title": "Variance...", "kind": "generic", "text": "Radius\npixels",
             "fields": [{"id": "f0", "key": "radius", "label": "Radius", "type": "number", "value": "2.0"},
                        {"id": "f1", "key": "preview", "label": "Preview", "type": "boolean", "value": false}],
@@ -191,7 +198,8 @@ still blocked on it after 500 ms, with HTTP 200:
 - Field types: `number`, `string`, `text` (multi-line), `boolean`, `choice` (with `choices`), `radio` (a checkbox group,
   with `choices`). `key` is the macro key ImageJ derives from the label (first word, lower case); `id` is the position.
   `kind` is `generic` (ImageJ GenericDialog), `awt`, `swing` or `file` (an OS file chooser: only Cancel works).
-- `dialog_action {fields, press}` sets the values through the components' own events on the EDT (the plugin reads them as
+- `dialog_action {dialogId, fields, press}` is bound to that dialog (a later dialog of the same command gets a new
+  `dialogId`, and an answer for the earlier one is refused); it sets the values through the components' own events on the EDT (the plugin reads them as
   if typed) and presses the button; the command continues **inside the same engine operation**, so History records it
   (provenance `LEGACY_DIALOG`, the step's origin `NL_SPOKEN`/`NL_TYPED`). Pressing Cancel (or No) ends the plan with
   HTTP 200 `{status:"cancelled", dialog, state, engineMessage, step, completedSteps, note}` (the engine reports the
@@ -206,13 +214,13 @@ still blocked on it after 500 ms, with HTTP 200:
   Bio-Formats Importer) and 5 were refused by the engine with ImageJ's own reason (Draw and Add Selection need a
   selection, Skeletonize a binary image, Distribution a Results table, Histogram's typed schema needs `x_min`…); none
   hung and none left a dialog open. Variance… filled with radius 3 and OK through `dialog_action` changed the pixels and
-  was recorded as `LEGACY_DIALOG`/`NL_SPOKEN`.
+  was recorded as `LEGACY_DIALOG`/`NL_SPOKEN` with the task's `transcriptRef`.
 - `run_macro` (CODE, always explicit) remains the route for anything a dialog cannot express.
 
 ### Notes for the other integration parts (17 Oct 2026)
 
 - Gateway: the bridge now declares **30** operations: add `fidelis_dialog` (read) and `fidelis_dialog_action` (data:
-  `fields`, `press`) and handle `status:"dialog"` (speak the dialog title and fields, fill from the user's answer, or
+  `dialogId`, `fields`, `press`) and handle `status:"dialog"` (speak the dialog title and fields, fill from the user's answer, or
   cancel) and `status:"cancelled"`; `command` takes any catalogue id, and `commands` returns `route` for legacy entries.
   Send `spoken`, `taskId` (becomes `transcriptRef`) and `utterance` with every `/execute`; handle
   `status:"awaiting_confirmation"` (speak the `reasons`, route "yes"/"go ahead" to `confirm` with the `planId`, "no" to
