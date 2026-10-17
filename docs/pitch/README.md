@@ -4,6 +4,8 @@
 
 The measured analysis fixture is recorded in [integration-evidence.json](integration-evidence.json). Its counts describe a chosen detection and threshold on a public sample, not validated biological ground truth. The separate [direct text model](text-model-evidence.json) and [authenticated companion-route](companion-text-evidence.json) records distinguish actual inference from protocol mocks and native foreground inspection.
 
+Later source milestones retain their own evidence: [original-app preservation](qupath-preservation-evidence.json) and [the same-request text follow-up](companion-text-fresh-context-evidence.json). The latter took two model requests / 4665 ms in one run; it is not a voice latency benchmark. Deck v6's dated presenter notes describe its earlier milestone; current funding totals and remaining work are in [FUNDING.md](../FUNDING.md) and the [build journal](../BUILD-JOURNAL.md).
+
 All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v6`.
 
 To rebuild in an environment with that bundled runtime, obtain Node, node_modules and Python paths from `load_workspace_dependencies`, then supply them along with the installed presentation skill directory:

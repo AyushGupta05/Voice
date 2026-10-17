@@ -8,7 +8,7 @@ The signed-in AWS Billing Credits UI showed an active hackathon promotional cred
 
 Official documentation lists supported OpenAI models on Bedrock and Responses/Chat Completions endpoints. It did not establish a Bedrock endpoint for OpenAI Realtime or GPT-Live. OpenAI's direct realtime service uses its own API authentication and billing.
 
-Three separate AWS-credit text/reference fixtures made **ten real model requests** in total, with estimated token usage of **$0.0059721** and **$10 retained as conservative attempt reserves**. Fresh account/credit/access/price checks preceded each call. No direct cash-billed OpenAI route, new subscription or project cloud infrastructure was used. AWS invoice/credit settlement is not reconciled; these figures do not describe unrelated existing account usage.
+The AWS-credit text/reference fixtures and focused same-request follow-up made **twelve real model requests** in total, with estimated token usage of **$0.007089** and **$12 retained as conservative attempt reserves**. Fresh account/credit/access/price checks preceded each call. No direct cash-billed OpenAI route, new subscription or project cloud infrastructure was used. AWS invoice/credit settlement is not reconciled; these figures do not describe unrelated existing account usage.
 
 ## Enforced behavior
 
