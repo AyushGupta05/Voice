@@ -335,9 +335,30 @@ public final class CommandBar extends JPanel {
         ctx.notice("Transcript ready: review it, then press Enter to interpret", false);
     }
 
+    /** The last vocabulary prompt handed to the speech service (test hook). */
+    volatile String lastVocabularyPrompt;
+
+    /**
+     * Bias the next transcription with command labels and the open image names (D08): called when a speech service
+     * attaches, on every DocumentsChanged and before each recording.
+     */
+    void refreshVocabulary() {
+        SpeechService s = speech;
+        NlService nl = ServiceRegistry.nl();
+        if (s == null || !(nl instanceof sc.fidelis.nl.DefaultNlService d)) return;
+        try {
+            String prompt = d.vocabularyPrompt(ctx.engine.documents().stream().map(sc.fidelis.engine.api.DocumentInfo::title).toList());
+            lastVocabularyPrompt = prompt;
+            s.setVocabularyPrompt(prompt);
+        } catch (RuntimeException ex) {
+            System.err.println("[fidelis] vocabulary prompt not set: " + ex);
+        }
+    }
+
     private void bindSpeech(SpeechService s) {
         speech = s;
         if (s == null) return;
+        refreshVocabulary();
         if (s instanceof sc.fidelis.speech.WhisperSpeechService w) {
             // auto-stopped recordings (30 s limit) deliver their transcript only through this callback
             w.onTranscript(t -> SwingUtilities.invokeLater(() -> deliver(t)));
@@ -354,10 +375,11 @@ public final class CommandBar extends JPanel {
         });
     }
 
-    private void toggleMic() {
+    void toggleMic() {
         if (speech == null) return;
         if (speechState == SpeechService.State.READY) {
             try {
+                refreshVocabulary();
                 speech.startRecording();
             } catch (IllegalStateException ex) {
                 ctx.notice("Cannot record: " + ex.getMessage(), true);

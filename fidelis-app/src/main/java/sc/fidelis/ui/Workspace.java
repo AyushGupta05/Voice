@@ -167,6 +167,7 @@ public final class Workspace {
 
     private void onEvent(EngineEvent e) {
         if (e instanceof EngineEvent.EngineStateChanged s) applyEngineState(s.state(), s.reason());
+        if (e instanceof EngineEvent.DocumentsChanged) commandBar.refreshVocabulary();
         banners.handle(e);
         documents.handle(e);
         parameters.handle(e);

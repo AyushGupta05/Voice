@@ -41,6 +41,8 @@ final class ProposalSheet extends JPanel {
     private final JButton cancel = new JButton("Cancel");
     private final JLabel progress = new JLabel(" ");
     private NlService.Proposal proposal;
+    private sc.fidelis.nl.ConfirmationPolicy.Decision decision;
+    private final javax.swing.JCheckBox ack = new javax.swing.JCheckBox();
 
     ProposalSheet(UiContext ctx, String text, Origin origin) {
         super(new BorderLayout(0, 4));
@@ -142,9 +144,27 @@ final class ProposalSheet extends JPanel {
         for (ActionRequest r : p.requests() == null ? List.<ActionRequest>of() : p.requests()) {
             if (r.commandId() != null && ctx.isIrreversible(r.commandId())) irreversible = true;
         }
-        confirm.setText(irreversible ? "Run — cannot be undone" : "Confirm");
-        confirm.setEnabled(ready);
-        if (ready && !irreversible) setDefaultIfAttached(confirm);
+        decision = ServiceRegistry.nl() instanceof sc.fidelis.nl.DefaultNlService dn ? dn.confirmation(p)
+                : sc.fidelis.nl.ConfirmationPolicy.strict().assess(p);
+        boolean explicit = decision.explicit();
+        if (explicit) {
+            body.add(line("Explicit confirmation required", Theme.warning(), true));
+            for (String reason : decision.reasons()) body.add(line("    • " + reason, Theme.warning(), false));
+            if (ready) {
+                ack.setText("I have read the reasons above and want to run this");
+                ack.setSelected(false);
+                ack.setOpaque(false);
+                ack.setAlignmentX(Component.LEFT_ALIGNMENT);
+                for (java.awt.event.ActionListener l : ack.getActionListeners()) ack.removeActionListener(l);
+                ack.addActionListener(e -> confirm.setEnabled(ack.isSelected()));
+                body.add(ack);
+            }
+        }
+        confirm.setText(irreversible ? "Run — cannot be undone" : explicit ? "Confirm and run" : "Confirm");
+        confirm.setEnabled(ready && !explicit);
+        // an explicit confirmation is never the default (Enter) button: it needs the tick box and a deliberate click
+        if (ready && !irreversible && !explicit) setDefaultIfAttached(confirm);
+        else if (getRootPane() != null && getRootPane().getDefaultButton() == confirm) getRootPane().setDefaultButton(null);
         edit.setEnabled(n > 0 && p.requests().get(0).kind() == sc.fidelis.engine.api.Enums.ActionKind.COMMAND);
         relayout();
     }
@@ -260,6 +280,38 @@ final class ProposalSheet extends JPanel {
     @Override
     public java.awt.Dimension getMaximumSize() {
         return new java.awt.Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+    }
+
+    sc.fidelis.nl.ConfirmationPolicy.Decision decision() {
+        return decision;
+    }
+
+    boolean ackVisible() {
+        return ack.isShowing() || ack.getParent() != null;
+    }
+
+    /** Tick the explicit-confirmation box (the deliberate act), as a user would. */
+    void acknowledgeNow() {
+        if (ack.getParent() != null && !ack.isSelected()) ack.doClick();
+    }
+
+    boolean isDefaultButton() {
+        return getRootPane() != null && getRootPane().getDefaultButton() == confirm;
+    }
+
+    /** Text of the lines shown in the sheet body (test hook). */
+    String bodyText() {
+        StringBuilder sb = new StringBuilder();
+        for (Component c : body.getComponents()) collect(c, sb);
+        return sb.toString();
+    }
+
+    private static final char NL = 10;
+
+    private static void collect(Component c, StringBuilder sb) {
+        if (c instanceof JLabel l) sb.append(l.getText()).append(NL);
+        else if (c instanceof javax.swing.AbstractButton b) sb.append(b.getText()).append(NL);
+        else if (c instanceof java.awt.Container k) for (Component x : k.getComponents()) collect(x, sb);
     }
 
     /** Press Confirm (test and scenario hook; same handler as the button). */
