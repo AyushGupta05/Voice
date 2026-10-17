@@ -20,6 +20,8 @@ To test speech without a microphone, upload fixtures/invert-command.wav through 
 
 ## Documentation
 
+**Stage 00–02 analysis and design baseline (Fiji Modernisation Project, working title):** start at [docs/INDEX.md](docs/INDEX.md). The documents below are the prototype-era records.
+
 - [Setup and dependency recreation](docs/setup.md)
 - [Architecture, boundaries and next milestones](docs/architecture.md)
 - [Upstream research and license decisions](docs/upstreams.md)
