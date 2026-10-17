@@ -82,7 +82,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const image = (inner?.image ?? (result as { image?: unknown }).image) as { title?: unknown; width?: unknown; height?: unknown } | undefined;
     const title = typeof image?.title === 'string' ? image.title : undefined, width = finite(image?.width), height = finite(image?.height);
     if (!title || width === undefined || height === undefined) return undefined;
-    return `Opened ${title}, ${width}×${height}.`;
+    return `Opened ${friendlyName(title, (image as { path?: unknown }).path)}, ${width} by ${height}.`;
   }
   if (name === 'fiji_undo') {
     // Say what came back, so "undo" after the wrong step is visible: the checkpoint's label and the objects now present.
@@ -270,11 +270,54 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
   return false;
 }
 /** Whole-utterance instant routes from the protocol: zoom, fit, overlay, slices and undo. */
+/** How a person would say a file name aloud: "hela cells", "BBBC008 channel 1", never a 60-character accession. */
+export function friendlyName(title: string, path?: unknown): string {
+  const base = title.replace(/\.(?:ome\.)?[a-z0-9]{2,5}$/i, '').replace(/[_]+/g, ' ').replace(/\s+-\s+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (base.length <= 32 && !/\d{6,}/.test(base)) return base.replace(/-/g, ' ');
+  const parts = typeof path === 'string' ? path.split('/').filter(Boolean).slice(0, -1) : [];
+  let folder = parts.at(-1) ?? '';
+  if (/^(?:images?|raw|data|tiffs?|input|originals?)$/i.test(folder)) folder = parts.at(-2) ?? folder;
+  const dataset = /^[a-z]+\d+$/i.test(folder) ? folder.toUpperCase() : folder.replace(/[_-]+/g, ' ');
+  const channel = base.match(/(?:channel|ch)\s*(\d+)/i)?.[1] ?? base.match(/(?:^|[ _])w(\d)/i)?.[1];
+  if (dataset) return `the ${dataset}${channel ? ` channel ${channel}` : ''} image`;
+  return base.split(/[ -]+/).slice(0, 5).join(' ');
+}
+const lutWords: Record<string, string> = { red: 'red', green: 'green', blue: 'blue', cyan: 'cyan', magenta: 'magenta', yellow: 'yellow', grays: 'grey' };
+/** "What am I looking at?" from the live metadata alone: instant, and only what Fiji reports (no guessed biology). */
+export function describeImage(context: unknown): string | undefined {
+  const c = context as { image?: Record<string, unknown>; counts?: Record<string, unknown> } | undefined; const image = c?.image; if (!image) return undefined;
+  const width = finite(image.width), height = finite(image.height), depth = finite(image.bitDepth); if (width === undefined || height === undefined) return undefined;
+  const channels = Array.isArray(image.channels) ? image.channels as Array<{ lut?: unknown }> : [];
+  const slices = finite(image.slices) ?? 1, frames = finite(image.frames) ?? 1;
+  const cal = image.calibration as { pixelWidth?: unknown; unit?: unknown } | undefined, unit = typeof cal?.unit === 'string' ? cal.unit : 'pixel', px = finite(cal?.pixelWidth);
+  const parts: string[] = [];
+  const rgb = image.type === 'COLOR_RGB' || depth === 24;
+  parts.push(`${friendlyName(String(image.title ?? 'This image'), image.path)}: ${width} by ${height}${rgb ? ', RGB colour, like a stained section' : depth ? `, ${depth}-bit` : ''}`);
+  if (channels.length > 1) {
+    const colours = channels.map(channel => lutWords[String(channel.lut)] ?? String(channel.lut ?? 'grey'));
+    const list = colours.length > 2 ? `${colours.slice(0, -1).join(', ')} and ${colours.at(-1)}` : colours.join(' and ');
+    parts.push(`${channels.length} channels, ${list}${colours.includes('blue') ? '; blue is usually the nuclear stain' : ''}`);
+  } else if (!rgb) parts.push('one channel');
+  if (frames > 1) parts.push(`a time-lapse of ${frames} frames`);
+  if (slices > 1) parts.push(`a ${slices}-slice z-stack`);
+  if (px !== undefined && !/^pixels?$/i.test(unit)) parts.push(`${round(px)} ${unit === 'micron' ? 'microns' : unit} per pixel`);
+  const objects = finite(c?.counts?.roiManagerForImage ?? c?.counts?.roiManager);
+  if (objects) parts.push(`${objects} objects outlined`);
+  return `${parts.join('; ')}.`;
+}
 function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const said = cleanUtterance(text);
+  // "Open the hela cells image" opens the best local match in one step (the host resolves imageQuery); digits come from the raw words.
+  const raw = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
+  const opening = raw.match(/^(?:(?:hey )?(?:fiji|penny)\s+)?(?:please |can you |could you )?(?:open|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
+  if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:blobs|a|an|new)\b/.test(opening[1]) && opening[1].length >= 2)
+    return { tool: 'fiji_open_path', arguments: {}, reply: 'Opening it.', imageQuery: opening[1] };
   const image = (context as { image?: { slices?: unknown; position?: { slice?: unknown } } } | undefined)?.image;
   if (!image) return undefined;
   const area = areaCorrection(text, context); if (area) return area;
+  if (/^(?:hey fiji |penny |okay |ok |so )*(?:what am i looking at|what is this(?: image)?|what's this(?: image)?|describe (?:this|the) image|tell me about (?:this|the) image|what (?:kind of )?image is this)$/.test(said)) {
+    const described = describeImage(context); if (described) return { tool: 'fiji_context', arguments: {}, reply: described };
+  }
   // A fast action is the whole request, never just the first half of a spoken chain.
   if (continuesGenerally(said.replace(/^(?:and|also)\s+/, ''))) return undefined;
   const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?$/);

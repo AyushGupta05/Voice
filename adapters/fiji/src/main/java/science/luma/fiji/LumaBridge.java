@@ -260,6 +260,7 @@ public final class LumaBridge implements PlugIn {
         var token = imp == null ? null : java.util.regex.Pattern.compile("(?i)(channel\\d+|_c\\d+|_w\\d+|_ch\\d+)").matcher(imp.getTitle());
         if (!args.has("pattern") && target.equals("folder") && token != null && token.find()) { run.addProperty("pattern", "*" + token.group(1) + "*"); out.put("pattern", "*" + token.group(1) + "*"); }
         out.put("run", macros.runWorkflow(run, imp));
+        if (Operations.guiVisible()) edt(() -> { Pipeline.showBatch(imp, out); return null; });
         return out;
     }
     @SuppressWarnings("unchecked") private static List<String> castList(Object value) { return value instanceof List<?> list ? (List<String>) list : List.of(); }

@@ -59,7 +59,7 @@ test('long-running instant analysis acknowledges before dispatch and finishes wi
   await f.conversation.submit('find all the nuclei',true);
   const spoken=f.events.filter(event=>event.type==='text_ack'||event.type==='text_result');
   assert.deepEqual(spoken.map(event=>event.type),['text_ack','text_result']);assert(ackAtDispatch);
-  assert.equal(spoken[0].text,'Finding the nuclei.');assert.equal(spoken[1].text,'Found 12 cells.');assert.equal(spoken[1].outcome,undefined);
+  assert.equal(spoken[0].text,'Finding the nuclei.');assert.equal(spoken[1].text,'Found 12 nuclei.');assert.equal(spoken[1].outcome,undefined);
  }finally{f.conversation.stop();await f.clean();}
 });
 

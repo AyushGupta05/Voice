@@ -215,3 +215,17 @@ test('spoken dataset numbers and channels normalise like file names', async () =
   assert.deepEqual(queryWords('the BBBCOO8 channel one image'), ['bbbc008', 'channel1']);
   assert.deepEqual(queryWords('bbbc zero zero eight slice two'), ['bbbc008', 'slice2']);
 });
+
+test('magic polish: friendly spoken names, instant description and one-step open', async () => {
+  const { friendlyName, describeImage } = await import('../src/apps/fiji.js');
+  assert.equal(friendlyName('hela-cells.tif'), 'hela cells');
+  assert.equal(friendlyName('AS_09125_050116000001_A24f00d0_slice2_channel1.tif', '/x/samples/bbbc008/images/AS_09125_050116000001_A24f00d0_slice2_channel1.tif'), 'the BBBC008 channel 1 image');
+  assert.equal(friendlyName('Invasive_cervical_squamous_cell_carcinoma_HE_and_Ki-67.jpg', '/x/samples/ki67-cervical-scc/a.jpg'), 'the ki67 cervical scc image');
+  const hela = { image: { title: 'hela-cells.tif', width: 672, height: 512, bitDepth: 16, slices: 1, frames: 1, channels: [{ lut: 'red' }, { lut: 'green' }, { lut: 'blue' }], calibration: { pixelWidth: 0.0515, unit: 'micron' } }, counts: { roiManagerForImage: 0 } };
+  assert.equal(describeImage(hela), 'hela cells: 672 by 512, 16-bit; 3 channels, red, green and blue; blue is usually the nuclear stain; 0.05 microns per pixel.');
+  assert.deepEqual(fiji.fastRoute!('What am I looking at?', hela), { tool: 'fiji_context', arguments: {}, reply: describeImage(hela) });
+  assert.deepEqual(fiji.fastRoute!('Hey Fiji, open the BBBC 008 channel one image.', undefined), { tool: 'fiji_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'bbbc 008 channel one' });
+  assert.equal(fiji.fastRoute!('open the hela cells image and tell me if the channels colocalise', undefined), undefined);
+  assert.equal(fiji.fastRoute!('open the blobs sample', undefined), undefined);
+  assert.equal(fiji.localSentenceFor!('fiji_open_path', {}, { status: 'completed', result: { image: { title: 'hela-cells.tif', width: 672, height: 512 } } }), 'Opened hela cells, 672 by 512.');
+});

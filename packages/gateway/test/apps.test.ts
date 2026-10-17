@@ -155,7 +155,7 @@ test('Fiji acknowledgments and local sentences follow the protocol wording and r
   assert.equal(fiji.localSentenceFor('fiji_measure', { scope: 'roi' }, completed({ rows: 2, lastRow: { Area: 10, Mean: 100 }, summary: { mean: { mean: 60 } } })), 'Mean intensity 100 in this region.');
   assert.equal(fiji.localSentenceFor('fiji_measure', {}, completed({ rows: 2, summary: { mean: { mean: 60 } } })), undefined, 'no row for the current region, no sentence');
   assert.equal(fiji.localSentenceFor('fiji_threshold', {}, completed({ lower: 125, upper: 255, method: 'Otsu' })), 'Thresholded at 125–255 (Otsu).');
-  assert.equal(fiji.localSentenceFor('fiji_open_path', {}, completed({ opened: true, image: { title: 'blobs.gif', width: 256, height: 254 } })), 'Opened blobs.gif, 256×254.');
+  assert.equal(fiji.localSentenceFor('fiji_open_path', {}, completed({ opened: true, image: { title: 'blobs.gif', width: 256, height: 254 } })), 'Opened blobs, 256 by 254.');
   assert.equal(fiji.localSentenceFor('fiji_save_workflow', {}, completed({ path: '/x/.local/workflows/count-cells.ijm', steps: ['a', 'b', 'c'] })), 'Saved 3 steps as count-cells.ijm.');
   assert.equal(fiji.localSentenceFor('fiji_segment_cells', {}, { status: 'failed', error: 'No image' }), undefined, 'failures go back to the model');
   assert.equal(fiji.localSentenceFor('fiji_measure', { scope: 'manager' }, completed({ rows: 3 })), undefined, 'no mean, no sentence');

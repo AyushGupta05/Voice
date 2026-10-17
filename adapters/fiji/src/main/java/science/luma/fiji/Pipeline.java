@@ -195,6 +195,50 @@ public final class Pipeline {
         }
         return keep.toArray(new Roi[0]);
     }
+    /**
+     * Shows a result window (plot, table, macro) next to the image instead of on top of it, and keeps the image the
+     * current one: a plot is itself an ImageWindow and would otherwise become the target of the next request.
+     */
+    static void placeBeside(ImagePlus imp, java.awt.Window window) {
+        var image = imp == null ? null : imp.getWindow();
+        if (window != null && image != null) {
+            var screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            var b = image.getBounds(); int x = b.x + b.width + 8, y = b.y;
+            if (x + window.getWidth() > screen.x + screen.width) x = Math.max(screen.x, b.x - window.getWidth() - 8);
+            window.setLocation(x, Math.max(screen.y, Math.min(y, screen.y + screen.height - window.getHeight())));
+        }
+        if (image != null) {
+            // After the new window's own activation event has run, hand "current image" back to the researcher's image.
+            java.awt.EventQueue.invokeLater(() -> java.awt.EventQueue.invokeLater(() -> WindowManager.setCurrentWindow(image)));
+        }
+    }
+    /** After "apply this to the folder": a per-image summary table and the generated macro, side by side with the image. */
+    @SuppressWarnings("unchecked")
+    static void showBatch(ImagePlus imp, Map<String, Object> applied) {
+        if (!(applied.get("run") instanceof Map<?, ?> run)) return;
+        var table = new ij.measure.ResultsTable();
+        if (run.get("perImage") instanceof List<?> images) for (var entry : images) {
+            if (!(entry instanceof Map<?, ?> image)) continue;
+            table.addRow(); table.addValue("Image", String.valueOf(image.get("image")));
+            table.addValue("Objects", image.get("resultsRows") instanceof Number n ? n.doubleValue() : Double.NaN);
+            if (image.get("summary") instanceof Map<?, ?> summary && summary.get("Area") instanceof Number area) table.addValue("Mean area", area.doubleValue());
+            table.addValue("OK", Boolean.TRUE.equals(image.get("ok")) ? "yes" : "no");
+        }
+        if (table.size() > 0) {
+            table.show("Penny batch results");
+            var window = WindowManager.getWindow("Penny batch results");
+            if (window != null) placeBeside(imp, window);
+        }
+        if (applied.get("workflow") instanceof Map<?, ?> workflow && workflow.get("path") instanceof String path) {
+            try {
+                var editor = new ij.plugin.frame.Editor(18, 70, 0, ij.plugin.frame.Editor.MONOSPACED);
+                editor.create(new java.io.File(path).getName(), java.nio.file.Files.readString(java.nio.file.Path.of(path)));
+                var tableWindow = WindowManager.getWindow("Penny batch results");
+                if (tableWindow != null) editor.setLocation(tableWindow.getX(), tableWindow.getY() + tableWindow.getHeight() + 8); else placeBeside(imp, editor);
+                if (imp != null && imp.getWindow() != null) java.awt.EventQueue.invokeLater(() -> WindowManager.setCurrentWindow(imp.getWindow()));
+            } catch (Exception ignored) { /* the macro is still saved; showing it is a courtesy */ }
+        }
+    }
     /** Macro entry point: opens the active RGB image's hematoxylin channel (Operations.hematoxylin) as "penny-mask". */
     public static String hematoxylin() {
         ImagePlus imp = WindowManager.getCurrentImage(); if (imp == null) return "";

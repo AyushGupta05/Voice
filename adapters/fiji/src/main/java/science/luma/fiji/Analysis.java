@@ -636,9 +636,8 @@ final class Analysis {
         int bins = Math.max(5, Math.min(30, (int) Math.round(Math.sqrt(area.length))));
         var plot = new ij.gui.Plot("Size distribution", "Area (" + (unit == null || unit.isBlank() ? "pixel" : unit) + "²)", "Objects");
         plot.addHistogram(area, (Arrays.stream(area).max().orElse(1) - Arrays.stream(area).min().orElse(0)) / bins);
-        plot.show();
-        // The plot window would otherwise become the current image, and the next request would act on the plot.
-        if (imp.getWindow() != null) { ij.WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
+        var shown = plot.show();
+        Pipeline.placeBeside(imp, shown);
     }
     /** The image pixel the researcher means by "this/these": explicit x/y, else the live pointer over the canvas, else its last position there. */
     static java.awt.Point pointedAt(ImagePlus imp, JsonObject args) {

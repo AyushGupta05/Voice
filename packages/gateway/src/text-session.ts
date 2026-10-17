@@ -40,6 +40,14 @@ export class TextConversation {
     this.emit({type:'text_result',taskId:active.id,text:reply,outcome:'failed',fastPath:true});return;
    }
    if(route&&!this.runtime.autoApprove){const risk=profile.tools.find(tool=>tool.name===route!.tool)?.risk;if(risk==='data'||risk==='code')route=undefined;}
+   if(route?.imageQuery){
+    // "Open the X image" in one step: resolve the name locally and open the best image match, no model round.
+    const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:route.imageQuery,limit:5},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;
+    active.controller.signal.throwIfAborted();
+    const image=found?.matches?.find(match=>match.kind!=='folder'&&match.kind!=='project'&&typeof match.path==='string');
+    const {imageQuery:_image,...rest}=route;
+    route=image?{...rest,arguments:{...rest.arguments,path:image.path}}:undefined;
+   }
    if(route?.folderQuery){
     // A folder the utterance names is resolved locally; the first matching folder replaces the default (the active image's).
     const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:route.folderQuery},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;
@@ -66,6 +74,8 @@ export class TextConversation {
     active.controller.signal.throwIfAborted();
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
+    // Echo the researcher's word: "Finding the nuclei." is answered with nuclei, not cells.
+    const echo=(sentence:string)=>/\bnuclei\b/i.test(route!.reply)?sentence.replace(/\bcells\b/g,'nuclei').replace(/\bcell\b/g,'nucleus'):sentence;
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);
@@ -75,7 +85,7 @@ export class TextConversation {
      return;
     }
     // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
-    const phrased=failed?'':(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
+    const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
     // Long-running routes already spoke the action start; their final sentence carries only the real result.
     // Instant routes use the measured numeric outcome directly instead of repeating an action-start phrase.
     const detail=/\d/.test(phrased)?phrased:'';
