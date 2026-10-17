@@ -13,6 +13,7 @@ export type Action = {
 export class Runtime extends EventEmitter {
   readonly actions = new Map<string, Action>();
   private operationQueue: Promise<unknown> = Promise.resolve();
+  private readonly expirations = new Map<string, Promise<void>>();
   constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string) { super(); }
   async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
     signal?.throwIfAborted(); beforeDispatch?.();
@@ -23,6 +24,7 @@ export class Runtime extends EventEmitter {
     if (name === 'qupath_api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
     if (name === 'qupath_api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
     if (name === 'qupath_action_status') {
+      await this.expirePending();
       const action = this.actions.get(args.actionId as string);
       if (!action) throw new Error('Action not found (history is scoped to the running gateway).');
       return action;
@@ -103,7 +105,7 @@ export class Runtime extends EventEmitter {
     const action = this.actions.get(id);
     if (!action || action.status !== 'pending') throw new Error('Action is no longer awaiting approval.');
     if (Date.now() >= Date.parse(action.expiresAt)) {
-      action.status = 'expired'; await this.terminal(action); throw new Error('Approval expired. Request a new action.');
+      await this.expirePending(); throw new Error('Approval expired. Request a new action.');
     }
     // Claim before the first await: two clicks cannot execute an approved action twice.
     action.status = approved ? 'running' : 'denied';
@@ -126,6 +128,21 @@ export class Runtime extends EventEmitter {
       await this.terminal(action);
       return action;
     });
+  }
+  /** Deadline bookkeeping only: never dispatches an application operation or decides approval. */
+  async expirePending() {
+    for (const action of this.actions.values()) {
+      if (action.status !== 'pending' || Date.now() < Date.parse(action.expiresAt)) continue;
+      // Claim before awaiting the audit so concurrent status/health/decision calls cannot replay expiry.
+      action.status='expired'; action.error='Approval expired. No operation was executed.';
+      const settled=this.terminal(action).finally(()=>{this.expirations.delete(action.id);});
+      this.expirations.set(action.id,settled);
+    }
+    await Promise.all(this.expirations.values());
+  }
+  async recentActions() {
+    await this.expirePending();
+    return [...this.actions.values()].slice(-30);
   }
   private readonly auditWarning='Local audit update could not be recorded. Use the actual status/result below; no operation was retried. Inspect QuPath before any new action. Persistence is unconfirmed.';
   private async terminal(action:Action) {

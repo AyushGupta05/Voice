@@ -36,7 +36,8 @@ function awaitHuman(runtime: Runtime, actionId: string, signal: AbortSignal): Pr
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
     let expiry: NodeJS.Timeout | undefined;
-    const clean = () => { runtime.off('action', changed); signal.removeEventListener('abort', aborted); clearTimeout(expiry); };
+    let settled=false;
+    const clean = () => { settled=true; runtime.off('action', changed); signal.removeEventListener('abort', aborted); clearTimeout(expiry); };
     const aborted = () => { clean(); reject(signal.reason); };
     const changed = (action: Action) => {
       if (action.id !== actionId) return;
@@ -48,13 +49,20 @@ function awaitHuman(runtime: Runtime, actionId: string, signal: AbortSignal): Pr
     const current = runtime.actions.get(actionId);
     if (!current) { clean(); reject(new Error('Approval proposal was not found.')); return; }
     if (!['pending', 'running'].includes(current.status)) { changed(current); return; }
-    if (current.status === 'pending') expiry = setTimeout(() => {
-      // Runtime claims decisions synchronously, then records them before its terminal event.
-      // A near-deadline denial is already decided; wait for its outcome/audit warning.
+    const expire = () => {
+      if(settled)return;
+      // A claimed decision waits for its terminal audit outcome even across the deadline.
       const latest=runtime.actions.get(actionId);
-      if(latest&&latest.status!=='pending')return;
-      clean(); reject(new Error('Human approval expired.'));
-    }, Math.max(1, Date.parse(current.expiresAt) - Date.now()));
+      if(!latest){clean();reject(new Error('Approval proposal was not found.'));return;}
+      if(latest.status!=='pending')return;
+      const remaining=Date.parse(latest.expiresAt)-Date.now();
+      if(remaining>0){expiry=setTimeout(expire,remaining);return;}
+      void runtime.expirePending().then(()=>{
+        // A backwards wall-clock adjustment can make a deadline future again before settlement.
+        if(runtime.actions.get(actionId)?.status==='pending')expire();
+      },error=>{clean();reject(error);});
+    };
+    if (current.status === 'pending') expiry = setTimeout(expire, Math.max(1, Date.parse(current.expiresAt) - Date.now()));
   });
 }
 

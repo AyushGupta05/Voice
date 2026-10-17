@@ -385,3 +385,22 @@ test('interrupted-proposal history refreshes a denial after its late audit failu
     assert.equal(requests,3);assert.equal(f.mutations(),0);
   }finally{release();await f.clean();}
 });
+
+
+test('an idle human wait returns an expired action with identity and audit outcome', {timeout:3000}, async t=>{
+  t.mock.timers.enable({apis:['Date','setTimeout'],now:0});
+  const f=await runtimeFixture();const cancellation=new AbortController();let requests=0;let id='';
+  const client:BackendClient={complete:async request=>{
+    if(++requests===1)return{output:[annotate]};
+    const output=JSON.parse(String(request.input.find(item=>item.type==='function_call_output')!.output));
+    assert.equal(output.status,'expired');assert.equal(output.actionId,id);assert.match(output.error,/No operation was executed/);
+    return{output:[],output_text:'Approval expired without execution. Request a fresh action if still needed.'};
+  }};
+  try{
+    const pending=once(f.runtime,'action');const running=new ResponsesBackend(f.runtime,client,'test-model',()=>{}).run(task(cancellation.signal).value);
+    const action=(await pending)[0] as Action;id=action.id;await new Promise(resolve=>setImmediate(resolve));
+    t.mock.timers.tick(5*60_000);
+    await running;
+    assert.equal(f.runtime.actions.get(id)!.status,'expired');assert.equal(f.mutations(),0);assert.equal(requests,2);assert.equal(f.runtime.listenerCount('action'),0);
+  }finally{cancellation.abort();await f.clean();}
+});

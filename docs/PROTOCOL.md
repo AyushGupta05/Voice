@@ -32,6 +32,8 @@ stateDiagram-v2
     running --> failed: state changed or execution failed
 ```
 
+Status reads, health polling and an active backend wait now settle elapsed approval deadlines even when the researcher does not click or request another action. These observations can append expiry metadata to the local audit journal, but never dispatch a QuPath operation or approve anything. Concurrent expiry observations share settlement and emit one audited terminal event; audit failures remain separate warnings. The backend receives the expired action ID/status for retained history instead of losing it in a generic wait timeout. Already claimed running/denied outcomes are unaffected. No additional provider request or Runtime-owned periodic timer is needed for this bookkeeping.
+
 The executor claims an action before awaiting work, preventing duplicate approval clicks from executing it twice. Data/view operations use a shared serial queue. Approval compares the real image, selected IDs, hierarchy revision and z/t plane. Relevant image property changes also advance revision.
 
 For JavaFX control actions, the proposal includes the window/control label and reviewed dialog fingerprint. Execution rejects changed control values, disabled or vanished targets and actions behind another modal dialog. A dispatched menu or button may still open a dialog, so the result explicitly does not claim completion.

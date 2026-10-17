@@ -52,3 +52,25 @@ test('authenticated companion text uses the shared Runtime and returns its actua
     ws.close();await once(ws,'close');
   }finally{ws.terminate();await gateway.close();await rm(root,{recursive:true,force:true});}
 });
+
+
+test('authenticated health settles idle proposals without executing a scientific operation',async()=>{
+  const {Runtime}=await import('../src/runtime.js');const {Knowledge}=await import('../src/knowledge.js');
+  const root=await mkdtemp(join(tmpdir(),'luma-idle-health-'));let mutations=0;
+  const runtime=new Runtime({execute:async operation=>{
+    if(operation==='context')return{contextKey:'fixture',image:{name:'Synthetic'}};
+    mutations++;throw new Error('No operation should execute');
+  }},new Knowledge(),join(root,'.local/state'));
+  const gateway=await startServer(root,0,{runtime});
+  const address=gateway.server.address();assert(address&&typeof address==='object');
+  try{
+    const proposal=await runtime.call('qupath_annotate',{x:0,y:0,width:20,height:20}) as {actionId:string};
+    runtime.actions.get(proposal.actionId)!.expiresAt=new Date(0).toISOString();
+    const token=(await readFile(join(root,'.local/state/gateway-token'),'utf8')).trim();
+    const response=await fetch(`http://127.0.0.1:${address.port}/health`,{headers:{Authorization:`Bearer ${token}`}});
+    assert.equal(response.status,200);const health=await response.json();
+    assert.equal(health.actions[0].id,proposal.actionId);assert.equal(health.actions[0].status,'expired');
+    assert.equal(health.actions.filter((action:{status:string})=>action.status==='pending').length,0);
+    assert.equal(mutations,0);assert.equal(health.voice.enabled,false);
+  }finally{await gateway.close();await rm(root,{recursive:true,force:true});}
+});

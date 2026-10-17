@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Runtime, type Action } from '../src/runtime.js';
@@ -265,4 +265,64 @@ test('denied and expired approvals settle even when their terminal audit cannot 
     await assert.rejects(f.runtime.decide(expired.actionId,true),/expired/);
     assert.deepEqual(events.map(action=>action.status),['denied','expired']);assert(events.every(action=>action.auditWarning));assert.equal(f.adapter.mutations,0);
   }finally{await f.clean();}
+});
+
+test('status observation expires an idle proposal without a click or another proposal',async()=>{
+  const f=await fixture();try{
+    const pending=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    f.runtime.actions.get(pending.actionId)!.expiresAt=new Date(0).toISOString();
+    const events:Action[]=[];f.runtime.on('action',action=>events.push(structuredClone(action)));
+    const status=await f.runtime.call('qupath_action_status',{actionId:pending.actionId}) as Action;
+    assert.equal(status.status,'expired');assert.match(status.error??'',/No operation was executed/);
+    assert.equal(f.adapter.mutations,0);assert.equal(events.filter(action=>action.status==='expired').length,1);
+  }finally{await f.clean();}
+});
+
+
+test('concurrent deadline observations claim and audit expiry exactly once',async()=>{
+  const f=await fixture();try{
+    const pending=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    f.runtime.actions.get(pending.actionId)!.expiresAt=new Date(0).toISOString();
+    const events:Action[]=[];f.runtime.on('action',action=>events.push(structuredClone(action)));
+    const results=await Promise.all([
+      f.runtime.call('qupath_action_status',{actionId:pending.actionId}),
+      f.runtime.call('qupath_action_status',{actionId:pending.actionId}),
+      f.runtime.recentActions(),
+    ]);
+    assert.equal((results[0] as Action).status,'expired');assert.equal((results[1] as Action).status,'expired');
+    assert.equal((results[2] as Action[])[0].status,'expired');
+    assert.equal(events.length,1);assert.equal(events[0].status,'expired');
+    const records=(await readFile(join(f.directory,'actions.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));
+    assert.equal(records.filter(action=>action.status==='expired').length,1);assert.equal(f.adapter.mutations,0);
+    await assert.rejects(f.runtime.decide(pending.actionId,true),/no longer awaiting/);
+  }finally{await f.clean();}
+});
+test('idle expiry carries a failed journal warning to status and listeners without execution',async()=>{
+  const f=await fixture();try{
+    const pending=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    f.runtime.actions.get(pending.actionId)!.expiresAt=new Date(0).toISOString();
+    await rm(join(f.directory,'actions.jsonl'));await mkdir(join(f.directory,'actions.jsonl'));
+    const events:Action[]=[];f.runtime.on('action',action=>events.push(structuredClone(action)));
+    const status=await f.runtime.call('qupath_action_status',{actionId:pending.actionId}) as Action;
+    assert.equal(status.status,'expired');assert.match(status.auditWarning??'',/could not be recorded/);
+    assert.equal(events.length,1);assert.equal(events[0].auditWarning,status.auditWarning);assert.equal(f.adapter.mutations,0);
+  }finally{await f.clean();}
+});
+test('deadline sweeps never revoke an already claimed approval or denial',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-claimed-expiry-'));let release!:()=>void;let entered!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});const started=new Promise<void>(resolve=>{entered=resolve;});let mutations=0;
+  const runtime=new Runtime({execute:async operation=>{
+    if(operation==='context')return{contextKey:'fixture'};
+    mutations++;entered();await gate;return{created:true};
+  }},new Knowledge(),directory);
+  try{
+    const pending=await runtime.call('qupath_annotate',annotation) as {actionId:string};
+    const deciding=runtime.decide(pending.actionId,true);await started;
+    runtime.actions.get(pending.actionId)!.expiresAt=new Date(0).toISOString();
+    await runtime.expirePending();assert.equal(runtime.actions.get(pending.actionId)!.status,'running');
+    release();assert.equal((await deciding).status,'completed');assert.equal(mutations,1);
+    const declined=await runtime.call('qupath_annotate',annotation) as {actionId:string};await runtime.decide(declined.actionId,false);
+    runtime.actions.get(declined.actionId)!.expiresAt=new Date(0).toISOString();
+    await runtime.expirePending();assert.equal(runtime.actions.get(declined.actionId)!.status,'denied');assert.equal(mutations,1);
+  }finally{release();await rm(directory,{recursive:true,force:true});}
 });
