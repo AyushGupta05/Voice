@@ -46,6 +46,7 @@ final class AudioIO {
         guard let monoSource = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: source.sampleRate, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: monoSource, to: target) else { throw CompanionError.message("Could not configure microphone audio.") }
         var taps = 0
+        var gain: Float = 8
         input.installTap(onBus: 0, bufferSize: 2048, format: source) { [target] buffer, _ in
             let capacity = AVAudioFrameCount(Double(buffer.frameLength) * 24000 / source.sampleRate + 64)
             guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity),
@@ -66,7 +67,18 @@ final class AudioIO {
                 consumed = true; status.pointee = .haveData; return mono
             }
             guard error == nil, let samples = output.floatChannelData?[0] else { return }
-            guard let chunk = try? PCM16.encode(UnsafeBufferPointer(start: samples, count: Int(output.frameLength))) else { return }
+            // The voice-processed microphone is very quiet (speech peaks ~0.003–0.05). Bring speech towards -20 dBFS
+            // for the transcriber with a slow automatic gain, without pumping silence up to noise.
+            let frames = Int(output.frameLength)
+            var energy: Float = 0
+            for index in 0..<frames { energy += samples[index] * samples[index] }
+            let rms = (energy / Float(max(frames, 1))).squareRoot()
+            if rms > 0.0015 {
+                let wanted = min(40, max(1, 0.07 / rms))
+                gain += (wanted - gain) * (wanted < gain ? 0.5 : 0.15)
+            }
+            for index in 0..<frames { samples[index] = max(-1, min(1, samples[index] * gain)) }
+            guard let chunk = try? PCM16.encode(UnsafeBufferPointer(start: samples, count: frames)) else { return }
             onChunk(chunk.data, chunk.rms)
         }
         tapping = true

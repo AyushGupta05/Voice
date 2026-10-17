@@ -6,6 +6,13 @@ import {CreditBudget,sharedObservation} from './credit-budget.js';
 import {loadSpeechConfig} from './speech-config.js';
 import {reusableClient} from './aws-clients.js';
 import {observeSpeechCredits,SPEECH_REGION,MAX_VOICE_SECONDS,MAX_SPOKEN_CHARACTERS,VOICE,type SpeechProof} from './aws-speech-proof.js';
+import {readFile} from 'node:fs/promises';
+
+/** Optional Amazon Transcribe custom vocabulary (pathology terms) recorded by docs/AWS-SPEECH.md's setup step. */
+export async function loadVocabulary(state:string):Promise<string|undefined>{
+ try{const value=JSON.parse(await readFile(join(state,'speech-vocabulary.json'),'utf8'));return typeof value?.name==='string'&&/^[A-Za-z0-9._-]{1,200}$/.test(value.name)?value.name:undefined;}
+ catch{return undefined;}
+}
 
 export type SpeechTranscript={id:string;text:string;partial:boolean};
 export type SpeechCallbacks={inputReady:()=>void;listening:()=>void;transcript:(value:SpeechTranscript)=>void};
@@ -28,7 +35,8 @@ const production:SpeechDependencies={observe:sharedObservation(observeSpeechCred
    async function* stream(){for await(const AudioChunk of audio)yield{AudioEvent:{AudioChunk}};}
    const connecting=Date.now();
    console.error(`[voice ${new Date().toISOString()}] connecting to Amazon Transcribe`);
-   const result=await client.send(new StartStreamTranscriptionCommand({LanguageCode:'en-GB',MediaEncoding:'pcm',MediaSampleRateHertz:24000,EnablePartialResultsStabilization:true,PartialResultsStability:'high',AudioStream:stream()}),{abortSignal:signal});
+   const result=await client.send(new StartStreamTranscriptionCommand({LanguageCode:'en-GB',MediaEncoding:'pcm',MediaSampleRateHertz:24000,EnablePartialResultsStabilization:true,PartialResultsStability:'high',
+    ...(proof.vocabularyName?{VocabularyName:proof.vocabularyName}:{}),AudioStream:stream()}),{abortSignal:signal});
    console.error(`[voice ${new Date().toISOString()}] Transcribe stream accepted after ${Date.now()-connecting} ms`);
    signal.throwIfAborted();onReady();if(!result.TranscriptResultStream)throw new Error('AWS returned no transcript stream.');
    for await(const event of result.TranscriptResultStream){signal.throwIfAborted();
@@ -63,7 +71,7 @@ export class AWSSpeechProvider implements SpeechProvider{
  private async receipt(value:Record<string,unknown>){await appendFile(join(this.state,'speech-usage.jsonl'),JSON.stringify({at:new Date().toISOString(),...value,billingReconciled:false})+'\n',{mode:0o600});}
  async transcribe(audio:AsyncIterable<Uint8Array>,external:AbortSignal,callbacks:SpeechCallbacks){
   const signal=AbortSignal.any([external,AbortSignal.timeout(MAX_VOICE_SECONDS*1000)]);
-  const proof=await this.proof(signal);const reservation=await this.budget.reserve({...proof,maximumRequestUSD:MAX_VOICE_SECONDS*proof.rates.transcribePerSecondUSD},signal);
+  const proof={...await this.proof(signal),vocabularyName:await loadVocabulary(this.state)};const reservation=await this.budget.reserve({...proof,maximumRequestUSD:MAX_VOICE_SECONDS*proof.rates.transcribePerSecondUSD},signal);
   const started=Date.now();let complete=false;
   try{signal.throwIfAborted();if(Date.parse(proof.expiresAt)<=Date.now())throw new Error('Speech funding expired before dispatch.');callbacks.inputReady();signal.throwIfAborted();await this.dependencies.transcribe(proof,audio,signal,callbacks.listening,callbacks.transcript);complete=true;}
   finally{const seconds=Math.min(MAX_VOICE_SECONDS,Math.ceil((Date.now()-started)/1000));await this.receipt({id:reservation.id,service:'transcribe',outcome:complete?'completed':'unconfirmed',boundedElapsedSeconds:seconds,estimatedUSD:seconds*proof.rates.transcribePerSecondUSD}).catch(()=>undefined);}

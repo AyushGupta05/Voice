@@ -27,7 +27,7 @@ export function selectVoice(setting=process.env.LUMA_VOICE):Voice{
 export const VOICE=selectVoice();
 const POLLY_SKU:Record<VoiceEngine,string>={neural:'USE1-SynthesizeSpeechNeural-Characters',generative:'USE1-SynthesizeSpeechGenerative-Characters'};
 export type SpeechRates={transcribePerSecondUSD:number;pollyPerCharacterUSD:number};
-export type SpeechProof=CreditObservation&{credentials:AwsCredentialIdentity;rates:SpeechRates};
+export type SpeechProof=CreditObservation&{credentials:AwsCredentialIdentity;rates:SpeechRates;vocabularyName?:string};
 export function speechRates(transcribe:unknown[],polly:unknown[],engine:VoiceEngine=VOICE.engine):SpeechRates{
  const rate=(products:any[],service:string,usage:string,operation:string|undefined,unit:string)=>{
   const selected=products.filter(p=>p?.product?.attributes?.regionCode===SPEECH_REGION&&p.product.attributes.servicecode===service&&p.product.attributes.usagetype===usage&&(operation===undefined||p.product.attributes.operation===operation));
