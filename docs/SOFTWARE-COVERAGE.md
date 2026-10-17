@@ -42,9 +42,10 @@ The image above is a SwiftUI render from labeled synthetic values. It checks plo
 - Synthetic real-library tests check full-population summaries, missing values, finite numeric extremes, import hash/identity/type/geometry rejection and duplicate UUIDs.
 - Gateway tests check exact import/project preflight review, no execution before a human decision and changed-source rejection.
 - Isolated JavaFX controls check selection fingerprints, choice/tab actions, disabled/ambiguous options and menu semantics without opening windows.
-- Native result plots/import review compile; foreground layout and native file/import dialog flows remain to be verified after manual unlock and disposable-test authorization.
+- Separately authorized [isolated actual QuPathGUI import test](SYNTHETIC-IMPORT-TEST.md) passes through a gateway advertising all 32 MCP tools: two exact synthetic annotations, individual measurements, changed-file/duplicate rejection, comparison and empty baseline restoration. This exercises the import workflow, not every tool. Test-only socket wiring does not verify normal extension discovery or image-file opening.
+- Native result plots/import review compile; foreground layout and native file/import dialog flows remain to be verified after manual unlock.
 
-The previous real 899-cell analysis/recovery fixture and actual credit-funded text → viewer tests remain valid evidence for their stated operations. They do not prove the newly added import/navigation/plot paths. Live GPT-Live voice remains disabled by the credit-only funding requirement.
+The previous real 899-cell analysis/recovery fixture and actual credit-funded text → viewer tests remain valid evidence for their stated operations. Navigation/foreground plots still need their own actual-app checks. Live GPT-Live voice remains disabled by the credit-only funding requirement.
 
 ## Extending coverage
 

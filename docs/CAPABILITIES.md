@@ -9,7 +9,7 @@ There are 32 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, an
 | Full-scope measurement summary | Finite counts, missing values, descriptive statistics, class groups and histogram bins | No | Synthetic actual-library contract passes; max one million objects / five million numeric values, 20 measurements, 50 displayed class groups; new native plots compile, foreground check pending |
 | Analysis catalog | Actual measurement/class names, visible watershed defaults/ranges/choices, recent workflow names | No | Compiles against pinned APIs; actual application observation pending new bridge load |
 | Project/image opening | Exact local paths or project entry IDs/source fingerprints through native QuPath opening | Yes | Unsaved changes refused; native dialogs/dispatch require real-app verification; no URL or .qpdata endpoint |
-| GeoJSON annotations | Inspect/hash/validate then add leaf annotations with a checkpoint | Import: yes | Synthetic real-library and gateway approval tests pass; actual isolated import instance test pending authorization |
+| GeoJSON annotations | Inspect/hash/validate then add leaf annotations with a checkpoint | Import: yes | Isolated actual QuPathGUI → MCP test passes: exact imported fields/scores, changed-file/duplicate rejection and empty baseline restoration; normal file dialogs still unverified |
 | Focus and pointer | Center image/ROI, zoom, return real screen target | No | Corrected mouse-anchored zoom behavior; actual center verified at (51100, 27100) |
 | Overlays | Detections, annotations, fills, opacity and exact class filter | No | Display-only; does not change counts |
 | Annotation creation | Rectangle/ellipse on active z/t plane | Yes | Tested on disposable H&E slide through native approval |

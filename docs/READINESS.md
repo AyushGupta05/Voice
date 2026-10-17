@@ -1,6 +1,6 @@
 # Readiness and safe next steps
 
-Snapshot: 17 October 2026, 06:50 BST. The [build journal](BUILD-JOURNAL.md) records later changes; run the diagnostic commands below for the current machine.
+Snapshot: 17 October 2026, 07:35 BST. The [build journal](BUILD-JOURNAL.md) records later changes; run the diagnostic commands below for the current machine.
 
 Luma operates the existing QuPath application through a separate extension, local gateway, MCP and floating companion. The downloaded original application and upstream source stay intact. The agent has no human approval credential.
 
@@ -12,7 +12,8 @@ Luma operates the existing QuPath application through a separate extension, loca
 | Scientific execution | Actual QuPath watershed detection, measured classification, comparison and empty hierarchy restoration | 899 cells/49 Positive/850 Negative describe one chosen public fixture, not validated segmentation or biology |
 | Actual OpenAI agent | Fixed public scientific workflow completed in 21.5 s / eight requests; prior stopped attempt is retained | Five approvals were simulated only under explicit fixture authorization; ordinary approvals stay human |
 | MCP and application awareness | Actual read-only SDK smoke matched 23 running tools, native menus, image context and knowledge | Source implements 32 tools; newer gateway/Java features require normal reload and their own real-app checks |
-| Reliability | 96 offline gateway tests, native compilation/signing and four PCM tests pass; focused reviews clean after accepted fixes | Offline/native builds do not establish foreground interaction or microphone/speaker quality |
+| GeoJSON import | Isolated actual QuPathGUI → MCP test passes exact UUIDs/classes/geometry/planes/scores, changed-file/duplicate rejection, comparison and empty baseline restoration | Test-only socket wiring; native file opening, normal extension bootstrap and foreground controls remain unverified |
+| Reliability | 102 offline gateway tests, native compilation/signing, four PCM and four capture-lifecycle tests pass; focused reviews clean after accepted fixes | Offline/native builds do not establish foreground interaction or microphone/speaker quality |
 | Pitch | Seven editable slides, actual app images, final package checks and every slide visually inspected | Live voice is visibly disclosed as pending |
 
 The actual read-only MCP smoke reports source agreement separately; success must not be interpreted as all source features loaded. The doctor currently fails its loaded-build/schema checks for the older running processes. Preserve that failure until the processes genuinely load the new code.
@@ -33,7 +34,7 @@ npm run smoke
 
 The diagnostic/smoke commands are read-only and make no model call. Check the actual loaded adapter identity, schema agreement and desired open image before requesting an operation. New Java classes are loaded at QuPath startup; replacing a JAR on disk does not update a running application. Current launcher settings use QuPath's supported separate preference node; earlier running instances did not establish that isolation. See [preservation details](ARCHITECTURE.md#preserving-qupath).
 
-Then inspect the new native text/Stop controls, measurement plots and exact approval details in the foreground. Image/project navigation, GeoJSON imports and new dialog flows need their own real-app outcome verification. The separate disposable synthetic-image/import test authorization remains pending; the earlier OS-2 approval must not be broadened. See [task coverage](SOFTWARE-COVERAGE.md).
+Then inspect the new native text/Stop controls, measurement plots and exact approval details in the foreground. Image/project navigation and new dialog flows still need their own real-app outcome verification. The separately authorized synthetic import test passed at 07:34 BST in its own disposable QuPathGUI instance with two fixture-only decisions; it restored the empty baseline and stopped safely. The normal older QuPath/gateway processes were not restarted, and ordinary production approvals are unchanged. See [import test boundaries](SYNTHETIC-IMPORT-TEST.md) and [task coverage](SOFTWARE-COVERAGE.md).
 
 ## Finish live voice
 
@@ -47,4 +48,4 @@ Across existing paid fixtures, 26 completed requests estimate $0.02179905 in tok
 
 Start with `npm ci` and `npm run check`. They use offline/synthetic fixtures and local test servers, with no provider request. Read [the contributor guide](CONTRIBUTING.md) for native and actual-library checks. The [tool reference](TOOL-REFERENCE.md) and [complete schema registry](tool-schemas.json) are generated together from the executable definitions, so CI can catch documentation drift. Use [the operating skill](../skills/qupath/SKILL.md), pinned API lookup and live command discovery when adding a task.
 
-Public milestone evidence: [preservation](pitch/qupath-preservation-evidence.json), [scientific agent](SCIENTIFIC-AGENT-TEST.md), [loaded bridge](pitch/bridge-readiness-evidence.json), [live MCP catalog](pitch/mcp-live-catalog-evidence.json), [editable pitch](pitch/README.md). These are scoped historical records, not a claim of universal plugin support.
+Public milestone evidence: [preservation](pitch/qupath-preservation-evidence.json), [scientific agent](SCIENTIFIC-AGENT-TEST.md), [loaded bridge](pitch/bridge-readiness-evidence.json), [live MCP catalog](pitch/mcp-live-catalog-evidence.json), [synthetic import](pitch/synthetic-import-evidence.json), [editable pitch](pitch/README.md). These are scoped historical records, not a claim of universal plugin support.
