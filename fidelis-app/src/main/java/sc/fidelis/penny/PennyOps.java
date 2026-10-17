@@ -94,18 +94,6 @@ final class PennyOps {
     /** One {@code /execute} call; {@code expectedContext} is the contextKey the caller approved (null for reads/views without one). */
     record Call(String operation, JsonObject args, boolean spoken, String taskId, String utterance, String expectedContext) {}
 
-    /**
-     * The last completed segment_cells: its document, how many undo steps revert it, the SHA-256 of the plane it left,
-     * and the choices a replacement keeps (8-bit conversion, polarity).
-     */
-    record Segmentation(DocumentId doc, int undoSteps, String digest, boolean converted, boolean dark, int historyEnd, List<String> snapshots) {}
-
-    /** Actions that leave a document's pixels and undo snapshots alone (a segmentation can still be replaced after them). */
-    static final Set<String> KEEPS_UNDO = Set.of(PennyCommands.MEASURE, PennyCommands.SET_MEASUREMENTS, PennyCommands.ANALYZE_PARTICLES,
-            Operations.SET_ROI, Operations.CLEAR_ROI, Operations.ROI_LIST_ADD, Operations.ROI_LIST_SELECT, Operations.ROI_LIST_DELETE,
-            Operations.ROI_LIST_RENAME, Operations.SET_DISPLAY_RANGE, Operations.SET_POSITION, Operations.SET_THRESHOLD,
-            Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD, Operations.OPEN);
-
     /** A dialog the engine reported for one of a plan's operations (EngineEvent.DialogPending). */
     record PendingDialog(String operationId, String title, String dialogClass, long generation) {
         String id() {
@@ -137,7 +125,14 @@ final class PennyOps {
     }
 
     /** One planned engine request. {@code role} lets the result builder find the step's result. */
-    record Step(String role, String label, String menuPath, ActionRequest request, Map<String, String> provenance, String preview) {}
+    record Step(String role, String label, String menuPath, ActionRequest request, Map<String, String> provenance, String preview,
+                java.util.function.Function<List<ActionResult>, ActionRequest> late) {
+        /** {@code request} is what the policy assesses and the card shows; {@code late}, when set, builds the request that is
+         * actually submitted from the earlier steps' results (a step on a document an earlier step creates). */
+        Step(String role, String label, String menuPath, ActionRequest request, Map<String, String> provenance, String preview) {
+            this(role, label, menuPath, request, provenance, preview, null);
+        }
+    }
 
     interface Finisher {
         Map<String, Object> finish(Plan plan, List<ActionResult> results);
@@ -157,8 +152,8 @@ final class PennyOps {
         int undoSteps;
         /** History size when the plan was approved (its contextKey includes it). */
         int approvedHistory = -1;
-        /** Action ids of the steps that changed pixels or type through a catalogued command (their undo snapshots). */
-        final List<String> snapshotActions = new ArrayList<>();
+        /** Request ids submitted to the engine (for the event bookkeeping). */
+        final List<String> submitted = new ArrayList<>();
         /** The approved plane of a stack document ({c, z, t}); COMMAND steps are pinned to it. Null for single planes. */
         int[] position;
         /** The original Fiji dialog the plan's current engine operation waits on, set from the engine's events. */
@@ -214,7 +209,6 @@ final class PennyOps {
      * running plan happens outside it.
      */
     private final Object admission = new Object();
-    private final AtomicReference<Segmentation> lastSegmentation = new AtomicReference<>();
     /** Engine requests of Penny's plans by request id, and their operations by operation id (from the engine's events). */
     private final Map<String, Plan> byRequest = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, Plan> byOperation = new java.util.concurrent.ConcurrentHashMap<>();
@@ -485,7 +479,7 @@ final class PennyOps {
                 }
                 ui(() -> PennyUi.current().planProgress(p.id, index, s.label()));
                 p.current = i;
-                ActionRequest r = s.request();
+                ActionRequest r = s.late() != null ? s.late().apply(results) : s.request();
                 if (r.kind() == ActionKind.CODE && p.codeToken != null) r = r.withConfirmation(p.codeToken);
                 cursor = baseline;
                 // the engine refuses the step (STATE_CHANGED) if anything else enters the history before its worker starts it
@@ -494,6 +488,7 @@ final class PennyOps {
                 r = new ActionRequest(r.requestId(), r.origin(), r.kind(), r.commandId(), r.operation(), bound, r.target(),
                         r.confirmationToken(), r.replayOf());
                 byRequest.put(r.requestId(), p);
+                p.submitted.add(r.requestId());
                 ActionResult res;
                 try {
                     // no timeout: the plan owns the bridge until the engine reports a terminal state (an original Fiji
@@ -535,11 +530,8 @@ final class PennyOps {
                 // the engine's legacy route (no catalogued schema) keeps no undo snapshot
                 if (q.kind() == ActionKind.COMMAND && !engine.schema(q.commandId()).map(CommandSchema::schemaComplete).orElse(false)) continue;
                 boolean px = false;
-                for (var ch : r.digest().changed()) px |= ch.pixelsChanged() || ch.typeChanged();
-                if (px) {
-                    undoable++;
-                    p.snapshotActions.add(r.record().actionId());
-                }
+                for (var ch : r.digest().changed()) px |= (p.doc == null || ch.id().equals(p.doc)) && (ch.pixelsChanged() || ch.typeChanged());
+                if (px) undoable++;
             }
             // results are read from the live mirrors: if another action ran after the plan, they may describe it instead
             waitForForeignOpsQuietly();
@@ -578,7 +570,7 @@ final class PennyOps {
             throw new Failure(409, "The plan stopped: " + e, Map.of("planId", p.id));
         } finally {
             p.dialog = null;
-            for (Step st : p.steps) byRequest.remove(st.request().requestId());
+            for (String id : p.submitted) byRequest.remove(id);
             byOperation.values().removeIf(x -> x == p);
             running.compareAndSet(p, null);
         }
@@ -963,6 +955,9 @@ final class PennyOps {
         if (imp != null) {
             m.put("position", map("channel", imp.getC(), "slice", imp.getZ(), "frame", imp.getT()));
             m.put("displayRange", List.of(imp.getDisplayRangeMin(), imp.getDisplayRangeMax()));
+            ImageProcessor ip = LiveRead.processor(imp);
+            // a mask: intensities measured on it are 0/255, not the signal
+            m.put("binary", ip != null && d.bitDepth() == 8 && ip.isBinary());
         }
         return m;
     }
@@ -1412,6 +1407,26 @@ final class PennyOps {
         return commandStep(p, "set_measurements", PennyCommands.SET_MEASUREMENTS, user, recipe, d == null ? null : TargetScope.of(d.id()));
     }
 
+    private static ActionRequest retarget(ActionRequest r, DocumentId doc) {
+        TargetScope t = r.target();
+        return new ActionRequest(UUID.randomUUID().toString(), r.origin(), r.kind(), r.commandId(), r.operation(), r.params(),
+                new TargetScope(doc, null, null, null, t != null && t.allPlanes(), t == null ? null : t.roiIndex()), r.confirmationToken(), r.replayOf());
+    }
+
+    private static DocumentId created(ActionResult r) {
+        if (r.digest() == null || r.digest().added().isEmpty()) throw new IllegalStateException("the duplicate produced no new document");
+        return r.digest().added().get(0);
+    }
+
+    /** The same step on the document step {@code from} created (built when the step runs). */
+    private static Step onCreated(Step s, int from) {
+        return new Step(s.role(), s.label(), s.menuPath(), s.request(), s.provenance(), s.preview(), res -> retarget(s.request(), created(res.get(from))));
+    }
+
+    /**
+     * segment_cells on a duplicate: the original keeps its pixels (so measurements of the objects read the real signal)
+     * and receives the objects as its ROI list; the duplicate becomes the mask.
+     */
     private Plan segmentCells(Call c) {
         JsonObject a = c.args();
         DocumentInfo d = requireDoc();
@@ -1419,54 +1434,45 @@ final class PennyOps {
         TargetScope ts = TargetScope.of(d.id());
         boolean watershed = PennyJson.bool(a, "watershed", true);
         boolean gaussian = PennyJson.bool(a, "gaussian", true);
+        boolean replace = PennyJson.bool(a, "replace", true);
         Double sigma = PennyJson.num(a, "sigma");
         String method = method(a, "Otsu");
         Boolean darkArg = PennyJson.bool(a, "dark");
-        boolean dark0 = darkArg != null ? darkArg : darkFor(d);
+        final boolean dark = darkArg != null ? darkArg : darkFor(d);
         Double minSize = PennyJson.num(a, "minSize");
         Double maxSize = PennyJson.num(a, "maxSize");
         Boolean exclude = PennyJson.bool(a, "exclude");
         Boolean pixel = PennyJson.bool(a, "pixel");
-        // "stricter / looser": segmenting again replaces the previous segmentation of this image (undo, then segment the
-        // original) when the image still holds exactly the mask that segmentation left; otherwise the image is used as is
-        Segmentation last = lastSegmentation.get();
-        boolean replace = !Boolean.FALSE.equals(PennyJson.bool(a, "replace")) && last != null && last.doc().equals(d.id())
-                && !last.snapshots().isEmpty() && last.digest() != null && last.digest().equals(planeDigest(d.id())) && untouchedSince(last);
-        if (replace) {
-            // newest first; each UNDO names the snapshots that must be on top (the engine checks before restoring anything)
-            List<String> newestFirst = new ArrayList<>(last.snapshots());
-            Collections.reverse(newestFirst);
-            for (int i = 0; i < newestFirst.size(); i++)
-                p.steps.add(directStep(p, "undo", Operations.UNDO, "Undo the previous segmentation (" + (i + 1) + " of " + newestFirst.size() + ")",
-                        "Edit>Undo", map("expectedUndoActionIds", List.copyOf(newestFirst.subList(i, newestFirst.size()))), Map.of(),
-                        "run(\"Undo\");", ts));
-        }
-        final boolean dark = replace && darkArg == null ? last.dark() : dark0;
-        final boolean to8 = replace ? last.converted() : d.bitDepth() == 24 || "COLOR_256".equals(d.type());
         if (PennyJson.has(a, "channel")) {
             int ch = PennyJson.integer(a, "channel", 1, 1, Math.max(1, d.nChannels()));
             if (d.nChannels() > 1) p.steps.add(directStep(p, "channel", Operations.SET_POSITION, "Channel " + ch, "Image>Stacks>Set Channel",
                     map("channel", ch), prov("channel", Params.USER), "Stack.setChannel(" + ch + ");", ts));
         }
-        if (to8) p.steps.add(commandStep(p, "convert", PennyCommands.TO_8_BIT, Map.of(), Map.of(), ts));
+        // the current plane of the original, whole image (an active selection is ignored), as a new document
+        String base = d.title().replaceFirst("\\.[A-Za-z0-9]{2,4}$", "");
+        int[] pos = position(p);
+        String c0 = pos == null ? "1" : String.valueOf(pos[0]), z0 = pos == null ? "1" : String.valueOf(pos[1]), t0 = pos == null ? "1" : String.valueOf(pos[2]);
+        p.steps.add(commandStep(p, "duplicate", PennyCommands.DUPLICATE, Map.of(), map("title", base + "-mask", "ignore", true, "duplicate", false,
+                "range", z0 + "-" + z0, "channels", c0 + "-" + c0, "slices", z0 + "-" + z0, "frames", t0 + "-" + t0), ts));
+        final int dup = p.steps.size() - 1;
+        if (d.bitDepth() == 24 || "COLOR_256".equals(d.type()))
+            p.steps.add(onCreated(commandStep(p, "convert", PennyCommands.TO_8_BIT, Map.of(), Map.of(), ts), dup));
         if (gaussian) {
             Map<String, Object> user = new LinkedHashMap<>();
             Map<String, Object> recipe = map("scaled", false, "stack", false);
             if (sigma != null) user.put("sigma", sigma);
             else recipe.put("sigma", 1.0);
-            p.steps.add(commandStep(p, "gaussian", PennyCommands.GAUSSIAN, user, recipe, ts));
+            p.steps.add(onCreated(commandStep(p, "gaussian", PennyCommands.GAUSSIAN, user, recipe, ts), dup));
         }
-        p.steps.add(directStep(p, "threshold", Operations.SET_AUTO_THRESHOLD, "Auto threshold " + method + (dark ? " (dark background)" : ""),
+        p.steps.add(onCreated(directStep(p, "threshold", Operations.SET_AUTO_THRESHOLD, "Auto threshold " + method + (dark ? " (dark background)" : ""),
                 "Image>Adjust>Threshold...", map("method", method, "dark", dark),
                 prov("method", PennyJson.has(a, "method") ? Params.USER : Params.DERIVED, "dark", darkArg != null ? Params.USER : Params.DERIVED),
-                "setAutoThreshold(\"" + method + (dark ? " dark" : "") + "\");", ts));
+                "setAutoThreshold(\"" + method + (dark ? " dark" : "") + "\");", ts), dup));
         boolean black = Boolean.parseBoolean(engine.globals().getOrDefault("blackBackground", "false"));
-        Map<String, Object> mask = d.isStack()
-                ? map("method", method, "background", dark ? "Dark" : "Light", "calculate", false, "only", true, "black", black, "list", false, "create", false)
-                : map("method", "Default", "background", "Default", "calculate", false, "only", false, "black", black);
-        p.steps.add(commandStep(p, "mask", PennyCommands.CONVERT_TO_MASK, Map.of(), mask, ts));
-        p.steps.add(commandStep(p, "fill", PennyCommands.FILL_HOLES, Map.of(), Map.of(), ts));
-        if (watershed) p.steps.add(commandStep(p, "watershed", PennyCommands.WATERSHED, Map.of(), Map.of(), ts));
+        p.steps.add(onCreated(commandStep(p, "mask", PennyCommands.CONVERT_TO_MASK, Map.of(),
+                map("method", "Default", "background", "Default", "calculate", false, "only", false, "black", black), ts), dup));
+        p.steps.add(onCreated(commandStep(p, "fill", PennyCommands.FILL_HOLES, Map.of(), Map.of(), ts), dup));
+        if (watershed) p.steps.add(onCreated(commandStep(p, "watershed", PennyCommands.WATERSHED, Map.of(), Map.of(), ts), dup));
         if (!currentMeasurements().contains("area")) p.steps.add(setMeasurementsStep(p, new LinkedHashSet<>(SEGMENT_MEASUREMENTS), false, d));
         Map<String, Object> user = new LinkedHashMap<>();
         if (minSize != null || maxSize != null) {
@@ -1478,14 +1484,27 @@ final class PennyOps {
         Map<String, Object> recipe = map("size", "0-Infinity", "pixel", false, "circularity", "0.00-1.00", "show", "Nothing", "display", true,
                 "exclude", false, "clear", true, "include", false, "summarize", false, "overlay", false, "add", true, "composite", false,
                 "record", false, "in_situ", false, "stack", false);
-        p.steps.add(commandStep(p, "particles", PennyCommands.ANALYZE_PARTICLES, user, recipe, ts));
+        p.steps.add(onCreated(commandStep(p, "particles", PennyCommands.ANALYZE_PARTICLES, user, recipe, ts), dup));
+        // the objects go to the original's ROI list (replacing it unless replace:false)
+        Step copy = directStep(p, "copy", Operations.ROI_LIST_ADD, "Copy the objects to " + d.title(), "Analyze>Tools>ROI Manager...",
+                map("fromDocument", "(the mask)", "replace", replace), prov("fromDocument", Params.DERIVED, "replace", PennyJson.has(a, "replace") ? Params.USER : Params.DERIVED),
+                "roiManager(\"" + (replace ? "reset" : "add") + "\"); // objects of the mask", ts);
+        p.steps.add(new Step(copy.role(), copy.label(), copy.menuPath(), copy.request(), copy.provenance(), copy.preview(), res -> {
+            Map<String, Object> params = new LinkedHashMap<>(copy.request().params());
+            params.put("fromDocument", created(res.get(dup)).value());
+            return new ActionRequest(UUID.randomUUID().toString(), copy.request().origin(), ActionKind.DIRECT, null, Operations.ROI_LIST_ADD, params,
+                    TargetScope.of(d.id()), null, null);
+        }));
         p.finish = (plan, res) -> {
+            DocumentId mask = created(res.get(dup));
+            engine.focus(d.id()); // the original stays the document Penny and the user work on
             Map<String, Object> m = particlesResult(plan, res, d, "cells");
             m.put("threshold", map("method", method, "dark", dark));
             m.put("watershed", watershed);
-            m.put("replacedPrevious", replace);
-            lastSegmentation.set(new Segmentation(d.id(), plan.undoSteps, planeDigest(d.id()), to8, dark, engine.history().size(),
-                    List.copyOf(plan.snapshotActions)));
+            m.put("replacedRois", replace);
+            m.put("mask", engine.document(mask).map(x -> map("id", x.id().value(), "title", x.title())).orElse(null));
+            m.put("note", "Objects were found on the mask " + engine.document(mask).map(DocumentInfo::title).orElse("") + "; " + d.title()
+                    + " keeps its pixels and now holds them as its ROI list, so measure {scope:\"rois\"} reads the real signal.");
             return m;
         };
         return p;
@@ -1979,43 +1998,6 @@ final class PennyOps {
             for (int sh = 0; sh <= 16; sh += 8) { int x = (v >> sh) & 0xff; lo = Math.min(lo, x); hi = Math.max(hi, x); }
         } else return null;
         return Double.isFinite(lo) ? new double[] {lo, hi} : null;
-    }
-
-    /**
-     * True when nothing since the segmentation could have pushed or popped an undo snapshot of its document: every later
-     * history record is for another document, or a measurement, selection, display, position, threshold or ROI-list action.
-     */
-    private boolean untouchedSince(Segmentation last) {
-        List<HistoryRecord> h = engine.history();
-        if (last.historyEnd() > h.size()) return false;
-        for (HistoryRecord r : h.subList(last.historyEnd(), h.size())) {
-            boolean thisDoc = r.target() == null || r.target().document() == null || r.target().document().equals(last.doc());
-            if (!thisDoc) continue;
-            if (r.commandId() == null || !KEEPS_UNDO.contains(r.commandId())) return false;
-        }
-        return true;
-    }
-
-    /** SHA-256 of the current plane's pixels (read from the array) with type and size; null when unavailable. */
-    private String planeDigest(DocumentId id) {
-        ImagePlus imp = imp(id);
-        if (imp == null) return null;
-        Object px = LiveRead.planePixels(imp, null);
-        java.nio.ByteBuffer bb;
-        if (px instanceof byte[] b) bb = java.nio.ByteBuffer.wrap(b);
-        else if (px instanceof short[] sh) { bb = java.nio.ByteBuffer.allocate(sh.length * 2); bb.asShortBuffer().put(sh); }
-        else if (px instanceof float[] f) { bb = java.nio.ByteBuffer.allocate(f.length * 4); bb.asFloatBuffer().put(f); }
-        else if (px instanceof int[] rgb) { bb = java.nio.ByteBuffer.allocate(rgb.length * 4); bb.asIntBuffer().put(rgb); }
-        else return null;
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update((imp.getType() + ":" + imp.getWidth() + "x" + imp.getHeight() + ":" + imp.getC() + "," + imp.getZ() + "," + imp.getT() + ":")
-                    .getBytes(StandardCharsets.UTF_8));
-            md.update(bb.array());
-            return HexFormat.of().formatHex(md.digest());
-        } catch (java.security.NoSuchAlgorithmException e) {
-            return null;
-        }
     }
 
     private Plan stack(Call c) {

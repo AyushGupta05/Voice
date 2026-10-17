@@ -72,8 +72,14 @@ class FidelisBridgeJourneyTest {
         assertEquals(254, docJson.get("height").getAsInt());
         assertEquals(doc, engine.focused().orElseThrow());
 
-        // segment the cells
+        // segment the cells (on a duplicate: the original keeps its pixels and receives the objects)
+        String originalPixels = PixelHash.sha256(engine.imagePlus(doc));
         JsonObject seg = http.change("segment_cells", args()).result();
+        assertEquals(originalPixels, PixelHash.sha256(engine.imagePlus(doc)), "the original's pixels are untouched");
+        assertEquals(doc, engine.focused().orElseThrow(), "the original stays focused");
+        DocumentId mask = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
+        assertNotEquals(doc, mask);
+        assertTrue(!http.read("context", null).getAsJsonObject("document").get("binary").getAsBoolean(), "the original is not binary");
         assertEquals("completed", seg.get("status").getAsString(), seg.toString());
         int count = seg.get("count").getAsInt();
         double average = seg.get("averageSize").getAsDouble();
@@ -96,8 +102,10 @@ class FidelisBridgeJourneyTest {
         double sum = 0;
         for (MeasurementRow r : paRows) sum += r.values().get("Area");
         assertEquals(sum / count, average, 1e-9);
-        assertEquals(List.of("Gaussian Blur...", "Auto threshold Otsu", "Convert to Mask", "Fill Holes", "Watershed", "Analyze Particles..."),
-                labels, "plan on the focused 8-bit Blobs (inverting LUT: objects dark on light, so not 'dark'), no Duplicate");
+        assertEquals(List.of("Duplicate...", "Gaussian Blur...", "Auto threshold Otsu", "Convert to Mask", "Fill Holes", "Watershed",
+                "Analyze Particles...", "Copy the objects to blobs.gif"), labels,
+                "plan on a duplicate of the focused 8-bit Blobs (inverting LUT: objects dark on light, so not 'dark')");
+        assertEquals(count, engine.rois(mask).size(), "the mask holds the same objects");
         JsonObject hl = seg.getAsJsonObject("highlight");
         assertEquals(Math.min(count, PennyOps.HIGHLIGHT_LIMIT), hl.getAsJsonArray("targets").size(), hl.toString());
         assertEquals(count, hl.get("total").getAsInt());
@@ -195,22 +203,21 @@ class FidelisBridgeJourneyTest {
     }
 
     @Test
-    void undoWithTheReportedUndoStepsRestoresTheOriginalPixels() throws Exception {
+    void segmentationLeavesTheOriginalAloneAndMakesABinaryMask() throws Exception {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         JsonObject opened = http.change("open_path", args("path", blobs.toString())).result();
         DocumentId doc = new DocumentId(opened.getAsJsonObject("document").get("id").getAsString());
         String original = PixelHash.sha256(engine.imagePlus(doc));
+        int history = engine.history().size();
         JsonObject seg = http.change("segment_cells", args()).result();
-        int steps = seg.get("undoSteps").getAsInt();
-        assertTrue(steps >= 2 && steps <= 4, seg.toString());
-        assertNotEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
-        JsonObject undone = http.change("undo", args("steps", steps)).result();
-        System.out.println("[penny-journey] undo steps=" + steps + " undid " + undone.get("undoneActionIds"));
-        assertEquals(steps, undone.getAsJsonArray("undoneActionIds").size());
-        assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)), "segment_cells fully reverted");
-        BridgeHttp.Resp more = http.change("undo", args());
-        assertEquals(409, more.status(), "nothing left to undo: " + more.body());
-        assertTrue(more.error().contains("nothing to undo"), more.error());
+        assertEquals(0, seg.get("undoSteps").getAsInt(), "nothing to undo on the original: " + seg);
+        assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
+        String maskId = seg.getAsJsonObject("mask").get("id").getAsString();
+        http.exec("activate_image", args("id", maskId), null, null).result();
+        JsonObject ctx = http.read("context", null);
+        assertTrue(ctx.getAsJsonObject("document").get("binary").getAsBoolean(), "the mask is binary: " + ctx.getAsJsonObject("document"));
+        System.out.println("[penny-journey] segment_cells made " + seg.getAsJsonObject("mask") + " and " + (engine.history().size() - history)
+                + " history steps; original unchanged");
     }
 
     /**
@@ -222,29 +229,18 @@ class FidelisBridgeJourneyTest {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
                 .getAsJsonObject("document").get("id").getAsString());
-        String original = PixelHash.sha256(engine.imagePlus(doc));
         JsonObject otsu = http.change("segment_cells", args()).result();
-        assertTrue(!otsu.get("replacedPrevious").getAsBoolean());
         JsonObject li = http.change("segment_cells", args("method", "Li")).result();
-        assertTrue(li.get("replacedPrevious").getAsBoolean(), li.toString());
-        int undone = 0;
-        for (JsonElement e : li.getAsJsonArray("steps")) if (e.getAsJsonObject().get("label").getAsString().startsWith("Undo the previous segmentation")) undone++;
-        assertEquals(otsu.get("undoSteps").getAsInt(), undone);
-        assertEquals(li.get("count").getAsInt(), engine.rois(doc).size());
+        assertTrue(li.get("replacedRois").getAsBoolean(), li.toString());
+        assertEquals(li.get("count").getAsInt(), engine.rois(doc).size(), "the original's ROI list now holds the Li objects");
         // independent: a fresh copy segmented once with Li
-        DocumentId fresh = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
-                .getAsJsonObject("document").get("id").getAsString());
+        http.change("open_path", args("path", blobs.toString())).result();
         JsonObject liFresh = http.change("segment_cells", args("method", "Li")).result();
-        assertTrue(!liFresh.get("replacedPrevious").getAsBoolean(), "another document is never replaced");
-        System.out.println("[penny-journey] Otsu " + otsu.get("count") + ", Li after replace " + li.get("count") + ", Li on a fresh copy "
+        System.out.println("[penny-journey] Otsu " + otsu.get("count") + ", Li after Otsu " + li.get("count") + ", Li on a fresh copy "
                 + liFresh.get("count") + " (mean " + liFresh.get("averageSize") + ")");
         assertEquals(liFresh.get("count").getAsInt(), li.get("count").getAsInt());
         assertEquals(liFresh.get("totalArea").getAsDouble(), li.get("totalArea").getAsDouble(), 1e-9);
-        // and the replacement chain still reverts to the original pixels
-        engine.focus(doc);
-        http.change("undo", args("steps", li.get("undoSteps").getAsInt())).result();
-        assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
-        assertTrue(engine.documents().stream().anyMatch(x -> x.id().equals(fresh)));
+        assertNotEquals(otsu.get("count").getAsInt(), li.get("count").getAsInt(), "Li and Otsu differ on Blobs");
     }
 
     /** Each ROI-list entry is measured on the plane it was recorded on, and the viewer goes back to where it was. */
@@ -295,7 +291,10 @@ class FidelisBridgeJourneyTest {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         JsonObject opened = http.change("open_path", args("path", blobs.toString())).result();
         DocumentId doc = new DocumentId(opened.getAsJsonObject("document").get("id").getAsString());
-        int first = http.change("segment_cells", args("minSize", 20)).result().get("count").getAsInt();
+        JsonObject seg = http.change("segment_cells", args("minSize", 20)).result();
+        int first = seg.get("count").getAsInt();
+        doc = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
+        http.exec("activate_image", args("id", doc.value()), null, null).result();
         JsonObject again = http.change("analyze_particles", args("size", "20-Infinity")).result();
         int second = again.get("count").getAsInt();
         System.out.println("[penny-journey] segment_cells(minSize 20)=" + first + ", analyze_particles again=" + second + ", ROI list="

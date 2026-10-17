@@ -180,12 +180,41 @@ final class DirectOps {
                     displayChanged = true;
                 }
                 case Operations.ROI_LIST_ADD -> {
-                    Roi roi = imp.getRoi();
-                    if (roi == null) throw new Bad("there is no active selection to add");
-                    eng.emitState(op, OperationState.RUNNING, null);
-                    synchronized (doc.roiList) {
-                        doc.roiList.add((Roi) roi.clone());
-                        params.put("index", doc.roiList.size() - 1);
+                    Object from = r.params().get("fromDocument");
+                    if (from != null) {
+                        // opt-in: copy another document's ROI list (objects segmented on a derived mask, kept on the original)
+                        Doc src = eng.registry.get(String.valueOf(from));
+                        if (src == null) throw new Bad("fromDocument " + from + " is not open");
+                        if (src == doc) throw new Bad("fromDocument is the target document");
+                        boolean replace = Boolean.TRUE.equals(r.params().get("replace"));
+                        List<Roi> copies = new ArrayList<>();
+                        synchronized (src.roiList) {
+                            for (Roi x : src.roiList) copies.add((Roi) x.clone());
+                        }
+                        eng.emitState(op, OperationState.RUNNING, null);
+                        synchronized (doc.roiList) {
+                            if (replace) doc.roiList.clear();
+                            doc.roiList.addAll(copies);
+                            params.put("count", (long) copies.size());
+                            params.put("total", (long) doc.roiList.size());
+                        }
+                        params.put("fromDocument", src.id.value());
+                        params.put("replace", replace);
+                        if (replace) lines.add("roiManager(\"reset\");");
+                        for (Roi x : copies) {
+                            lines.addAll(RoiCodec.macroLines(RoiCodec.toGeometry(x)));
+                            lines.add("roiManager(\"add\");");
+                        }
+                        lines.add("run(\"Select None\");");
+                        exact = false; // Fidelis keeps one ROI list per document; the ROI Manager lines are its classic-Fiji equivalent
+                    } else {
+                        Roi roi = imp.getRoi();
+                        if (roi == null) throw new Bad("there is no active selection to add");
+                        eng.emitState(op, OperationState.RUNNING, null);
+                        synchronized (doc.roiList) {
+                            doc.roiList.add((Roi) roi.clone());
+                            params.put("index", doc.roiList.size() - 1);
+                        }
                     }
                 }
                 case Operations.ROI_LIST_SELECT -> {
@@ -289,19 +318,7 @@ final class DirectOps {
 
     private Outcome undo(Op op, Doc doc, Map<String, String> gBefore) {
         Snapshots.Snapshot snap;
-        // Opt-in (the Penny bridge): expectedUndoActionIds lists the actions whose snapshots must be the newest ones, newest
-        // first; the undo runs only if they are, so an automatic "undo these steps" never reverts some other action.
-        Object want = op.request.params().get("expectedUndoActionIds");
         synchronized (doc.undo) {
-            if (want instanceof List<?> ids) {
-                java.util.Iterator<Snapshots.Snapshot> it = doc.undo.iterator();
-                for (Object id : ids) {
-                    Snapshots.Snapshot s = it.hasNext() ? it.next() : null;
-                    if (s == null || !String.valueOf(id).equals(s.actionId))
-                        return Outcome.failed(new EngineError(ErrorCode.PRECONDITION_FAILED, "the undo snapshots are not the expected ones (wanted "
-                                + ids + "; nothing was undone)", "UNDO_MISMATCH", Map.of(), true, List.of("undo step by step instead")));
-                }
-            }
             snap = doc.undo.peekFirst();
         }
         if (snap == null)
