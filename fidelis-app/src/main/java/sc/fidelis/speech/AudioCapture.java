@@ -23,6 +23,11 @@ public final class AudioCapture {
     public static final int TARGET_RATE = 16_000;
     public static final int MAX_SECONDS = 30;
 
+    /** Capture cap in seconds; tests shorten it to exercise auto-stop. */
+    private static volatile double maxSeconds = MAX_SECONDS;
+
+    static void setMaxSecondsForTest(double seconds) { maxSeconds = seconds; }
+
     private static final int[] RATES = {16_000, 48_000, 44_100, 32_000, 22_050};
     private static final int[] CHANNELS = {1, 2};
 
@@ -87,7 +92,7 @@ public final class AudioCapture {
 
     private void pump() {
         int frameSize = format.getFrameSize();
-        long maxBytes = (long) MAX_SECONDS * (long) format.getFrameRate() * frameSize;
+        long maxBytes = (long) (maxSeconds * format.getFrameRate()) * frameSize;
         byte[] buf = new byte[(int) (format.getFrameRate() / 20) * frameSize]; // 50 ms
         try {
             while (!stopRequested) {
@@ -130,7 +135,7 @@ public final class AudioCapture {
         float[] mono = Resampler.fromPcm16le(raw, format.getChannels());
         int rate = (int) format.getSampleRate();
         float[] out = rate == TARGET_RATE ? mono : Resampler.resample(mono, rate, TARGET_RATE);
-        int max = TARGET_RATE * MAX_SECONDS;
+        int max = (int) (TARGET_RATE * maxSeconds);
         if (out.length > max) out = Arrays.copyOf(out, max);
         return Resampler.toPcm16le(out);
     }
