@@ -106,6 +106,27 @@ public final class TrackingContractTest {
         expect(((Number) sliceResult.get("tracks")).intValue() == 3 && "slices".equals(sliceResult.get("timeAxis")), "z-stack treated as time: " + sliceResult.get("tracks"));
         System.out.println("PASS track_objects on slices-as-time");
 
+        // --- z-stack time-lapse with two channels: blobs only in z 2 of channel 1 (plus 3x3 specks), channel 2 flickering noise blobs.
+        var zstack = zMovie(20);
+        var zResult = onEdt(zstack, () -> tracking.trackObjects(new JsonObject()));
+        System.out.println("track_objects z-stack: " + GSON.toJson(withoutHighlight(zResult)));
+        expect(Boolean.TRUE.equals(zResult.get("zProjected")), "z slices max-projected per frame");
+        expect(((Number) zResult.get("channel")).intValue() == 1, "auto channel is the one with the steadiest object count: " + zResult.get("channelChoice"));
+        expect(((Number) zResult.get("tracks")).intValue() == 3, "3 tracks after projection and the robust minSize (specks dropped), got " + zResult.get("tracks"));
+        expect(zResult.get("stability") instanceof Number cv && cv.doubleValue() < 0.5 && !zResult.containsKey("warning"), "stable count, no warning: " + zResult.get("stability") + " " + zResult.get("warning"));
+        @SuppressWarnings("unchecked") var zParams = (Map<String, Object>) zResult.get("parameters");
+        expect(((Number) zParams.get("minSize")).doubleValue() > 9 && String.valueOf(zParams.get("minSizeFrom")).startsWith("0.3 x size mode"), "minSize above 2x2 specks: " + zParams);
+        expect(((Number) zParams.get("minLength")).intValue() == 4, "minLength default max(3, 20% of 20 frames) = 4");
+        var nonsense = new JsonObject(); nonsense.addProperty("channel", 2); nonsense.addProperty("minSize", 0.5); nonsense.addProperty("minLength", 1);
+        var flicker = onEdt(zstack, () -> tracking.trackObjects(nonsense));
+        System.out.println("track_objects nonsense parameters on the noise channel: " + GSON.toJson(withoutHighlight(flicker)));
+        expect(flicker.get("warning") instanceof String w && !w.isBlank() && ((List<?>) flicker.get("adjusted")).size() == 2, "nonsense parameters clamped and an unstable channel warned: " + flicker.get("adjusted") + " / " + flicker.get("warning"));
+        var onePlane = new JsonObject(); onePlane.addProperty("channel", 1); onePlane.addProperty("projectZ", false);
+        zstack.setPosition(1, 2, 1);
+        var plane = onEdt(zstack, () -> tracking.trackObjects(onePlane));
+        expect(Boolean.FALSE.equals(plane.get("zProjected")) && ((Number) plane.get("tracks")).intValue() == 3, "projectZ false tracks the current z plane: " + plane.get("tracks"));
+        System.out.println("PASS track_objects z-stack: projected, channel 1 chosen, specks dropped, 3 tracks; nonsense parameters clamped and warned");
+
         // --- single frame refused
         var single = new ImagePlus("one.tif", new ShortProcessor(32, 32));
         try { onEdt(single, () -> tracking.trackObjects(new JsonObject())); expect(false, "single frame should be refused"); }
@@ -146,16 +167,59 @@ public final class TrackingContractTest {
         expect(((Number) managed.get("rois")).intValue() == 2 && tracking.lastTable.size() == 40, "manager scope measures 2 ROIs x 20 frames");
         System.out.println("PASS intensity_over_time manager scope: 2 ROIs, 40 rows");
 
-        // --- optional real sample
+        // --- optional real samples
         var sample = Path.of(System.getProperty("luma.root", "."), ".local/data/samples/faketracks/FakeTracks.tif");
         if (Files.isRegularFile(sample)) {
             var fake = IJ.openImage(sample.toString());
             if (fake != null) {
                 var fakeResult = onEdt(fake, () -> tracking.trackObjects(new JsonObject()));
-                expect(((Number) fakeResult.get("tracks")).intValue() > 0, "FakeTracks yields tracks");
-                System.out.println("PASS FakeTracks.tif (" + fake.getNFrames() + " frames, " + fake.getNSlices() + " slices): " + GSON.toJson(withoutHighlight(fakeResult)));
+                int n = ((Number) fakeResult.get("tracks")).intValue();
+                // Synthetic truth: at most 4 spots per frame, 2 splits, 1 merge, 1 gap, so 4-8 tracks.
+                expect(n >= 4 && n <= 8 && !fakeResult.containsKey("warning"), "FakeTracks gives 4-8 tracks without a warning, got " + n + " " + fakeResult.get("warning"));
+                System.out.println("SAMPLE FakeTracks.tif (" + fake.getNFrames() + " frames, " + fake.getNSlices() + " slices): " + GSON.toJson(withoutHighlight(fakeResult)));
             }
         } else System.out.println("SKIP FakeTracks.tif not present");
+        var mitosisPath = Path.of(System.getProperty("luma.root", "."), ".local/data/samples/mitosis/mitosis.tif");
+        if (Files.isRegularFile(mitosisPath)) {
+            var mitosis = IJ.openImage(mitosisPath.toString());
+            if (mitosis != null) {
+                var mitosisResult = onEdt(mitosis, () -> tracking.trackObjects(new JsonObject()));
+                int n = ((Number) mitosisResult.get("tracks")).intValue();
+                expect(Boolean.TRUE.equals(mitosisResult.get("zProjected")) && n >= 1 && n <= 8, "mitosis (one dividing cell) gives a handful of tracks, got " + n);
+                System.out.println("SAMPLE mitosis.tif defaults (" + mitosis.getNChannels() + " ch, " + mitosis.getNSlices() + " z, " + mitosis.getNFrames() + " frames): " + GSON.toJson(withoutHighlight(mitosisResult)));
+                // The QA battery's arguments (Q16r): ch1, Otsu, minSize 0.5, maxDistance 10, maxGap 2, minLength 1 gave 83 tracks before.
+                var qa = new JsonObject(); qa.addProperty("channel", 1); qa.addProperty("method", "Otsu"); qa.addProperty("minSize", 0.5); qa.addProperty("maxDistance", 10); qa.addProperty("maxGap", 2); qa.addProperty("minLength", 1);
+                var qaResult = onEdt(mitosis, () -> tracking.trackObjects(qa));
+                expect(((Number) qaResult.get("tracks")).intValue() <= 8, "QA arguments no longer give dozens of tracks: " + qaResult.get("tracks"));
+                System.out.println("SAMPLE mitosis.tif QA arguments: " + GSON.toJson(withoutHighlight(qaResult)));
+            }
+        } else System.out.println("SKIP mitosis.tif not present");
+    }
+
+    /** 2 channels x 3 z x frames. Channel 1: the three BLOBS in z 2 only, plus four random 2x2 specks per frame. Channel 2: 12 random blobs every third frame, 1 otherwise. */
+    static ImagePlus zMovie(int frames) {
+        var stack = new ImageStack(128, 128);
+        var random = new Random(11);
+        for (int t = 1; t <= frames; t++) for (int z = 1; z <= 3; z++) for (int c = 1; c <= 2; c++) {
+            var ip = new ShortProcessor(128, 128);
+            double[][] flicker = new double[c == 2 && z == 2 ? (t % 3 == 0 ? 12 : 1) : 0][];
+            for (int k = 0; k < flicker.length; k++) flicker[k] = new double[]{8 + random.nextInt(112), 8 + random.nextInt(112)};
+            for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++) {
+                double v = 100 + random.nextGaussian() * 5;
+                if (c == 1 && z == 2) for (var b : BLOBS) {
+                    if (t < b[4]) continue;
+                    double cx = b[0] + b[2] * (t - b[4]), cy = b[1] + b[3] * (t - b[4]);
+                    v += 2000 * Math.exp(-((x - cx) * (x - cx) + (y - cy) * (y - cy)) / (2 * 2.0 * 2.0));
+                }
+                for (var f : flicker) v += 2000 * Math.exp(-((x - f[0]) * (x - f[0]) + (y - f[1]) * (y - f[1])) / (2 * 2.0 * 2.0));
+                ip.set(x, y, (int) Math.round(Math.max(0, v)));
+            }
+            if (c == 1 && z == 2) for (int k = 0; k < 4; k++) { ip.setValue(2100); ip.setRoi(10 + random.nextInt(108), 10 + random.nextInt(108), 2, 2); ip.fill(); ip.resetRoi(); }
+            stack.addSlice(ip);
+        }
+        var imp = new ImagePlus("synthetic-zstack-tracks.tif", stack);
+        imp.setDimensions(2, 3, frames); imp.setOpenAsHyperStack(true);
+        return imp;
     }
 
     static long countPolylines(ImagePlus imp) {

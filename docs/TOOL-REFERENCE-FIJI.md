@@ -223,7 +223,7 @@ One-step cell/nucleus segmentation of the active image: duplicate → 8-bit → 
 
 ## fiji_track_objects
 
-Follow cells, nuclei, protein puncta or particles through a time-lapse: detect objects in every frame (auto threshold, method default Otsu; dark true for bright objects on dark), link them frame to frame (maxDistance px/frame, maxGap frames, minLength frames) and draw the trajectories on the overlay. Pick channel, sizes and distances yourself from the image. Returns tracks, objects per frame, mean speed/displacement/path length with units, divisions, the top tracks and a “Tracks” table.
+Follow cells, nuclei, protein puncta or particles through a time-lapse: detect objects in every frame (auto threshold, method default Otsu; dark true for bright objects on dark), link them frame to frame (maxDistance px/frame, maxGap frames, minLength frames) and draw the trajectories on the overlay. Pick channel, sizes and distances yourself from the image. Returns tracks, objects per frame, mean speed/displacement/path length with units, divisions, the top tracks and a “Tracks” table. Projects z, picks the steadiest channel; warning flags noise.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -256,7 +256,7 @@ Mean intensity of the active ROI (scope active) or ROI Manager entries (scope ma
 
 ## fiji_tumor_region
 
-Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight.
+Outline the tumour or tissue region of a section (H&E, IHC or fluorescence; stain auto picks colour deconvolution for brightfield): smooth (sigma) → threshold (method) → keep the largest regions (keepLargest, minAreaFraction of the image) → add to the ROI Manager. Returns regions, area, area fraction of the image, perimeter, circularity, solidity, mean intensity, the steps and a highlight. H&E/IHC: areaFraction is of the tissue.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -314,7 +314,7 @@ Summarise the objects in the ROI Manager: count, area/intensity/circularity mean
 
 ## fiji_filter_objects
 
-Remove unwanted detections from the ROI Manager and overlay without re-segmenting: remove "tiny" (default: area below fraction 0.35 of the median), "huge" (above 3× median), or explicit minArea/maxArea (calibrated units²) and minCircularity. The answer to “remove the tiny ones / the debris / the specks”. Returns before, removed, kept and a highlight.
+Remove unwanted detections from the ROI Manager and overlay without re-segmenting: remove "tiny" (default: below a robust cutoff — the gap of a bimodal size distribution, else 0.35× the typical size), "huge" (above 3× median), or explicit minArea/maxArea (calibrated units²) and minCircularity. The answer to “remove the tiny ones / the debris / the specks”. Returns before, removed, kept and a highlight.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|

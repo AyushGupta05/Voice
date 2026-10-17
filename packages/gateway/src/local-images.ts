@@ -106,7 +106,8 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
         const path = join(directory, entry.name);
         if (entry.isDirectory()) { if (depth < 3) await fuzzy(path, depth + 1); continue; }
         const ext = extension(entry.name); if (!entry.isFile() || !IMAGE_EXTENSIONS.has(ext) || seen.has(path)) continue;
-        const score = fuzzyNameScore(`${folderWords(directory)} ${entry.name}`, query); if (score === undefined) continue;
+        // Misheard words are scored against the file name only: folder names (temp or dated folders) would add noise.
+        const score = fuzzyNameScore(entry.name, query); if (score === undefined) continue;
         let size = 0; try { size = (await stat(path)).size; } catch { continue; }
         seen.add(path); scored.push({ path, name: basename(entry.name), sizeBytes: size, kind: ext === '.qpproj' ? 'project' : 'image', score });
       }

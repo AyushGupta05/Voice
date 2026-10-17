@@ -28,7 +28,7 @@ public final class AnalysisContractTest {
         ij.Prefs.blackBackground = true;
         journal = new Journal(); ops = new Operations(journal); analysis = new Analysis(ops, journal);
         try {
-            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); errors(); samples();
+            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); perImageManager(); errors(); samples();
         } catch (Throwable error) { error.printStackTrace(); System.exit(1); }
         System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats, filter_objects, split_objects): passed");
         System.exit(0);
@@ -76,7 +76,18 @@ public final class AnalysisContractTest {
         expect(Math.abs(area - truth) / truth < 0.10, "RGB tumour area within 10% of truth");
         expect(((Number) result.get("regions")).intValue() == 1, "small fragment and eosin band excluded");
         expect("Mass".equals(ops.managerOrNull().getName(0)), "custom name used");
-        System.out.println("PASS tumor_region on an RGB H&E-like synthetic image");
+        expect("tissue".equals(result.get("areaFractionOf")), "fraction is of the tissue: " + result.get("areaFractionOf"));
+        double tissueTruth = truth + 600 * 40 + Math.PI * 100;
+        expect(Math.abs(num(result, "tissueArea") - tissueTruth) / tissueTruth < 0.10, "tissue mask = stained area, white background excluded: " + result.get("tissueArea") + " vs " + Math.round(tissueTruth));
+        expect(Math.abs(num(result, "areaFraction") - area / num(result, "tissueArea")) < 1e-9 && num(result, "areaFractionOfImage") < num(result, "areaFraction"), "both fractions reported");
+        // Rerun with the previous outline still selected: same result (the old outline is not taken as a restriction).
+        var again = edt(() -> analysis.tumorRegion(args));
+        expect(num(again, "area") == area && num(again, "areaFraction") == num(result, "areaFraction") && !again.containsKey("within"), "rerun is identical: " + again.get("area") + " vs " + area);
+        // A nucleus-scale sigma is raised to the tissue scale and reported.
+        var tiny = new JsonObject(); tiny.addProperty("name", "Mass"); tiny.addProperty("sigma", 0.5);
+        var raised = edt(() -> analysis.tumorRegion(tiny));
+        expect(raised.get("adjusted") instanceof List<?> list && !list.isEmpty() && num(raised, "sigma") >= 3, "tiny sigma raised: " + raised.get("adjusted"));
+        System.out.println("PASS tumor_region on an RGB H&E-like synthetic image (tissue fraction, deterministic rerun, sigma floor)");
     }
 
     static void colocalisation() throws Exception {
@@ -186,6 +197,42 @@ public final class AnalysisContractTest {
         expect(((Number) removed.get("removed")).intValue() == 1 && manager.getCount() == 6, "remove-at-pointer deletes only that cell: " + removed);
         System.out.println("PASS filter_objects (3 specks removed) and split_objects (touching pair -> 2), split/merge/remove at the pointer");
     }
+    /** "Remove the tiny ones" when the specks outnumber the cells: 6 cells (r 20) and 20 specks (r 3); the median is a speck. */
+    static void filterBimodal() throws Exception {
+        var ip = new ByteProcessor(400, 300); var manager = ops.manager(); manager.reset();
+        for (int i = 0; i < 6; i++) manager.addRoi(new OvalRoi(20 + i * 60, 20, 40, 40));
+        for (int i = 0; i < 20; i++) manager.addRoi(new OvalRoi(20 + (i % 10) * 35, 120 + (i / 10) * 40, 6 + (i % 3), 6 + (i % 3)));
+        var imp = new ImagePlus("synthetic-specks.tif", ip); activate(imp);
+        var filtered = edt(() -> analysis.filterObjects(new JsonObject()));
+        System.out.println("  bimodal filter: " + filtered);
+        expect(((Number) filtered.get("removed")).intValue() == 20 && manager.getCount() == 6, "all 20 specks removed, 6 cells kept: " + filtered.get("removed"));
+        expect(Boolean.TRUE.equals(filtered.get("bimodal")) && String.valueOf(filtered.get("method")).startsWith("log-area Otsu split") && num(filtered, "cutoff") > 60 && num(filtered, "cutoff") < 1200, "log-area split reported with its cutoff: " + filtered.get("method") + " " + filtered.get("cutoff"));
+        // Unimodal: cells from 200 to 800 px (log-uniform) are all kept.
+        manager.reset();
+        for (int i = 0; i < 24; i++) { double area = 200 * Math.pow(4, i / 23.0); int d = (int) Math.round(2 * Math.sqrt(area / Math.PI)); manager.addRoi(new OvalRoi(10 + (i % 8) * 48, 10 + (i / 8) * 48, d, d)); }
+        var uniform = edt(() -> analysis.filterObjects(new JsonObject()));
+        System.out.println("  unimodal filter: removed " + uniform.get("removed") + ", method " + uniform.get("method") + ", cutoff " + uniform.get("cutoff"));
+        expect(((Number) uniform.get("removed")).intValue() == 0 && Boolean.FALSE.equals(uniform.get("bimodal")), "a continuous size range is not split: " + uniform);
+        System.out.println("PASS filter_objects robust tiny cutoff (bimodal specks removed, continuous range kept)");
+    }
+    /** filter/split work on the active image's ROI Manager entries only; another image's tagged entries are kept as they were. */
+    static void perImageManager() throws Exception {
+        var manager = ops.manager(); manager.reset();
+        var other = new ImagePlus("other.tif", new ByteProcessor(100, 100));
+        var foreign = new OvalRoi(5, 5, 3, 3); foreign.setName("other speck"); Operations.tag(foreign, other); manager.addRoi(foreign);
+        var imp = new ImagePlus("mine.tif", new ByteProcessor(400, 200)); activate(imp);
+        for (int i = 0; i < 6; i++) { var roi = new OvalRoi(20 + i * 60, 20, 40, 40); Operations.tag(roi, imp); manager.addRoi(roi); }
+        for (int i = 0; i < 3; i++) { var roi = new OvalRoi(30 + i * 60, 100, 6, 6); Operations.tag(roi, imp); manager.addRoi(roi); }
+        var pair = new ShapeRoi(new OvalRoi(220, 100, 44, 44)).or(new ShapeRoi(new OvalRoi(256, 100, 44, 44))); Operations.tag(pair, imp); manager.addRoi(pair);
+        var filtered = edt(() -> analysis.filterObjects(new JsonObject()));
+        expect(((Number) filtered.get("before")).intValue() == 10 && ((Number) filtered.get("removed")).intValue() == 3, "only this image's 10 entries filtered: " + filtered);
+        expect(manager.getCount() == 8 && "other speck".equals(manager.getName(0)), "the other image's entry is untouched");
+        var split = edt(() -> analysis.splitObjects(new JsonObject()));
+        int mine = 0; for (var roi : manager.getRoisAsArray()) if (String.valueOf(imp.getID()).equals(roi.getProperty(Operations.ROI_IMAGE_PROPERTY))) mine++;
+        expect(((Number) split.get("split")).intValue() == 1 && manager.getCount() == 9 && mine == 8 && "other speck".equals(manager.getName(0)), "split pieces tagged with this image, other entry kept: " + manager.getCount() + " / " + mine);
+        expect(imp.getOverlay() != null && imp.getOverlay().size() == 8, "overlay holds this image's objects only");
+        System.out.println("PASS per-image ROI Manager entries (filter and split leave another image's entry, pieces tagged)");
+    }
     static void errors() throws Exception {
         ops.manager().reset();
         try { edt(() -> analysis.classifyIntensity(new JsonObject())); throw new AssertionError("empty manager accepted"); }
@@ -206,7 +253,16 @@ public final class AnalysisContractTest {
                 ops.manager().reset(); activate(imp);
                 long start = System.nanoTime();
                 var result = edt(() -> analysis.tumorRegion(new JsonObject()));
-                System.out.println("SAMPLE tumor_region " + name + " (" + imp.getWidth() + "x" + imp.getHeight() + ", " + (System.nanoTime() - start) / 1_000_000 + " ms): regions " + result.get("regions") + ", areaFraction " + fmt(num(result, "areaFraction")) + ", circularity " + fmt(num(result, "circularity")) + ", solidity " + fmt(num(result, "solidity")) + ", stain " + result.get("stain") + ", method " + result.get("method"));
+                System.out.println("SAMPLE tumor_region " + name + " defaults (" + imp.getWidth() + "x" + imp.getHeight() + ", " + (System.nanoTime() - start) / 1_000_000 + " ms): " + tumourLine(result));
+                expect("tissue".equals(result.get("areaFractionOf")) && num(result, "areaFraction") > 0.1, name + ": a substantial tumour fraction of the tissue");
+                var rerun = edt(() -> analysis.tumorRegion(new JsonObject()));
+                expect(num(rerun, "area") == num(result, "area"), name + ": rerun (previous outline selected) is identical: " + rerun.get("area") + " vs " + result.get("area"));
+                // The QA battery's arguments (Q19r: he, Otsu, sigma 2, minAreaFraction 0.05, keepLargest 1) gave a 0.69% sliver before.
+                var qa = new JsonObject(); qa.addProperty("stain", "he"); qa.addProperty("method", "Otsu"); qa.addProperty("sigma", 2); qa.addProperty("minAreaFraction", 0.05); qa.addProperty("keepLargest", 1);
+                ops.manager().reset(); imp.deleteRoi();
+                var qaResult = edt(() -> analysis.tumorRegion(qa));
+                System.out.println("SAMPLE tumor_region " + name + " QA arguments: " + tumourLine(qaResult) + ", adjusted " + qaResult.get("adjusted"));
+                System.out.println("SAMPLE tumor_region " + name + " deterministic: rerun area " + rerun.get("area") + " = " + result.get("area"));
             }
         }
         for (var name : List.of("hela-cells", "fluorescent-cells")) {
@@ -222,6 +278,10 @@ public final class AnalysisContractTest {
         }
     }
 
+    static String tumourLine(Map<String, Object> r) {
+        return "regions " + r.get("regions") + ", areaFraction " + fmt(num(r, "areaFraction")) + " of the " + r.get("areaFractionOf") + " (" + fmt(num(r, "areaFractionOfImage")) + " of the image; tissue " + fmt(num(r, "tissueFractionOfImage")) + " of the image)"
+            + ", circularity " + fmt(num(r, "circularity")) + ", solidity " + fmt(num(r, "solidity")) + ", stain " + r.get("stain") + ", method " + r.get("method") + ", sigma " + r.get("sigma");
+    }
     // ----- helpers
     static void activate(ImagePlus imp) throws Exception { java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp)); }
     static Map<String, Object> edt(java.util.concurrent.Callable<Map<String, Object>> body) throws Exception {

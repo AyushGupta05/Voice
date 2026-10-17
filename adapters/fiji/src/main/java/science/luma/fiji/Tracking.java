@@ -55,41 +55,53 @@ final class Tracking {
     Map<String, Object> trackObjects(JsonObject args) {
         var imp = ops.active();
         var axis = axis(imp);
+        // A z-stack time-lapse is tracked on the per-frame maximum projection: one z plane cuts objects into fragments that come and go.
+        boolean project = !axis.slicesAsTime() && imp.getNSlices() > 1 && Operations.bool(args, "projectZ", true);
+        boolean channelGiven = given(args, "channel");
         int channel = channel(imp, args);
         String method = method(args);
         boolean dark = Operations.bool(args, "dark", true);
-        double minSize = Operations.number(args, "minSize", 4), maxSize = Operations.number(args, "maxSize", Double.POSITIVE_INFINITY);
-        if (minSize < 0 || maxSize < minSize) throw new IllegalArgumentException("minSize must be at least 0 and no larger than maxSize.");
-        int maxGap = Operations.integer(args, "maxGap", 1, 0, 50);
-        int minLength = Operations.integer(args, "minLength", 3, 1, MAX_FRAMES);
         double sigma = Operations.number(args, "sigma", 1);
         if (sigma < 0 || sigma > 20) throw new IllegalArgumentException("sigma must be between 0 and 20 pixels.");
+        var adjusted = new ArrayList<String>();
+        // Noise floor: a blurred noise speck covers about 2 sigma^2 pixels; nothing smaller is an object.
+        double floor = Math.max(4, 2 * sigma * sigma);
+        boolean minSizeGiven = given(args, "minSize");
+        double minSize = Operations.number(args, "minSize", floor), maxSize = Operations.number(args, "maxSize", Double.POSITIVE_INFINITY);
+        if (minSize < 0 || maxSize < minSize) throw new IllegalArgumentException("minSize must be at least 0 and no larger than maxSize.");
+        if (minSizeGiven && minSize < floor && maxSize >= floor) { adjusted.add("minSize " + Operations.plain(minSize) + " raised to the noise floor " + Operations.plain(floor) + " px"); minSize = floor; }
+        int maxGap = Operations.integer(args, "maxGap", 1, 0, 50);
         int start = Operations.integer(args, "startFrame", 1, 1, axis.length());
         int end = Operations.integer(args, "endFrame", axis.length(), 1, axis.length());
         if (end <= start) throw new IllegalArgumentException("endFrame must come after startFrame.");
         boolean truncated = false;
         if (end - start + 1 > MAX_FRAMES) { end = start + MAX_FRAMES - 1; truncated = true; }
+        int span = end - start + 1;
+        // A track must last at least 20% of the movie (and 3 frames): shorter ones are fragments flickering in and out.
+        int minLength = Operations.integer(args, "minLength", Math.min(span, Math.max(3, (int) Math.ceil(0.2 * span))), 1, MAX_FRAMES);
+        if (given(args, "minLength") && minLength < 3 && span >= 3) { adjusted.add("minLength " + minLength + " raised to 3 " + axis.name() + "s"); minLength = 3; }
         boolean replace = Operations.bool(args, "replaceOverlay", true);
-
-        // --- detection
-        var stack = imp.getStack();
         String thresholdMode = Operations.string(args, "thresholdMode", "global");
         if (!thresholdMode.equals("global") && !thresholdMode.equals("frame")) throw new IllegalArgumentException("thresholdMode must be global or frame.");
-        // Pass 1: the auto threshold of every smoothed frame. "global" uses their median for all frames, so a frame with few objects does not threshold its noise.
-        var cuts = new double[end - start + 1];
-        for (int t = start; t <= end; t++) cuts[t - start] = cut(smooth(stack.getProcessor(stackIndex(imp, axis, channel, t)), sigma), method, dark);
-        var finite = new ArrayList<Double>(); for (double c : cuts) if (Double.isFinite(c)) finite.add(c);
-        double globalCut = median(finite);
-        var perFrame = new ArrayList<List<Spot>>();
-        var counts = new ArrayList<Integer>();
-        for (int t = start; t <= end; t++) {
-            var original = stack.getProcessor(stackIndex(imp, axis, channel, t));
-            double cut = thresholdMode.equals("global") ? globalCut : cuts[t - start];
-            List<Spot> spots = finite.isEmpty() || !Double.isFinite(cut) ? new ArrayList<>() : detect(original, smooth(original, sigma), cut, dark, t - start, minSize, maxSize);
-            if (spots.size() > MAX_OBJECTS) { spots = new ArrayList<>(spots.subList(0, MAX_OBJECTS)); truncated = true; }
-            perFrame.add(spots); counts.add(spots.size());
-        }
-        int total = counts.stream().mapToInt(Integer::intValue).sum();
+
+        // --- detection (every channel when none was named; the one whose object count is steadiest over time is tracked)
+        Detected detected = null; var channelChoice = new ArrayList<Map<String, Object>>();
+        if (!channelGiven && imp.getNChannels() > 1) {
+            for (int c = 1; c <= imp.getNChannels(); c++) {
+                var candidate = detect(imp, axis, c, start, end, project, method, dark, sigma, thresholdMode, minSize, !minSizeGiven, maxSize);
+                var row = new LinkedHashMap<String, Object>();
+                row.put("channel", c); row.put("objectsPerFrame", round(candidate.meanCount())); row.put("stability", round(candidate.cv()));
+                channelChoice.add(row);
+                if (candidate.total() == 0 || candidate.meanCount() < 1) continue;
+                if (detected == null || candidate.cv() < detected.cv() - 1e-9 || Math.abs(candidate.cv() - detected.cv()) <= 1e-9 && candidate.meanCount() < detected.meanCount()) detected = candidate;
+            }
+            if (detected == null) detected = detect(imp, axis, channel, start, end, project, method, dark, sigma, thresholdMode, minSize, !minSizeGiven, maxSize);
+            channel = detected.channel();
+        } else detected = detect(imp, axis, channel, start, end, project, method, dark, sigma, thresholdMode, minSize, !minSizeGiven, maxSize);
+        var perFrame = detected.perFrame(); var counts = detected.counts();
+        double globalCut = detected.cut(); minSize = detected.minSize();
+        if (detected.truncated()) truncated = true;
+        int total = detected.total();
         if (total == 0) throw new IllegalArgumentException("No objects were found with " + method + (dark ? "; if the objects are dark on a bright background, set dark to false." : "; try another threshold method."));
 
         // --- linking
@@ -191,6 +203,16 @@ final class Tracking {
         result.put("timeAxis", axis.slicesAsTime() ? "slices" : "frames");
         result.put("range", Map.of("start", start, "end", end));
         result.put("channel", channel);
+        if (!channelChoice.isEmpty()) result.put("channelChoice", channelChoice);
+        result.put("zProjected", project);
+        if (project) result.put("zSlices", imp.getNSlices());
+        double medianCount = median(counts.stream().map(Integer::doubleValue).toList());
+        result.put("stability", round(detected.cv()));
+        var warnings = new ArrayList<String>();
+        if (detected.cv() > 0.5) warnings.add("The object count varies a lot between " + axis.name() + "s (coefficient of variation " + Operations.plain(Math.round(detected.cv() * 100) / 100.0) + "), so objects are probably fragmenting or flickering; check the channel and threshold before trusting speeds.");
+        if (tracks.size() > 5 * Math.max(1, medianCount)) warnings.add(tracks.size() + " tracks for about " + Operations.plain(medianCount) + " objects per " + axis.name() + ": tracks are broken into fragments, so speeds and counts are not reliable.");
+        if (!warnings.isEmpty()) result.put("warning", String.join(" ", warnings));
+        if (!adjusted.isEmpty()) result.put("adjusted", adjusted);
         result.put("longestTrack", longest);
         result.put("meanSpeed", speedTracks == 0 ? "NaN" : round(sumSpeed / speedTracks));
         result.put("meanDisplacement", tracks.isEmpty() ? "NaN" : round(sumDisplacement / tracks.size()));
@@ -202,17 +224,95 @@ final class Tracking {
         result.put("shortTracksDropped", linking.tracks().size() - tracks.size());
         result.put("thresholdMode", thresholdMode);
         if (Double.isFinite(globalCut)) result.put(thresholdMode.equals("global") ? "threshold" : "medianThreshold", round(globalCut));
-        result.put("parameters", parameters(method, dark, sigma, minSize, maxSize, maxDistance, maxGap, minLength));
+        var parameters = parameters(method, dark, sigma, minSize, maxSize, maxDistance, maxGap, minLength);
+        parameters.put("minSizeFrom", minSizeGiven ? "given" : detected.minSizeFrom());
+        result.put("parameters", parameters);
         result.put("top", top);
         result.put("table", "Tracks");
         result.put("overlay", Map.of("tracks", tracks.size(), "points", points, "replacedTrackRois", removed));
         if (truncated) result.put("truncated", true);
         result.put("highlight", Viewer.rectHighlight(imp, bounds, tracks.size() + (tracks.size() == 1 ? " track" : " tracks"), 30, false));
-        journal.record("track_objects", "// Penny track_objects: channel=" + channel + " " + axis.name() + "s " + start + "-" + end + " method=" + method + "(" + thresholdMode + ")" + (dark ? " dark" : "")
+        journal.record("track_objects", "// Penny track_objects: channel=" + channel + (project ? " (max projection of " + imp.getNSlices() + " z slices per frame)" : "") + " " + axis.name() + "s " + start + "-" + end + " method=" + method + "(" + thresholdMode + ")" + (dark ? " dark" : "")
             + " sigma=" + Operations.plain(sigma) + " minSize=" + Operations.plain(minSize) + (Double.isFinite(maxSize) ? " maxSize=" + Operations.plain(maxSize) : "")
             + " maxDistance=" + Operations.plain(Math.round(maxDistance * 100) / 100.0) + " maxGap=" + maxGap + " minLength=" + minLength + " -> " + tracks.size() + " tracks (table \"Tracks\", overlay \"Track N\")");
         return result;
     }
+    static boolean given(JsonObject args, String key) { return args.has(key) && !args.get(key).isJsonNull(); }
+
+    /** Objects of one channel over the time range, and how steady their count is. */
+    record Detected(int channel, List<List<Spot>> perFrame, List<Integer> counts, double cut, double minSize, String minSizeFrom, boolean truncated) {
+        int total() { int n = 0; for (int c : counts) n += c; return n; }
+        double meanCount() { return counts.isEmpty() ? 0 : total() / (double) counts.size(); }
+        /** Coefficient of variation of the objects per frame (population SD / mean); infinite when nothing was found. */
+        double cv() {
+            double mean = meanCount(); if (!(mean > 0)) return Double.POSITIVE_INFINITY;
+            double ss = 0; for (int c : counts) ss += (c - mean) * (c - mean);
+            return Math.sqrt(ss / counts.size()) / mean;
+        }
+    }
+    static final long CACHE_PIXELS = 32_000_000L;
+
+    /**
+     * Thresholds every frame of one channel ("global": the median of the per-frame auto thresholds, so a frame with few objects does not
+     * threshold its noise). With {@code adaptive}, {@code minSize} is only the noise floor of a first pass; the kept objects must then
+     * reach 0.3x the robust size mode of all detections (Analysis.sizeMode), which drops the specks that make fragment tracks.
+     */
+    static Detected detect(ImagePlus imp, Axis axis, int channel, int start, int end, boolean project, String method, boolean dark, double sigma, String thresholdMode,
+                           double minSize, boolean adaptive, double maxSize) {
+        int frames = end - start + 1;
+        boolean cache = (long) imp.getWidth() * imp.getHeight() * frames <= CACHE_PIXELS;
+        var originals = new ArrayList<ImageProcessor>(); var smoothed = new ArrayList<FloatProcessor>();
+        var cuts = new double[frames];
+        for (int t = start; t <= end; t++) {
+            var original = plane(imp, axis, channel, t, project); var smooth = smooth(original, sigma);
+            cuts[t - start] = cut(smooth, method, dark);
+            if (cache) { originals.add(original); smoothed.add(smooth); }
+        }
+        var finite = new ArrayList<Double>(); for (double c : cuts) if (Double.isFinite(c)) finite.add(c);
+        double globalCut = finite.isEmpty() ? Double.NaN : median(finite);
+        var perFrame = new ArrayList<List<Spot>>();
+        for (int t = start; t <= end; t++) {
+            double cut = thresholdMode.equals("global") ? globalCut : cuts[t - start];
+            if (!Double.isFinite(cut)) { perFrame.add(new ArrayList<>()); continue; }
+            var original = cache ? originals.get(t - start) : plane(imp, axis, channel, t, project);
+            var smooth = cache ? smoothed.get(t - start) : smooth(original, sigma);
+            perFrame.add(detect(original, smooth, cut, dark, t - start, minSize, maxSize));
+        }
+        String from = "noise floor";
+        if (adaptive) {
+            var areas = new ArrayList<Double>(); for (var spots : perFrame) for (var s : spots) areas.add(s.area());
+            if (!areas.isEmpty()) {
+                var mode = Analysis.sizeMode(areas.stream().mapToDouble(Double::doubleValue).toArray(), 0.3, true);
+                double robust = Math.max(minSize, 0.3 * mode.mode());
+                if (robust > minSize) {
+                    final double keep = robust;
+                    for (var spots : perFrame) spots.removeIf(s -> s.area() < keep);
+                    minSize = Math.round(robust * 100) / 100.0; from = "0.3 x size mode (" + mode.modeMethod() + " " + Operations.plain(Math.round(mode.mode() * 10) / 10.0) + " px)";
+                }
+            }
+        }
+        boolean truncated = false; var counts = new ArrayList<Integer>();
+        for (int f = 0; f < perFrame.size(); f++) {
+            var spots = perFrame.get(f);
+            if (spots.size() > MAX_OBJECTS) { perFrame.set(f, spots = new ArrayList<>(spots.subList(0, MAX_OBJECTS))); truncated = true; }
+            counts.add(spots.size());
+        }
+        return new Detected(channel, perFrame, counts, globalCut, minSize, from, truncated);
+    }
+    /** One time point of one channel: the stored plane at the current z, or the maximum over z when {@code project}. */
+    static ImageProcessor plane(ImagePlus imp, Axis axis, int channel, int t, boolean project) {
+        var stack = imp.getStack();
+        if (!project) return stack.getProcessor(stackIndex(imp, axis, channel, t));
+        FloatProcessor max = null; float[] mp = null;
+        for (int z = 1; z <= imp.getNSlices(); z++) {
+            var ip = stack.getProcessor(imp.getStackIndex(channel, z, t));
+            if (max == null) { max = ip.convertToFloatProcessor(); mp = (float[]) max.getPixels(); continue; }
+            int n = mp.length;
+            for (int i = 0; i < n; i++) { float v = ip.getf(i); if (v > mp[i]) mp[i] = v; }
+        }
+        return max;
+    }
+
     /** The last Tracks table, for tests and headless sessions where the table has no window. */
     ResultsTable lastTable;
 

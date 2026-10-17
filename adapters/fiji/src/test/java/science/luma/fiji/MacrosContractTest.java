@@ -83,6 +83,33 @@ public final class MacrosContractTest {
         expect(noDialogs(), "no dialog windows after runtime error: " + dialogs());
         pass("make_macro runtime error: \"" + undefinedRun.get("error") + "\" at line 2, no dialogs");
 
+        // 2c. Java-style IJM (the QA battery's Q33): refused before saving or running, with the IJM spelling and templates; no window left
+        var javaLike = new JsonObject();
+        javaLike.addProperty("name", "Nearest neighbour");
+        javaLike.addProperty("code", "//@RoiManager rm\nint n = roiManager(\"count\");\ndouble[] xs = new double[n];\nfor (int i = 0; i < n; i++) { System.out.println(i); }");
+        int windowsBefore = java.awt.Window.getWindows().length;
+        var refused = macros.makeMacro(javaLike, grey);
+        expect(Boolean.FALSE.equals(refused.get("ok")) && Boolean.FALSE.equals(refused.get("saved")) && Integer.valueOf(1).equals(refused.get("errorLine")), "Java-syntax IJM refused at line 1: " + refused);
+        expect(String.valueOf(refused.get("hint")).contains("x = 0;") && String.valueOf(refused.get("hint")).contains("newArray(n)") && refused.get("templates") instanceof List<?> t && !t.isEmpty(), "hint and templates returned");
+        expect(!Files.exists(root.resolve(".local/workflows/nearest-neighbour.ijm")), "nothing saved");
+        expect(noDialogs() && noErrorWindows(), "no window left after a refusal: " + dialogs() + " " + errorWindows());
+        for (var line : List.of("int n = 5;", "double[] a = newArray(3);", "String s = \"x\";", "for (int i = 0; i < 3; i++) {", "list = new ArrayList();", "System.out.println(1);", "import ij.IJ;", "def f(x):", "for i in range(3):"))
+            expect(Macros.foreignSyntax(line) != null, "refused as non-IJM: " + line);
+        expect(Macros.foreignSyntax("x = 1\ny = 2\nprint(x + y)") != null, "semicolon-free Python refused");
+        for (var ok : List.of("var count = 0;\nfor (i = 0; i < 3; i++) { count++; }", "a = newArray(3); s = \"int x = 5; for (int i\"; print(s); // int y = 2;", "/* String s = 1; */ x = 1;", "if (x > 0) print(\"ratio: \" + x);", "function f(a) { return a * 2; }\nprint(f(2));"))
+            expect(Macros.foreignSyntax(ok) == null, "valid IJM accepted: " + ok + " -> " + Macros.foreignSyntax(ok));
+        pass("make_macro refuses Java/Python as IJM before running (line " + refused.get("errorLine") + "): " + refused.get("error"));
+
+        // 2d. a run that opens error windows (an "Exception" text window, then an IJM runtime error) leaves none behind
+        var noisy = new JsonObject();
+        noisy.addProperty("name", "Noisy failure");
+        noisy.addProperty("code", "run(\"Text Window...\", \"name=Exception width=40 height=5\");\nprint(\"[Exception]\", \"java.lang.RuntimeException: boom\");\ny = alsoUndefined * 2;");
+        var noisyRun = macros.makeMacro(noisy, grey);
+        expect(Boolean.FALSE.equals(noisyRun.get("ok")), "failing run reported: " + noisyRun);
+        expect(noDialogs() && noErrorWindows(), "no Macro Error / Exception window left: " + dialogs() + " " + errorWindows());
+        expect(noisyRun.get("templates") instanceof List<?>, "templates hint on an IJM failure");
+        pass("make_macro runtime error with an Exception window: \"" + noisyRun.get("error") + "\", no Macro Error/Exception window left (" + (java.awt.Window.getWindows().length - windowsBefore) + " new window objects, none showing)");
+
         // 3. parameters: default minSize 300 keeps the 6 large discs; run_workflow with minSize 50 counts all 12
         var param = new JsonObject();
         param.addProperty("name", "Count nuclei");
@@ -172,6 +199,8 @@ public final class MacrosContractTest {
 
     static List<String> dialogs() { var list = new ArrayList<String>(); for (Window window : Window.getWindows()) if (window.isShowing() && window instanceof Dialog dialog) list.add(dialog.getTitle()); return list; }
     static boolean noDialogs() { return dialogs().isEmpty(); }
+    static List<String> errorWindows() { var list = new ArrayList<String>(); for (Window window : Window.getWindows()) if (window.isShowing() && Macros.ERROR_WINDOW.matcher(UiTree.title(window).strip()).matches()) list.add(UiTree.title(window)); return list; }
+    static boolean noErrorWindows() { return errorWindows().isEmpty(); }
     static void pass(String message) { System.out.println("PASS " + message); }
     static void expect(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }

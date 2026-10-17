@@ -17,6 +17,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
 import java.awt.EventQueue;
+import java.awt.Frame;
 import java.awt.Label;
 import java.awt.TextComponent;
 import java.awt.Window;
@@ -92,6 +93,19 @@ final class Macros {
         var params = params(args.get("params"));
         boolean test = Operations.bool(args, "test", true);
         long timeoutMs = timeout(args, DEFAULT_TEST_MS);
+        if (language.equals("ijm")) {
+            // Java, JavaScript or Python written as an ImageJ macro fails at its first line with an opaque error (and used to leave a
+            // modal "Macro Error"); refuse it before anything is saved or run, with the IJM spelling of what was meant.
+            var foreign = foreignSyntax(stripPennyHeader(code, language));
+            if (foreign != null) {
+                var refused = new LinkedHashMap<String, Object>();
+                refused.put("ok", false); refused.put("saved", false); refused.put("tested", false); refused.put("name", name); refused.put("language", language);
+                refused.put("error", foreign.message()); refused.put("errorLine", foreign.line()); refused.put("errorText", foreign.text());
+                refused.put("hint", IJM_HINT); refused.put("templates", TEMPLATES);
+                refused.put("note", "Nothing was saved or run. Rewrite it in ImageJ macro syntax and call make_macro again, or pass language groovy/python for a script.");
+                return refused;
+            }
+        }
         var saved = save(name, description, language, params, code, "Penny");
         var result = savedResult(saved, name, language, params);
         if (!test) { result.put("tested", false); result.put("ok", true); result.put("note", "Saved without running. Run it with run_workflow."); return result; }
@@ -100,7 +114,10 @@ final class Macros {
         result.put("tested", true);
         putRun(result, run, saved.codeOffset());
         result.put("testedOn", imp == null ? null : imp.getTitle());
-        if (!run.ok()) result.put("note", "Fix the code and call make_macro again with the same name; the previous version is kept as " + saved.slug() + ".prev." + language + ".");
+        if (!run.ok()) {
+            result.put("note", "Fix the code and call make_macro again with the same name; the previous version is kept as " + saved.slug() + ".prev." + language + ".");
+            if (language.equals("ijm")) { result.put("hint", IJM_HINT); result.put("templates", TEMPLATES); }
+        }
         return result;
     }
 
@@ -129,6 +146,81 @@ final class Macros {
         result.put("params", plainParams(params));
         if (saved.previous() != null) result.put("previous", saved.previous().toString());
         return result;
+    }
+
+    record Foreign(int line, String text, String message) {}
+    static final String IJM_HINT = "ImageJ macro (IJM) is untyped and every statement ends with ';': x = 0; (not int x = 0;), a = newArray(n); (not double[] a), "
+        + "for (i = 0; i < n; i++) { ... } (not for (int i ...)), s = \"text\"; (not String s), print(x); (not System.out.println), if (x > 0) { ... } with braces (not a trailing ':'), "
+        + "Array.sort(a); Array.getStatistics(a, min, max, mean, sd); setResult(\"Column\", row, value); updateResults();";
+    /** Ready-to-adapt IJM snippets for frequent requests; returned with every IJM refusal or failure. */
+    static final List<Map<String, String>> TEMPLATES = List.of(
+        Map.of("need", "loop over the ROI Manager", "code", "n = roiManager(\"count\");\nfor (i = 0; i < n; i++) {\n  roiManager(\"select\", i);\n  area = getValue(\"Area\");\n  print(i + \": \" + area);\n}"),
+        Map.of("need", "nearest-neighbour distance between ROI centroids", "code", "n = roiManager(\"count\"); xs = newArray(n); ys = newArray(n);\nfor (i = 0; i < n; i++) { roiManager(\"select\", i); xs[i] = getValue(\"X\"); ys[i] = getValue(\"Y\"); }\nfor (i = 0; i < n; i++) {\n  best = 1e30;\n  for (j = 0; j < n; j++) if (j != i) { d = sqrt(pow(xs[i] - xs[j], 2) + pow(ys[i] - ys[j], 2)); if (d < best) best = d; }\n  setResult(\"NND\", i, best);\n}\nupdateResults();"),
+        Map.of("need", "threshold and count particles", "code", "setAutoThreshold(\"Otsu dark\");\nrun(\"Convert to Mask\");\nrun(\"Analyze Particles...\", \"size=20-Infinity display clear add\");\nprint(\"count \" + nResults);"),
+        Map.of("need", "statistics of a Results column", "code", "n = nResults; v = newArray(n);\nfor (i = 0; i < n; i++) v[i] = getResult(\"Area\", i);\nArray.getStatistics(v, min, max, mean, sd);\nprint(\"mean \" + mean + \" sd \" + sd);"),
+        Map.of("need", "every slice or frame of a stack", "code", "for (s = 1; s <= nSlices; s++) {\n  setSlice(s);\n  print(s + \": \" + getValue(\"Mean\"));\n}"));
+
+    private static final Pattern[] FOREIGN = {
+        Pattern.compile("^\\s*(?:final\\s+)?(int|double|float|long|short|byte|char|boolean|String|Integer|Double|ImagePlus|Roi|RoiManager|ResultsTable|let|const)(\\s*\\[\\s*\\])*\\s+[A-Za-z_]\\w*\\s*(=|;|,|\\[)"),
+        Pattern.compile("\\bfor\\s*\\(\\s*(int|long|double|let|const|var)\\s+\\w+"),
+        Pattern.compile("\\(\\s*(int|double|float|long)\\s*\\)\\s*[\\w(]"),
+        Pattern.compile("\\bnew\\s+[A-Za-z_][\\w.]*\\s*[(\\[<]"),
+        Pattern.compile("\\bSystem\\s*\\.\\s*(out|err)\\b|\\bconsole\\s*\\.\\s*log\\b"),
+        Pattern.compile("^\\s*(?:import\\s+[\\w.*]+\\s*;?|from\\s+[\\w.]+\\s+import\\b.*)\\s*$"),
+        Pattern.compile("^\\s*(?:public|private|static|void)\\s+[\\w<>\\[\\]]+\\s*[\\w(]"),
+        Pattern.compile("^\\s*(?:#|//)\\s*@\\s*[A-Za-z]"),
+        Pattern.compile("^\\s*def\\s+\\w+\\s*\\(.*\\)\\s*:\\s*$"),
+        Pattern.compile("^\\s*(?:for|while|if|elif|else|try|except|with)\\b[^{;]*:\\s*$"),
+        Pattern.compile("^\\s*for\\s+\\w+\\s+in\\s+"),
+        Pattern.compile("^\\s*print\\s+[^(\\s]"),
+    };
+    private static final String[] FOREIGN_WHAT = {
+        "a typed declaration (IJM variables are untyped: x = 0; a = newArray(n);)",
+        "a typed loop variable (IJM: for (i = 0; i < n; i++) { ... })",
+        "a Java cast (IJM: round(x) or floor(x), parseInt(s))",
+        "Java/JavaScript object construction with new (IJM: a = newArray(n); List.set(key, value); Table.create(name))",
+        "System.out/console output (IJM: print(x);)",
+        "an import (IJM has no imports; use language groovy or python for scripts)",
+        "a Java method or class declaration (IJM: function name(a, b) { ... })",
+        "a script parameter annotation such as //@RoiManager or #@ (IJM here gets values from params; the ROI Manager is roiManager(\"count\"))",
+        "a Python def ... : (IJM: function name(a) { ... })",
+        "a Python block ending in ':' (IJM: if (x > 0) { ... })",
+        "a Python for ... in loop (IJM: for (i = 0; i < n; i++) { ... })",
+        "a Python 2 print statement (IJM: print(x);)",
+    };
+    /** The first line that is clearly Java, JavaScript or Python rather than ImageJ macro language; null when the code looks like IJM. */
+    static Foreign foreignSyntax(String code) {
+        var lines = code.split("\\R", -1);
+        boolean block = false; int codeLines = 0, terminated = 0, firstBare = -1;
+        for (int i = 0; i < lines.length; i++) {
+            String raw = lines[i];
+            // Script parameter annotations live in comments, so they are checked before comments are stripped.
+            if (FOREIGN[7].matcher(raw).find()) return foreign(i, raw, 7);
+            var clean = new StringBuilder(); char quote = 0;
+            for (int k = 0; k < raw.length(); k++) {
+                char c = raw.charAt(k), next = k + 1 < raw.length() ? raw.charAt(k + 1) : 0;
+                if (block) { if (c == '*' && next == '/') { block = false; k++; } continue; }
+                if (quote != 0) { if (c == '\\') k++; else if (c == quote) { quote = 0; clean.append(c); } continue; }
+                if (c == '/' && next == '/') break;
+                if (c == '/' && next == '*') { block = true; k++; continue; }
+                if (c == '"' || c == '\'') { quote = c; clean.append(c); continue; }
+                clean.append(c);
+            }
+            String line = clean.toString();
+            if (line.isBlank()) continue;
+            for (int p = 0; p < FOREIGN.length; p++) if (p != 7 && FOREIGN[p].matcher(line).find()) return foreign(i, raw, p);
+            codeLines++; if (line.contains(";") || line.contains("{") || line.contains("}")) terminated++; else if (firstBare < 0) firstBare = i;
+        }
+        // Python (or another semicolon-free language): several statements and not one ';' or brace anywhere.
+        if (codeLines >= 3 && terminated == 0) {
+            String text = lines[firstBare].strip(); if (text.length() > 160) text = text.substring(0, 160) + "…";
+            return new Foreign(firstBare + 1, text, "This reads as Python (no statement ends with ';'), not ImageJ macro syntax. In IJM every statement ends with ';' and blocks use braces. Found: " + text);
+        }
+        return null;
+    }
+    private static Foreign foreign(int index, String raw, int pattern) {
+        String text = raw.strip(); if (text.length() > 160) text = text.substring(0, 160) + "…";
+        return new Foreign(index + 1, text, "Line " + (index + 1) + " is not ImageJ macro syntax: " + FOREIGN_WHAT[pattern] + ". Found: " + text);
     }
 
     // =====================================================================================================
@@ -442,6 +534,9 @@ final class Macros {
         } finally {
             String leftover = dismissNewDialogs(before);
             if (leftover != null && dialog == null) dialog = leftover;
+            // Error windows that are frames rather than dialogs ("Exception" stack traces, the macro "Debug" window): read, then closed.
+            String errorWindow = closeErrorWindows(before);
+            if (errorWindow != null && error == null) error = errorWindow;
         }
         var table = Analyzer.getResultsTable();
         var rows = resultsBefore.added(table);
@@ -526,6 +621,24 @@ final class Macros {
             var dialogs = UiTree.newDialogs(before).stream().filter(window -> window instanceof Dialog).toList();
             if (dialogs.isEmpty()) break;
             for (var window : dialogs) { if (first == null) first = dialogText(window); dismiss(window); }
+            try { TimeUnit.MILLISECONDS.sleep(60); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
+        }
+        return first;
+    }
+    /** Titles of the windows ImageJ opens to report a failed macro or plugin; one a run created is never left behind. */
+    static final Pattern ERROR_WINDOW = Pattern.compile("(?i)^(macro error|exception|debug|error|.*\\bexception\\b.*)$");
+    /** Closes every window (dialog or frame) the run opened whose title is an error report; returns the first one's text. */
+    static String closeErrorWindows(Set<Window> before) {
+        String first = null;
+        for (int round = 0; round < 3; round++) {
+            var windows = new ArrayList<Window>();
+            for (var window : Window.getWindows()) if (window.isShowing() && !before.contains(window) && ERROR_WINDOW.matcher(UiTree.title(window).strip()).matches()) windows.add(window);
+            if (windows.isEmpty()) break;
+            for (var window : windows) {
+                if (first == null) first = dialogText(window);
+                Runnable close = () -> { if (window instanceof Frame frame && frame instanceof ij.text.TextWindow text) text.close(false); if (window.isShowing()) window.dispose(); };
+                try { if (EventQueue.isDispatchThread()) close.run(); else EventQueue.invokeAndWait(close); } catch (Exception error) { window.dispose(); }
+            }
             try { TimeUnit.MILLISECONDS.sleep(60); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
         }
         return first;

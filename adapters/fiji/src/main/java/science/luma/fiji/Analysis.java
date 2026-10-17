@@ -61,20 +61,28 @@ final class Analysis {
         if (stain.equals("auto")) stain = rgb ? "he" : lightBackground(source) ? "brightfield" : "fluorescence";
         if (stain.equals("brightfield") && rgb) stain = "he";
         boolean bright = !stain.equals("fluorescence");
+        var adjusted = new ArrayList<String>();
+        // A tumour mass is a tissue-scale structure: a nucleus-scale blur (e.g. sigma 2 on a 2048 px field) outlines single nuclei and
+        // the largest of those is a sliver, so the blur never goes below 0.5% of the longer side.
+        double sigmaFloor = Math.max(2, 0.005 * longer);
         double sigma = Operations.number(args, "sigma", Math.max(2, 0.01 * longer));
         if (sigma <= 0) throw new IllegalArgumentException("sigma must be positive.");
+        if (sigma < sigmaFloor) { adjusted.add("sigma " + Operations.plain(round(sigma, 2)) + " raised to " + Operations.plain(round(sigmaFloor, 2)) + " px (tissue scale)"); sigma = sigmaFloor; }
         String method = thresholdMethod(Operations.string(args, "method", bright ? "Li" : "Otsu"));
-        double minFraction = Operations.number(args, "minAreaFraction", 0.05);
+        double minFraction = Operations.number(args, "minAreaFraction", 0.01);
         if (minFraction < 0 || minFraction > 1) throw new IllegalArgumentException("minAreaFraction must be between 0 and 1.");
-        int keep = Operations.integer(args, "keepLargest", 3, 1, 50);
+        int keep = Operations.integer(args, "keepLargest", 10, 1, 50);
         String name = Operations.string(args, "name", "Tumor").strip(); if (name.isEmpty()) name = "Tumor";
         double eosinWeight = Operations.number(args, "eosinWeight", 0.25);
 
-        // Restrict to the researcher's selection (or a ROI Manager region named "Tissue") when there is one.
+        // Restrict to the researcher's selection (or a ROI Manager region named "Tissue") when there is one. A selection that is
+        // this tool's own previous outline is not a restriction: a rerun would otherwise outline inside the last result and shrink.
         Roi selection = imp.getRoi(); String basis = "image"; Roi within = null;
-        if (selection != null && selection.isArea() && Operations.bool(args, "withinSelection", true)) { within = selection; basis = "selection"; }
-        else { var tissue = namedManagerRoi("Tissue"); if (tissue != null && tissue.isArea()) { within = tissue; basis = "tissue"; } }
+        boolean ownOutline = selection != null && selection.getName() != null && (selection.getName().equals(name) || selection.getName().startsWith(name + " "));
+        if (selection != null && selection.isArea() && !ownOutline && Operations.bool(args, "withinSelection", true)) { within = selection; basis = "selection"; }
+        else { var tissue = namedManagerRoi("Tissue", imp); if (tissue != null && tissue.isArea()) { within = tissue; basis = "tissue"; } }
 
+        final String withinBasis = basis;
         var steps = new ArrayList<String>(); var macro = new ArrayList<String>();
         // 1. signal where the mass is bright
         FloatProcessor signal;
@@ -107,12 +115,30 @@ final class Analysis {
             withinMask = new ByteProcessor(width, height); withinMask.setValue(255); withinMask.fill(within);
             if (factor > 1) { withinMask = (ByteProcessor) withinMask.resize(ww, wh); }
         }
+        // 2b. tissue mask (RGB brightfield): glass, fat and other near-white background are not tissue, so neither the threshold nor
+        // the reported fraction counts them.
+        ByteProcessor tissueMask = null; double tissueCut = Double.NaN;
+        if (rgb && (stain.equals("he") || stain.equals("ihc"))) {
+            FloatProcessor od = opticalDensity((ColorProcessor) source);
+            if (factor > 1) { od.setInterpolationMethod(ImageProcessor.BILINEAR); od = (FloatProcessor) od.resize(ww, wh, true); }
+            double tissueSigma = Math.max(1, workSigma / 2);
+            new GaussianBlur().blurGaussian(od, tissueSigma, tissueSigma, 0.01);
+            tissueCut = tissueThreshold(od);
+            tissueMask = new ByteProcessor(ww, wh); byte[] tm = (byte[]) tissueMask.getPixels(); float[] op = (float[]) od.getPixels();
+            byte[] wm = withinMask == null ? null : (byte[]) withinMask.getPixels();
+            long tissuePixels = 0;
+            for (int i = 0; i < op.length; i++) if (op[i] > tissueCut && (wm == null || wm[i] != 0)) { tm[i] = (byte) 255; tissuePixels++; }
+            if (tissuePixels < 0.01 * op.length) throw new IllegalStateException("Almost no tissue stands out from the white background here.");
+            steps.add("tissue mask: optical density above " + Operations.plain(round(tissueCut, 3)) + " (white glass and fat excluded, " + Operations.plain(round(100.0 * tissuePixels / op.length, 1)) + "% of the " + basis + ")");
+            macro.add("// tissue mask: summed RGB optical density > " + Operations.plain(round(tissueCut, 3)) + " (computed in the bridge)");
+        }
+        ByteProcessor restrict = tissueMask != null ? tissueMask : withinMask;
         // 3. threshold
-        double cut = floatThreshold(work, method, withinMask);
+        double cut = floatThreshold(work, method, restrict);
         var mask = new ByteProcessor(ww, wh); float[] wp = (float[]) work.getPixels(); byte[] mp = (byte[]) mask.getPixels();
-        byte[] inside = withinMask == null ? null : (byte[]) withinMask.getPixels();
+        byte[] inside = restrict == null ? null : (byte[]) restrict.getPixels();
         for (int i = 0; i < wp.length; i++) mp[i] = (byte) (wp[i] > cut && (inside == null || inside[i] != 0) ? 255 : 0);
-        steps.add("auto threshold " + method + (within == null ? "" : " within the " + basis)); macro.add("setAutoThreshold(\"" + method + " dark\");"); macro.add("run(\"Convert to Mask\");");
+        steps.add("auto threshold " + method + (tissueMask != null ? " within the tissue" : within == null ? "" : " within the " + basis)); macro.add("setAutoThreshold(\"" + method + " dark\");"); macro.add("run(\"Convert to Mask\");");
         // 4. clean up: close, fill holes, open
         int radius = (int) Math.max(1, Math.round(workSigma));
         var rank = new RankFilters();
@@ -122,15 +148,20 @@ final class Analysis {
         if (inside != null) for (int i = 0; i < mp.length; i++) if (inside[i] == 0) mp[i] = 0;
         steps.add("close, fill holes, open (radius " + radius * factor + " px)");
         macro.add("run(\"Options...\", \"iterations=" + radius * factor + " count=1 do=Close\");"); macro.add("run(\"Fill Holes\");"); macro.add("run(\"Options...\", \"iterations=" + radius * factor + " count=1 do=Open\");");
-        // 5. keep the largest components
+        // 5. keep the largest components, each at least minAreaFraction of the basis (tissue, selection or image)
+        long basisWork = 0;
+        if (inside == null) basisWork = (long) ww * wh; else for (byte b : inside) if (b != 0) basisWork++;
         int[] labels = new int[ww * wh]; var areas = label(mp, ww, wh, labels);
         if (areas.isEmpty()) throw new IllegalStateException("No region stood out from the background; try another method or stain.");
         var order = new ArrayList<Integer>(); for (int i = 0; i < areas.size(); i++) order.add(i);
-        order.sort((a, b) -> Integer.compare(areas.get(b), areas.get(a)));
-        int largest = areas.get(order.getFirst());
+        // Ties are broken by label (raster order), so the same image and arguments always keep the same regions.
+        order.sort((a, b) -> areas.get(b).equals(areas.get(a)) ? Integer.compare(a, b) : Integer.compare(areas.get(b), areas.get(a)));
         var kept = new ArrayList<Integer>();
-        for (int index : order) { if (kept.size() >= keep) break; if (areas.get(index) >= minFraction * largest) kept.add(index); }
-        steps.add("keep " + kept.size() + " of " + areas.size() + " components (largest " + keep + ", each at least " + Operations.plain(minFraction * 100) + "% of the largest)");
+        for (int index : order) { if (kept.size() >= keep) break; if (areas.get(index) >= minFraction * basisWork) kept.add(index); }
+        // Never return nothing when something stood out: the single largest component is kept even below the fraction.
+        if (kept.isEmpty()) kept.add(order.getFirst());
+        String basisNoun = tissueMask != null ? "tissue" : basis;
+        steps.add("keep " + kept.size() + " of " + areas.size() + " components (up to " + keep + ", each at least " + Operations.plain(round(minFraction * 100, 2)) + "% of the " + basisNoun + ")");
         // 6. selections at full resolution
         var parts = new ArrayList<Roi>(); var keptMask = new ByteProcessor(width, height); byte[] km = (byte[]) keptMask.getPixels();
         for (int k = 0; k < kept.size(); k++) {
@@ -149,8 +180,8 @@ final class Analysis {
         // 7. ROI Manager + active selection
         var manager = ops.manager(); int roiIndex = -1;
         if (manager != null) {
-            composite.setStrokeColor(Color.yellow); manager.addRoi(composite); roiIndex = manager.getCount() - 1;
-            if (parts.size() > 1) for (var part : parts) manager.addRoi((Roi) part.clone());
+            composite.setStrokeColor(Color.yellow); Operations.tag(composite, imp); manager.addRoi(composite); roiIndex = manager.getCount() - 1;
+            if (parts.size() > 1) for (var part : parts) { var copy = (Roi) part.clone(); Operations.tag(copy, imp); manager.addRoi(copy); }
             macro.add("roiManager(\"Add\");"); macro.add("roiManager(\"rename\", \"" + Journal.escape(name) + "\");");
         }
         imp.setRoi((Roi) composite.clone());
@@ -158,15 +189,26 @@ final class Analysis {
         Calibration cal = imp.getCalibration(); double pixelArea = cal.pixelWidth * cal.pixelHeight;
         long pixels = 0; for (byte b : km) if (b != 0) pixels++;
         double area = pixels * pixelArea;
-        double basisArea;
-        if (within != null) { var wm = new ByteProcessor(width, height); wm.setValue(255); wm.fill(within); long n = 0; for (byte b : (byte[]) wm.getPixels()) if (b != 0) n++; basisArea = n * pixelArea; }
-        else basisArea = (double) width * height * pixelArea;
+        double basisArea, imageArea = (double) width * height * pixelArea, tissueArea = Double.NaN;
+        if (tissueMask != null) {
+            // The tissue area at full resolution: the work-resolution mask scaled back like the regions, so both fractions share one grid.
+            ByteProcessor full = factor > 1 ? upscale((ByteProcessor) tissueMask.duplicate(), width, height) : tissueMask;
+            long n = 0; for (byte b : (byte[]) full.getPixels()) if (b != 0) n++;
+            tissueArea = n * pixelArea; basisArea = tissueArea; basis = "tissue";
+        }
+        else if (within != null) { var wm = new ByteProcessor(width, height); wm.setValue(255); wm.fill(within); long n = 0; for (byte b : (byte[]) wm.getPixels()) if (b != 0) n++; basisArea = n * pixelArea; }
+        else basisArea = imageArea;
         Roi measured = (Roi) composite.clone(); measured.setImage(imp);
         double perimeter = measured.getLength();
         double hull = polygonArea(composite.getFloatConvexHull()) * pixelArea;
         source.setRoi(composite); double meanIntensity = source.getStats().mean; source.resetRoi();
         var result = new LinkedHashMap<String, Object>();
-        result.put("regions", parts.size()); result.put("area", area); result.put("areaFraction", basisArea > 0 ? area / basisArea : 0.0); result.put("areaFractionOf", basis);
+        result.put("regions", parts.size()); result.put("area", area); result.put("areaFraction", basisArea > 0 ? Math.min(1, area / basisArea) : 0.0); result.put("areaFractionOf", basis);
+        result.put("areaFractionOfImage", imageArea > 0 ? area / imageArea : 0.0);
+        if (tissueMask != null) { result.put("tissueArea", tissueArea); result.put("tissueFractionOfImage", imageArea > 0 ? tissueArea / imageArea : 0.0); result.put("tissueThreshold", tissueCut); }
+        result.put("keepLargest", keep); result.put("minAreaFraction", minFraction);
+        if (within != null) result.put("within", withinBasis);
+        if (!adjusted.isEmpty()) result.put("adjusted", adjusted);
         result.put("perimeter", perimeter); result.put("circularity", perimeter > 0 ? Math.min(1, 4 * Math.PI * area / (perimeter * perimeter)) : 0.0);
         result.put("solidity", hull > 0 ? Math.min(1, area / hull) : 0.0); result.put("unit", cal.getUnit());
         result.put("meanIntensity", meanIntensity); result.put("intensityOf", rgb ? "RGB brightness" : "channel " + channel);
@@ -202,6 +244,24 @@ final class Analysis {
             out[i] = (float) (Math.max(0, s0) + secondWeight * Math.max(0, s1));
         }
         return new FloatProcessor(w, h, out);
+    }
+    /** Summed red + green + blue optical density (-log10 of transmitted light): about 0.1 for white glass or fat, higher for any stain. */
+    static FloatProcessor opticalDensity(ColorProcessor cp) {
+        int w = cp.getWidth(), h = cp.getHeight(); int[] px = (int[]) cp.getPixels(); float[] out = new float[w * h];
+        double[] lut = new double[256]; for (int v = 0; v < 256; v++) lut[v] = -Math.log10((v + 1) / 256.0);
+        for (int i = 0; i < px.length; i++) { int c = px[i]; out[i] = (float) (lut[(c >> 16) & 0xff] + lut[(c >> 8) & 0xff] + lut[c & 0xff]); }
+        return new FloatProcessor(w, h, out);
+    }
+    /** Tissue/background cut on smoothed optical density: Triangle (a white-background peak with a stained tail), kept within 0.15-0.35 so a field of solid tissue is not split into "background" stroma. */
+    static double tissueThreshold(FloatProcessor od) {
+        float[] p = (float[]) od.getPixels();
+        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+        for (float v : p) { min = Math.min(min, v); max = Math.max(max, v); }
+        if (!(max > min)) return 0.15;
+        int[] histogram = new int[256]; double scale = 255.0 / (max - min);
+        for (float v : p) histogram[(int) Math.min(255, (v - min) * scale)]++;
+        double cut = min + (new AutoThresholder().getThreshold("Triangle", histogram) + 1) / scale;
+        return Math.max(0.15, Math.min(0.35, cut));
     }
     private static double[] normal(double[] v) { double n = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); return n == 0 ? new double[]{0, 0, 0} : new double[]{v[0] / n, v[1] / n, v[2] / n}; }
     private static double[][] invert(double[][] a) {
@@ -280,9 +340,9 @@ final class Analysis {
         double sum = 0; for (int i = 0, j = polygon.npoints - 1; i < polygon.npoints; j = i++) sum += (double) polygon.xpoints[j] * polygon.ypoints[i] - (double) polygon.xpoints[i] * polygon.ypoints[j];
         return Math.abs(sum) / 2;
     }
-    private Roi namedManagerRoi(String name) {
+    private Roi namedManagerRoi(String name, ImagePlus imp) {
         var manager = ops.managerOrNull(); if (manager == null) return null;
-        for (var roi : manager.getRoisAsArray()) if (roi != null && name.equalsIgnoreCase(roi.getName())) return roi;
+        for (var roi : manager.getRoisAsArray()) if (roi != null && name.equalsIgnoreCase(roi.getName()) && Operations.belongsTo(roi, imp.getID())) return roi;
         return null;
     }
 
@@ -434,8 +494,9 @@ final class Analysis {
     Map<String, Object> classifyIntensity(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray();
+        var mine = imageEntries(manager, imp, args);
+        if (mine.rois().length == 0) throw new IllegalStateException("Segment the cells first.");
+        Roi[] rois = mine.rois();
         if (rois.length > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + rois.length + " objects; the limit is " + MAX_OBJECTS + ".");
         int channel = Operations.integer(args, "channel", imp.getC(), 1, Math.max(1, imp.getNChannels()));
         String measurement = Operations.string(args, "measurement", "mean").toLowerCase(Locale.ROOT);
@@ -461,7 +522,7 @@ final class Analysis {
             String newName = label + (pos ? "+ " + (++positive) : "- " + (++negative));
             Roi roi = rois[i];
             roi.setStrokeColor(pos ? POSITIVE : NEGATIVE);
-            manager.rename(i, newName);
+            manager.rename(mine.index()[i], newName);
             if (pos) { if (positiveIndices.size() < 500) positiveIndices.add(i); positiveRois.add(roi); }
             var copy = (Roi) roi.clone(); copy.setName(newName); overlay.add(copy);
             table.addRow(); table.addValue("Index", i); table.addLabel(newName); table.addValue("Class", pos ? 1 : 0); table.addValue(measurementHeading(measurement), values[i]);
@@ -498,9 +559,8 @@ final class Analysis {
     // =====================================================================================================
     Map<String, Object> regionStats(JsonObject args) {
         var imp = ops.active();
-        var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("The ROI Manager is empty; segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray();
+        Roi[] rois = imageEntries(ops.managerOrNull(), imp, args).rois();
+        if (rois.length == 0) throw new IllegalStateException("The ROI Manager is empty; segment the cells first.");
         if (rois.length > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + rois.length + " objects; the limit is " + MAX_OBJECTS + ".");
         int channel = Operations.integer(args, "channel", imp.getC(), 1, Math.max(1, imp.getNChannels()));
         ImageProcessor ip = measurementProcessor(imp, channel); Calibration cal = imp.getCalibration();
@@ -568,8 +628,8 @@ final class Analysis {
     Map<String, Object> filterObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        if (n == 0) throw new IllegalStateException("Segment the cells first.");
         if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
         ImageProcessor ip = measurementProcessor(imp, imp.getC()); Calibration cal = imp.getCalibration();
         double[] area = new double[n], circ = new double[n];
@@ -580,8 +640,13 @@ final class Analysis {
         }
         double median = (double) describeValues(area).get("median");
         String preset = Operations.string(args, "remove", "tiny").toLowerCase(Locale.ROOT);
-        double minArea = Operations.number(args, "minArea", preset.equals("tiny") || preset.equals("small") ? median * Operations.number(args, "fraction", 0.35) : 0);
-        double maxArea = Operations.number(args, "maxArea", preset.equals("huge") || preset.equals("large") ? median * 3 : Double.POSITIVE_INFINITY);
+        // The typical size is the robust size mode, not the median: when specks outnumber the cells the median is a speck.
+        boolean fractionGiven = args.has("fraction") && !args.get("fraction").isJsonNull();
+        var sizes = sizeMode(area, Operations.number(args, "fraction", 0.35), fractionGiven);
+        boolean smallPreset = preset.equals("tiny") || preset.equals("small"), largePreset = preset.equals("huge") || preset.equals("large");
+        double minArea = Operations.number(args, "minArea", smallPreset ? sizes.cutoff() : 0);
+        double maxArea = Operations.number(args, "maxArea", largePreset ? sizes.mode() * 3 : Double.POSITIVE_INFINITY);
+        String cutMethod = args.has("minArea") || args.has("maxArea") ? "explicit" : smallPreset ? sizes.method() : largePreset ? "3 x size mode (" + sizes.modeMethod() + ")" : "none";
         double minCirc = Operations.number(args, "minCircularity", 0);
         var keep = new ArrayList<Roi>(); var removedIndices = new ArrayList<Integer>();
         if ("pointer".equals(Operations.string(args, "at", "")) || args.has("x") && args.has("y")) {
@@ -589,14 +654,16 @@ final class Analysis {
             var hits = objectsAt(rois, pointedAt(imp, args), median, Operations.integer(args, "count", 1, 1, 20));
             if (hits.isEmpty()) throw new IllegalStateException("No cell under the pointer; point at the one to remove.");
             for (int i = 0; i < n; i++) if (hits.contains(i)) removedIndices.add(i); else keep.add(rois[i]);
-            minArea = 0; maxArea = Double.POSITIVE_INFINITY;
+            minArea = 0; maxArea = Double.POSITIVE_INFINITY; cutMethod = "pointer";
         }
         else for (int i = 0; i < n; i++) { if (area[i] >= minArea && area[i] <= maxArea && circ[i] >= minCirc) keep.add(rois[i]); else removedIndices.add(i); }
-        replaceManager(imp, manager, keep);
+        replaceManager(imp, manager, rois, keep);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("removed", removedIndices.size()); result.put("kept", keep.size());
         result.put("minArea", minArea); result.put("maxArea", Double.isInfinite(maxArea) ? "Infinity" : maxArea); result.put("minCircularity", minCirc);
-        result.put("medianArea", median); result.put("unit", cal.getUnit());
+        result.put("medianArea", median); result.put("sizeMode", sizes.mode()); result.put("bimodal", sizes.bimodal());
+        result.put("cutoff", smallPreset || args.has("minArea") ? minArea : largePreset || args.has("maxArea") ? (Double.isInfinite(maxArea) ? "Infinity" : maxArea) : 0.0);
+        result.put("method", cutMethod); result.put("unit", cal.getUnit());
         journal.record("filter_objects", "// filter_objects: keep area " + Operations.plain(round(minArea, 2)) + "-" + (Double.isInfinite(maxArea) ? "Infinity" : Operations.plain(round(maxArea, 2))) + ", circularity >= " + Operations.plain(minCirc) + ": " + keep.size() + " of " + n
             + "\nrun(\"Analyze Particles...\", \"size=" + Operations.plain(round(minArea, 2)) + "-" + (Double.isInfinite(maxArea) ? "Infinity" : Operations.plain(round(maxArea, 2))) + " circularity=" + Operations.plain(minCirc) + "-1.00 add\");");
         result.put("highlight", Viewer.roiHighlight(imp, keep, keep.size() + " kept, " + removedIndices.size() + " removed", 120));
@@ -609,8 +676,8 @@ final class Analysis {
     Map<String, Object> splitObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        if (n == 0) throw new IllegalStateException("Segment the cells first.");
         if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
         double[] area = new double[n];
         for (int i = 0; i < n; i++) area[i] = rois[i].getStatistics().pixelCount;
@@ -635,10 +702,11 @@ final class Analysis {
             double[] tolerance = {0.5};
             var pieces = asserted ? Pipeline.splitAsserted(rois[i], minPart, tolerance) : Pipeline.splitRoi(rois[i], 0.5, minPart);
             if (pieces.isEmpty()) { out.add(rois[i]); continue; }
+            for (var piece : pieces) Operations.tag(piece, imp);
             split++; out.addAll(pieces); newParts.addAll(pieces);
             usedTolerance = Math.min(usedTolerance, tolerance[0]); splitRatio = Math.min(splitRatio, area[i] / median);
         }
-        replaceManager(imp, manager, out);
+        replaceManager(imp, manager, rois, out);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("after", out.size()); result.put("checked", targets.size()); result.put("split", split);
         result.put("scope", args.has("indices") ? "indices" : pointed ? "pointer" : selection != null && selection.isArea() && !Operations.bool(args, "all", false) ? "selection" : "oversized");
@@ -653,8 +721,8 @@ final class Analysis {
     Map<String, Object> explainObject(JsonObject args, Map<String, Object> analysis) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        if (n == 0) throw new IllegalStateException("Segment the cells first.");
         double[] px = new double[n]; for (int i = 0; i < n; i++) px[i] = rois[i].getStatistics().pixelCount;
         double median = (double) describeValues(px).get("median");
         int index;
@@ -692,8 +760,8 @@ final class Analysis {
     Map<String, Object> mergeObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        if (manager == null || manager.getCount() < 2) throw new IllegalStateException("Segment the cells first.");
-        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        if (n < 2) throw new IllegalStateException("Segment the cells first.");
         double[] area = new double[n]; for (int i = 0; i < n; i++) area[i] = rois[i].getStatistics().pixelCount;
         double median = (double) describeValues(area).get("median");
         List<Integer> targets = new ArrayList<>();
@@ -708,10 +776,10 @@ final class Analysis {
         var mask = new ByteProcessor(b.width + 4, b.height + 4); mask.setColor(255);
         for (var part : parts) { var local = (Roi) part.clone(); local.setLocation(local.getXBase() - b.x + 2, local.getYBase() - b.y + 2); mask.fill(local); }
         mask.dilate(); mask.erode();
-        Roi merged = maskToRoi(mask); merged.setLocation(merged.getXBase() + b.x - 2, merged.getYBase() + b.y - 2);
+        Roi merged = maskToRoi(mask); merged.setLocation(merged.getXBase() + b.x - 2, merged.getYBase() + b.y - 2); Operations.tag(merged, imp);
         var out = new ArrayList<Roi>(); boolean placed = false;
         for (int i = 0; i < n; i++) { if (!targets.contains(i)) out.add(rois[i]); else if (!placed) { out.add(merged); placed = true; } }
-        replaceManager(imp, manager, out);
+        replaceManager(imp, manager, rois, out);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("after", out.size()); result.put("merged", targets.size());
         journal.record("merge_objects", "// merge_objects: " + targets.size() + " objects joined into one: " + n + " -> " + out.size());
@@ -719,8 +787,22 @@ final class Analysis {
         return result;
     }
     /** Rewrites the ROI Manager and the image overlay with the given objects, numbered in order. */
-    private static void replaceManager(ImagePlus imp, RoiManager manager, List<Roi> rois) {
+    /** The ROI Manager entries that belong to {@code imp} (untagged entries belong to every image), with their manager indices; allImages:true takes every entry. */
+    record Entries(Roi[] rois, int[] index) {}
+    static Entries imageEntries(RoiManager manager, ImagePlus imp, JsonObject args) {
+        if (manager == null) return new Entries(new Roi[0], new int[0]);
+        Roi[] all = manager.getRoisAsArray(); boolean every = imp == null || Operations.bool(args, "allImages", false);
+        var rois = new ArrayList<Roi>(); var index = new ArrayList<Integer>();
+        for (int i = 0; i < all.length; i++) if (every || Operations.belongsTo(all[i], imp.getID())) { rois.add(all[i]); index.add(i); }
+        return new Entries(rois.toArray(new Roi[0]), index.stream().mapToInt(Integer::intValue).toArray());
+    }
+    /** Rewrites this image's ROI Manager entries and its overlay with the given objects, numbered in order; other images' entries stay, first and unchanged. */
+    private static void replaceManager(ImagePlus imp, RoiManager manager, Roi[] processed, List<Roi> rois) {
+        var replaced = Collections.newSetFromMap(new IdentityHashMap<Roi, Boolean>()); replaced.addAll(Arrays.asList(processed));
+        var others = new ArrayList<Roi>();
+        for (var roi : manager.getRoisAsArray()) if (!replaced.contains(roi)) others.add(roi);
         manager.reset();
+        for (var roi : others) manager.addRoi(roi);
         var overlay = new Overlay();
         for (int i = 0; i < rois.size(); i++) {
             Roi roi = rois.get(i); roi.setName(String.format(Locale.ROOT, "Cell %d", i + 1));
@@ -734,6 +816,48 @@ final class Analysis {
         var m = new LinkedHashMap<String, Object>(); m.put("index", index); m.put("name", roi.getName()); m.put("area", area); m.put("mean", mean);
         var b = roi.getBounds(); m.put("x", b.x); m.put("y", b.y); m.put("width", b.width); m.put("height", b.height);
         return m;
+    }
+    /**
+     * The typical object size and the "tiny" cutoff below it. A log-area Otsu split decides whether the sizes are bimodal (specks and
+     * cells): the two class medians at least 3x apart, a near-empty valley between them (the middle third of that log interval holds
+     * under half its share of objects), and at least max(2, 10%) objects in the upper class. Bimodal: the mode is the upper class
+     * median and the cutoff the split (at most half the mode). Otherwise the mode is the median of the largest 60% and the cutoff
+     * {@code fraction} x mode. An explicit fraction always uses fraction x mode.
+     */
+    record SizeMode(double mode, double cutoff, boolean bimodal, String method, String modeMethod) {}
+    static SizeMode sizeMode(double[] areas, double fraction, boolean fractionGiven) {
+        double[] sorted = Arrays.stream(areas).filter(v -> v > 0 && Double.isFinite(v)).sorted().toArray();
+        if (sorted.length == 0) return new SizeMode(0, 0, false, "no sizes", "no sizes");
+        int m = sorted.length;
+        double upperMedian = medianOf(sorted, (int) Math.floor(m * 0.4), m);
+        if (m >= 4) {
+            double[] logs = new double[m]; for (int i = 0; i < m; i++) logs[i] = Math.log(sorted[i]);
+            double[] prefix = new double[m + 1]; for (int i = 0; i < m; i++) prefix[i + 1] = prefix[i] + logs[i];
+            int split = -1; double best = -1;
+            for (int k = 1; k < m; k++) {
+                if (logs[k] == logs[k - 1]) continue;
+                double w0 = k / (double) m, w1 = 1 - w0, m0 = prefix[k] / k, m1 = (prefix[m] - prefix[k]) / (m - k);
+                double between = w0 * w1 * (m0 - m1) * (m0 - m1);
+                if (between > best) { best = between; split = k; }
+            }
+            if (split > 0) {
+                int upper = m - split;
+                double lowMedian = Math.log(medianOf(sorted, 0, split)), highMedian = Math.log(medianOf(sorted, split, m));
+                double third = (highMedian - lowMedian) / 3; int band = 0, span = 0;
+                for (double v : logs) { if (v >= lowMedian && v <= highMedian) span++; if (v > lowMedian + third && v < highMedian - third) band++; }
+                boolean valley = band < 0.5 * span / 3.0;
+                if (highMedian - lowMedian >= Math.log(3) && valley && upper >= Math.max(2, Math.ceil(0.1 * m))) {
+                    double mode = Math.exp(highMedian), cut = Math.min(Math.sqrt(sorted[split - 1] * sorted[split]), 0.5 * mode);
+                    if (fractionGiven) return new SizeMode(mode, fraction * mode, true, Operations.plain(fraction) + " x size mode (upper size class median)", "upper size class median");
+                    return new SizeMode(mode, cut, true, "log-area Otsu split (bimodal: " + split + " small, " + upper + " typical)", "upper size class median");
+                }
+            }
+        }
+        return new SizeMode(upperMedian, fraction * upperMedian, false, Operations.plain(fraction) + " x median of the largest 60%", "median of the largest 60%");
+    }
+    private static double medianOf(double[] sorted, int from, int to) {
+        int n = to - from; if (n <= 0) return 0;
+        return n % 2 == 1 ? sorted[from + n / 2] : (sorted[from + n / 2 - 1] + sorted[from + n / 2]) / 2;
     }
     static Map<String, Object> describeValues(double[] values) {
         var m = new LinkedHashMap<String, Object>();
