@@ -43,6 +43,8 @@ npm run check
 
 Restart QuPath to load a new bridge JAR. Restart the gateway to load TypeScript changes (`npm run dev` is not a watcher). Do not terminate unrelated Java or Node processes. Logs are `.local/gateway.log`, `.local/qupath.log` and `.local/qupath-error.log`.
 
+Build-only packages a new binary while preserving the running instance. Launch/restart modes wait until compilation and signing succeed, then request normal termination only for this project’s exact executable path. They do not stop same-named companions in other checkouts. The running instance keeps its previously loaded binary until an explicit restart.
+
 Useful companion launch modes are `--build-only`, `--verify`, `--logs`, `--telemetry` and `--debug`.
 
 ## MCP connection

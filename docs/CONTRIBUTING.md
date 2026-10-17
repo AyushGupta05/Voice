@@ -16,6 +16,7 @@ The same tool list feeds MCP and the realtime transport. Do not duplicate provid
 ## Validation layers
 
 - `npm run doctor`: read-only setup/connection diagnostics; it does not replace an MCP or analysis test.
+- `python3 script/test-companion-process.py -v`: macOS-only disposable compiled-process fixture; proves exact-path stop leaves a same-named foreign process running.
 - `./script/test-audio.sh`: four offline native PCM tests; no microphone, playback or provider session.
 - `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
 - `./script/build-bridge.sh`: compile against the pinned real QuPath API.
@@ -43,6 +44,6 @@ For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `n
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs `npm ci` / `npm run check` on Ubuntu 24.04 and the offline native PCM tests/build on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
+`.github/workflows/verify.yml` runs `npm ci` / `npm run check` on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
 
 CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.

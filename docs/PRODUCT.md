@@ -10,7 +10,7 @@ Luma bridges that learning gap: a small conversational companion sits beside QuP
 
 - QuPath is the required first application.
 - Strong Clicky influence: friendly floating companion, visible pointer, short responses, action first.
-- Continuous OpenAI realtime voice with interruption.
+- Continuous OpenAI GPT-Live conversation with interruption and a separate scientific backend.
 - Broad application access through structured tools, live command discovery, searchable knowledge and approval-gated scripting, rather than one hardcoded demo.
 - Risky operations require explicit researcher approval.
 - Documentation should let another contributor install, extend, test and understand the entire stack.
@@ -26,7 +26,7 @@ User authorizes at most $1,000 of AWS credits total and at most $200 before waki
 1. Verify integration and funding; install upstream locally; document decisions.
 2. Implement and test the QuPath bridge and MCP tool surface.
 3. Build the native companion, pointer and approval experience.
-4. Connect realtime voice behind a disabled-by-default verified-funding gate.
+4. Implement GPT-Live/backend protocols, then activate a provider only after verified credit coverage and native voice testing.
 5. Exercise real QuPath workflows; fix bugs; run tests and autoreview.
 6. Publish incremental commits, setup instructions, knowledge and honest demo evidence.
 

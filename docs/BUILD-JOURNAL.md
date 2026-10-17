@@ -106,3 +106,11 @@ Extracted bounded signed PCM16 conversion into a small native module. Four offli
 One accepted review finding refined checkpoint MCP metadata: eviction means creation is neither idempotent, read-only nor additive-only. The actual MCP smoke asserts all three hints and passes. Final structured autoreview for this increment exited 0 clean. The existing 36 gateway tests and documentation consistency check pass. Production voice is disabled; project API/cloud spend remains $0.
 
 Next: add bounded public-only CI using free standard GitHub runners, with no provider secrets, cache or artifact storage. Official billing documentation was checked; the approved fork is public. No workflow has been published yet.
+
+## 17 October 2026, 03:04 BST — remote checks and scoped build lifecycle
+
+Published public-only CI in 3270a67. Both actual jobs passed in run 38993074803: 36 gateway tests/reference consistency on Ubuntu, and native compilation/four offline PCM tests on macOS 15 ARM64. Workflow review was clean before publication. No paid runner or storage is configured.
+
+Fixed a launcher issue found while inspecting verification paths: build-only and even invalid modes used to stop all same-named companions before compilation. Modes now validate first, compilation/signing finish before a requested restart, and exact executable paths scope process management. Build-only atomically updates the bundle while preserving the running instance. A compiled disposable process fixture passes for two same-named executables in different paths, including spaces; only the intended target stops. Actual build-only/invalid-mode checks preserve the existing companion PID and gateway. Final structured review exited 0 clean. New native foreground/restart checks wait for manual unlock.
+
+Further independent work can examine a supported AWS-credit-covered text backend separately from the still-unverified GPT-Live frontend. Local AWS credential metadata exists, but no account match, current credit eligibility or model invocation has been verified; do not make a paid call based on credential presence alone. Production voice remains disabled and project API/cloud spend remains $0.

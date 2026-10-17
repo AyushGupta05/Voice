@@ -39,3 +39,4 @@ jobs:
           persist-credentials: false
       - run: swift --version
       - run: ./script/test-audio.sh
+      - run: python3 script/test-companion-process.py -v
