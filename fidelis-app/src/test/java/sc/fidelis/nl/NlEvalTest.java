@@ -187,8 +187,14 @@ class NlEvalTest {
             if (t.containsKey("channel")) assertEquals(((Number) t.get("channel")).intValue(), r.target().channel(), where);
             if (t.containsKey("slice")) assertEquals(((Number) t.get("slice")).intValue(), r.target().slice(), where);
         }
+        if (step.containsKey("macroExact")) {
+            // the executable line (last line, trailing comment removed, brackets ignored) equals the reference macro line
+            String[] lines = p.macroPreview().get(i).split("\n");
+            String line = lines[lines.length - 1].replaceAll("  //.*$", "").replace("[", "").replace("]", "");
+            assertEquals(((String) step.get("macroExact")).replace("[", "").replace("]", ""), line, where);
+        }
         if (step.containsKey("macro")) {
-            assertTrue(p.macroPreview().get(i).contains((String) step.get("macro")),
+            assertTrue(p.macroPreview().get(i).replace("[", "").replace("]", "").contains(((String) step.get("macro")).replace("[", "").replace("]", "")),
                     "macro '" + p.macroPreview().get(i) + "' should contain '" + step.get("macro") + "': " + where);
         }
         if (step.containsKey("menuPath")) assertEquals(step.get("menuPath"), p.menuPaths().get(i), where);

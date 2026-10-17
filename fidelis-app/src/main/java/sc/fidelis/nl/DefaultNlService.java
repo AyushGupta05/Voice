@@ -80,7 +80,11 @@ public final class DefaultNlService implements NlService {
     /** One line describing the consequential-slot policy (shown by tools and tests). */
     public static String policyNote() {
         return "Consequential slots (threshold method, dark/black polarity, measurement set, length units and scaling, "
-                + "stack scope, background polarity, projection method, and any schema-flagged slot) must come from the user.";
+                + "stack scope, projection method, and any schema-flagged slot) must come from the user. Documented exceptions: "
+                + "(1) boolean presence flags that are off when absent (Subtract Background 'light', sliding, disable) are simply absent when not "
+                + "stated; (2) Analyze Particles uses the Fidelis reporting convention display+clear+summarize+include (derived, shown in the "
+                + "preview) unless the user says otherwise; (3) Set Measurements decimals default to 9 (display only); (4) on a single image "
+                + "Convert to Mask polarity is the global BlackBackground preference, stated explicitly in the preview.";
     }
 
     // =============================================================================================
@@ -237,7 +241,7 @@ public final class DefaultNlService implements NlService {
         if (NlText.matches(c, "\\benhance contrast\\b|\\bstretch (?:the )?contrast\\b|\\bauto contrast\\b")) {
             return List.of(enhanceContrast(c, doc, docId));
         }
-        if (NlText.matches(c, "\\bset measurements?\\b|\\bchoose measurements?\\b|\\bconfigure measurements?\\b")) {
+        if (NlText.matches(c, "\\bset (?:the )?measurements?\\b|\\bchoose measurements?\\b|\\bconfigure measurements?\\b")) {
             return List.of(setMeasurements(c, doc, docId, true));
         }
         if (NlText.matches(c, "\\bthreshold(?:ing)?\\b") && !NlText.matches(c, "\\bconvert\\b|\\bmask\\b|\\bbinary\\b")) {
@@ -312,7 +316,12 @@ public final class DefaultNlService implements NlService {
         lengthSlot(s, q, "rolling", null, doc, "Rolling-ball radius");
         if (NlText.matches(c, "\\b(?:light|bright|white) background\\b|\\bbackground (?:is )?(?:light|bright|white)\\b")) s.user("light", true);
         else if (NlText.matches(c, "\\b(?:dark|black) background\\b|\\bbackground (?:is )?(?:dark|black)\\b")) s.user("light", false);
-        else s.ask("Is the background light (bright) or dark? (This sets the 'light background' option of Subtract Background.)");
+        else {
+            // "light" is a boolean presence flag (absent = off): when polarity is not stated the flag is simply absent
+            // (a non-light background, the usual fluorescence case). Rule documented in policyNote(); shown in the preview.
+            s.derived("light", false);
+            s.note = "'light background' not requested, so the option is absent";
+        }
         flag(s, c, "sliding", "\\bsliding paraboloid\\b|\\bparaboloid\\b");
         flag(s, c, "create", "\\bcreate background\\b|\\bshow background\\b");
         flag(s, c, "disable", "\\bdisable smoothing\\b|\\bno smoothing\\b|\\bwithout smoothing\\b");
@@ -434,7 +443,16 @@ public final class DefaultNlService implements NlService {
             s.derived("background", "Default");
         }
         targetRefs(s, c, doc, id);
-        return complete(s, doc);
+        complete(s, doc);
+        if (!doc.isStack() && s.questions.isEmpty() && s.refusal == null && s.macro != null) {
+            // On a single image method/background/calculate/only/black are not macro options: polarity comes from
+            // the global BlackBackground preference (AC5), so the preview states that change explicitly.
+            String label = engine.schema(commandId).map(CommandSchema::label).orElse("Convert to Mask");
+            boolean black = Boolean.TRUE.equals(s.params.get("black"));
+            s.macro = "setOption(" + (char) 34 + "BlackBackground" + (char) 34 + ", " + black + ");  // global preference (AC5), set explicitly" + (char) 10
+                    + "run(" + (char) 34 + label + (char) 34 + ");";
+        }
+        return s;
     }
 
     private Step analyzeParticles(String c, DocumentInfo doc, DocumentId id) {
@@ -457,10 +475,19 @@ public final class DefaultNlService implements NlService {
         flag(s, c, "clear", "\\bclear results\\b");
         flag(s, c, "summarize", "\\bsummari[sz]e\\b|\\bsummary\\b");
         if (NlText.matches(c, "\\bcount\\b") && !s.params.containsKey("summarize")) s.derived("summarize", true);
-        flag(s, c, "add", "\\badd to (?:the )?(?:roi )?manager\\b");
+        flag(s, c, "add", "\\badd(?:ing)? (?:them |it )?to (?:the )?(?:roi )?manager\\b");
         flag(s, c, "overlay", "\\badd to (?:the )?overlay\\b");
         flag(s, c, "record", "\\brecord starts\\b");
         flag(s, c, "composite", "\\bcomposite roi\\b");
+        // Fidelis reporting convention for Analyze Particles (see policyNote): results shown, summary produced, the
+        // Results table cleared of earlier runs, interior holes included; each is visible in the preview.
+        for (String k : new String[] {"display", "clear", "summarize"}) {
+            if (!s.params.containsKey(k)) {
+                s.params.put(k, true);
+                s.prov.put(k, "DEFAULT");
+            }
+        }
+        if (!s.params.containsKey("include")) s.derived("include", true);
         flag(s, c, "in_situ", "\\bin situ\\b");
         scope(s, c, doc, "stack");
         targetRefs(s, c, doc, id);
@@ -553,6 +580,10 @@ public final class DefaultNlService implements NlService {
             int places = Integer.parseInt(d.group(1) != null ? d.group(1) : d.group(2));
             if (places < 0 || places > 9) return Step.refused("Decimal places must be between 0 and 9.");
             s.user("decimal", (double) places);
+        }
+        if (!s.params.containsKey("decimal")) {
+            s.params.put("decimal", 9.0); // Fidelis reports full precision; display rounding only (non-consequential)
+            s.prov.put("decimal", "DEFAULT");
         }
         Optional<CommandSchema> schema = engine.schema(s.commandId);
         if (schema.isPresent()) {
@@ -975,6 +1006,9 @@ public final class DefaultNlService implements NlService {
         for (ParameterSchema p : schema.parameters()) {
             Object v = params.get(p.key());
             if (v == null) continue;
+            // range filters at their no-op macro-mode value are left out of the preview (the request still carries them)
+            if (p.type() == ParameterType.STRING && ("size".equals(p.key()) && "0-Infinity".equals(v)
+                    || "circularity".equals(p.key()) && "0.00-1.00".equals(v))) continue;
             String part;
             switch (p.type()) {
                 case BOOLEAN:
