@@ -19,7 +19,7 @@ A small, tested end-to-end integration with a real, pinned Fiji installation:
 
 ## What is planned (proposal, not implemented)
 
-The Stage 00–02 analysis and design documentation (pull request `docs: Stage 00–02 analysis and design proposal`, branch `docs/analysis-design`) proposes the following:
+The Stage 00–02 analysis and design documentation in [`docs/`](docs/INDEX.md) proposes the following:
 
 - **Engine.** Fiji runs unchanged in **one persistent, non-headless process with its main window hidden**. A UI-independent engine service runs inside it.
 - **Workspace.** A **modern single-window workspace** (Swing + FlatLaf) that keeps Fiji's menus, tools, shortcuts and interaction semantics. It has a real image viewer, ROI editing, Results, history and macro panels. Plugins that need their own windows open as tracked Fiji windows.
@@ -33,7 +33,7 @@ Planned capabilities and their priority tiers are tracked as requirements (116 f
 
 | What | Where |
 |---|---|
-| **Analysis and design proposal** (foundation F01–F04, analysis A01–A32, design D01–D20, ADRs, catalogues, traceability) | Branch `docs/analysis-design` → `docs/INDEX.md` (pending review; see the open draft PR) |
+| **Analysis and design proposal** (foundation F01–F04, analysis A01–A32, design D01–D20, ADRs, catalogues, traceability). All proposals await approval. | [docs/INDEX.md](docs/INDEX.md) · decisions: [docs/DECISIONS.md](docs/DECISIONS.md) · handoff: [D20](docs/02-design/06-handoff/D20-implementation-readiness-handoff.md) |
 | Prototype setup and dependency recreation | [docs/setup.md](docs/setup.md) |
 | Prototype architecture and boundaries | [docs/architecture.md](docs/architecture.md) |
 | Upstream research and licence notes (prototype era) | [docs/upstreams.md](docs/upstreams.md) |
@@ -89,7 +89,7 @@ fixtures/              Synthetic test image and generated speech clip
 scripts/               Setup, pinning and fixture tools
 tests/backend/         Validation, failure-path and real integration tests
 third_party/           Preserved upstream licence texts and package inventories
-docs/                  Documentation (prototype records; the Stage 00-02 proposal is on its branch)
+docs/                  Documentation: Stage 00-02 proposal (docs/INDEX.md) and prototype-era records
 ```
 
 The prototype code and the proposed architecture are separate. The prototype is kept as working evidence and a demonstration. It is not the basis of the proposed workspace.
@@ -108,6 +108,19 @@ Key references: Schindelin et al. (2012), *Fiji: an open-source platform for bio
 
 Fidelis is an independent project and is not endorsed by the Fiji or ImageJ developers.
 
+## Repositories
+
+This repository is Fidelis's **hackathon submission**. It is named `Voice` because it is a GitHub fork of the team's shared hackathon parent.
+
+| Repository | Role |
+|---|---|
+| [`reverez/Voice`](https://github.com/reverez/Voice) | **This repository.** The Fidelis project (prototype, documentation, ongoing development). A fork of `Sleep-On-It/Voice`. |
+| [`Sleep-On-It/Voice`](https://github.com/Sleep-On-It/Voice) | Shared hackathon parent (initial commit with the Apache-2.0 licence only) |
+| [`Sleep-On-It/Fidelis`](https://github.com/Sleep-On-It/Fidelis) | The original Fidelis repository, formerly `reverez/click-to-batch`. Its branches and history are preserved there. |
+| [`AyushGupta05/Voice`](https://github.com/AyushGupta05/Voice) | **Luma**, a separate, independent submission (QuPath) by a teammate. It is unrelated to Fidelis. This repository has no dependency on it. |
+
+The Fidelis history is preserved here through an explicit, history-preserving merge (no rewriting). The merge commit's first parent is the Voice initial commit; its second parent carries the complete Fidelis history from `Sleep-On-It/Fidelis`.
+
 ## Hackathon
 
-Fidelis started at **Reinvent the Wheel: A Tools for Science Hack** (London, 16–18 October 2026), by the **Sleep-On-It** team. The earlier working name was Click-to-Batch; Mikra was also considered. The repository was formerly `reverez/click-to-batch` and was transferred to `Sleep-On-It/Fidelis` with its full history.
+Fidelis started at **Reinvent the Wheel: A Tools for Science Hack** (London, 16–18 October 2026), by the **Sleep-On-It** team. The earlier working name was Click-to-Batch; Mikra was also considered. The original repository (`reverez/click-to-batch`, now `Sleep-On-It/Fidelis`) keeps its full history. See [Repositories](#repositories).

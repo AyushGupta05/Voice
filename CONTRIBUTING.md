@@ -31,7 +31,7 @@ Never present a proposal as implemented. Tag claims VERIFIED, INFERRED, PROPOSED
 - **One reviewer approval** is required, from a teammate other than the author when one is available.
 - Keep PRs small and single-purpose. Describe *what was verified and how* (commands and results), and link the requirement or decision IDs involved (FR-…, NFR-…, DEC-…).
 - PRs that change scientific behaviour must state their verification evidence (docs A30/D18: numerical comparison with a reference Fiji run; visual similarity is not evidence).
-- Documentation PRs must pass `python -I docs/tools/check_docs.py` (0 errors) once the documentation package is on `main`.
+- Documentation PRs must pass `python -I docs/tools/check_docs.py` (0 errors) and `python -I docs/tools/build_traceability.py` (no gaps; commit the regenerated `docs/data/traceability.csv`).
 
 ## Issues
 

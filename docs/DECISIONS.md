@@ -49,6 +49,7 @@ Status vocabulary:
 | DEC-045 | A dedicated Windows CI runner with an interactive desktop session is required for GUI-mode reference tests | 02 | Proposed — awaiting approval | D18 (MVP set needs GUI references) | D18 |
 | DEC-046 | Inside the Fiji installation the product writes only its update-site jars. All runtime data goes in the per-user data directory (NFR-MAINT-007). | 02 | Proposed — awaiting approval | D19 | D19 |
 | DEC-047 | The reference install is rebuilt from the archive (SHA-256 checked) and never updated in place | 02 | Proposed — awaiting approval | NFR-FID-004; A22 | D19 |
+| DEC-048 | Repository strategy for the hackathon: the Fidelis submission lives in `reverez/Voice`, a GitHub fork of the shared parent `Sleep-On-It/Voice`, imported with a history-preserving merge. `Sleep-On-It/Fidelis` stays the preserved original repository. Ayush's `AyushGupta05/Voice` (Luma) is a separate submission with no dependency on Fidelis. DEC-001 still applies: the product name is Fidelis. | 02 | **Accepted** (owner instruction, 2026-10-17) | — | README |
 
 Decisions raised in the Phase 8 review are added below.
 
@@ -57,3 +58,4 @@ Merged duplicate candidates (Phase 8, finding 27): DEC-037 covers both D18 candi
 ## Change log
 
 - 2026-10-17: Phase 8 review fixes (findings #27).
+- 2026-10-17: DEC-048 recorded (hackathon fork reverez/Voice).

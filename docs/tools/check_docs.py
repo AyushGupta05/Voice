@@ -35,7 +35,7 @@ ID_PATTERNS = {
 }
 FM_KEYS = ["id", "title", "stage", "status", "priority", "source_revisions",
            "related_requirements", "related_decisions", "last_reviewed", "approval"]
-ACCEPTED_ALLOWED = {"DEC-001", "DEC-002", "DEC-003", "DEC-004"}
+ACCEPTED_ALLOWED = {"DEC-001", "DEC-002", "DEC-003", "DEC-004", "DEC-048"}  # owner-approved (see DECISIONS.md basis column)
 
 
 def md_files():
