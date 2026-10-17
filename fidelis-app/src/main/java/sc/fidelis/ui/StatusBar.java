@@ -112,6 +112,7 @@ public final class StatusBar extends JPanel {
 
     /** Current operation text ("Running: Gaussian Blur... (2.1 s)"), or "" when idle. */
     public void setActivity(String text, int percent, boolean showProgress) {
+        String previous = activity;
         activity = text == null ? "" : text;
         progress.setVisible(showProgress);
         if (showProgress) {
@@ -125,6 +126,8 @@ public final class StatusBar extends JPanel {
         if (!activity.isEmpty()) {
             notice.setText(activity);
             notice.setForeground(UIUtil.foreground());
+        } else if (!previous.isEmpty() && notice.getText().equals(previous)) {
+            notice.setText(" "); // never leave a finished operation's "Running" text behind a running fade timer
         } else if (!noticeFade.isRunning()) {
             notice.setText(" ");
         }

@@ -229,31 +229,38 @@ final class ScreenshotRun {
                 Thread.sleep(500);
             }
             case "stack" -> {
-                engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
-                        newImage("stack-10", "8-bit", "Random", 256, 256, 1, 10, 1), null)).get();
-                engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
-                        newImage("composite-3ch", "16-bit composite-mode", "Ramp", 256, 256, 3, 4, 1), null)).get();
-                // distinct content per plane through real engine commands: noise on every plane, then a per-channel display range
-                Map<String, Object> noise = new LinkedHashMap<>();
-                noise.put("standard", 6000.0);
-                noise.put("stack", true);
-                engine.submit(ActionRequest.command(Origin.MENU, "ij1:Process>Noise>Add Specified Noise...", noise,
-                        TargetScope.wholeStack(engine.focused().orElseThrow()))).get();
-                for (int c = 1; c <= 3; c++) {
-                    Map<String, Object> dr = new LinkedHashMap<>();
-                    dr.put("min", 0.0);
-                    dr.put("max", 30000.0);
-                    dr.put("channel", c);
-                    engine.submit(ActionRequest.direct(Origin.PANEL, Operations.SET_DISPLAY_RANGE, dr, TargetScope.of(engine.focused().orElseThrow()))).get();
+                // The real engine's NEW_IMAGE has no channels/frames and no composite type, so a genuine hyperstack is opened
+                // from the cached fixture (FX-005 hela-cells.tif); without it a plain 10-slice stack is created.
+                Path hela = repo.resolve("fixtures").resolve("cache").resolve("FX-005").resolve("extracted").resolve("hela-cells.tif");
+                if (Files.isRegularFile(hela)) {
+                    engine.open(hela).get();
+                } else {
+                    var r = engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
+                            newImage("stack-10", "8-bit", "Noise", 256, 256, 1, 10, 1), null)).get();
+                    System.out.println("[fidelis] NEW_IMAGE stack -> " + r.state() + (r.error() == null ? "" : " " + r.error().message()));
                 }
-                waitUntil(() -> w.documents().focusedView() != null && w.documents().focusedView().subtitleText().contains("c:"), 10);
+                var info = engine.document(engine.focused().orElseThrow()).orElseThrow();
+                System.out.println("[fidelis] stack scenario document " + info.title() + " c=" + info.nChannels() + " z=" + info.nSlices()
+                        + " t=" + info.nFrames() + " " + info.bitDepth() + "-bit");
+                if (info.nChannels() > 1) {
+                    for (int c = 1; c <= info.nChannels(); c++) {
+                        Map<String, Object> dr = new LinkedHashMap<>();
+                        dr.put("min", 0.0);
+                        dr.put("max", 30000.0 / c);
+                        dr.put("channel", c);
+                        var r = engine.submit(ActionRequest.direct(Origin.PANEL, Operations.SET_DISPLAY_RANGE, dr, TargetScope.of(info.id()))).get();
+                        System.out.println("[fidelis] SET_DISPLAY_RANGE channel " + c + " -> " + r.state());
+                    }
+                }
+                waitUntil(() -> w.documents().focusedView() != null, 10);
                 DocumentView v = w.documents().focusedView();
                 SwingUtilities.invokeAndWait(() -> {
-                    v.moveSlider('c', 2);
-                    v.moveSlider('z', 3);
+                    if (info.nChannels() > 1) v.moveSlider('c', 2);
+                    if (info.nSlices() > 1) v.moveSlider('z', Math.min(3, info.nSlices()));
                     w.docks().showDisplay();
                 });
                 Thread.sleep(1000);
+                System.out.println("[fidelis] stack subtitle: " + v.subtitleText());
             }
             default -> throw new IllegalArgumentException("unknown scenario " + name);
         }

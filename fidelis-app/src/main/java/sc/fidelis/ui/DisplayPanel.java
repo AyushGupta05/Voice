@@ -54,6 +54,7 @@ public final class DisplayPanel extends JPanel {
     private final JButton apply = new JButton("Apply…");
     private final JLabel status = new JLabel(" ");
     private final JLabel channelLabel = new JLabel("Channel");
+    private String followedKey = "";
     private final Coalescing live = new Coalescing();
     private double lo;
     private double hi = 1;
@@ -170,6 +171,13 @@ public final class DisplayPanel extends JPanel {
             if (composite && channel.getItemCount() != imp.getNChannels()) {
                 channel.removeAllItems();
                 for (int c = 1; c <= imp.getNChannels(); c++) channel.addItem("c" + c);
+            }
+            if (composite) { // the selector follows the document's active channel whenever that changes (slider, SET_POSITION)
+                String key = ctx.focusedId() + ":" + imp.getChannel();
+                if (!key.equals(followedKey)) {
+                    followedKey = key;
+                    channel.setSelectedIndex(Math.max(0, Math.min(imp.getNChannels(), imp.getChannel()) - 1));
+                }
             }
             int ch = selectedChannel(imp);
             ImageStatistics st = HistogramStrip.statsOf(imp, ch);
