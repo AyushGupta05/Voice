@@ -9,12 +9,10 @@ else the click-to-batch checkout. Tests are skipped when no model is available.
 import base64
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-import wave
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent

@@ -61,7 +61,8 @@ def lock16() -> str:
     return hashlib.sha256(rr.LOCK_PATH.read_bytes()).hexdigest()[:16]
 
 
-def run_mode(fixture_id: str, mode: str, timeout: float, threshold: str = j12.THRESHOLD, key: str | None = None) -> dict:
+def run_mode(fixture_id: str, mode: str, timeout: float, threshold: str = j12.THRESHOLD,
+             key: str | None = None) -> dict:
     path = fixture_path(fixture_id)
     key = key or fixture_id
     run_dir = RUNS / key / mode

@@ -106,7 +106,8 @@ def changed_paths(base: str | None) -> list[str]:
         except subprocess.CalledProcessError:
             continue
         committed = git("diff", "--name-only", f"{mb}...HEAD").split()
-        worktree = git("diff", "--name-only", "HEAD").split() + git("ls-files", "--others", "--exclude-standard").split()
+        worktree = git("diff", "--name-only", "HEAD").split()
+        worktree += git("ls-files", "--others", "--exclude-standard").split()
         return sorted(set(committed + worktree))
     sys.exit(f"[ownership] none of {candidates} is a known ref; run `git fetch` or pass --base")
 

@@ -41,7 +41,8 @@ def main() -> None:
     props = {"fidelis.repo.dir": str(env.REPO_DIR)}
     if smoke:
         props["fidelis.smoke"] = "true"
-    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props) + ["-cp", ";".join(cp), "sc.fidelis.Main"] + app_args
+    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props)
+    args += ["-cp", ";".join(cp), "sc.fidelis.Main"] + app_args
     argfile = env.write_argfile(env.BUILD / "run.args", args)
     print(f"[run] {env.jdk_bin('java')} @{argfile.name} (heap {heap}{', isolated home' if home else ''})")
     start = time.monotonic()
