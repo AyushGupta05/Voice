@@ -21,7 +21,6 @@ final class CompanionModel: ObservableObject {
     @Published var imageName = "No image open"
     @Published var selectionLabel = "Select a region in QuPath"
     @Published var activities: [Activity] = []
-    @Published var approvals: [[String: Any]] = []
     @Published var context: [String: Any] = [:]
     @Published var voiceReason = "Checking voice connection…"
     @Published var voiceActive = false
@@ -40,7 +39,6 @@ final class CompanionModel: ObservableObject {
     @Published var expanded = false
     @Published var detailsHeight: CGFloat = 600
     @Published var runningActionIDs = Set<String>()
-    @Published var decidingActionIDs = Set<String>()
     @Published var busy = false
     @Published var microphoneLevel: Float = 0
     @Published var measurementReport: MeasurementReport?
@@ -51,10 +49,16 @@ final class CompanionModel: ObservableObject {
     /// Final sentence of the last task, shown briefly in the bar after it finishes.
     @Published var resultText = ""
     private var resultClear: Task<Void, Never>?
+    /// Pending (review-mode) action IDs already shown as an activity line; the bar never surfaces approvals.
+    private var notedPendingActionIDs = Set<String>()
+    /// True from the researcher's Start until their Stop or a voice error. While true, a session the gateway ends on
+    /// its own (stream time limit, speech stream closed) is replaced immediately without another click.
+    private var voiceWanted = false
     private let root: URL
     private var token = ""
     private var gateway: GatewaySupervisor?
     private var socket: URLSessionWebSocketTask?
+    private let clientID = UUID().uuidString
     private var polling: Task<Void, Never>?
     private var receiving: Task<Void, Never>?
     private var reconnect: Task<Void, Never>?
@@ -144,9 +148,8 @@ final class CompanionModel: ObservableObject {
             else if selectionCount == 1 && !selected.isEmpty { selectionLabel = selected[0]["name"] as? String ?? "1 \(selected[0]["kind"] as? String ?? "object") selected" }
             else { selectionLabel = "\(selectionCount) objects selected" }
             let actions = health["actions"] as? [[String: Any]] ?? []
-            approvals = actions.filter { $0["status"] as? String == "pending" }
             runningActionIDs = Set(actions.filter { $0["status"] as? String == "running" }.compactMap { $0["id"] as? String })
-            if !approvals.isEmpty && !expanded { selectedTab = 1; expanded = true }
+            for action in actions where action["status"] as? String == "pending" { notePendingAction(action) }
         } catch {
             // HTTP polling can fail while the task's WebSocket is still alive; retain Stop.
             connected = false; bridgeConnected = false; textReady = false
@@ -168,7 +171,13 @@ final class CompanionModel: ObservableObject {
             receiving?.cancel()
             socket?.cancel(with: .goingAway, reason: nil)
             socket = connection
+            // Large tool results (dialog inspections, workflow scripts) must not kill the socket: the default limit is 1 MiB.
+            connection.maximumMessageSize = 16 * 1024 * 1024
             connection.resume()
+            // A stable id lets the gateway hand the same conversation back after a reconnect instead of dropping the running task.
+            if let hello = try? JSONSerialization.data(withJSONObject: ["type": "hello", "clientId": clientID]) {
+                connection.send(.string(String(decoding: hello, as: UTF8.self))) { _ in }
+            }
             receiving = Task { [weak self] in
                 do {
                     while !Task.isCancelled {
@@ -176,10 +185,16 @@ final class CompanionModel: ObservableObject {
                         let data: Data
                         switch message { case .string(let text): data = Data(text.utf8); case .data(let bytes): data = bytes; @unknown default: continue }
                         guard let self, self.socket === connection else { return }
-                        if let event = try JSONSerialization.jsonObject(with: data) as? [String: Any] { self.receive(event) }
+                        // A malformed event is logged and skipped; it must never trigger a reconnect.
+                        guard let event = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+                            Logger(subsystem: "science.luma.companion", category: "events").error("Ignored unparseable gateway event (\(data.count) bytes)")
+                            continue
+                        }
+                        self.receive(event)
                     }
                 } catch {
                     guard let self, self.socket === connection else { return }
+                    Logger(subsystem: "science.luma.companion", category: "events").error("Gateway socket closed: \(error.localizedDescription); reconnecting")
                     self.eventsReady = false; self.textBusy = false; self.resetVoice(); self.scheduleReconnect()
                 }
             }
@@ -216,7 +231,7 @@ final class CompanionModel: ObservableObject {
                 if action["status"] as? String == "running" { runningActionIDs.insert(id) }
                 else { runningActionIDs.remove(id) }
             }
-            if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { selectedTab = 1; expanded = true }
+            if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { notePendingAction(action) }
             if let action = event["action"] as? [String: Any], let status = action["status"] as? String, ["failed", "denied", "completed", "expired"].contains(status) {
                 let tool = friendly(action["tool"] as? String ?? "Action")
                 let warning = action["auditWarning"] as? String
@@ -232,6 +247,7 @@ final class CompanionModel: ObservableObject {
         case "error":
             if let requestID = event["requestId"] as? String, requestID != voiceRequestID { return }
             activities.insert(Activity(title: "Needs attention", detail: event["message"] as? String ?? "Unknown error", isError: true), at: 0)
+            voiceWanted = false
             resetVoice()
         case "text_ack":
             if let text = event["text"] as? String, !text.isEmpty { executingText = text; textBusy = true; resultText = "" }
@@ -287,6 +303,7 @@ final class CompanionModel: ObservableObject {
             guard event["requestId"] as? String == voiceRequestID else { return }
             Logger(subsystem: "science.luma.companion", category: "audio").error("Voice error from gateway: \(event["message"] as? String ?? "unknown")")
             activities.insert(Activity(title: "Voice needs attention", detail: event["message"] as? String ?? "Speech is unavailable.", isError: true), at: 0)
+            voiceWanted = false
             expanded = true
         case "voice_state":
             guard let requestID = event["requestId"] as? String, requestID == voiceRequestID else { return }
@@ -294,7 +311,14 @@ final class CompanionModel: ObservableObject {
             if state == "connecting", let id = event["sessionId"] as? String { resetVoice(keepingRequest: true); voiceSessionID = id; voiceStarting = true }
             else if state == "ready_for_audio", let id = event["sessionId"] as? String, id == voiceSessionID { startMicrophone(sessionID: id) }
             else if state == "listening", event["sessionId"] as? String == voiceSessionID { providerListening = true; voiceActive = capturing; voiceStarting = !capturing; pointer.follow(true) }
-            else if state == "idle", event["sessionId"] == nil || event["sessionId"] as? String == voiceSessionID { resetVoice() }
+            else if state == "idle", event["sessionId"] == nil || event["sessionId"] as? String == voiceSessionID {
+                let reason = event["reason"] as? String ?? ""
+                resetVoice()
+                if voiceWanted && Self.isGatewayEndedSession(reason) {
+                    Logger(subsystem: "science.luma.companion", category: "audio").notice("Gateway ended the voice session (\(reason)); starting a new one")
+                    startVoice()
+                }
+            }
         default: break
         }
     }
@@ -302,17 +326,16 @@ final class CompanionModel: ObservableObject {
         busy = true
         defer { busy = false }
         do {
-            let result = try await request("/tools/call", body: ["name": name, "arguments": arguments])
-            if let pending = result["result"] as? [String: Any], pending["status"] as? String == "approval_required" { selectedTab = 1 }
+            _ = try await request("/tools/call", body: ["name": name, "arguments": arguments])
             await refresh()
         } catch { activities.insert(Activity(title: "Couldn’t complete action", detail: error.localizedDescription, isError: true), at: 0) }
     }
-    func decide(_ id: String, approved: Bool) async {
-        guard !decidingActionIDs.contains(id) else { return }
-        decidingActionIDs.insert(id)
-        defer { decidingActionIDs.remove(id) }
-        do { _ = try await request("/approvals/\(id)", body: ["approved": approved]); await refresh() }
-        catch { activities.insert(Activity(title: "Action needs review", detail: error.localizedDescription, isError: true), at: 0); await refresh() }
+    /// Review mode (`LUMA_APPROVALS=review`) parks an action on the gateway; the companion only journals it once.
+    private func notePendingAction(_ action: [String: Any]) {
+        guard let id = action["id"] as? String, !notedPendingActionIDs.contains(id) else { return }
+        notedPendingActionIDs.insert(id)
+        activities.insert(Activity(title: friendly(action["tool"] as? String ?? "Action"), detail: "Waiting on the gateway’s review setting.", icon: "clock"), at: 0)
+        activities = Array(activities.prefix(40))
     }
     func search() async {
         guard knowledgeQuery.count >= 2 else { return }
@@ -384,20 +407,24 @@ final class CompanionModel: ObservableObject {
         if let rows = value["summary"] as? [[String: Any]], !rows.isEmpty { return rows }
         return nil
     }
-    func reviewImportSource(_ path: String) {
-        let source = URL(fileURLWithPath: path)
-        guard path.hasPrefix("/"), ["json", "geojson"].contains(source.pathExtension.lowercased()) else { return }
-        NSWorkspace.shared.open([source], withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"), configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
-            if let error {
-                Task { @MainActor in self?.activities.insert(Activity(title: "Source review unavailable", detail: error.localizedDescription, isError: true), at: 0) }
-            }
-        }
-    }
     func toggleVoice() {
         if voiceActive || voiceStarting || voiceSessionID != nil { stopVoice() }
-        else if voiceReady && eventsReady { let id = UUID().uuidString; voiceRequestID = id; voiceStarting = true; send(["type": "start_voice", "requestId": id]) }
+        else { startVoice() }
     }
+    private func startVoice() {
+        guard voiceReady && eventsReady else { voiceWanted = false; return }
+        voiceWanted = true
+        let id = UUID().uuidString; voiceRequestID = id; voiceStarting = true
+        send(["type": "start_voice", "requestId": id])
+    }
+    /// The gateway closes a session itself at the speech stream's time limit or when the stream closes; neither is a user stop.
+    static func isGatewayEndedSession(_ reason: String) -> Bool {
+        let lower = reason.lowercased()
+        return lower.contains("time limit") || lower.contains("speech stream closed")
+    }
+    /// User stop or a local failure (microphone, audio backlog, socket): voice stays off until the next Start.
     private func stopVoice() {
+        voiceWanted = false
         if let id = voiceRequestID { send(["type": "stop_voice", "requestId": id]) }
         resetVoice()
     }
@@ -458,10 +485,7 @@ final class CompanionModel: ObservableObject {
             }
         }
     }
-    func toggleDetails() {
-        if !approvals.isEmpty { selectedTab = 1; expanded = true }
-        else { expanded.toggle() }
-    }
+    func toggleDetails() { expanded.toggle() }
     private func send(_ event: [String: Any]) {
         guard let socket, let data = try? JSONSerialization.data(withJSONObject: event), let text = String(data: data, encoding: .utf8) else { return }
         Task { do { try await socket.send(.string(text)) } catch { activities.insert(Activity(title: "Gateway disconnected", detail: "Reconnect to continue.", isError: true), at: 0) } }
