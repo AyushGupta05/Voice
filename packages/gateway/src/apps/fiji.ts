@@ -180,6 +180,8 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
   // Marker positivity needs fiji_classify_intensity after the segmentation.
+  // Re-segmenting with a stricter/looser method is the whole answer to a threshold-strictness request.
+  if (name === 'fiji_segment_cells' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative)\b/.test(said)) return false;
   if (name === 'fiji_segment_cells') return !/\b(segment|count|find|detect|identify|how many)\b/.test(said) || /\b(area|size|intens|measur|mean|bright|perimeter|circular)/.test(said)
     || /\b(positive|negative|ki-?67|marker|percent|fraction|proportion|index|express)/.test(said);
   if (name === 'fiji_measure') return /\b(area|size|how many|count|perimeter|circular|feret|min|max|integrated|median)\b/.test(said);
@@ -203,6 +205,12 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?$/);
   if (zoom) return { tool: 'fiji_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
   if (/^(?:zoom to fit|fit (?:to|the) (?:window|screen|view)|fit to window)$/.test(said)) return { tool: 'fiji_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' };
+  // Threshold strictness is answered deterministically by re-segmenting with a stricter or looser method.
+  const strictness = said.match(/^(?:(?:now |please )?(?:make (?:it|that|the threshold|the segmentation) )?)(?:a (?:bit|little) )?(stricter|tighter|more strict|more conservative|less sensitive|looser|more sensitive|less strict|more aggressive)(?: threshold)?$/);
+  if (strictness) {
+    const stricter = /strict(?!.*less)|tight|conservative|less sensitive/.test(strictness[1]) && !/less strict/.test(strictness[1]);
+    return { tool: 'fiji_segment_cells', arguments: { method: stricter ? 'Li' : 'Huang' }, reply: stricter ? 'Segmenting with a stricter threshold.' : 'Segmenting with a looser threshold.' };
+  }
   const overlay = said.match(/^(show|hide) (?:the )?(?:overlay|outlines)$/);
   if (overlay) return { tool: 'fiji_overlay', arguments: { show: overlay[1] === 'show' }, reply: overlay[1] === 'show' ? 'Showing the overlay.' : 'Hiding the overlay.' };
   const slice = said.match(/^(next|previous|prev|last) slice$/);

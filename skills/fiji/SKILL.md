@@ -47,6 +47,8 @@ The researcher draws with ImageJ's own tools while talking. A rectangle, oval, p
 - **“Show me / point at the cells / where is the biggest one”**: `fiji_highlight {rois: "manager", label: "64 cells"}` or with `indices` from `fiji_results` sorted by Area. Display only; it never changes data.
 - **“Zoom in / fit / show the overlay / next slice”** are instant routes (`fiji_zoom`, `fiji_overlay`, `fiji_stack`); no reasoning needed.
 
+- **Biology questions** (tracking a time-lapse, intensity kinetics/FRAP, Ki67 or marker-positive %, tumour area, colocalisation): `fiji_track_objects`, `fiji_intensity_over_time`, `fiji_segment_cells` → `fiji_classify_intensity`, `fiji_tumor_region`, `fiji_colocalize`, `fiji_object_stats`; what each number means and does not mean is in [biology tools](references/biology-tools.md). Anything without a tool: write it with `fiji_make_macro` (fix errors silently, at most 3 tries), then `fiji_run_workflow` for “all of them / the folder”; “save what you just did” is `fiji_capture_macro`. Highlight what you report.
+
 ## Show, don't tell
 
 `fiji_highlight` flies Penny's cursor and outlines targets on the real canvas. Call it whenever you name something specific: particles (`rois: "manager"`, optional `indices`), the active ROI (`rois: "active"`), an image-pixel rectangle (`x, y, width, height`), or a control (`nodeId` from `fiji_ui`). Targets off screen or smaller than about 12 % of the canvas trigger an automatic zoom; `fiji_zoom {fit: true}` returns to the whole image. Labels are 2–6 words. “Point at”, “show me”, “where is” mean highlight; `fiji_ui_action` is only for an explicit “press / choose / type”.
@@ -84,8 +86,27 @@ Recovery does not undo files written (`save_image`, `export_results`, `save_work
 - [Stacks, hyperstacks, channels, projections, Bio-Formats](references/stacks-and-channels.md)
 - [Filters, LUTs, brightness/contrast, enhance contrast](references/filters-and-display.md)
 - [Verified macro recipes for fiji_run_macro](references/macros.md)
+- [Biology tools: tracking, FRAP/intensity over time, Ki67 positivity, tumour area, colocalisation caveats, fiji_make_macro templates](references/biology-tools.md)
 - [Exact menu command names and option strings for fiji_run_command](references/menus.md)
 - [File ▷ Open Samples: names and contents](references/samples.md)
 - [Plugins: finding, running, update sites](references/plugins.md)
 
 Primary sources: [imagej.net wiki](https://imagej.net/) (local copy `.local/upstream/imagej-docs/imagej.github.io`), [ImageJ User Guide 1.46r](https://imagej.net/ij/docs/guide/) and [menu reference](https://imagej.net/ij/docs/menus/) (local copies under `.local/upstream/imagej-docs`), [built-in macro functions](https://imagej.net/ij/developer/macro/functions.html). Installed: Fiji 2.18.0 / ImageJ 1.54p, Bio-Formats 8.5, Trainable Weka Segmentation 4.0, TrackMate 8.1, Labkit 0.4, Auto Threshold 1.18.
+
+## Dynamic macros: composing one for a request no recipe covers
+
+Most spoken requests are a recipe with the placeholders filled from the context ([biology-recipes](references/biology-recipes.md), [macros](references/macros.md), [tracking](references/tracking.md)). When none fits exactly, compose a macro from their parts rather than issuing ten tool calls; one `fiji_run_macro` is one journaled action with one checkpoint, and it runs in the live Fiji with the researcher watching.
+
+Structure, in this order:
+
+1. **Bind the target.** `original = getTitle();` then `run("Select None")` for whole-image work, or keep the active ROI (and `roiManager("add")` it when derived images need the same region; manager entries apply to any image of the same size with `roiManager("select", i)`). Read `Stack.getDimensions(width, height, channels, slices, frames)` and pick the plane: `Stack.setChannel`, `Stack.setSlice`, `Stack.setFrame`. For Z or T data project or pick a frame first (recipe B5) and say so.
+2. **Work on a copy.** `run("Duplicate...", "title=work")` (current plane) or `"title=work duplicate channels=<c>"` (whole stack of one channel). Filters, thresholds and `Convert to Mask` destroy pixels; the original keeps its data and `redirect=[original]` reads intensities from it.
+3. **Segment** with the sequence blur → `setAutoThreshold("<method> dark")` → `setOption("BlackBackground", true)` → `Convert to Mask` → `Fill Holes` → `Watershed` → `Analyze Particles... "size=… pixel circularity=… show=Nothing display <exclude> clear add"`. Capture `getThreshold(lower, upper)` right after the auto threshold so the sentence can quote it.
+4. **ROI Manager hygiene.** `if (isOpen("ROI Manager")) roiManager("reset");` before `add` so the manager describes this run only; name special entries (`roiManager("rename", "region")`); never leave helper ROIs in it (delete them at the end). Index 0 is the region when a recipe stores one; objects follow.
+5. **Measure and tabulate.** Prefer `getStatistics`/`List.setMeasurements` plus `setResult` for per-object tables (works in every mode); `run("Measure")` for a single selection; `updateResults()` at the end. Keep `Label` meaningful (image or ROI name). Compute the summary numbers in the macro (sums, means, fractions) so the final sentence does not depend on reading a table back.
+6. **Show the result.** `close("work")`, `selectImage(original)`, `run("Remove Overlay")`, `run("From ROI Manager")` (or `Overlay.addSelection` for lines/polylines) so the outlines sit on the image the researcher is looking at; leave the researcher's ROI selected.
+7. **End with one `print`** that carries every number you will say, in the unit from `getPixelSize(unit, pw, ph)`, and the settings that produced them (method, threshold bounds, sigma, min size, exclude). `fiji_run_macro` returns that text.
+
+Then, outside the macro: `fiji_highlight {rois: "manager"}` (or `"active"`, or `indices` for a subset such as the positives) so the cursor and the outlines show what was counted; report the printed numbers in one sentence; offer `fiji_export_results` when there is a table. For long loops (batches, per-frame work) wrap the loop in `setBatchMode(true)` … `setBatchMode(false)` so windows do not flicker; do not use `waitForUser` or dialogs. Variable names must not shadow macro functions (`log`, `abs`, `round`, `min`, `max`…); use `text`, `lower`, `count`. Reserve `fiji_run_script` (Jython/Groovy) for APIs the macro language cannot reach (TrackMate, ImageJ Ops, SciJava commands), with the same ending: a print of the numbers and an overlay the researcher can see.
+
+Naming and reporting conventions: the macro's title words become the sentence ("Counted 149 nuclei with an Otsu threshold at 385; mean area 592 px²."); a count is objects after the stated filters, not validated cells; a changed threshold is reported with its new bounds and the new count and mean area, because looser thresholds can merge neighbours and lower the count.

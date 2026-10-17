@@ -38,7 +38,7 @@ Verified on 17 October 2026 (`--dry-run` shows the exact `java` command line; `-
 - Do not pass `--java-home` for the GUI: the SciJava app launcher then relaunches Fiji on the bundled Java with the main arguments dropped, so `-run` never fires. The bridge jar targets Java 21 for exactly this reason.
 - `StartupMacros.fiji.ijm` and `macros/AutoRun/*.ijm` would also work but mean editing `Fiji.app`; they are not used.
 
-The jar additionally registers a SciJava `Service` (`LumaBridgeService`) that starts the bridge when Fiji's context is created. In the GUI build the command/menu registrations load (Plugins > Luma shows *Luma Bridge*, *Luma Bridge Status* and the SciJava *Bridge status*), but the service did not auto-start in the live app, so `-run` is the mechanism `run-fiji.sh` relies on; the menu item is the manual fallback.
+The jar also registers a SciJava service (`LumaBridgeService`, tagged `SciJavaService` because `net.imagej.ImageJ` only instantiates `SciJavaService`/`ImageJService` services eagerly; a plain `Service` is indexed but never created). Its `initialize()` returns immediately and a daemon thread starts the HTTP server by reflection once imagej-legacy reports ready, so no launcher argument is required and ImageJ1 classes are never loaded before the legacy patcher runs. It logs `[Luma] …` lines to stderr (the launcher log). The token comes from `LUMA_BRIDGE_TOKEN`, else `<-Dluma.root or LUMA_ROOT>/.local/state/bridge-token`, else the repository that owns the symlinked jar (`plugins/luma-fiji-bridge.jar -> <root>/dist/luma-fiji-bridge.jar`). `-run "Luma Bridge"` and the Plugins > Luma menu entries remain as manual fallbacks; a second start is a no-op.
 
 ## Build, run, test
 
@@ -55,6 +55,11 @@ The jar additionally registers a SciJava `Service` (`LumaBridgeService`) that st
 
 ## Behaviour notes
 
+- Every data/code operation first brings the active image window to the front and writes `Luma: segmenting cells…` (or measuring, thresholding, counting particles, applying the filter, running <command>, …) into Fiji's status bar, cleared when the call returns; `status` (read) returns that text plus `analysisRunning` (ImageJ's progress bar exposes no value).
+- `analyze_particles` and `segment_cells` draw the detections into the image overlay: magenta outlines, stroke 2, numbered labels when there are at most 200, so results are visible even with the ROI Manager closed.
+- `open_path`, and `run_command` when it opened a new image (samples, importers), zoom the new window so the image fills at least 60% of the screen height (ImageJ zoom levels, never above 32×), centre it on screen and return a whole-image `highlight`.
+- Every highlight payload carries `flash: true` for the companion's outline animation.
+
 - Mutating operations (`data`/`code` in the protocol table) need `approved:true` and an `expectedContext` equal to the current `contextKey`; `checkpoint` is the exception (always allowed). `stack` with `project` counts as data.
 - Before `add_to_manager`, `measure`, `clear_results`, `threshold`, `analyze_particles`, `segment_cells`, `filter`, `convert`, `run_command`, `run_macro`, `run_script` and `ui_action` the bridge copies the active image's pixels, ROI, overlay, ROI Manager and Results table (512 MiB cap per checkpoint, 1 GiB in total, six kept). `restore` puts them back; `undo` restores the newest checkpoint of the active image and falls back to ImageJ's single-step Undo. Files, windows and display settings are never restored.
 - `threshold`/`segment_cells` default `dark` to "not an inverting LUT", which selects the objects both on fluorescence images and on the inverting-LUT Blobs sample.
@@ -65,13 +70,17 @@ The jar additionally registers a SciJava `Service` (`LumaBridgeService`) that st
 - Highlights are global screen points (top-left origin) computed from `ImageCanvas.getLocationOnScreen()` and the canvas `srcRect`/magnification; targets are clipped to the canvas with an 8 px minimum. `select_roi`, `measure`, `threshold`, `analyze_particles`, `segment_cells` and `highlight` zoom to their target (ImageJ's own "To Selection" algorithm, padded 30%) when it would cover less than 12% of the canvas or lie outside the displayed region; results report `focused:true` when that happened.
 - Without a window (tests, headless) every highlight is `{}` and `viewer` is `null`; nothing throws for display reasons.
 
+## Biology operations (added by the biology-platform session, same contract)
+
+`track_objects`, `intensity_over_time` (Tracking.java: per-frame detection and nearest-neighbour linking in the bridge, no TrackMate dependency), `tumor_region`, `colocalize`, `classify_intensity`, `object_stats` (Analysis.java), `make_macro`, `run_workflow`, `capture_macro`, `workflows` (Macros.java: compose and run macros without dialogs, run saved `.local/workflows/*.ijm` on the active image or a folder, capture the Macro Recorder, list saved workflows). They follow the same risk classes (`colocalize`, `object_stats`, `workflows` read; the rest data/code with approval, context binding and checkpoints) and have their own contract tests (`TrackingContractTest`, `AnalysisContractTest`, `MacrosContractTest`) run by `test-fiji-bridge.sh`.
+
 ## Verified in the real application (17 October 2026)
 
 Fiji started with `./script/run-fiji.sh`; calls made with `curl`/Python against `127.0.0.1:49557` with the token:
 
 | Call | Result |
 |---|---|
-| `context` | `application:"Fiji"`, `version:"1.54p99"`, `guiVisible:true`, 40 operations declared |
+| `context` | `application:"Fiji"`, `version:"1.54p99"`, `guiVisible:true`, 51 operations declared (40 from the protocol, `status`, and the ten biology operations below) |
 | `run_command {"name":"Blobs (25K)"}` | resolved to `Blobs`, `completed:true` in 1.2 s, image `blobs.gif` 256×254 8-bit, highlight at the canvas rectangle |
 | `segment_cells` | 67 cells, mean area 326.7 px², Default threshold 126–255, 67 ROIs in the ROI Manager, 67 ellipse targets |
 | `measure {"scope":"manager"}` | 67 new rows, mean intensity 190.3 (146.3–220.2), circularity 0.84 mean |

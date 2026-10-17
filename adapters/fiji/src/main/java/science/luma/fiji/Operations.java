@@ -18,6 +18,7 @@ import ij.plugin.frame.RoiManager;
 import ij.process.AutoThresholder;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
+import ij.process.ImageStatistics;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -262,8 +263,11 @@ final class Operations {
             case "all" -> { imp.deleteRoi(); try { measureInto(imp, flags, table); } finally { if (saved != null) imp.setRoi(saved); } journal.record("measure", "run(\"Select None\");\nrun(\"Measure\");"); }
             case "manager" -> {
                 var rois = managerRois(args); if (rois.isEmpty()) throw new IllegalStateException("The ROI Manager is empty; segment or add regions first.");
-                try { for (var roi : rois) { imp.setRoi(roi); measureInto(imp, flags, table); } }
-                finally { if (saved == null) imp.deleteRoi(); else imp.setRoi(saved); }
+                // Measure on the processor directly: imp.setRoi() per ROI repaints the canvas and the ROI Manager each time,
+                // which took over a minute for 67 ROIs on the event thread.
+                var ip = imp.getProcessor(); var calibration = imp.getCalibration();
+                try { for (var roi : rois) { ip.setRoi(roi); new Analyzer(imp, flags, table).saveResults(ImageStatistics.getStatistics(ip, flags, calibration), roi); } }
+                finally { ip.setRoi(saved); }
                 measured.addAll(rois); journal.record("measure", "roiManager(\"Measure\");");
             }
             default -> throw new IllegalArgumentException("scope must be roi, manager or all.");
@@ -387,7 +391,7 @@ final class Operations {
         var analyzer = new ParticleAnalyzer(options, measurements, table, minSize, maxSize, minCirc, maxCirc);
         analyzer.setHideOutputImage(show.equalsIgnoreCase("Nothing"));
         if (!analyzer.analyze(imp)) throw new IllegalStateException("Analyze Particles did not run; check the Log window.");
-        showResults(table);
+        showResults(table); 
         String sizeText = plain(minSize) + "-" + (Double.isInfinite(maxSize) ? "Infinity" : plain(maxSize));
         journal.record(operation, "run(\"Analyze Particles...\", \"size=" + sizeText + " circularity=" + String.format(Locale.US, "%.2f-%.2f", minCirc, maxCirc) + " show=" + (show.isBlank() ? "Nothing" : show) + " display" + (exclude ? " exclude" : "") + (include ? " include" : "") + (summarize ? " summarize" : "") + (manager != null ? " add" : "") + "\");");
         int count = table.size() - before;
@@ -402,10 +406,10 @@ final class Operations {
         result.put("count", count); result.put("totalArea", totalArea); result.put("averageSize", count == 0 ? 0.0 : totalArea / count); result.put("unit", cal.getUnit());
         result.put("resultsRows", table.size()); result.put("addedToManager", manager == null ? 0 : manager.getCount() - managerBefore); result.put("managerTotal", manager == null ? 0 : manager.getCount());
         result.put("summary", summary(table, before, measurements).get("summary"));
-        outline(imp, manager, managerBefore, bounds, count);
-        var union = Geometry.union(bounds);
-        result.put("focused", union != null && Viewer.follow(imp, union));
-        result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " particle" : " particles"), 120, true));
+        outline(imp, manager, managerBefore, bounds, count); 
+        var union = Geometry.union(bounds); 
+        result.put("focused", union != null && Viewer.follow(imp, union)); 
+        result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " particle" : " particles"), 120, true)); 
         return result;
     }
     /** Detections stay visible even with the ROI Manager hidden: bright magenta outlines in the overlay, numbered when there are at most 200. */
@@ -452,7 +456,7 @@ final class Operations {
             int journalBefore = journal.size();
             var result = particles(work, particleArgs, "segment_cells");
             steps.add("analyze particles (" + result.get("count") + " found)");
-            for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro")));
+            for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro"))); 
             macro.add("close(\"luma-segmentation-mask\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nroiManager(\"Show All without labels\");");
             journal.record("segment_cells", macro.getLast());
             result.put("threshold", Map.of("lower", lower, "upper", upper, "method", method, "dark", dark));
@@ -467,7 +471,7 @@ final class Operations {
                 steps.add("measure the ROIs on the original image");
                 macro.add("run(\"Set Measurements...\", \"area mean standard min integrated median perimeter shape bounding redirect=None decimal=3\");\nroiManager(\"Measure\");");
             }
-            result.put("steps", steps); result.put("macro", String.join("\n", macro)); result.put("maskClosed", true);
+            result.put("steps", steps); result.put("macro", String.join("\n", macro)); result.put("maskClosed", true); 
             // The mask is scratch; the ROIs live in the manager and refer to the original image's pixels.
             work.changes = false; work.close(); work = null;
             if (saved != null) imp.setRoi(saved);

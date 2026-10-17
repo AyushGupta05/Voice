@@ -3,16 +3,19 @@ package science.luma.fiji;
 import org.scijava.Context;
 import org.scijava.plugin.Plugin;
 import org.scijava.service.AbstractService;
+import org.scijava.service.SciJavaService;
 import org.scijava.service.Service;
 
 /**
  * Auto-starts the bridge once Fiji's SciJava context exists, without any launcher argument.
+ * It implements SciJavaService because net.imagej.ImageJ creates its context from SciJavaService/ImageJService only;
+ * a plain Service is indexed but never instantiated.
  * This class deliberately references no ij.* or bridge classes directly: SciJava instantiates services while
  * imagej-legacy is still patching ImageJ1, and loading those classes early would break the patch. The server is
  * started on a daemon thread, by reflection, after the legacy layer reports ready; initialize() returns at once.
  */
 @Plugin(type = Service.class)
-public final class LumaBridgeService extends AbstractService {
+public final class LumaBridgeService extends AbstractService implements SciJavaService {
     private static volatile Context shared;
     static Context sharedContext() { return shared; }
 
