@@ -60,4 +60,4 @@ npm.cmd --prefix frontend run build
 
 Fiji is installed at `C:\Users\arnav\Documents\dev\Fiji`. The Fiji check reads `FIJI_EXECUTABLE` from the ignored local `.env` file and runs `fiji/macros/smoke-test.ijm` in headless mode. You can also run the **Check Fiji** VS Code task. The app's health endpoint and interface do not yet run scientific Fiji analysis.
 
-See [architecture and next steps](docs/architecture.md) and [local environment](docs/environment.md). The repository is local with no remote configured. Claude Code is installed but currently signed out. Run `claude auth login` in a VS Code terminal, then `claude` from this folder after signing in.
+See [architecture and next steps](docs/architecture.md) and [local environment](docs/environment.md). The `main` branch tracks the private GitHub repository at <https://github.com/reverez/click-to-batch>. Claude Code is installed and signed in; run `claude` from a terminal in this folder to begin development.

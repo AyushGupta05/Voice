@@ -23,8 +23,8 @@ The Python launcher also reported an Astral-managed CPython 3.14.3 runtime. The 
 - Editable backend package with FastAPI, Uvicorn, pytest, HTTPX and Ruff.
 - Frontend dependencies installed locally in `frontend/node_modules/`; exact direct versions in `package.json` and the resolved tree in `package-lock.json`.
 - VS Code Python, Python Debugger and Ruff extensions installed; Python's environment and Pylance dependencies were installed automatically. EditorConfig was already present.
-- Local Git repository uses branch `main`, with an initial scaffold commit. No remote or account-linked repository was created.
-- Claude Code's CLI version was checked. `claude auth status` reports `loggedIn=false`; sign in with `claude auth login` from a VS Code terminal when ready. Subscription capacity and model access were not tested or changed.
+- Local Git repository uses branch `main`, with an initial scaffold commit. `origin` is the private repository <https://github.com/reverez/click-to-batch>; `main` tracks `origin/main`.
+- Claude Code's CLI version was checked. `claude auth status` reports `loggedIn=true`. Subscription capacity and model access were not tested or changed.
 
 ## Fiji / ImageJ
 
