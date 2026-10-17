@@ -1,0 +1,54 @@
+{
+  "verified": true,
+  "packageSha256": "955c4cdaa239610feccd4d315a09df5bb13835407766009a56585f9504b9b2e1",
+  "launcher": "dist/QuPathLumaPrepared.app",
+  "stockBundle": {
+    "entries": 553,
+    "regularFiles": 389,
+    "signatureValid": true,
+    "matchesFreshExtraction": true
+  },
+  "separateLauncher": {
+    "originalJars": 165,
+    "bridgeJarsAdded": 1,
+    "isolatedPreferences": true,
+    "stockClasspathEntries": 181,
+    "documentationJars": 16,
+    "unsignedExecutableSha256": "dadb560a3d63c738a33594eaf2b9d5ae22ff243abe7f91c84b463a76d1e829ae",
+    "executableSignatureValid": true,
+    "distributionReady": false
+  },
+  "cleanPinnedSources": {
+    "qupath": "04ccfa4fb7d43e9b566393e08e83690b72248d44",
+    "qupath-docs": "1e5537b6f493878ac3c9365c1c0985935cd02915"
+  },
+  "boundary": "Read-only installed-file verification; temporary package expansion only. No application restart, research data access, provider call or repair. Verifies default bootstrap paths; custom app/JDK overrides need their own baseline.",
+  "verifiedOn": "2026-10-17",
+  "loadedInstanceUpdated": false,
+  "existingInstance": {
+    "authenticatedBridgeReachable": true,
+    "hierarchyEmpty": true,
+    "selectionCount": 0,
+    "pendingActions": 0,
+    "runningActions": 0,
+    "gatewayTools": 23,
+    "voiceEnabled": false
+  },
+  "tests": {
+    "portablePreservationContracts": 7,
+    "portableBuildContract": 1,
+    "actualLibraryHeadlessContracts": "passed, including real QuPath preference override with memory-only backend",
+    "javafxControlRerun": "blocked: no available Screen during JavaFX startup; disposable test terminated; not a pass"
+  },
+  "review": {
+    "engine": "Codex via autoreview helper",
+    "acceptedFindingsFixed": 4,
+    "finalResult": "clean; no accepted actionable findings"
+  },
+  "funding": {
+    "newModelRequests": 0,
+    "retainedAttemptReservesUsd": 10,
+    "cumulativeEstimatedTokenUsageUsd": 0.0059721,
+    "billingSettlementReconciled": false
+  }
+}

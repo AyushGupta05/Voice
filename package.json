@@ -16,6 +16,7 @@
     "docs:generate": "tsx script/tool-reference.ts",
     "docs:check": "tsx script/tool-reference.ts --check",
     "doctor": "tsx script/doctor.ts",
+    "verify:qupath": "python3 script/verify-qupath.py",
     "enable:text": "tsx script/enable-text.ts",
     "smoke:text": "tsx script/text-smoke.ts",
     "smoke:companion-text": "tsx script/companion-text-smoke.ts",

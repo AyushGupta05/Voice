@@ -32,6 +32,8 @@ python3 script/setup.py
 
 The bootstrap verifies pinned official downloads and keeps the JDK, QuPath, upstream source and documentation in `.local`. It installs nothing globally. The local QuPath launcher needs the full JDK because its stock runtime omits the extension's HTTP module.
 
+QuPath's downloaded application and source remain unmodified. Luma uses a separate development launcher, Java extension, gateway and floating companion. Run `npm run verify:qupath` to compare the entire stock bundle with the verified package and check the launcher's specific additions. See [application preservation](docs/ARCHITECTURE.md#preserving-qupath).
+
 Open an image in QuPath and select an object or region. Use Luma's quick actions, or connect an MCP client using the [setup guide](docs/SETUP.md). Risky actions appear in the companion for review.
 
 ## Understand and extend it

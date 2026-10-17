@@ -16,6 +16,9 @@ The same tool list feeds MCP and the realtime transport. Do not duplicate provid
 ## Validation layers
 
 - `npm run doctor`: read-only setup/connection diagnostics; it does not replace an MCP or analysis test.
+- `npm run verify:qupath`: installed stock-bundle comparison against the pinned package, separate-launcher checks and clean upstream pins. Temporary extraction only; no restart, provider call or repair. Requires the default macOS local installation.
+- `python3 script/test-verify-qupath.py -v`: portable synthetic filesystem contracts for mutation, deletion, injection, symlink changes, overlap refusal and preservation on failure.
+- `python3 script/test-build-bridge.py -v`: portable disposable build fixture; failed compilation preserves the previous JAR and successful packaging replaces it from fresh classes.
 - `python3 script/test-companion-process.py -v`: macOS-only disposable compiled-process fixture; proves exact-path stop leaves a same-named foreign process running.
 - `./script/test-audio.sh`: four offline native PCM tests; no microphone, playback or provider session.
 - `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
@@ -38,13 +41,13 @@ Use ordinary incremental commits. Do not commit `.local`, tokens, caches, source
 
 Run `./script/test-bridge.sh` after Java adapter changes. It tests parameter rejection and workflow replay against the installed QuPath jars using a synthetic in-memory image. The public slide integration fixture requires the explicit disposable-fixture authorization described in the demo documentation.
 
-`./script/test-bridge-ui.sh` additionally checks isolated JavaFX list/table selection fingerprints and selectable menu actions. It needs a desktop JavaFX runtime, opens no windows and touches no scientific session. The headless bridge checks now also cover exact hierarchy recovery and scientific-notation parsing.
+`./script/test-bridge-ui.sh` additionally checks isolated JavaFX list/table selection fingerprints and selectable menu actions. It needs a usable desktop JavaFX runtime, opens no windows and touches no scientific session. Its disposable Java process has a 45-second outer startup/execution timeout; a locked/unavailable display is not a passing check. Both bridge test lanes use an in-memory preference factory, and the headless lane verifies the actual QuPath preference-node override without reading/writing the user's preference store. The headless checks also cover exact hierarchy recovery and scientific-notation parsing.
 
 For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `npm run smoke:voice -- --public-fixture` connects synthetic protocol events and scripted backend responses to real QuPath read/view operations. It never proves live inference or microphone quality. Preserve the production funding gate.
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs `npm ci` / `npm run check` on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
+`.github/workflows/verify.yml` runs `npm ci` / `npm run check` and portable preservation contracts on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
 
 CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
 

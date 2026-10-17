@@ -28,6 +28,10 @@ The bootstrap verifies SHA-256 hashes from `script/dependencies.json`, extracts 
 
 The default QuPath runtime does not include `jdk.httpserver`, which this extension uses. The development launcher deliberately uses the full local JDK. Dropping the bridge JAR into an unmodified official app is insufficient with that runtime. `dist/QuPathLuma.app` uses links to the local installation; it is a development launcher, not a portable distributable.
 
+The original extracted app and upstream source are preserved. After setup or launcher changes, run `npm run verify:qupath` for a complete local preservation check. It compares the stock app with a fresh temporary extraction of the pinned package and checks the separate launcher's documented changes. It makes no network/provider call and does not restart the running app. Failure never repairs or deletes an existing installation. Default bootstrap paths only; see [architecture](ARCHITECTURE.md#preserving-qupath).
+
+Packaging refuses to overwrite a launcher whose exact executable is running. To prepare an update without touching that instance, use `./script/package-qupath.sh --output dist/QuPathLumaPrepared.app`, then `npm run verify:qupath -- --launcher dist/QuPathLumaPrepared.app`. Do not launch it concurrently on the bridge port. Save/quit the existing QuPath normally, rebuild the default launcher and relaunch when ready. QuPath-managed settings use the supported `qupath.prefs.name` override with a per-checkout namespace; earlier running instances using only `java.util.prefs.userRoot` are not isolated on macOS. No existing settings are reset or migrated automatically.
+
 `script/build_and_run.sh` builds and ad-hoc signs `dist/Luma.app`, then launches it. The native app reuses an authenticated running gateway or starts and owns a Node child, so the gateway survives the launching shell. Normal Quit terminates only its own child. The Codex Run action calls this script. Left-click its waveform menu-bar icon to show/hide Luma; right-click for Quit. Close QuPath normally before rebuilding/restarting its adapter.
 
 Open an image in QuPath. The image-type prompt is part of the real application; choose the interpretation appropriate to the dataset. Luma then follows the active image and selection. The quick actions focus, change detection display and save hierarchy checkpoints.
@@ -48,6 +52,8 @@ npm run check
 ```
 
 Restart QuPath to load a new bridge JAR. Restart the gateway to load TypeScript changes (`npm run dev` is not a watcher). Do not terminate unrelated Java or Node processes. Logs are `.local/gateway.log`, `.local/qupath.log` and `.local/qupath-error.log`.
+
+Bridge builds compile into a fresh staging directory and replace the complete JAR on success. Failed compilation/package creation leaves the previous JAR intact. This prevents partially rewritten archives and stale compiled classes; it does not update classes already loaded in QuPath.
 
 Build-only packages a new binary while preserving the running instance. Launch/restart modes wait until compilation and signing succeed, then request normal termination only for this project’s exact executable path. They do not stop same-named companions in other checkouts. The running instance keeps its previously loaded binary until an explicit restart.
 

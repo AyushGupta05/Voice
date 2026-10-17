@@ -28,6 +28,8 @@ jobs:
           package-manager-cache: false
       - run: npm ci
       - run: npm run check
+      - run: python3 script/test-verify-qupath.py -v
+      - run: python3 script/test-build-bridge.py -v
 
   native-pcm:
     if: github.event.repository.private == false
