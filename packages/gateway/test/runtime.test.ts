@@ -83,3 +83,45 @@ test('native-control approval includes the exact observed dialog fingerprint',as
     assert.deepEqual(observed,{window:'Test dialog',windowFingerprint:'dialog-state-1',id:'apply-1',type:'Button',text:'Apply',disabled:false});
   }finally{await rm(directory,{recursive:true,force:true});}
 });
+
+test('interruption cancels a queued view action before it reaches the application',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-cancel-'));
+  let release!:()=>void;let entered!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});const started=new Promise<void>(resolve=>{entered=resolve;});
+  const calls:string[]=[];
+  const runtime=new Runtime({execute:async operation=>{
+    calls.push(operation);
+    if(operation==='focus'){entered();await gate;}
+    return {updated:true};
+  }},new Knowledge(),directory);
+  try {
+    const first=runtime.call('qupath_focus',{x:1,y:1});await started;
+    const cancellation=new AbortController();
+    const queued=runtime.call('qupath_overlays',{fill:true},cancellation.signal);
+    const rejected=assert.rejects(queued,{name:'AbortError'});
+    cancellation.abort();release();await first;await rejected;
+    assert.deepEqual(calls,['focus']);
+  }finally{release();await rm(directory,{recursive:true,force:true});}
+});
+
+test('interruption during context observation does not leave a new approval proposal',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-cancel-proposal-'));
+  const cancellation=new AbortController();
+  const runtime=new Runtime({execute:async()=>{cancellation.abort();return {contextKey:'fixture'};}},new Knowledge(),directory);
+  try {
+    await assert.rejects(runtime.call('qupath_annotate',annotation,cancellation.signal),{name:'AbortError'});
+    assert.equal(runtime.actions.size,0);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('pending-proposal eviction emits an expiry event for waiting conversations',async()=>{
+  const f=await fixture();const expired:Action[]=[];f.runtime.on('action',(action:Action)=>{if(action.status==='expired')expired.push(structuredClone(action));});
+  try{
+    let first='';
+    for(let index=0;index<21;index++){
+      const proposal=await f.runtime.call('qupath_annotate',{...annotation,name:`Fixture ${index}`}) as {actionId:string};
+      if(!index)first=proposal.actionId;
+    }
+    assert.equal(expired.length,1);assert.equal(expired[0].id,first);assert.equal(f.adapter.mutations,0);
+  }finally{await f.clean();}
+});

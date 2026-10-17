@@ -1,6 +1,6 @@
 # GPT-Live integration boundary
 
-This is an implementation plan, not a claim of working live voice. Production activation stays funding-blocked under [FUNDING.md](FUNDING.md).
+The transport and provider-injected backend described in this plan now have local tests; see [VOICE.md](VOICE.md) for current implementation and verification. This is not a claim of working live voice. Production activation stays funding-blocked under [FUNDING.md](FUNDING.md).
 
 ## Separate conversation from scientific execution
 
@@ -8,7 +8,7 @@ The requested GPT-Live frontend handles continuous conversation. A backend agent
 
 Client delegation fits the adapter architecture: Luma controls which observations and tool outcomes reach the voice frontend, and can keep using a separately configured OpenAI backend. A backend served by Bedrock would not make the separate GPT-Live frontend credit-covered.
 
-## Protocol work still required
+## Implemented protocol responsibilities
 
 1. A separate Live transport, rather than renaming `RealtimeSession`: connect, send `session.start`, await `session.started`, and stream ordered, complete PCM16 samples at the configured rate. The existing native audio components target mono 24 kHz.
 2. Keep timestamped input/output transcript fragments and current task state. A Live delegation event contains an ID and metadata, not the task utterance. Resolve corrections from conversation history and fresh application context.
@@ -18,7 +18,7 @@ Client delegation fits the adapter architecture: Luma controls which observation
 
 ## Verification before enabling it
 
-Use an in-process mock provider first: startup ordering, transcript corrections, duplicate delegation delivery, stale selection, waiting for human approval, denial, connection loss, audio ordering and shutdown. Verify the native microphone/playback lifecycle separately on the intended hardware. After a supported credit-covered route exists, perform one bounded live public-fixture session, measure interaction latency and inspect the resulting QuPath state. Do not promote mocked protocol tests to live-voice evidence.
+The local fixture and focused tests cover: startup ordering, transcript corrections, duplicate delegation delivery, stale selection, waiting for human approval, denial, connection loss, audio ordering and shutdown. These fixtures use scripted responses and synthetic audio. Verify the native microphone/playback lifecycle separately on the intended hardware. After a supported credit-covered route exists, perform one bounded live public-fixture session, measure interaction latency and inspect the resulting QuPath state. Do not promote mocked protocol tests to live-voice evidence.
 
 Sources reviewed on 17 October 2026:
 

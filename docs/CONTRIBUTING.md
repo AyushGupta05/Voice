@@ -36,3 +36,5 @@ Use ordinary incremental commits. Do not commit `.local`, tokens, caches, source
 Run `./script/test-bridge.sh` after Java adapter changes. It tests parameter rejection and workflow replay against the installed QuPath jars using a synthetic in-memory image. The public slide integration fixture requires the explicit disposable-fixture authorization described in the demo documentation.
 
 `./script/test-bridge-ui.sh` additionally checks isolated JavaFX list/table selection fingerprints and selectable menu actions. It needs a desktop JavaFX runtime, opens no windows and touches no scientific session. The headless bridge checks now also cover exact hierarchy recovery and scientific-notation parsing.
+
+For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `npm run smoke:voice -- --public-fixture` connects synthetic protocol events and scripted backend responses to real QuPath read/view operations. It never proves live inference or microphone quality. Preserve the production funding gate.

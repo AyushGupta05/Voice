@@ -11,7 +11,8 @@
     "test": "tsx --test packages/gateway/test/*.test.ts",
     "check": "npm run build && npm test",
     "smoke": "tsx script/smoke.ts",
-    "tool": "tsx script/tool.ts"
+    "tool": "tsx script/tool.ts",
+    "smoke:voice": "tsx script/voice-smoke.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

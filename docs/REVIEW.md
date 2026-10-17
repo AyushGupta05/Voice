@@ -47,3 +47,15 @@ A further launch defect was found during real testing and fixed before the clean
 | Pitch | Seven source slide renders inspected; final PPTX package/import/layout validation passed; no native PowerPoint execution claimed |
 
 The native Start voice control was checked and reports the funding blocker without starting microphone capture or a provider session. Project API/cloud spend is $0. See [capabilities](CAPABILITIES.md), [funding](FUNDING.md) and [dataset provenance](DATASETS.md).
+
+## GPT-Live protocol milestone, 17 October 2026, 02:52 BST
+
+The separate client-delegation transport and provider-injected Responses backend passed structured Codex autoreview with exit 0 and no accepted/actionable findings. The helper used the same command above with `.local/review-live.md`, `.local/autoreview-live.md` and `.local/autoreview-live.json`. No additional review was run after the clean result.
+
+Seven findings from prior phase-two review iterations were verified and accepted: lost cross-delegation results, stale inference after corrections, late audio after interruption, invalidation lost in executor waits, duplicate ownership of corrected requests, large approval output escaping memory trimming, and delayed delegations starting after Stop. The fixes preserve bounded result history, check transcript/application state at dispatch, assign one current delegation owner, suppress stale playback and require explicit host reconciliation for interrupted-session work. See [VOICE.md](VOICE.md) for the recovery policy and remaining integration work.
+
+TypeScript compilation and **36 focused gateway/backend/protocol tests passed**. Actual MCP smoke still reports 23 tools and 66 guidance documents. The display-only public-slide protocol fixture passed: the viewer reached (51100, 27100), and the hierarchy remained unchanged. It uses scripted backend responses and synthetic PCM, with no live AI, microphone, speaker or provider session. Its timing is local glue time only.
+
+The Mac became locked during later native UI checks. Those checks remain deferred pending manual unlock; no lock bypass was attempted. The unexecuted disposable approval-card proposal was cleared by restarting the project's idle owned gateway after confirming that nothing was running. The public slide remained at its empty hierarchy baseline.
+
+Production voice is still disabled and project API/cloud spend remains $0. The protocol review does not establish funded activation, hardware audio quality or scientific validation.

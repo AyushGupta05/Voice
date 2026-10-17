@@ -14,7 +14,8 @@ export class Runtime extends EventEmitter {
   readonly actions = new Map<string, Action>();
   private operationQueue: Promise<unknown> = Promise.resolve();
   constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string) { super(); }
-  async call(name: string, args: Arguments) {
+  async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
+    signal?.throwIfAborted(); beforeDispatch?.();
     const spec = validateTool(name, args);
     if (name === 'qupath_knowledge') return this.knowledge.search(args.query as string);
     if (name === 'qupath_action_status') {
@@ -24,8 +25,10 @@ export class Runtime extends EventEmitter {
     }
     if (spec.risk === 'data' || spec.risk === 'code') {
       const context = await this.adapter.execute('context') as Context;
+      signal?.throwIfAborted(); beforeDispatch?.(context);
       if (name === 'qupath_ui_action') {
         const ui = await this.adapter.execute('ui') as { windows: Array<{ title: string; fingerprint: string; controls: Array<Record<string,unknown>> }> };
+        signal?.throwIfAborted(); beforeDispatch?.(context);
         const window = ui.windows.find(window => window.controls.some(control => control.id === args.nodeId));
         const control = window?.controls.find(control => control.id === args.nodeId);
         if (!control || control.disabled) throw new Error('Target control is absent or disabled. Inspect QuPath UI again.');
@@ -36,14 +39,31 @@ export class Runtime extends EventEmitter {
         createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+5*60_000).toISOString(), context,
       };
       // Keep pending exact source available to the human, never an executable model-issued approval.
+      await this.audit(action);
+      try {
+        signal?.throwIfAborted();
+        if (beforeDispatch) {
+          const current = await this.adapter.execute('context') as Context;
+          signal?.throwIfAborted(); beforeDispatch(current);
+        }
+        if (Date.now() >= Date.parse(action.expiresAt)) throw new Error('Proposal expired while being prepared.');
+      } catch (error) {
+        action.status = 'expired'; action.error = 'Request cancelled before the proposal was published.';
+        await this.audit(action); throw error;
+      }
       this.actions.set(action.id,action);
       this.prune();
-      await this.audit(action);
       this.emit('action', action);
       return { status: 'approval_required', actionId: action.id, tool: name, arguments: args, image: context.image, target: context.reviewTarget, expiresAt: action.expiresAt, message: 'The researcher must review and approve this exact action in Luma. No execution has occurred.' };
     }
     return this.serial(async () => {
-      const result = await this.adapter.execute(spec.operation!,args);
+      signal?.throwIfAborted(); beforeDispatch?.();
+      let expectedContext: string | undefined;
+      if (beforeDispatch) {
+        const current = await this.adapter.execute('context') as Context;
+        signal?.throwIfAborted(); beforeDispatch(current); expectedContext = current.contextKey;
+      }
+      const result = await this.adapter.execute(spec.operation!,args,expectedContext ? { expectedContext } : undefined);
       this.emit('tool', { name, arguments: args, result });
       return result;
     });
@@ -77,12 +97,12 @@ export class Runtime extends EventEmitter {
   }
   private prune() {
     for (const [id,action] of this.actions) {
-      if (action.status === 'pending' && Date.now() > Date.parse(action.expiresAt)) action.status='expired';
+      if (action.status === 'pending' && Date.now() > Date.parse(action.expiresAt)) { action.status='expired'; this.emit('action',action); }
       if (this.actions.size > 200 && !['pending','running'].includes(action.status)) this.actions.delete(id);
     }
     if ([...this.actions.values()].filter(action => action.status === 'pending').length > 20) {
       const oldest = [...this.actions.values()].find(action => action.status === 'pending');
-      if (oldest) oldest.status='expired';
+      if (oldest) { oldest.status='expired'; this.emit('action',oldest); }
     }
   }
   private async audit(action: Action) {

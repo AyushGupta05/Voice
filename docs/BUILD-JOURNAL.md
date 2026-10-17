@@ -84,3 +84,15 @@ Owned-gateway recovery also passed: terminating only that idle Node child caused
 Final structured Codex autoreview exited 0 with no accepted/actionable findings. All 24 findings from prior valid review passes were accepted, verified and fixed. No further review was run after the clean result. The final adapter was loaded into QuPath and the authorized enhanced fixture passed again with 899 cells, 49 / 850 threshold classes, explicit 899/100 selection-preview semantics, comparison and empty hierarchy/selection restoration. Actual MCP smoke passed again. Full commands and proof boundaries are in REVIEW.md.
 
 The code and documentation/pitch are ready for separate progress commits to the approved personal fork. Production voice remains funding-blocked, project API/cloud spend remains $0, and the continuation heartbeat is confirmed ACTIVE until 07:45 BST. The next implementation milestone is the actual GPT-Live client-delegation protocol and backend interface under local tests; preserve the closed funding gate.
+
+## 17 October 2026, 02:52 BST — GPT-Live protocol reviewed clean
+
+Implemented the actual GPT-Live client-delegation transport separately from the older Realtime protocol, plus a provider-injected Responses-shaped scientific backend. It retains timestamped conversation and bounded task results, sends actual viewer images as vision input, uses the same 23 Runtime tools as MCP and waits for real human decisions. Production constructs no provider client and still refuses voice activation.
+
+Seven accepted review findings were fixed and tested across successive passes. Final structured autoreview exited 0 clean. TypeScript compilation and 36 focused tests pass; actual MCP smoke and the scripted display-only real-QuPath protocol fixture pass. The fixture uses synthetic audio and no model inference, microphone or speaker. It verifies viewer center and unchanged scientific objects, not voice latency.
+
+Read-only discovery observed 232 installed menu commands across 13 menu families (223 enabled, 9 disabled in this public-slide state). This demonstrates discovery breadth, not universal execution coverage. No menu command was invoked during that inventory.
+
+The Mac is locked, so additional native UI inspection waits for manual unlock. Code, protocol and synthetic-audio work continue. An isolated synthetic 48 kHz stereo to 24 kHz mono conversion probe produced the expected signal level without opening audio hardware. Native capture/playback wiring and funded end-to-end voice remain unfinished.
+
+The next increment will make tool documentation reproducible from its schemas and add focused offline native PCM checks. Existing published milestones are 31338fe and 6d222af in the approved personal fork. No project API/cloud spend.

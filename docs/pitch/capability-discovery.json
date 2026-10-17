@@ -1,0 +1,25 @@
+{
+  "observedAt": "2026-10-17T01:51:53.425Z",
+  "application": "QuPath 0.7.0",
+  "dataset": "Public OS-2.ndpi",
+  "operation": "read-only menu discovery",
+  "menuCommands": 232,
+  "enabled": 223,
+  "disabled": 9,
+  "families": {
+    "File": 28,
+    "Edit": 12,
+    "Tools": 10,
+    "View": 58,
+    "Objects": 36,
+    "TMA": 12,
+    "Measure": 8,
+    "Automate": 7,
+    "Analyze": 21,
+    "Classify": 13,
+    "Extensions": 11,
+    "Window": 4,
+    "Help": 12
+  },
+  "boundary": "Discovery only. No command was invoked; counts depend on image, project, selection and installed extensions."
+}

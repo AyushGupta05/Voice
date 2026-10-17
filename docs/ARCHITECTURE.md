@@ -23,7 +23,7 @@ Only loopback interfaces are used. Per-install random tokens protect the bridge 
 
 ## Provider and budget policy
 
-The standalone Realtime transport is locally protocol-tested. The requested GPT-Live integration is a separate remaining implementation; see GPT-LIVE-PLAN.md. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
+The separate Realtime and GPT-Live transports and provider-injected backend are locally protocol-tested; see VOICE.md. Neither transport is constructed by the production server. A provider factory and native capture/playback wiring remain. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
 
 ## Extensibility
 

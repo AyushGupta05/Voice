@@ -18,7 +18,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Live voice is blocked by funding.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The realtime transport has local protocol tests, but production voice is deliberately disabled. No paid project API calls or cloud resources have been used. [Funding decision](docs/FUNDING.md)
+**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. No paid project API calls or cloud resources have been used. [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 
@@ -42,7 +42,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 | [Setup](docs/SETUP.md) | Install, launch, MCP configuration and troubleshooting |
 | [Capability matrix](docs/CAPABILITIES.md) | Implemented, verified and blocked behavior |
 | [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
-| [GPT-Live integration](docs/GPT-LIVE-PLAN.md) | Remaining protocol and activation work |
+| [Voice integration](docs/VOICE.md) | Implemented protocols, backend interface and remaining activation work |
 | [Protocol](docs/PROTOCOL.md) | Requests, tool execution and approval semantics |
 | [Contributor guide](docs/CONTRIBUTING.md) | Add adapters/tools and verify changes |
 | [QuPath agent skill](skills/qupath/SKILL.md) | Scientific operating guidance and task references |

@@ -22,7 +22,7 @@ There are 23 MCP tools. Breadth comes from structured scientific operations, the
 | Knowledge | Authored guides + pinned official documentation | No | 66 documents indexed in the current local checkout |
 | Native companion | Floating panel, action history, approvals, knowledge search | N/A | Builds, launches and visually inspected on this Mac |
 | Realtime voice transport | Continuous PCM protocol, VAD, function calls, interruption events | Funding gate | Local protocol fixture passes; no live provider session; production activation intentionally absent |
-| GPT-Live | Different delegation protocol | Not implemented | Do not label the Realtime transport GPT-Live compatible |
+| GPT-Live client delegation | Separate transport and provider-injected backend, timestamped conversation, actual Runtime tools, human-decision waits | Funding gate | Local protocol/backend tests and a scripted display-only real-QuPath integration; no live model, microphone or provider session |
 
 ## Analysis semantics
 

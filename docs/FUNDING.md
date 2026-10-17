@@ -14,7 +14,7 @@ Therefore this build has made **zero project inference calls**, created **no pro
 
 `packages/gateway/src/funding.ts` fails closed. The server's voice-start handler reports the blocker and never opens an upstream model connection. There is no fallback to a personal OpenAI API key, no environment switch that silently authorizes cash billing, and no pretend live voice result.
 
-The standalone Realtime transport has a local WebSocket protocol test. It is not activated in the production server. GPT-Live is a distinct protocol and would require a separate implementation and verification.
+The standalone Realtime transport and the separate GPT-Live client-delegation transport/backend have local protocol tests. Neither is activated in the production server. The scripted voice-protocol smoke uses only loopback connections and display operations; it is not live AI or microphone verification. See VOICE.md.
 
 ## What would unblock live voice
 
