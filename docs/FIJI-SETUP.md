@@ -2,6 +2,8 @@
 
 Luma's second application is Fiji (ImageJ2 2.18.0 with ImageJ 1.54p). The contract both halves implement is [docs/FIJI-PROTOCOL.md](FIJI-PROTOCOL.md). This page covers the pinned download, the Java bridge build, how the launcher starts the bridge, how the tests run, and what was verified in the real application.
 
+
+Headless and batch Fiji processes (`-batch`, `--headless`, `-macro`, `-eval`, `--run`, or `java.awt.headless=true`, as the contract tests and recipe runs use) never auto-start a bridge, so they cannot fight the interactive instance for port 49557 or flash a window; `-Dluma.bridgePort=<port>` opts one in deliberately.
 ## Install (idempotent)
 
 ```bash

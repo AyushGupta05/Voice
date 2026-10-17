@@ -25,8 +25,16 @@ export class CreditBudget {
   async reserve(observation: CreditObservation, signal: AbortSignal) {
     signal.throwIfAborted();
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
-    try { await mkdir(this.lockPath, { mode: 0o700 }); }
-    catch { throw new Error('Credit budget is locked or unavailable. Inspect local state; no model request was sent.'); }
+    // Two conversations reserve at the same moment (a voice turn while a typed request runs, or a second companion);
+    // the second waits briefly for the lock instead of failing its request. A lock older than the wait is reported.
+    const deadline = Date.now() + 3_000;
+    for (;;) {
+      try { await mkdir(this.lockPath, { mode: 0o700 }); break; }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() >= deadline) throw new Error('Credit budget is locked or unavailable. Inspect local state; no model request was sent.');
+        await new Promise(resolve => setTimeout(resolve, 25)); signal.throwIfAborted();
+      }
+    }
     const temporary = join(this.directory, `.credit-budget-${randomUUID()}.tmp`);
     try {
       signal.throwIfAborted();
