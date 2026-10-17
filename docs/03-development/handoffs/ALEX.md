@@ -20,15 +20,15 @@ A restarted session reads this file first; keep it short, factual and current.
 
 | Field | Value |
 |---|---|
-| Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator access on reverez/Voice requested in #2; `permissions.push` was `false` on 17 Oct 16:00) |
+| Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator on reverez/Voice, `push: true` since 17 Oct evening) |
 | Branch | `feat/alex-ui` (local clone of reverez/Voice, remote `origin`) |
-| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15), `da1a4d6` + `ff6cbaa` (#16), `088f7e2` (#19), `7f078d4` (#20) not yet pushed (no push permission) |
-| Current issue | #15, #16, #19 and #20 implemented and tested locally, PR bodies posted on the issues, all pending push access; #17 contract proposal posted, waiting for Arnav; #6 waits for the engine contract; #18 blocked (#11/#12) |
+| Last pushed commit | `5434147` (feat/alex-ui = origin/feat/alex-ui; #15, #16, #19, #20 all pushed) |
+| Current issue | PR #22 (#15/#16/#19/#20) open into `development/fidelis-workstation`, waiting for Arnav's review; #17 contract proposal posted, waiting for Arnav; #6 waits for the engine contract; #18 blocked (#11/#12) |
 | Machine | Windows 11, 1920x1200 at 125 % (`dpiScale=1.25`, logical desktop 1536x960); `FIDELIS_FIJI_DIR=C:\Users\al3xk\dev\Fiji` (archive 20261013-1517, SHA-256 `9201287a…794c54`, 1379 files match `external/fiji.lock.json`); Python 3.11 via `py -3.11 -I` |
 | Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`); `WorkspaceDisposeTest` 1/1 and `WorkspaceShortcutTest` 1/1 at `da1a4d6`; `WorkspaceU2Test` 20 consecutive runs, 20 × `4 tests finished, 0 failed` |
 | Last full-suite result on this branch | `[fidelis-tests] 385 tests finished, 0 failed` at `7f078d4` (17 Oct); previously `[fidelis-tests] 384 tests finished, 0 failed` at `088f7e2` (17 Oct, `FIDELIS_PYTHON` = Python 3.11) (previous: `382 tests finished, 0 failed` at `da1a4d6`) | <!-- older:  `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment | -->
 | FX-001 baseline diff | regenerated here with the pinned Fiji: numbers and hashes identical, only the lead's absolute clone paths and `seconds` differ (restored with `git checkout -- verification`; details in the #3 comment) |
-| Open PRs | none yet (push blocked) |
+| Open PRs | #22 `ui: demo layout, reliability, macro editor and dark-theme polish (#15 #16 #19 #20)` |
 
 ## Done
 
@@ -71,7 +71,7 @@ A restarted session reads this file first; keep it short, factual and current.
 
 ## Next steps
 
-1. When push access lands: `git push origin feat/alex-ui`, open the #15 PR (body drafted in the #15 comments), `READY FOR REVIEW:`.
+1. Answer review comments on PR #22; after merge, rebase `feat/alex-ui` on `development/fidelis-workstation` (no force-push: `git merge` if needed).
 2. (see 3)
 3. Open the PRs: the PR bodies are posted as "PR BODY DRAFT" comments on #15, #16, #19 and #20 (one PR per issue, or one PR with all three if the integrator prefers).
 4. #17 channels strip once Arnav acknowledges the contract comment (SET_COMPOSITE_MODE / SET_ACTIVE_CHANNELS) and lands the
@@ -79,8 +79,7 @@ A restarted session reads this file first; keep it short, factual and current.
 
 ## Blockers and open questions
 
-- Push permission on reverez/Voice (`akurkar07`): requested in #2 on 17 Oct. Preflight (#3) is all PASS except that line
-  (speech lines WARN, as allowed for the UI stream).
+- (resolved 17 Oct evening) push permission on reverez/Voice; preflight (#3) now all PASS except the optional speech lines (WARN).
 - Engine observations from #19 (posted on #19 for Arnav): the CODE capability scan returns `exec,eval,call,runMacro` for every
   text (even `print(...)`), so the confirmation sheet over-reports and pure macros are recorded `UNRECORDABLE` with 0 macro
   lines; `Engine.rois(doc)` stays 0 after a CODE run that filled the ROI Manager (71); `EngineEvent.LogLine` is never emitted
