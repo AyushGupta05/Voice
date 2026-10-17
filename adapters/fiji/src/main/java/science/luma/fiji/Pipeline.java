@@ -270,7 +270,7 @@ public final class Pipeline {
             if (spot != null) { window.setLocation(spot.x, spot.y); taken.add(spot); }
             else if (window instanceof java.awt.Frame frame) frame.setState(java.awt.Frame.ICONIFIED);
         }
-        if (!movers.isEmpty()) image.toFront();
+        // Never toFront: raising the image window activated Fiji and switched the researcher's apps under them.
     }
     /** ImageJ's side windows: ROI Manager, tables (Results, Summary, Log), plots and Penny's chart — not images, the toolbar or modal dialogs. */
     static boolean isSideWindow(java.awt.Window window) {

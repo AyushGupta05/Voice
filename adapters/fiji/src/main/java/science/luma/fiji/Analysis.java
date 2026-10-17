@@ -616,7 +616,7 @@ final class Analysis {
         if (n > 0 && Operations.bool(args, "plot", true) && Operations.guiVisible()) {
             showHistogram(imp, area, cal.getUnit()); result.put("plot", "Size distribution");
             // The plot window must not become the active image: the next "segment"/"count" still means the cells' image.
-            if (imp.getWindow() != null) { WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
+            if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow());
         }
         return result;
     }

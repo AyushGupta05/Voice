@@ -54,7 +54,6 @@ final class PointerOverlay: ObservableObject {
     private var baseTargets: [HighlightTarget] = []
     private var basePoint = CGPoint.zero
     private var clipTimer: Timer?
-    private var raisedForGeneration = -1
     private var currentOffset = CGVector(dx: 0, dy: 0)
 
     /// Fly to a single point (e.g. after a focus) with a short label.
@@ -193,13 +192,8 @@ final class PointerOverlay: ObservableObject {
             // Not on screen (minimised, hidden, another Space): nothing may be drawn over whatever is there instead.
             clipRects = []; pointHidden = true
             if !canvasAway { withAnimation(.easeOut(duration: 0.15)) { canvasAway = true } }
-            // Penny is showing an answer: bring the application (and its Space) forward once so the answer appears.
-            if raisedForGeneration != generation, let app = pids.compactMap({ NSRunningApplication(processIdentifier: $0) }).first(where: { $0.activationPolicy == .regular }) {
-                raisedForGeneration = generation
-                // Hold the outlines a little longer: switching Spaces takes a moment.
-                scheduleHide(after: 7)
-                app.activate()
-            }
+            // Never bring the application forward: stealing focus switched the researcher's apps and Spaces under them.
+            // The outlines simply stay hidden until the canvas is on this screen again.
             return
         }
         if canvasAway { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { canvasAway = false }; previous = CGPoint(x: cursor.x - 160, y: max(0, cursor.y - 220)); flight += 1 }
@@ -219,11 +213,6 @@ final class PointerOverlay: ObservableObject {
         let target = CGPoint(x: basePoint.x + currentOffset.dx - screenBounds.minX, y: basePoint.y + currentOffset.dy - screenBounds.minY)
         let hidden = !rects.contains { $0.contains(target) }
         if hidden != pointHidden { withAnimation(.easeInOut(duration: 0.2)) { pointHidden = hidden } }
-        // Mostly covered when Penny starts to show something: bring the application forward once, so the answer is visible.
-        if first, clip.visibleFraction < 0.35, raisedForGeneration != generation, let app = NSRunningApplication(processIdentifier: holder.pid) {
-            raisedForGeneration = generation
-            app.activate()
-        }
     }
 
     private func appPIDs() -> [Int32] {
