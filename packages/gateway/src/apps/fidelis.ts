@@ -204,6 +204,8 @@ export function describeDocument(context: unknown): string | undefined {
 const confirmWords = /^(?:(?:yes|yeah|yep|yup|sure)(?: please)?(?: (?:go ahead|do it|run it|go|confirm|proceed))?(?: (?:go ahead|do it|run it))?(?: thanks| thank you)?|(?:go ahead|go for it|do it|run it|proceed)(?: (?:go ahead|do it|run it))?(?: please)?|confirm(?: it| that| the plan)?|confirmed|confirm and run)$/;
 const cancelWords = /^(?:no|nope|nah|no thanks|no thank you|cancel(?: it| that| this| the plan)?|no cancel(?: it| that)?|stop(?: that| it)?|don't(?: run it| do it| do that)?|do not run it|no don't|never ?mind|forget it)$/;
 /** Whole-utterance instant routes: confirm or cancel a pending plan, open, describe, zoom, count, brightness, find the nuclei, slices, undo and redo. */
+/** Ends in a question mark (cleanUtterance drops it): "Yes?" asks, it does not answer. */
+const isQuestion = (value: string) => /\?["'\u201d\u2019)\s]*$/.test(value);
 /** Typographic apostrophes and quotes as ASCII, so "don’t" reads like "don't" (cleanUtterance keeps only ASCII ones). */
 const asciiApostrophes = (value: string) => value.replace(/[\u2018\u2019\u02bc\u0060\u00b4]/g, "'");
 function fastRoute(spokenText: string, context: unknown): FastRoute | undefined {
@@ -213,7 +215,7 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   const pending = record(state?.pending);
   if (pending) {
     const planId = text(pending.planId);
-    if (confirmWords.test(said)) return { tool: 'fidelis_confirm', arguments: planId ? { planId } : {}, reply: 'Running it.' };
+    if (confirmWords.test(said) && !isQuestion(spokenText)) return { tool: 'fidelis_confirm', arguments: planId ? { planId } : {}, reply: 'Running it.' };
     if (cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: planId ? { planId } : {}, reply: 'Cancelled; nothing ran.' };
   }
   // "Open the hela cells image": the host resolves imageQuery with fidelis_find_images; an already-open document is focused instead.
@@ -312,7 +314,8 @@ function modelArguments(name: string, args: Record<string, unknown>, utterance: 
 /** The researcher's own latest words are, as a whole, an assent to the plan ("yes", "yes please", "okay, go ahead, run
  * it", "confirm"): the same grammar as the instant "yes" route. Anything more ("yes, if…", "confirm whether…") is not. */
 export function researcherAssents(utterance: string | undefined): boolean {
-  return confirmWords.test(cleanUtterance(asciiApostrophes(utterance ?? '')));
+  // A question is never an assent: "Yes?" is also the voice transport's prompt for a bare "Hey Penny".
+  return !isQuestion(utterance ?? '') && confirmWords.test(cleanUtterance(asciiApostrophes(utterance ?? '')));
 }
 /** `fidelis_confirm` runs an explicit plan, which only the researcher may approve (docs/FIDELIS-PROTOCOL.md,
  * Confirmation): it is refused unless the latest words of the conversation task are the researcher's assent, so neither
@@ -341,7 +344,9 @@ export const fidelis: AppProfile = {
   bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true, controlRoutes: true,
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
-  needsModel: (_name, result) => dialogWaiting(result),
+  // A waiting dialog, or a confirmed plan whose result has no local sentence (a measured mean on a possible mask), is
+  // finished by the model with the real result instead of a bare "Done.".
+  needsModel: (name, result, context) => dialogWaiting(result) || name === 'fidelis_confirm' && localSentenceFor(name, {}, result, context) === undefined,
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),
   prepareAction, modelArguments,
 };

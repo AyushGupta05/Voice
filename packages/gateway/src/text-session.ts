@@ -102,7 +102,7 @@ export class TextConversation {
     }
     // An instant step can leave work only the model can finish (a command's original Fiji dialog waiting): the request
     // continues with the backend, which sees what the step returned, instead of finishing as done.
-    if(!failed&&profile.needsModel?.(route.tool,result)){
+    if(!failed&&profile.needsModel?.(route.tool,result,context)){
      this.append('assistant',`(${route.tool} ${JSON.stringify(route.arguments)} returned ${String(JSON.stringify(result)).slice(0,2000)})`);
     }else{
     // Object terminology belongs to this image and a successful request. Opening another image must also

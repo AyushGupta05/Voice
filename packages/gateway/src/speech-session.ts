@@ -25,7 +25,7 @@ export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<voi
  control?:(text:string)=>Promise<void>};
 const wordCount=(text:string)=>text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean).length;
 /** Short commands worth acting on even as one or two words; anything else that short is treated as room chatter. */
-const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|(?:stop|cancel)(?: (?:that|it))?|undo(?: that)?|go back|redo|yes|no|stricter|tighter|looser|brighter|lighter|darker|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
+const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|(?:stop|cancel)(?: (?:that|it))?|undo(?: that)?|go back|redo|yes|no|confirm|proceed|stricter|tighter|looser|brighter|lighter|darker|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
 const STOP_COMMAND=/^(?:please )?(?:stop|cancel)(?: (?:that|it))?(?: please)?[.!?]*$/i;
 /** The microphone stays open for 30 minutes, so fragments like "OK." or "Bye." must not become model requests. */
 export function isAddressedToLuma(text:string){

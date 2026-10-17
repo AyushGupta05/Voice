@@ -15,7 +15,7 @@ import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/brid
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
 import { Runtime } from '../src/runtime.js';
-import { SpeechSession } from '../src/speech-session.js';
+import { SpeechSession, addressed } from '../src/speech-session.js';
 import { Knowledge } from '../src/knowledge.js';
 import { TextConversation } from '../src/text-session.js';
 import { toolTask, toolUtterance, conversationEnvelope } from '../src/tool-request.js';
@@ -185,6 +185,12 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   for (const yes of ['Yes.', 'yes please', 'Go ahead', 'Okay, run it.', 'yeah do it', 'confirm', 'Yes, please go ahead.']) assert.deepEqual(route(yes, pending), { tool: 'fidelis_confirm', arguments: { planId: 'plan-7' }, reply: 'Running it.' }, yes);
   for (const no of ['No.', 'cancel', 'Cancel that.', 'stop that', "don't run it", 'Don\u2019t run it.', 'never mind', 'no thanks']) assert.deepEqual(route(no, pending), { tool: 'fidelis_cancel_plan', arguments: { planId: 'plan-7' }, reply: 'Cancelled; nothing ran.' }, no);
   assert.deepEqual(route('yes', { ...pending, document: null })?.tool, 'fidelis_confirm', 'a pending plan is confirmed even without a focused document');
+  // A bare "Hey Penny" reaches the conversation as the prompt "Yes?": a question never confirms.
+  assert.equal(addressed('Hey Penny', { wakeWord: false, attentive: false }).request, 'Yes?');
+  assert.equal(route('Yes?', pending), undefined); assert.equal(researcherAssents('Yes?'), false); assert.equal(researcherAssents('Go ahead?'), false);
+  // The speech gate lets the one-word assents through; chatter-prone words need a second word ("yeah, do it").
+  for (const word of ['Yes.', 'Confirm.', 'Proceed.', 'No.']) assert.equal(addressed(word, { wakeWord: false, attentive: false }).accept, true, word);
+  assert.equal(addressed('Sure.', { wakeWord: false, attentive: false }).accept, false); assert.equal(addressed('Yeah, do it.', { wakeWord: false, attentive: false }).accept, true);
   for (const word of ['yes', 'go ahead', 'no', 'cancel']) assert.equal(route(word), undefined, `${word}: nothing pending, the model answers`);
   for (const other of ['okay', 'yes and then measure it', 'zoom in on the cells', 'find the nuclei and measure their area', 'undo the threshold', 'fit', 'segment the cells then count them']) assert.equal(route(other, pending.document ? { ...pending, pending: null } : pending), undefined, other);
   assert.equal(route('zoom in', { ...blobs, document: null }), undefined, 'no document, no view route');
@@ -600,5 +606,25 @@ test('a confirmed plan whose command opens its original dialog continues with th
     assert.deepEqual(events.filter(event => event.type === 'text_ack').map(event => event.text), ['Running it.', 'Filling in the dialog.']);
     assert.equal(rounds.length, 1); assert.ok(bridge.requests.some(request => request.operation === 'dialog_action'));
     assert.equal(result()!.text, 'Ran Bandpass Filter.'); assert.notEqual(result()!.fastPath, true);
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('a confirmed measurement without a local sentence is phrased by the model, never a bare "Done."', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-confirm-measure-'));
+  const bridge = await fakeBridge(root, (request, state) => {
+    if (request.operation === 'confirm') { state.context = { ...state.context, contextKey: 'k-measured', pending: null }; return { status: 'completed', confirmed: true, operation: 'measure', rows: 1, lastRow: { Area: 400, Mean: 255 }, summary: { mean: { min: 255, max: 255, mean: 255, count: 1 } }, unit: 'pixel', steps: [{}, {}] }; }
+    throw new Error(`unexpected ${request.operation}`);
+  });
+  bridge.state.context = { ...bridge.state.context, contextKey: 'k-wait', pending: { planId: 'plan-measure', reasons: ['Set Measurements is AC5'] } };
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  let rounds = 0;
+  const { conversation: talk, result } = conversation(runtime, { complete: async request => {
+    rounds++; assert.match(JSON.stringify(request.input), /fidelis_confirm .* returned .*Mean/);
+    return { output: [], output_text: 'That region reads 255 everywhere: it is the segmentation mask, so the original pixels are needed for intensity.' };
+  } });
+  try {
+    await talk.submit('Yes.', true);
+    assert.ok(bridge.requests.some(request => request.operation === 'confirm'));
+    assert.equal(rounds, 1); assert.match(String(result()!.text), /segmentation mask/);
   } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
 });

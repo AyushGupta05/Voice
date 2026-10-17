@@ -74,7 +74,10 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
   waits. Acknowledgments never claim a waiting plan ran (`fidelis_run_macro` says "Preparing the macro.").
 - With `context.pending` set, a whole-utterance "yes", "yes please", "go ahead", "do it", "run it" or "confirm" runs
   `fidelis_confirm {planId}` at once, and "no", "cancel", "stop that", "don't run it", "never mind" runs
-  `fidelis_cancel_plan {planId}`. Without a pending plan these words go to the model. A bare "okay" never confirms.
+  `fidelis_cancel_plan {planId}`. Without a pending plan these words go to the model. A bare "okay" never confirms, and
+  neither does a question: a bare "Hey Penny" reaches the conversation as the prompt "Yes?". The speech gate passes the
+  one-word replies "yes", "no", "confirm" and "proceed" ("confirm" and "proceed" were added); chatter-prone words such
+  as "sure" or "yeah" need a second word ("yeah, do it").
 - Only the researcher confirms: `fidelis_confirm` is refused ("Only the researcher can confirm this plan: say "yes" or
   press Confirm in Fidelis.") unless the latest words of the conversation task are, as a whole, an assent in the same
   grammar as the instant route ("yes", "yes please", "okay, go ahead, run it", "confirm"); "yes, if…" or "confirm
@@ -87,7 +90,9 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
   another plan replaced it since, the confirm is refused ("The plan changed after you said yes; check the new plan and
   say yes again."). The gateway fills `planId` from that plan and refuses one that is no longer pending, or "Nothing is
   waiting for confirmation." The confirm result is spoken from what the plan returned (a count, measurement, threshold
-  or step); a single confirmed measurement names no place, since the gateway cannot tell `roi` from `all`.
+  or step); a single confirmed measurement names no place, since the gateway cannot tell `roi` from `all`. When no
+  local sentence fits (a measured mean without `document.binary: false`), the request continues with the model, which
+  gets the result, instead of ending as "Done.".
 
 ### Original Fiji dialogs
 
