@@ -30,7 +30,7 @@ CI has three tiers (NFR-MAINT-005):
 - scheduled, the full cache up to 50 MB;
 - manual, larger data and human speech.
 
-The authoritative requirement-to-test mapping is the new [`docs/data/verification-coverage.csv`](../../data/verification-coverage.csv). It has 154 rows covering all 129 MVP- and HACK-priority FR/NFR in A26/A27 (including the six added in A26 §13a during design), plus rows for two PARITY requirements used by J-13 and J-14. The generator script extracts the IDs and their priorities from A26/A27 and fails if any is uncovered (§11).
+The authoritative requirement-to-test mapping is the new [`docs/data/verification-coverage.csv`](../../data/verification-coverage.csv). At design hand-off it has 158 rows covering all 132 MVP- and HACK-priority FR/NFR in A26/A27 (current generator output; D20 §9), including the requirements added in A26 §13a during design, plus rows for two PARITY requirements used by J-13 and J-14. The generator script extracts the IDs and their priorities from A26/A27 and fails if any is uncovered (§11).
 
 Two findings shape the design. First, for the MVP set the reference **must** include GUI-mode runs, because `Analyze Particles...` with `add` fails headless (A08 op 11). Second, headless macro runs of Gaussian Blur and Median leave the Fiji process alive (A08 ops 02/04, "exit-hang"), so every reference run needs an explicit termination path and a timeout. Design content is **PROPOSED**.
 
@@ -106,7 +106,7 @@ The reference must not contain the product, so that a product defect cannot alte
 |---|---|---|
 | Launch, headless | `fiji-windows-x64.exe --java-home=<R>/java/win64/zulu21.42.19-ca-jdk21.0.7-win_x64 --allow-multiple --headless -Dimagej.updater.disableAutocheck=true -Duser.home=<run-dir>/home --run <run-dir>/dump.groovy` (or `-macro <file.ijm>` for pure-macro runs). The working directory is `<run-dir>`, not the Fiji folder (see prefs). | Launcher flags VERIFIED (A22; P40/P41 commands in `probes/README-G3.md`); FR-SYS-008, NFR-MAINT-004 |
 | Launch, GUI | Same command without `--headless`. GUI references run classic Fiji (M3), which is the oracle users know. | P83/P85 driver commands (`P85-gui-driver.ps1`) |
-| Mode choice | Per command from `commands.csv` `headless_probe`. `pass` → headless. `fail`, `partial` or `untested` → GUI, until a headless probe passes. Recorded per test (NFR-FID-002). | A30 §2 note 3; CR-A30-07 |
+| Mode choice | Per command from `commands.csv` `headless_probe` (DEC-043, canonical). `pass` → headless. `fail`, `partial` or `untested` → GUI, until a headless probe passes. Recorded per test (NFR-FID-002). | A30 §2 note 3; CR-A30-07; DEC-043 |
 | Termination | The dumper writes `done.json` and then calls `Runtime.halt(0)` in GUI mode (`System.exit` hangs, P85) and `System.exit(0)` in headless mode. The runner waits for `done.json`, with a timeout (PROPOSED default 120 s, the bound used by the A08 harness), then kills the process tree. A run that times out is a harness failure, never a pass. | P85; A08 §7 ("exit-hang", killed at 120 s); NFR-REL-003; A26 §14-C4 |
 | Output capture | File-based only. The launcher is a GUI-subsystem executable on Windows, so stdout is not captured (`probes/README-G3.md`, P41 row). | VERIFIED (probe README) |
 | Pin, before | `verify_runtime(<R>/fiji-windows-x64.exe)` must return the lock hash (currently `f6695397…`). Fail if `<R>/update/` contains any file, because Jaunch's `apply-update` would mutate the install at launch (A22). | NFR-FID-004; `backend/src/fidelis/adapters/fiji.py` `verify_runtime` |
@@ -126,7 +126,7 @@ The reference must not contain the product, so that a product defect cannot alte
 | Globals | Emitted at the start, explicitly: `setOption("BlackBackground", b)`, `run("Set Measurements...", <all keys>)`, `run("Options...", "iterations=… count=… [black] [pad] edm=… do=Nothing")` for binary families, `run("Conversions...", …)` when type conversion is involved. For journeys, the values come from the action list's initial-globals record (FR-MEAS-001). |
 | IO forms | `open(path)`, never `run("Open...")` (A08 op 30b fails headless; 30c passes). `saveAs("Tiff", path)`. |
 | Thresholds | `setAutoThreshold("<method>[ dark]")` or `setThreshold(lower, upper)` with exact values |
-| ROIs | `makeSelection(type, xs, ys)` with float arrays; `makeRectangle`/`makeOval` with doubles |
+| ROIs | Same rule as D07 G5 (corrected in Phase 8): rectangles and ovals → `makeRectangle`/`makeOval` with double arguments (type preserved); polygon, line and point types → `makePolygon`/`makeLine`/`makePoint` when integer, `makeSelection(type, xs, ys)` when non-integer. E4 also asserts that the ROI **type** is equal. |
 | Seeds | `random("seed", n)` before nondeterministic commands. Commands without a seed mechanism are excluded from E1/E2 and listed in the report (CR-A30-05; NFR-FID-003). |
 | Golden macros | For the ten MVP commands (A31 §3), the reference macros are also **hand-written** and stored with the test. The generator output must equal them textually (L1). |
 | Escaping | Its own minimal string quoting, tested against `ij.macro.Tokenizer` |
@@ -172,15 +172,15 @@ In the product, the dumper reads engine state through the query API (IF-03) in a
 
 | MVP command | Headless evidence | Reference mode for L2 |
 |---|---|---|
-| `File>Open...` (as `open(path)`) | op 30c pass | headless |
+| `File>Open...` (as `open(path)`) | op 30c pass for `open(path)`; `commands.csv` `headless_probe=fail` (op 30b) | **GUI** (DEC-043), until the catalogue row's probe passes |
 | `Subtract Background...` | op 03 pass | headless |
 | `Gaussian Blur...` | op 02 pass, exit-hang | headless, with the explicit-exit dumper and timeout |
-| `Threshold...` (`setAutoThreshold`) | op 07 pass | headless |
+| `Threshold...` (`setAutoThreshold`) | op 07 pass for `setAutoThreshold`; `commands.csv` `headless_probe=fail` (op 27, the frame) | **GUI** (DEC-043), until the catalogue row's probe passes |
 | `Convert to Mask` | op 05 pass | headless |
 | `Watershed` | untested | **GUI**, until a headless probe passes |
 | `Set Measurements...` | op 08 pass | headless |
 | `Measure` | op 09 pass; accumulation truncated headless (P39) | headless for single calls; **GUI** for multi-call accumulation (FR-MEAS-004) |
-| `Analyze Particles...` | op 10 pass (no `add`); op 11 fail (`add`) | headless without `add`; **GUI** with `add` |
+| `Analyze Particles...` | op 10 pass (no `add`); op 11 fail (`add`); `headless_probe=partial` | **GUI** (DEC-043) |
 | `Save As>Tiff...` | op 30a pass | headless |
 
 ### 3.5 Baseline store (NFR-FID-004, CR-A30-04)
@@ -240,7 +240,7 @@ The prompt-bias comparison (FR-SPEECH-005) runs each speech set with and without
 
 | Test | Method | Requirement |
 |---|---|---|
-| Rendering equality | For fixtures with 8-, 16- and 32-bit data, composite, inverting LUT and overlay (FX-001, 004, 070, 071, 074, 018): the viewer's rendered plane at 100 % zoom must equal `ImagePlus.getBufferedImage()` pixel-for-pixel (ARGB), in image coordinates. This proves UI fidelity, **not** scientific equivalence (NFR-FID-003). | FR-VIEW-001 (ADR-009) |
+| Rendering equality | For fixtures with 8-, 16- and 32-bit data, composite and inverting LUT (FX-001, 004, 070, 071, 074, 018): the viewer's rendered **raster without overlay** at 100 % zoom must equal `ImagePlus.getBufferedImage()` pixel-for-pixel (ARGB), in image coordinates. `getBufferedImage` contains no overlay (`ij/ImagePlus.java#L606-L611`). The product-drawn overlay layer is tested separately against `ImagePlus.flatten()` (D13 §2.2), and that test is a gate for the vector overlay path. This proves UI fidelity, **not** scientific equivalence (NFR-FID-003). | FR-VIEW-001 (ADR-009) |
 | Render caching | Instrumented count of `getBufferedImage` calls during zoom and pan without a data change = 0 | FR-VIEW-005 |
 | HiDPI | The rendering-equality and layout tests repeated at 100/150/200 % Windows scaling. The logical-to-device transform is checked (the P87 normalising transform was 1.333 at 150 %). | NFR-PLAT-002 |
 | Pixel readout | Strings equal `getLocationAsString`/`getValueAsString` at sampled points (FX-070, 071, 072, 077) | FR-VIEW-003 |
@@ -287,7 +287,7 @@ Generation: the file is produced by a Python script (kept in the G10 scratch are
 - selects every ID whose `Pri` cell contains `MVP` or `HACK`, including split priorities such as "MVP (TIFF/PNG); HACK (Bio-Formats importer)" and conditional ones such as "MVP (if any LLM is enabled)";
 - fails if any selected ID lacks a row, if a row names an unknown requirement, fixture or journey, or if a level or dimension value is invalid.
 
-Result on 2026-10-17: **160 requirements parsed, 129 MVP/HACK selected, all 129 covered, 154 rows**. FR-SYS-007 and FR-MACRO-007 (PARITY) are also included, for J-13/J-14. A26 changed during this work (§13a added FR-WS-006/007, FR-VIEW-007, FR-PLUG-004, FR-CMD-008, FR-MEAS-006); the generator detected the six new IDs as uncovered, and rows were added. Re-run the generator whenever A26/A27 change. 51 covered requirements have no PAR row; most are NFRs, engine internals or §13a additions, but see G-D18-03.
+First result on 2026-10-17: 160 requirements parsed, 129 MVP/HACK selected, all 129 covered, 154 rows. Current generator output at design hand-off (Phase 8): **162 requirements parsed, 132 MVP/HACK selected, all 132 covered, 158 rows** (D20 §9). FR-SYS-007 and FR-MACRO-007 (PARITY) are also included, for J-13/J-14. A26 changed during this work (§13a added FR-WS-006/007, FR-VIEW-007, FR-PLUG-004, FR-CMD-008, FR-MEAS-006); the generator detected the six new IDs as uncovered, and rows were added. Re-run the generator whenever A26/A27 change. 51 covered requirements have no PAR row; most are NFRs, engine internals or §13a additions, but see G-D18-03.
 
 ## Requirement gaps
 
@@ -306,7 +306,7 @@ Result on 2026-10-17: **160 requirements parsed, 129 MVP/HACK selected, all 129 
 |---|---|---|
 | DEC-037 (was DEC-cand-D18-1) | Two installs: a pristine reference R and a product test install P, both from the pinned archive | Prevents common-mode faults. Matches ADR-010. |
 | DEC-043 (was DEC-cand-D18-2) | Reference mode per command is taken from `commands.csv` `headless_probe`. Anything other than `pass` uses a GUI reference. | A08 §7; CR-A30-07 |
-| DEC-037 (was DEC-cand-D18-3) | Results are compared as raw IEEE bits through the API, never through CSV | P37; CR-A30-03 |
+| DEC-037 (was DEC-cand-D18-3; merged into DEC-037 with DEC-cand-D18-1, see `DECISIONS.md`) | Results are compared as raw IEEE bits through the API, never through CSV | P37; CR-A30-03 |
 | DEC-044 (was DEC-cand-D18-4) | GUI references terminate through `Runtime.halt` after writing `done.json`, with a hard timeout | P85 exit hang; A08 exit-hangs |
 | DEC-045 (was DEC-cand-D18-5) | A dedicated Windows CI runner with a desktop session | GUI-mode references are mandatory for the MVP set |
 
@@ -322,3 +322,5 @@ Result on 2026-10-17: **160 requirements parsed, 129 MVP/HACK selected, all 129 
 ## Change log
 
 - 2026-10-17: Initial version (G10). Created `docs/data/verification-coverage.csv`.
+- 2026-10-17: Phase 8 review fixes (findings #9, #10, #15, #16, #27).
+- 2026-10-17: Phase 8 clarification of DEC-043. The reference mode is decided by the probe result of the form used in the reference macro: `open(path)` and `setAutoThreshold` pass headless (A08 P13), whereas the menu commands `File > Open...` and `Threshold...` fail. VC-0040/VC-0045 (headless) are therefore consistent.

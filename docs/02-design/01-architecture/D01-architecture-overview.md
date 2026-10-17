@@ -99,7 +99,7 @@ flowchart TB
     C43[CMP-43 Speech client]
   end
   C44[CMP-44 Speech worker - Python process]
-  C50[CMP-50 Launcher & supervisor]
+  C50[CMP-50 Launcher & watchdog]
   FIJI[(Unmodified Fiji: IJ1, legacy, SciJava, plugins)]
   UI --> C20
   C09 --> C40 --> C41 --> C20
@@ -140,14 +140,14 @@ flowchart TB
 | CMP-27 | History store & macro generator | Structured action records; macro generation and escaping; export, replay, provenance | FR-HIST-001…003, 009, 010, FR-MACRO-006 | D07 |
 | CMP-28 | Snapshot / undo manager | Per-document snapshots within budget; undo/redo; rollback on cancel or failure | FR-HIST-004…006, NFR-PERF-003 | D05, D17 |
 | CMP-29 | Globals manager | Capture, record, display and restore result-affecting globals; detect global changes | FR-MEAS-001, FR-HIST-007 | D05, D06 |
-| CMP-30 | ROI store bridge | Hidden `RoiManager(false)` per document, synchronised with the `RoiManager.getInstance()` singleton for commands and macros | FR-ROI-004 | D04, D05 |
+| CMP-30 | ROI store bridge | Per-document, engine-owned ordered sets of `Roi` objects; one hidden singleton `RoiManager` (created with `new RoiManager()`, window policy P-A), loaded before and read back after every `uses_roi_manager` action (D04 §4). Hidden `RoiManager(boolean)` instances are not used as the store: they are never the singleton, so commands and macros cannot see them. | FR-ROI-004 | D04, D05 |
 | CMP-31 | Policy & consequence classifier | AC0–AC7 classification; confirmation policy; macro capability scan (`Tokenizer`); CommandListener veto | FR-CMD-005, FR-MACRO-002, FR-PLUG-003 | D06, D08 |
 | CMP-40 | NL interpreter | Grammar fast path + catalogue retrieval/slot filling → CommandPlan; deixis and unit resolution | FR-NL-001, 005, 008 | D08 |
 | CMP-41 | Plan validator & policy | Deterministic schema and live-state validation; confirm, clarify or refuse decision | FR-NL-002, 003, 006, 007 | D08 |
 | CMP-42 | LLM client (optional) | Local-first provider interface; payload preview; logging | FR-NL-009…012 | D08 |
 | CMP-43 | Speech client | Microphone capture (Java Sound), VAD gating via worker, worker lifecycle | FR-SPEECH-001…003 | D08 |
 | CMP-44 | Speech worker | Persistent faster-whisper process; JSON protocol | FR-SPEECH-001, 005, 007 | D03, D08 |
-| CMP-50 | Launcher & supervisor | Launch arguments (autocheck disabled, bundled JDK), start-up checks, heartbeat, crash recovery, bounded quit | FR-SYS-005…008, FR-SYS-007 | D03, D17 |
+| CMP-50 | Launcher & watchdog | Launch arguments (autocheck disabled, bundled JDK), start-up checks, heartbeat, crash recovery, bounded quit | FR-SYS-005…008, FR-SYS-007 | D03, D17 |
 
 ## 4. Interface list (authoritative IF list; contracts in D09)
 
@@ -200,3 +200,4 @@ flowchart TB
 ## Change log
 
 - 2026-10-17: Initial version by the lead (provisional on DEC-010).
+- 2026-10-17: Phase 8 review fixes (findings #1, #26).

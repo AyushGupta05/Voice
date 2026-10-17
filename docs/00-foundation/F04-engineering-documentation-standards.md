@@ -67,7 +67,7 @@ Filenames: `<ID>-<kebab-title>.md`, e.g. `A15-gui-dependence-reuse-boundaries.md
 Requirement priority vocabulary (from brief Rule 7):
 
 - `MVP` — minimum viable demonstration.
-- `HACK` — hackathon target (by 18 Oct 2026).
+- `HACK` — hackathon-target scope: what would have been the hackathon target (18 Oct 2026) with full time, achievable soon after it (A31 §1).
 - `PARITY` — post-hackathon Fiji feature parity.
 - `LONG` — long-term modernisation.
 
@@ -171,3 +171,4 @@ Writing rules:
 ## Change log
 
 - 2026-10-17: Initial version.
+- 2026-10-17: Phase 8 review fixes (findings #26).

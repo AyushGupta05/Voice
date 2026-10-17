@@ -167,3 +167,4 @@ Notes:
 ## Change log
 
 - 2026-10-17: Initial draft (agent G3).
+- 2026-10-17: Phase 8 note. Mentions here of a hidden `RoiManager(false)` describe observed behaviour (VERIFIED). The product design does **not** use such managers as its ROI store, because they are never the singleton that commands and macros see. The design uses one hidden singleton with load and read-back (D04 §4). The boolean argument is ignored (`RoiManager.java#L105-L112`).

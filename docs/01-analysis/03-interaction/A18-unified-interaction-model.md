@@ -55,7 +55,7 @@ This document analyses how the modalities map onto one state and one action laye
 | F2 | `IJ.run(imp, label, options)` runs synchronously in the calling thread. It sets the thread's temp current image and macro options, and renames the thread `Run$_…`. | **VERIFIED** A15 §6; `ij/IJ.java#L310-L332` |
 | F3 | `CommandListener.commandExecuting(cmd)` is invoked for every `Executer` run: menu clicks, `IJ.doCommand`, `IJ.run` and macro `run()`. Returning `null` cancels the command; returning another string substitutes it. `Macro.getOptions()` inside the listener returns the options string. It **does not** see macro built-in functions (e.g. `setAutoThreshold`), IJ2 commands run through `CommandService`, or legacy IJ1 commands run through `ModuleService`. The last case arises because `LegacyCommand` calls `IJ.runPlugIn` directly (`imagej-legacy@3.0.0:net/imagej/legacy/command/LegacyCommand.java#L57`). | **VERIFIED** `ij/Executer.java#L54-L61`; P31 (G2); P80 (G8) |
 | F3b | `ImageListener` callbacks are delivered asynchronously on the EDT (`EventQueue.invokeLater`, `ij/ImagePlus.java#L3043-L3048`). `RoiListener` and `IJEventListener` fire synchronously on the calling thread. `Roi.setLocation` fires no event. SciJava module, display and dataset events arrive on the EDT. IJ2 `Dataset`/`Display` objects are created only when an IJ2 command needs them. | **VERIFIED** P80 (G8) |
-| F4 | `IJ.run` does not propagate plugin exceptions. `Executer` catches `Throwable` and logs it, so success must be judged by postconditions. | **VERIFIED** A08; `Executer.java#L74-L117` |
+| F4 | `IJ.run` does not propagate plugin exceptions. `Executer` catches `Throwable` and logs it, so success must be judged by postconditions. *Correction (Phase 8, finding 7): `Executer` logs the exception only when `IJ.getInstance()==null` (headless); in a GUI JVM (M2) it opens an "Exception" `TextWindow` instead (`Executer.java#L113-L117`; D17 §3.6).* | **VERIFIED** A08; `Executer.java#L74-L117` |
 | F5 | Missing option keys fall back to remembered static values (numbers and choices) or to false (checkboxes). | **VERIFIED** A11 §4, A17 §4, HeadlessGenericDialog L325 (A15 §4.2) |
 | F6 | IJ1 change events: `ImageListener` (opened/closed/updated), `RoiListener` (CREATED…DELETED), `IJEventListener` (colour/tool/log events). There is **no** `ResultsTable` listener. | **VERIFIED** `ij/ImageListener.java#L7-L15`, `ij/gui/RoiListener.java#L9-L14`, `ij/IJEventListener.java#L9-L13`; no listener in `ij/measure/ResultsTable.java` (grep) |
 | F7 | In headless mode, `imageOpened`/`imageClosed` do not fire and `updateAndDraw()` is a no-op. | **VERIFIED** P32 (A09) |
@@ -113,7 +113,7 @@ flowchart LR
 
 ### 3. Source of truth and synchronisation
 
-- The scientific state lives **in the Fiji JVM**: `ImagePlus` pixels, calibration, display range and LUTs, `Roi`/`Overlay`/hidden `RoiManager(false)`, `ResultsTable` and the global settings. **PROPOSED**, following CR-A09-02 and A15 §8.3.
+- The scientific state lives **in the Fiji JVM**: `ImagePlus` pixels, calibration, display range and LUTs, `Roi`/`Overlay`/hidden `RoiManager(false)`, `ResultsTable` and the global settings. **PROPOSED**, following CR-A09-02 and A15 §8.3. *Superseded in design by D04 §4 (singleton load/read-back); see Phase 8 finding 1.*
 - The UI holds **views** of this state: rendered planes, ROI geometry copies, table snapshots. It refreshes them after each completed action and after observed events. Because events are incomplete (F6, F7) and `ResultsTable` has no listener, refresh is driven by **action completion** plus a **post-action state digest** (image IDs, `changes` flags, ROI and Overlay counts, Results row count, globals hash). The digest is computed on the engine worker. **PROPOSED**, comparable in spirit to fiji-llm's environment snapshots (F9).
 - "Active image" becomes a **UI concept**: the focused document. It supplies the default target for new action requests and for natural-language references to "this image" (A17 §5). The engine never relies on IJ1's current image. It passes `imp` explicitly (CR-A09-01) and sets the temp current image only for the duration of a command (F2).
 
@@ -171,3 +171,4 @@ flowchart LR
 ## Change log
 
 - 2026-10-17: Initial draft by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #1, #7).

@@ -51,8 +51,8 @@ This document covers which execution signals exist, on which threads, and with w
 | Tool, colour, log-window events | `IJ.addEventListener` | Synchronous | Tool changes, colours | — | **VERIFIED** `ij/IJEventListener.java#L9-L13`; P80 |
 | Progress | Patched `IJ.showProgress(...)` calls `IJ._hooks.showProgress(...)` at the end of the method | Caller's thread | Stack filters (`PlugInFilterRunner` reports per slice), any plugin calling `showProgress` | `DefaultLegacyHooks` does not override `showProgress`/`showStatus` (only `log`), so nothing is forwarded by default. A custom hook would have to be chained through `LegacyInjector.installHooks(loader, hooks)`, which returns the previous hooks. | **VERIFIED** (source): `ij1-patcher@2.0.0 LegacyInjector.java#L177-L185, L443-L451`; `imagej-legacy@3.0.0 DefaultLegacyHooks.java` (overrides `log` at L213; no `showProgress`). Hook chaining is **INFERRED** feasible and not probed. |
 | Status text | `IJ.showStatus` → `_hooks.showStatus` | As above | Status messages such as "Gaussian Blur: 0.2 s", "INTERRUPTED" | Same as progress | Same |
-| Log | `IJ.log` → `_hooks.log` (overridden by `DefaultLegacyHooks.log`) | Caller | Plugin log messages, swallowed exceptions | — | **VERIFIED** `LegacyInjector.java#L193-L195`; `DefaultLegacyHooks.java#L213` |
-| Completion | `IJ.run` returns (synchronous on the worker; A15 §6). A module's `Future` completes. | Worker | Product-initiated actions | **No failure signal** from `IJ.run`. `Executer` catches `Throwable` and logs it (A08; `Executer.java#L74-L117`). | **VERIFIED** |
+| Log | `IJ.log` → `_hooks.log` (overridden by `DefaultLegacyHooks.log`) | Caller | Plugin log messages, swallowed exceptions | — | **VERIFIED** `LegacyInjector.java#L195-L197` (line reference corrected in Phase 8, finding 32); `DefaultLegacyHooks.java#L213` |
+| Completion | `IJ.run` returns (synchronous on the worker; A15 §6). A module's `Future` completes. | Worker | Product-initiated actions | **No failure signal** from `IJ.run`. `Executer` catches `Throwable` and logs it (A08; `Executer.java#L74-L117`). *Correction (Phase 8, finding 7): `Executer` logs the exception only when `IJ.getInstance()==null` (headless); in a GUI JVM (M2) it opens an "Exception" `TextWindow` instead (`Executer.java#L113-L117`; D17 §3.6).* | **VERIFIED** |
 | Results changed | none | — | — | No `ResultsTable` listener; poll the row count and hash after actions (P80) | **VERIFIED** |
 | Blocking dialog | `Window.getWindows()` / `GenericDialog.getInstance()` scan | Any thread | Modal dialogs opened by commands without options | `WindowManager.getWindow` does not list dialogs | **VERIFIED** P83 |
 | Pixel content change | Compare a hash or sample before and after (fiji-llm uses bounded SHA-256) | Worker | Any change, including plugins mutating images directly | Cost scales with size (A23) | INFERRED; fiji-llm precedent |
@@ -129,3 +129,4 @@ This is the basis for UI refresh, history provenance and postcondition checks.
 ## Change log
 
 - 2026-10-17: Initial draft by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #7, #32).

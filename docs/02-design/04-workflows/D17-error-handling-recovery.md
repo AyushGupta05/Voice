@@ -87,9 +87,9 @@ All design is **PROPOSED**, provisional on DEC-010.
 
 Speech (§3.13) and LLM (§3.14) failures are reported on their own request channels (IF-06, IF-08). They map to the codes above only when an `ActionRequest` is involved: none is created from a failed transcription.
 
-### 2.1 Error payload (fields proposed to D09; not a new contract name)
+### 2.1 Error payload (merged into the D09 §1 envelope)
 
-Every `FAILED`, `CANCELLED`, `PARTIAL` or `AWAITING_CONFIRMATION` lifecycle event carries:
+The authoritative error envelope is D09 §1 (`code`, `subcode?`, `message`, `details`, `recoverable`, `suggestions[]`, `context?`); the subcodes are listed in D06 §7. The fields below are carried in `code`, `subcode` and `context` (Phase 8 merge). Every `FAILED`, `CANCELLED`, `PARTIAL` or `AWAITING_CONFIRMATION` lifecycle event carries:
 
 - `code` and, optionally, `subcode`;
 - `operationId` and `requestId`;
@@ -109,7 +109,7 @@ Every `FAILED`, `CANCELLED`, `PARTIAL` or `AWAITING_CONFIRMATION` lifecycle even
 | RA-RB | Roll back to the pre-command snapshot | CMP-28 restores pixels, calibration, display range and the ROI set through the Java API (A19 §5) | FR-HIST-006, FR-HIST-004 |
 | RA-RT | Retry, with the inputs corrected in UI-07 or UI-18 | Re-submit the `ActionRequest` with a new `requestId` | NFR-REL-001 |
 | RA-LD | Open the Fiji dialog | On explicit user request only: R1 with options omitted, so the native `GenericDialog` appears. Handled as `DIALOG_PENDING`, and the outcome is recorded as legacy dialog input (FR-HIST-008). | FR-PROC-007, FR-PLUG-001 |
-| RA-CA | Cancel the running action | IJ1 filters: `IJ.setKeyDown(KeyEvent.VK_ESCAPE)` (`IJ.java#L1098-L1124`). Macros: `Interpreter.abort()` (`Interpreter.java#L2102`). Modules: `Future.cancel` (A19 §6). | FR-PROC-013 |
+| RA-CA | Cancel the running action (also a QUEUED one, which is removed before it starts, D06 §6) | IJ1 filters: `IJ.setKeyDown(KeyEvent.VK_ESCAPE)` (`IJ.java#L1098-L1124`). Macros: `Interpreter.abort()` (`Interpreter.java#L2102`). Modules: `Future.cancel` (A19 §6). | FR-PROC-013 |
 | RA-MK | Mark the document partially processed | Document flag plus slice range, if the progress hook reports one | FR-HIST-006 |
 | RA-RS | Restart the engine | Flush the journal, spawn a new product launch with the same arguments, then `Runtime.halt` (D03 §7) | FR-SYS-007 |
 | RA-RP | Rebuild the session by replay | Journal → re-open the inputs by SHA-256 → restore the recorded globals → replay (J-13) | FR-SYS-007, FR-HIST-010 |
@@ -121,9 +121,9 @@ Every `FAILED`, `CANCELLED`, `PARTIAL` or `AWAITING_CONFIRMATION` lifecycle even
 
 | Aspect | Specification |
 |---|---|
-| Detection | The engine state is not `READY`: during `STARTING`, `INITIALISING_FIJI` or `BUILDING_CATALOGUE` (D03 §3), during quit (D03 §6 step 1), or after `FAILED`. CMP-20 checks the state before queuing. |
+| Detection | The engine state is not `READY`: during `INITIALISING` or `BUILDING_CATALOGUE` (D03 §3), during `QUITTING` (D03 §6 step 1), or after `FAILED`. CMP-20 checks the state before queuing. Before the Context exists no product UI is shown (the Fiji splash screen covers the JVM start, D03 §3), so no request can arrive then. |
 | Evidence | GUI JVM start-up takes 4.5–5.3 s (P85). The legacy layer can be inactive if `ij.*` loads before the Context (P42 attempt 1; FR-SYS-002). |
-| User-visible | UI-19 shows the state and elapsed time. Controls that mutate state are disabled. A request arriving through a shortcut produces a UI-12 message: "Fiji is starting (initialising Fiji); action not run". At `FAILED`, UI-19 shows the self-test result, for example "Legacy layer inactive: ImageJ classes were loaded before the SciJava context". |
+| User-visible | UI-19 shows the state and elapsed time from `INITIALISING` onwards. Controls that mutate state are disabled. A request arriving through a shortcut produces a UI-12 message: "Fiji is starting (loading commands); action not run". At `FAILED`, UI-19 shows the self-test result, for example "Legacy layer inactive: ImageJ classes were loaded before the SciJava context". |
 | Recovery | Wait. At `FAILED`: relaunch; the self-test result names the cause. |
 | Logged | State transitions with timestamps; the self-test results. |
 | Requirements | FR-SYS-006, FR-SYS-002, FR-SYS-001 |
@@ -159,9 +159,9 @@ Every `FAILED`, `CANCELLED`, `PARTIAL` or `AWAITING_CONFIRMATION` lifecycle even
 | User-visible | UI-07, or UI-12 for shortcuts: "Watershed requires an 8-bit binary image. The target 'blobs.gif' is 8-bit greyscale. Run Process › Binary › Convert to Mask first." Fiji's own message is shown beneath. |
 | Recovery | No change was made in case (a). In case (b), RA-RB if the digest shows a change. Then RA-RT. |
 | Logged | Precondition ID, observed state class (type, dimensions), Fiji message (redacted). |
-| Requirements | FR-PROC-004, FR-PROC-016 (the unthresholded-binary warning is a `CONFIRMATION_REQUIRED`, not a failure), FR-HIST-010 |
+| Requirements | FR-PROC-004, FR-PROC-016 (the unthresholded-binary warning is an inline, non-blocking warning, A26 §14 C5, not a failure), FR-HIST-010 |
 
-The redirection in (b) is process-global. **Validation item VD17-1:** confirm that redirection set and cleared around each product action does not suppress messages from legacy windows that the user is operating at the same moment. If it does, use the window tracker to capture the message dialog instead.
+The redirection in (b) is process-global. **Validation item VD17-1:** confirm that redirection set and cleared around each product action does not suppress messages from legacy windows that the user is operating at the same moment. If it does, use the window tracker to capture the message dialog instead. Note (Phase 8): `IJ.error` resets `redirectErrorMessages=false` after each error (`IJ.java#L851`), so the DEC-041 wrapper redirects only the first error message of an action; a second `IJ.error` in the same action is shown modally and must be caught by the window tracker. VD17-1 covers this case too.
 
 ### 3.5 Gating codes: `CONFIRMATION_REQUIRED`, `CAPABILITY_CONFIRMATION_REQUIRED`, `SNAPSHOT_BUDGET_EXCEEDED`
 
@@ -169,11 +169,11 @@ These are not failures. They move the action to `AWAITING_CONFIRMATION` and requ
 
 | Code | Raised when | Surface | Requirements |
 |---|---|---|---|
-| `CONFIRMATION_REQUIRED` | NL/voice plans with AC2–AC6 steps (FR-NL-004). AC6 writes: subcode `OVERWRITE_INPUT` when the path is a session input (FR-IMG-009) and `LOSSY_FORMAT` with the loss list (FR-IMG-006). `UNTHRESHOLDED_BINARY` before Convert to Mask, Analyze Particles or binary operations with no threshold (FR-PROC-016). The plan of a replay or batch, once per run (A19 §4). | UI-18 | FR-NL-004, FR-IMG-006, FR-IMG-009, FR-PROC-016, NFR-USE-001 (never for AC0–AC3 from direct modalities) |
+| `CONFIRMATION_REQUIRED` | NL/voice plans with AC2–AC6 steps (FR-NL-004). AC6 writes: subcode `OVERWRITE_INPUT` when the path is a session input (FR-IMG-009) and `LOSSY_FORMAT` with the loss list (FR-IMG-006). `UNTHRESHOLDED_BINARY` before Convert to Mask, Analyze Particles or binary operations with no threshold (FR-PROC-016) only inside an NL plan preview; from direct modalities it is an inline, non-blocking warning with no confirmation step (A26 §14 C5, D06 §4). The plan of a replay or batch, once per run (A19 §4). | UI-18 | FR-NL-004, FR-IMG-006, FR-IMG-009, FR-PROC-016, NFR-USE-001 (never for AC0–AC3 from direct modalities) |
 | `CAPABILITY_CONFIRMATION_REQUIRED` | A user macro or script, AC7. The `Tokenizer` scan finds `exec`, `eval`, `call`, `runMacro` or `File.*` mutators, each named separately (FR-MACRO-002). | UI-18, with the function list and the file hash | FR-MACRO-002, FR-MACRO-003 |
 | `SNAPSHOT_BUDGET_EXCEEDED` | The estimated snapshot size is above the remaining budget, or the target is a virtual stack, so the action is AC4 (FR-HIST-005). | UI-07 inline, or UI-18: "cannot be undone: 16.9 MB > 8 MB budget" | FR-HIST-005, NFR-PERF-003 |
 
-Declining gives `CANCELLED` with no state change. A changed live state between preview and confirmation invalidates the token: re-validation then gives `PRECONDITION_FAILED` (FR-NL-002).
+Declining gives `CANCELLED` with no state change. A changed live state between preview and confirmation invalidates the token: re-validation returns the operation to `AWAITING_CONFIRMATION` with a fresh preview and a new token (D06 §3). Only a check that now fails outright gives its error code, for example `PRECONDITION_FAILED` (FR-NL-002).
 
 ### 3.6 `EXECUTION_FAILED` (commands and modules)
 
@@ -227,7 +227,7 @@ Declining gives `CANCELLED` with no state change. A changed live state between p
 |---|---|---|
 | Detection | While an action runs: an AWT window-opened event, plus a `Window.getWindows()` and `GenericDialog.getInstance()` scan every 250 ms (D03 §5). A visible modal `Dialog` owned by no product window counts. P83 detected `GenericDialog` "Gaussian Blur..." and "Subtract Background..." this way, while `WindowManager.getWindow(title)` returned `null`. Bound: reported within two scan periods (PROPOSED, 500 ms). | The engine watchdog (D03 §4): no completion, no pending dialog and no progress event within the family limit. The limit is k × the measured p95 duration for the family (from the D18 benchmark suite; k = 10 PROPOSED). Until measurements exist, 120 s is used, the same per-operation bound the analysis harness used (A08 §7, "killed at 120 s"). |
 | User-visible | UI-12: "Waiting for input in a Fiji dialog: Gaussian Blur…". The native dialog is brought to the front and associated with the operation in UI-16. The lifecycle shows `WAITING_FOR_DIALOG` (FR-PROC-007). | UI-12: "Operation running for 2 min 14 s with no progress reported", with **Cancel**, **Keep waiting** and **Restart engine**. This is an advisory: the worker is never killed silently (D03 §4). |
-| Recovery | The user answers. OK: execution resumes, and the values entered are captured by `CommandListener`/`Macro.getOptions()` where available, otherwise recorded as legacy dialog input (D04 §7, FR-HIST-008). Cancel: `RuntimeException("Macro canceled")` (P83 D3) → `CANCELLED` (§3.12). The product never fills the dialog. | Cancel → RA-CA. If the action does not stop within the cancel grace period (PROPOSED: 10 s), offer RA-RS. RA-RS leads to `ENGINE_LOST` (controlled) → J-13 replay. |
+| Recovery | The user answers. OK: execution resumes. The values entered are **not** captured by `CommandListener`/`Macro.getOptions()`: the listener fired before the dialog opened (`Executer.java#L54-L61`), and empty options leave no thread entry (`ij/Macro.java#L97-L103`). They come from the dialog snapshot taken while the dialog was open (provenance `dialog-snapshot`, V-10); otherwise the step is recorded as "parameters entered in a Fiji dialog — not captured" (PARTIAL, excluded from E7; D04 §7, FR-HIST-008). Cancel: `RuntimeException("Macro canceled")` (P83 D3) → `CANCELLED` (§3.12). The product never fills the dialog. | Cancel → RA-CA. If the action does not stop within the cancel grace period (PROPOSED: 10 s), offer RA-RS. RA-RS leads to `ENGINE_LOST` (controlled) → J-13 replay. |
 | Logged | Dialog class and title (titles hashed if they contain a document title). | Elapsed time, family limit, thread state summary (no stack contents by default). |
 | Requirements | FR-PROC-007, NFR-REL-001 | FR-PROC-013, FR-SYS-007, NFR-REL-003 |
 
@@ -238,7 +238,7 @@ Declining gives `CANCELLED` with no state change. A changed live state between p
 | JVM crash (native fault, OOM kill by the OS) | None in-process: the UI dies with the JVM (O2). On the next launch the session journal lacks its clean-close marker (D03 §7). | A21 O2 topology | UI-19, then the recovery sheet (UI-18) listing what replay can and cannot restore | RA-RP (J-13) |
 | Plugin or macro calls `System.exit` | The product registers its own JVM shutdown hook. A shutdown that the product did not initiate marks the journal "interrupted by System.exit from <thread>", flushes it, and starts a bounded halt timer (PROPOSED 10 s) ending in `Runtime.halt`. **Rationale:** in GUI mode `System.exit` hangs, because the IJ1 shutdown path calls `EventQueue.invokeAndWait` after `Prefs.savePreferences()` (P85 jstack). Without a timer the JVM would hang with a dead UI. The hook adds a JVM hook and patches nothing (NFR-MAINT-001). | P85 (`P85-run2-jstack.txt`); A15 (`IJ.getImage()` → `System.exit` when headless); PAR-050 | Next launch: as for a crash, with the cause named | RA-RP |
 | `File › Quit` from a legacy window (IJ1 command) | `CommandListener` sees "Quit". PARITY: veto and route to the product quit (FR-PLUG-003). Before PARITY: treated like `System.exit`. | `Executer.java#L54-L61` (veto) | Product quit dialog | Bounded quit |
-| Product quit hangs | The `context.dispose()` timeout in the bounded quit sequence (D03 §6) | P85 | None: state was persisted in steps 2–5 before dispose | `Runtime.halt(0)`. The next start finds a clean journal. |
+| Product quit hangs | The optional bounded `context.dispose()` attempt times out (D03 §6, V-12) | P85 | None: state was persisted in D03 §6 steps 3–5 before the halt | `Runtime.halt(0)`. The next start finds a clean journal. |
 | Engine restart chosen after a `TIMEOUT` (RA-RS) | Controlled | D03 §7 | Journal flushed; new process | RA-RP |
 
 | Aspect | Specification |
@@ -247,7 +247,7 @@ Declining gives `CANCELLED` with no state change. A changed live state between p
 | Logged | Cause, journal record count, list of non-replayable records by ID. No image content. |
 | Requirements | FR-SYS-005, FR-SYS-007, NFR-REL-003, FR-HIST-001, FR-HIST-010 |
 
-The interface list includes an external process check in IF-09, but O2 has no separate supervisor process (D03 §1). Detection outside the JVM is therefore limited to the next launch. A separate supervisor is a requirement gap (G-D17-03).
+D01 IF-09 is an in-process watchdog thread plus a start-up check of the session journal; there is no separate supervisor process in O2 (D03 §7). Detection outside the JVM is therefore limited to the next launch. A separate supervisor is a requirement gap (G-D17-03).
 
 ### 3.12 Partial operations: `CANCELLED`, `PARTIAL_RESULT`, `ROLLED_BACK`
 
@@ -255,7 +255,7 @@ The interface list includes an external process check in IF-09, but O2 has no se
 |---|---|---|---|---|
 | Stack filter cancelled with a snapshot | Escape flag set (RA-CA). `PlugInFilterRunner` breaks after the current slice and shows "INTERRUPTED" (`PlugInFilterRunner.java#L161-L171, L200`). The engine sees the status through the chained hook, or infers it from the cancel request plus the return. | `CANCELLED → ROLLED_BACK`, with the hash checked against the pre-command hash | A19 §1 (VERIFIED) | FR-HIST-006, FR-PROC-013 |
 | Stack filter cancelled without a snapshot (AC4) | As above | `PARTIAL_RESULT`. The document is flagged with "slices 1–k" (k from `showProgress` if the hook is validated, NFR-REL-004; otherwise "range unknown"). The history entry is flagged and excluded from generated macros. | A19 §6.3 | FR-HIST-006, FR-HIST-005 |
-| 2D filter pass | Not interruptible part-way (A19 §1) | Cancel takes effect after the pass, then `ROLLED_BACK` | `IJ.java#L2388-L2396` | FR-PROC-013 (UI states "cancel takes effect after the current pass") |
+| 2D filter pass | Not interruptible part-way (A19 §1) | Cancel takes effect after the pass, then `ROLLED_BACK` | Escape only sets a flag (`IJ.java#L1098-L1124`); `PlugInFilterRunner` polls it between slices only (`PlugInFilterRunner.java#L186-L201`; A19 §1) | FR-PROC-013 (UI states "cancel takes effect after the current pass") |
 | Multi-step NL plan or replay, cancelled or failed at step k | Stage counter | Steps 1…k−1 stay COMPLETED (each undoable individually). Step k is ROLLED_BACK. The plan is reported as `PARTIAL_RESULT` ("2 of 4 steps applied"). | A20 §1 (stage-based) | FR-NL-004, FR-HIST-004 |
 | Batch over files (J-14) | Per-file postconditions | `PARTIAL_RESULT`, with the completed outputs listed and their hashes; none silent | A19 §4 | FR-MACRO-007 |
 | Plugin ignores `IJ.escapePressed()` | TIMEOUT after cancel (§3.10) | RA-RS | R-A19-04 | FR-PROC-013 |
@@ -311,27 +311,24 @@ Logged: operation, relative or hashed path, error class. Never absolute paths by
 
 ### 4.1 Action-level (lifecycle with recovery)
 
+The states and transitions are exactly the canonical lifecycle in D06 §6; this diagram only adds the error codes and recovery actions on each transition. `ENGINE_NOT_READY` rejects a request before QUEUED. The postcondition check and the `TIMEOUT` advisory happen inside RUNNING (D06 §6); after a `TIMEOUT`, the user may keep waiting, cancel (→ CANCELLED) or restart the engine (RA-RS → `ENGINE_LOST`, session-level, §4.2).
+
 ```mermaid
 stateDiagram-v2
   [*] --> QUEUED : ActionRequest accepted (engine READY)
-  [*] --> Rejected : ENGINE_NOT_READY
   QUEUED --> VALIDATING
+  QUEUED --> CANCELLED : RA-CA before start
   VALIDATING --> FAILED : UNKNOWN_COMMAND / VALIDATION_FAILED / PRECONDITION_FAILED / UNSUPPORTED_IN_MODE / IO_ERROR(pre)
-  VALIDATING --> AWAITING_CONFIRMATION : CONFIRMATION_REQUIRED / CAPABILITY_CONFIRMATION_REQUIRED / SNAPSHOT_BUDGET_EXCEEDED
+  VALIDATING --> AWAITING_CONFIRMATION : CONFIRMATION_REQUIRED / CAPABILITY_CONFIRMATION_REQUIRED / SNAPSHOT_BUDGET_EXCEEDED / live state changed (fresh preview)
   VALIDATING --> RUNNING : valid, snapshot taken if within budget
   AWAITING_CONFIRMATION --> VALIDATING : confirmed (token) → re-validate
   AWAITING_CONFIRMATION --> CANCELLED : declined
   RUNNING --> WAITING_FOR_DIALOG : DIALOG_PENDING
   WAITING_FOR_DIALOG --> RUNNING : user OK
   WAITING_FOR_DIALOG --> CANCELLED : user Cancel ("Macro canceled")
-  RUNNING --> Checking : worker call returned
-  RUNNING --> CANCELLED : RA-CA honoured
-  RUNNING --> TimeoutAdvisory : TIMEOUT (watchdog)
-  TimeoutAdvisory --> RUNNING : keep waiting
-  TimeoutAdvisory --> CANCELLED : cancel honoured
-  TimeoutAdvisory --> EngineRestart : RA-RS
-  Checking --> COMPLETED : postconditions hold, no error signal
-  Checking --> FAILED : EXECUTION_FAILED / POSTCONDITION_FAILED
+  RUNNING --> COMPLETED : postconditions hold, no error signal
+  RUNNING --> FAILED : EXECUTION_FAILED / POSTCONDITION_FAILED
+  RUNNING --> CANCELLED : RA-CA honoured (also after a TIMEOUT advisory)
   FAILED --> ROLLED_BACK : snapshot exists (RA-RB)
   FAILED --> PARTIAL : no snapshot, image changed (RA-MK)
   CANCELLED --> ROLLED_BACK : snapshot exists and image changed
@@ -341,7 +338,6 @@ stateDiagram-v2
   PARTIAL --> [*]
   FAILED --> [*] : no change
   CANCELLED --> [*] : no change
-  EngineRestart --> [*] : ENGINE_LOST (controlled) → session recovery
 ```
 
 ### 4.2 Session-level (runtime loss and replay)
@@ -353,7 +349,7 @@ stateDiagram-v2
   Starting --> StartFailed : legacy inactive / init error
   Ready --> Ready : actions (4.1), journal append per record
   Ready --> Quitting : user quit
-  Quitting --> CleanExit : prefs saved, journal closed clean, dispose or halt
+  Quitting --> CleanExit : documents closed, prefs saved, journal closed clean, halt (D03 §6)
   Ready --> Lost : crash / System.exit / RA-RS
   Lost --> Starting : relaunch
   Starting --> RecoveryOffered : journal not clean
@@ -419,7 +415,7 @@ Logs are written to the product's per-user data directory, never into the Fiji i
 |---|---|---|---|
 | G-D17-01 | No requirement bounds the time to detect a pending dialog. FR-PROC-007 says "a bounded time" without a value, and the verification needs one. | FR-PROC-007 | Set from the milestone-1 measurement. 500 ms is PROPOSED here. |
 | G-D17-02 | No requirement covers the "Exception" `TextWindow` that IJ1 opens in non-headless mode. FR-PLUG-002 would merely track it as a legacy window, while FR-PROC-005 needs it treated as a failure signal. | `Executer.java#L113-L115` | Extend FR-PROC-005 acceptance: an exception window during an action is a failure signal and is not left visible |
-| G-D17-03 | IF-09 assumes an "external process check", but no requirement or component provides an out-of-JVM supervisor in O2. Hangs that freeze the whole JVM (including the watchdog) are not detectable until relaunch. | D01 IF-09; D03 §1 | Decide whether a tiny external supervisor (or the speech worker's parent-liveness check) is required (PARITY) |
+| G-D17-03 | IF-09 is an in-process watchdog plus a start-up journal check (D01 IF-09: "no separate supervisor process in O2", D03 §7). No requirement or component provides an out-of-JVM supervisor. Hangs that freeze the whole JVM (including the watchdog) are not detectable until relaunch. | D01 IF-09; D03 §7 | Decide whether a tiny external supervisor (or the speech worker's parent-liveness check) is required (PARITY) |
 | G-D17-04 | No requirement states what happens to the Fiji `IJ_Prefs.txt` write when the JVM is lost, or when a plugin's `System.exit` triggers the IJ1 shutdown hook. | P85 | Add an acceptance criterion to FR-SYS-005/007: prefs are either fully written or unchanged |
 | G-D17-05 | No requirement governs the redaction of Fiji-originated message text (only "logs, manifests and crash reports" in NFR-PRIV-002). The UI shows Fiji messages that may contain absolute paths. | NFR-PRIV-002; A25 T-19 | Clarify whether on-screen messages are redacted too (PROPOSED: no; only persisted text is) |
 
@@ -443,3 +439,4 @@ Logs are written to the product's per-user data directory, never into the Fiji i
 ## Change log
 
 - 2026-10-17: Initial version (G10).
+- 2026-10-17: Phase 8 review fixes (findings #2, #3, #5, #6, #13, #17, #28, #32; S14 nuance on VD17-1).

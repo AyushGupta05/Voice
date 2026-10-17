@@ -112,8 +112,8 @@ Native-library constraints (NFR-PKG-005, PARITY):
   - (ii) whisper.cpp, the ADR-005 alternative;
   - (iii) the user builds the venv from PyPI on their own machine, so the project does not redistribute the DLLs.
 
-  Whether (iii) changes the project's obligations is a DEC-005 / A24 Q-05/Q-09 question. **MVP choice:** (iii), building on the user's machine. The bundle is not redistributed until DEC-005 is decided.
-- `ctranslate2/cudnn64_9.dll` (NVIDIA) and `libiomp5md.dll` (Intel) are present in the wheel (VERIFIED, `.venv-stt` listing; P73). The CPU-only requirement (FR-SPEECH-007) does not need cuDNN. Whether the CPU path still needs `libiomp5md.dll` is UNKNOWN. A redistributable bundle needs an allow-list DLL scan (NFR-PKG-005).
+  Whether (iii) changes the project's obligations is a DEC-005 / A24 Q-05/Q-09 question. **PROPOSED MVP choice:** (iii), building on the user's machine. The bundle is not redistributed until DEC-005 is decided.
+- `ctranslate2/cudnn64_9.dll` (NVIDIA) and `libiomp5md.dll` (Intel) are present in the wheel (VERIFIED (ad hoc inspection; no stored output), `.venv-stt` listing; P73). The CPU-only requirement (FR-SPEECH-007) does not need cuDNN. Whether the CPU path still needs `libiomp5md.dll` is UNKNOWN. A redistributable bundle needs an allow-list DLL scan (NFR-PKG-005).
 
 ## 4. Model artefacts (U4)
 
@@ -261,7 +261,7 @@ Release gates (PROPOSED):
 | Candidate | Proposal | Rationale |
 |---|---|---|
 | DEC-038 (was DEC-cand-D19-1) | Maven Wrapper with parent `pom-scijava` 45.1.0, `scijava.jvm.version=21`, build JDK = bundled Zulu 21.0.7 | Matches the installed Fiji's own build (VERIFIED). No new JDK (NFR-PLAT-003). |
-| DEC-038 (was DEC-cand-D19-2) | Override `scijava-common` 2.101.0, `scijava-search` 3.0.2 and `imagej-legacy` 3.0.0, and fail the build on any provided version absent from the lock | The pinned install deviates from the BOM (VERIFIED). Compiling against the BOM versions would target APIs the runtime may not have. |
+| DEC-038 (was DEC-cand-D19-2; merged into DEC-038 with DEC-cand-D19-1, see `DECISIONS.md`) | Override `scijava-common` 2.101.0, `scijava-search` 3.0.2 and `imagej-legacy` 3.0.0, and fail the build on any provided version absent from the lock | The pinned install deviates from the BOM (VERIFIED). Compiling against the BOM versions would target APIs the runtime may not have. |
 | DEC-039 (was DEC-cand-D19-3) | Speech worker as a uv-built Python 3.11.16 venv from the hash-locked requirements, in the per-user data directory; Appose deferred | Verified, hash-locked, offline-capable, protocol under project control |
 | DEC-046 (was DEC-cand-D19-4) | The product writes only U1/U2 into Fiji. Everything else goes in the per-user data directory. | Keeps FR-SYS-008/009 lock checks meaningful |
 | DEC-047 (was DEC-cand-D19-5) | The reference install is rebuilt from the archive by SHA-256 and is never updated in place | NFR-FID-004; Jaunch `apply-update` (A22) |
@@ -278,6 +278,7 @@ Release gates (PROPOSED):
 ## Change log
 
 - 2026-10-17: Initial version (G10).
+- 2026-10-17: Phase 8 review fixes (findings #27, #29).
 
 ## Phase 8 requirement mapping (lead)
 

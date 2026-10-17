@@ -16,7 +16,7 @@ approval: Awaiting approval
 ## Executive Summary
 
 - **What exists today (VERIFIED):** an integration prototype. It has 4 commands on 8-bit PNG only, runs a new headless Fiji process per workflow (about 4–5 s each, P01), recognises speech locally with faster-whisper and a regex grammar, and passes 23 tests (F02). Its architecture cannot be extended to the product (A15, A21).
-- **What the analysis supports (PROPOSED, DEC-010):** a persistent non-headless Fiji JVM hosting an engine service and a modern Swing workspace, with a separate speech worker. Every element of this design has been demonstrated **in isolation** in the pinned runtime by probes P42, P47, P49, P80–P87. None has been integrated into a product.
+- **What the analysis supports (PROPOSED, DEC-010):** a persistent non-headless Fiji JVM hosting an engine service and a modern Swing workspace, with a separate speech worker. The core mechanisms (hidden-window execution, dialog detection, IJ1 rendering, FlatLaf panels, listener coverage) have been demonstrated **in isolation** in the pinned runtime by probes P42, P47, P49, P80–P87. Not yet demonstrated: registration of a product `UserInterface` with a real workspace (P49 used `swing`), a product input harvester (V-01), legacy-hook chaining (V-06), the ROI bridge (V-03), any C4–C6 plugin run in M2 (static scans only), and capture of dialog-entered values (V-10); see D20 §6. None has been integrated into a product. *(Claim corrected in Phase 8, finding 19.)*
 - **Hackathon reality (INFERRED):** the hackathon ends on 18 October 2026. Building the MVP on the new architecture requires:
   - a Java build toolchain, which is absent (A22);
   - the engine service, workspace, viewer, ROI tools, history and NL/voice integration.
@@ -110,10 +110,11 @@ Reference fixtures: FX-030 (BBBC001 subset; NC-SA, cache only), FX-003… ImageJ
 |---|---|---|
 | Can a modern UI drive real Fiji with persistent state? | Yes, in M2 with an in-JVM engine | VERIFIED components (P42, P82, P83); integration INFERRED |
 | Can macros remain the reproducibility format? | Yes, if they are generated from the product's own structured history (not the Recorder) and verified by replay | VERIFIED Recorder limits (P81); E7 method (A30) |
-| Can existing plugins keep working? | C1–C3: yes, driven. C4–C6: yes, as legacy windows. No universal guarantee. | VERIFIED categories (A13); per-plugin UNKNOWN |
+| Can existing plugins keep working? | C1–C3: yes, driven. C4–C6: yes, as legacy windows. No universal guarantee. | VERIFIED categories (A13); the C4–C6 conclusion is INFERRED (no C4–C6 plugin was run in M2; static scans only; Phase 8, finding 30); per-plugin UNKNOWN |
 | Can voice and typed NL be safe and useful? | Safe: yes, by construction (validator, preview, no code generation). Useful on real speech: UNKNOWN until evaluated. | A16/A17 probes |
 | Is the hackathon MVP feasible? | No, for the new architecture. Yes, for the T0 demonstration plus the documentation. | INFERRED (§2) |
 
 ## Change log
 
 - 2026-10-17: Initial version by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #19, #30).

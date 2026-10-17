@@ -30,9 +30,9 @@ All payloads are immutable, serialisable value objects (FR-SYS-003), so the same
 - **Time:** ISO-8601 UTC, plus a monotonic `seq` per session for ordering.
 - **Threading:**
   - IF-01 calls return immediately with an `operationId`. They never block the caller, so they are safe on the EDT.
-  - IF-03 queries are answered from the last committed digest and caches without entering the engine worker, except `renderPlane`, which runs on a render executor that holds a short read lock and copies (NFR-PERF-004).
+  - IF-03 queries are answered from the last committed digest and caches without entering the engine worker. The exceptions are a render-cache miss (`renderPlane`, `renderSnapshot`) and `previewFilter`, which are queued on the engine worker as internal AC0 tasks and run between actions, never concurrently with a running command (D04 §2 R3, rendering isolation, V-11). No product code takes `ImagePlus` locks for rendering. The UI receives ARGB copies only (NFR-PERF-004).
   - IF-02 events are delivered to UI subscribers **on the EDT** in `seq` order, and to non-UI subscribers on their own executor (NFR-PERF-005).
-- **Errors:** a uniform envelope `{code, message, details, recoverable, suggestions[]}` using the D06 §7 codes.
+- **Errors:** a uniform envelope `{code, subcode?, message, details, recoverable, suggestions[], context?}` using the D06 §7 codes and the D06 §7 subcodes. This is the authoritative error payload; D17 §2.1 uses it. `context` carries, where applicable: `operationId`, `requestId`, `commandId`, the redacted `params`, `target.docId`, `phase`, `fijiMessage` (text captured from Fiji, redacted per D17 §5), `explanation` (product text naming the required state), `recovery[]` (D17 §2.2 action IDs), `snapshot` (`available` \| `restored` \| `none`) and `logExcerptRef`. `suggestions[]` holds the human-readable recovery labels.
 
 ## 2. IF-01 Action submission
 
@@ -49,17 +49,19 @@ All payloads are immutable, serialisable value objects (FR-SYS-003), so the same
 
 | Event | Key fields | Emitted when | Requirement |
 |---|---|---|---|
-| `EngineStateChanged` | `state` (STARTING, INITIALISING_FIJI, BUILDING_CATALOGUE, READY, FAILED), `reason` | Start-up and shutdown transitions | FR-SYS-006 |
-| `OperationStateChanged` | `operationId`, `requestId`, `state` (D06 §6), `error?`, `consequenceClass`, `requiresConfirmation?` | Every lifecycle transition | NFR-REL-005 |
+| `EngineStateChanged` | `state` (INITIALISING, BUILDING_CATALOGUE, READY, FAILED, QUITTING), `reason` | Start-up (D03 §3) and quit (D03 §6) transitions. The JVM start phase before the Context exists is covered by the Fiji splash screen and has no event. | FR-SYS-006 |
+| `OperationStateChanged` | `operationId`, `requestId`, `state` (the canonical lifecycle, D06 §6), `error?` (envelope, §1), `consequenceClass`, `requiresConfirmation?`, `queuePosition?` (while QUEUED), `timeoutAdvisory?` (while RUNNING) | Every lifecycle transition, and on a queue-position or advisory change | NFR-REL-005 |
 | `OperationProgress` | `operationId`, `kind` (DETERMINATE\|STAGE), `current`, `total`, `source` (`legacyHook`\|`productLoop`\|`planStep`), `statusText?` | Only from real counters (A20 §1) | NFR-USE-002 |
 | `DialogPending` | `operationId`, `windowTitle`, `dialogClass`, `fields[]` (read-only summary) | Modal dialog detected during an operation | FR-PROC-007 |
 | `StateDigest` | `operationId?`, `seq`, `documents{added, removed, changed{docId, pixelsChanged, typeChanged, displayChanged, roiChanged, dims}}`, `results{docId, rowsAdded, tableTitle}`, `rois{docId, added, removed, modified}`, `globals{delta}`, `log{newLines[] (sanitised)}`, `windows{opened[], closed[]}` | After every completed, failed or observed action | FR-IMG-001, NFR-REL-005 |
 | `HistoryAppended` | `record` (IF-05) | A record is committed (executed or observed) | FR-HIST-001, FR-HIST-008 |
-| `ObservedAction` | `label`, `options?`, `moduleInputs?`, `sourceWindow?`, `confidence` (FULL\|PARTIAL\|NONE) | `CommandListener` or module event not caused by the product, or a digest-only change | FR-HIST-008 |
+| `ObservedAction` | `label`, `options?`, `moduleInputs?`, `sourceWindow?`, `confidence` (FULL\|PARTIAL\|NONE), `optionsProvenance?` (`listener` \| `dialog-snapshot` \| `not-captured`) | `CommandListener` or module event not caused by the product, or a digest-only change. Options come from `Macro.getOptions()` only when the command was started with options; values typed into a dialog come only from the dialog snapshot (D04 §7, V-10), otherwise the step is PARTIAL. | FR-HIST-008 |
 | `LegacyWindowChanged` | `windowId`, `title`, `class`, `category` (IJ1_TOOL\|PLUGIN\|DIALOG\|IMAGE_VISIBLE), `state` (OPENED\|CLOSED\|FOCUSED) | Window tracker | FR-PLUG-001/002 |
 | `CatalogueChanged` | `added[]`, `removed[]`, `version` | Catalogue rebuilt (e.g. plugin installed) | FR-CMD-002 |
 | `SnapshotBudgetChanged` | `usedBytes`, `budgetBytes` | After a snapshot or eviction | NFR-PERF-003 |
 | `SpeechStateChanged` | `state` (OFF, STARTING, READY, RECORDING, TRANSCRIBING, UNAVAILABLE), `reason?` | Worker lifecycle | FR-SPEECH-002, NFR-REL-002 |
+
+**Engine loss under O2.** The UI shares the JVM with the engine, so it cannot observe its own engine's loss. There is no LOST or RECOVERING value in `EngineStateChanged` for the in-process UI. Session recovery is offered at the next start from the journal (D03 §7, J-13). LOST and RECOVERING states apply only to IF-10 external clients (LONG) and to the start-up recovery prompt (UI-19).
 
 **Ordering guarantees:**
 
@@ -81,7 +83,13 @@ Example `StateDigest`:
 | Query | Returns | Notes |
 |---|---|---|
 | `listDocuments()` | `DocumentInfo[]`: docId, title, type, dims, calibration summary, status, provenance summary, virtual-stack flag, global-calibration flag | FR-IMG-011 |
-| `renderPlane(docId, c, z, t, region?, scaleHint?)` | ARGB raster copy from `getBufferedImage`-equivalent rendering, including overlays. Cached by (docId, position, displayStateHash). | ADR-009, FR-VIEW-001/005 |
+| `renderPlane(docId, c, z, t, region?, scaleHint?)` | ARGB raster copy from `getBufferedImage`-equivalent rendering, **excluding overlays and ROIs**, which are delivered as geometry (`overlay`, `rois`) and drawn by the viewer (D13 §2.2). `getBufferedImage` returns `ip.getBufferedImage()` or a `ColorProcessor` copy, with no overlay (`ij/ImagePlus.java#L606-L611`). Cached by (docId, position, displayStateHash); a miss is rendered on the engine worker between actions (§1). | ADR-009, FR-VIEW-001/005 |
+| `renderSnapshot(snapshotId, c, z, t)` | ARGB raster of a stored pre-action snapshot (CMP-28), for before/after comparison | FR-PROC-010, FR-HIST-004 |
+| `previewFilter(docId, commandId, params, c, z, t)` | Runs the filter on a copy of the current plane on the engine worker (AC0, never recorded) and returns a rendered ARGB copy | FR-PROC-010 |
+| `macroForDraft(ActionRequest)` | The macro line(s) the D07 rules would generate for a draft request, without executing it | FR-HIST-002 |
+| `histogram(docId, c, z, t, roi?)` | IJ1 `ImageStatistics` data (histogram bins, min, max, mean) for the plane and optional ROI | FR-PROC-015 |
+| `overlay(docId)` | Ordered overlay elements with float geometry, stroke and fill, and positions | FR-VIEW-001 |
+| `queueStatus()` | Queued operations in order, with `operationId` and position | FR-SYS-004 |
 | `pixelValue(docId, x, y, c, z, t)` | `{locationString, valueString, raw[], calibrated[]}` formatted per `getLocationAsString`/`getValueAsString` | FR-VIEW-003 |
 | `subtitle(docId)` | The legacy subtitle fields | FR-VIEW-002 |
 | `rois(docId)` | Ordered `RoiInfo[]` with float geometry, positions, names and properties | FR-ROI-001/004 |
@@ -135,8 +143,10 @@ sequenceDiagram
   T-->>UI: DialogPending(op-60, "SomePlugin")
   UI->>UI: banner "Waiting for input in a Fiji dialog" + bring dialog to front
   Note over UI,F: user fills the native dialog and presses OK
+  T->>T: snapshot GenericDialog field values while open (V-10)
   F-->>W: returns
-  W-->>UI: OperationStateChanged(COMPLETED) + StateDigest + HistoryAppended(options captured via CommandListener if available)
+  W-->>UI: OperationStateChanged(COMPLETED) + StateDigest + HistoryAppended(options from the dialog snapshot, provenance dialog-snapshot; otherwise "parameters entered in a Fiji dialog — not captured", PARTIAL)
+  Note over W,F: CommandListener fired before the dialog opened, with empty options, so it cannot supply the typed values (D04 §7)
 ```
 
 ### 6.3 Observed action from a legacy plugin window
@@ -176,3 +186,4 @@ It is required only if DEC-010 changes to O4, or for LONG-scope MCP or external 
 ## Change log
 
 - 2026-10-17: Initial version by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #2, #3, #4, #5, #6, #10, #11).

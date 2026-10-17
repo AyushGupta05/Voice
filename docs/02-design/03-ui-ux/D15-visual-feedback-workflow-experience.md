@@ -72,38 +72,42 @@ UI labels follow D11 T-06. "Activity" is status slot 2 (UI-12). "Doc" means the 
 
 | Lifecycle event | Activity slot | History row (UI-10) | Doc and originating component | User actions | Requirement |
 |---|---|---|---|---|---|
-| **QUEUED** | "Queued: <label> (<doc>)", position in queue if > 1, `state.neutral` | A row appears with the step number and "Queued" | Form or sheet: busy, inputs locked. The document is not marked yet. | Cancel (removes from the queue; becomes CANCELLED with no effect) | NFR-REL-005, FR-SYS-004 |
+| **QUEUED** | "Queued: <label> (<doc>)", position in queue if > 1 (`queuePosition`, D09 §3), `state.neutral` | A row appears with the step number and "Queued" | Form or sheet: busy, inputs locked. The document is not marked yet. | Cancel (removes from the queue; becomes CANCELLED with no effect) | NFR-REL-005, FR-SYS-004 |
 | **VALIDATING** | "Checking: <label>" | "Checking" | — | Cancel | FR-PROC-004, FR-NL-002 |
 | → `VALIDATION_FAILED` / `PRECONDITION_FAILED` / `UNKNOWN_COMMAND` | Cleared | Row outcome "Not run: <reason>" (`state.error`). No macro line, because nothing executed. | Form: error state at the field or header (D14 F-11). Sheet: refused. | Edit and resubmit; run the offered preparatory command | FR-PROC-004, FR-CMD-003 |
 | **AWAITING_CONFIRMATION** (`CONFIRMATION_REQUIRED`, `CAPABILITY_CONFIRMATION_REQUIRED`) | "Needs confirmation: <label>", `state.attention` | "Needs confirmation" | C-08 sheet (V1/V3/V4) or C-03 inline AC4 (F-12) | Confirm (consequence-named) / Cancel | FR-NL-004, FR-HIST-005, FR-MACRO-002, FR-IMG-006, FR-IMG-009 |
 | **RUNNING** | "Running: <label> (<doc>)" plus the C-10 indicator: determinate only with a counter source; stage-based for plans and replays; otherwise indeterminate with real elapsed time. Cancel button, with a tooltip on cancellation semantics. | "Running" plus elapsed time | Doc: target strip "Updating…"; viewer raster **stale** (D13 §2.3); read-out suffix "(before current operation)" (D13 §4.3); the document's tools are locked. Other documents stay interactive (NFR-PERF-006). | Cancel / Esc (K-02) | NFR-USE-002, FR-PROC-013, NFR-PERF-006 |
 | **WAITING_FOR_DIALOG** (`DIALOG_PENDING`) | "Waiting for Fiji dialog", `state.attention` | "Waiting for Fiji dialog: <title>" | C-09 workspace banner; UI-16 modal row; status slot 3 | Bring to front; answer in the dialog | FR-PROC-007 |
 | **COMPLETED** (postconditions passed) | "Done: <label> (<doc>) <duration>", `state.success`, until the next event | Outcome "Done", duration, exact macro line or "not macro-expressible" | Viewer re-renders from the digest; markers update (`*` unsaved); Results and ROI lists update and new rows are marked (D14 §4.4) | Undo (if a snapshot exists); Compare with previous state (§6) | FR-PROC-005, FR-HIST-001, FR-HIST-003 |
-| **FAILED** (`EXECUTION_FAILED`, `POSTCONDITION_FAILED`, `TIMEOUT`, `IO_ERROR`) | "Failed: <label>", `state.error`; persists until the next operation **or** dismissal | Outcome "Failed: <code>", with the captured log excerpt linked to UI-20 | If a snapshot existed, it is restored → ROLLED_BACK row. Otherwise a document banner states what may have changed (digest delta). | Show log; retry (opens the form with the same values); Undo if applicable | FR-PROC-005, NFR-REL-001, FR-HIST-006 |
+| `TIMEOUT` advisory (operation still RUNNING, D06 §6) | "<label> has run for <elapsed> with no progress reported", `state.attention`, with Cancel, Keep waiting and Restart engine (D17 §3.10) | "Running" plus elapsed time | Target document marked "state unknown until the operation ends" | Cancel; keep waiting; restart engine | NFR-REL-001, FR-PROC-013 |
+| **FAILED** (`EXECUTION_FAILED`, `POSTCONDITION_FAILED`, `IO_ERROR`) | "Failed: <label>", `state.error`; persists until the next operation **or** dismissal | Outcome "Failed: <code>", with the captured exception text or log excerpt linked to UI-20 | If a snapshot existed, it is restored → ROLLED_BACK row. Otherwise a document banner states what may have changed (digest delta). | Show log; retry (opens the form with the same values); Undo if applicable | FR-PROC-005, NFR-REL-001, FR-HIST-006 |
 | **CANCELLED** | "Cancelled: <label>" | Outcome "Cancelled" | If nothing changed (digest shows no delta): no document marker. Otherwise → ROLLED_BACK or PARTIAL. | — | FR-PROC-013 |
 | **ROLLED_BACK** | "Restored: <doc> to the state before <label>" | Outcome "Cancelled — restored" or "Failed — restored" | Document banner "Restored to the state before <label> (step n)", informational and dismissible | Show log (for failure) | FR-HIST-006 |
 | **PARTIAL** (`PARTIAL_RESULT`) | "Partial: <label>", `state.warning` | Outcome "Partial: slices <a>–<b> of <N> modified" (range when known) | Persistent document banner, tab marker "partial" (text glyph), C-13 marker. It remains until undo, revert or close. | Undo (if possible); Revert (`File>Revert`); keep | FR-HIST-006; A19 §1 |
 | Digest received after an action | — | Row detail updated (globals delta, Results delta) | View refresh (D13 R-3) | — | NFR-REL-005 |
+
+The states and transitions are exactly the canonical lifecycle in D06 §6 (Phase 8 alignment):
 
 ```mermaid
 stateDiagram-v2
   [*] --> QUEUED
   QUEUED --> VALIDATING
   QUEUED --> CANCELLED: user cancels before start
-  VALIDATING --> AWAITING_CONFIRMATION: policy requires
+  VALIDATING --> AWAITING_CONFIRMATION: policy requires, or state changed since preview (fresh preview)
   VALIDATING --> RUNNING: no confirmation needed
   VALIDATING --> FAILED: VALIDATION_FAILED / PRECONDITION_FAILED / UNKNOWN_COMMAND (shown as "Not run")
-  AWAITING_CONFIRMATION --> RUNNING: confirmed (token valid)
-  AWAITING_CONFIRMATION --> VALIDATING: state changed, re-check
+  AWAITING_CONFIRMATION --> VALIDATING: confirmed (re-validate)
   AWAITING_CONFIRMATION --> CANCELLED: declined
   RUNNING --> WAITING_FOR_DIALOG: modal dialog detected
-  WAITING_FOR_DIALOG --> RUNNING: dialog answered
+  WAITING_FOR_DIALOG --> RUNNING: dialog answered (OK)
+  WAITING_FOR_DIALOG --> CANCELLED: dialog cancelled
   RUNNING --> COMPLETED: postconditions pass
-  RUNNING --> FAILED: exception / postcondition / timeout
-  RUNNING --> CANCELLED: cancel, no change
-  RUNNING --> ROLLED_BACK: cancel or failure, snapshot restored
-  RUNNING --> PARTIAL: cancel or failure, no snapshot, partial change
+  RUNNING --> FAILED: exception / postcondition
+  RUNNING --> CANCELLED: cancel
   FAILED --> ROLLED_BACK: snapshot restored
+  FAILED --> PARTIAL: no snapshot, partial change
+  CANCELLED --> ROLLED_BACK: snapshot restored
+  CANCELLED --> PARTIAL: no snapshot, partial change
 ```
 
 The UI applies **only** the transitions reported by the engine. It never infers COMPLETED from elapsed time, from the absence of errors, or from `imageUpdated` alone (A18 F4; A20 R-A20-02).
@@ -112,12 +116,14 @@ The UI applies **only** the transitions reported by the engine. It never infers 
 
 | Engine state | Shown as (UI-19 and status slot 5) | Commands | Requirement |
 |---|---|---|---|
-| STARTING (JVM launched) | Phase line "Java runtime started", real elapsed time | Refused: `ENGINE_NOT_READY`, with "Fiji is starting; commands run when it is ready" | FR-SYS-006 |
-| INITIALISING_FIJI | Phase lines added only as real checks pass: SciJava context and legacy active (`LegacyService.isActive`, FR-SYS-002), IJ1 ready, catalogue built | Refused as above. Menus show "Loading Fiji commands…" (D14 §4.1). | FR-SYS-006, FR-SYS-002 |
+| (JVM start, before the Context) | Not shown by the product: the Fiji/Jaunch splash screen covers this phase (D03 §3). The product UI is a SciJava `UserInterface` and cannot exist yet. | — | FR-SYS-006 |
+| INITIALISING | UI-19 appears as soon as the Context and legacy layer are up (D03 §3). Phase lines are added only as real checks pass: legacy active (`LegacyService.isActive`, FR-SYS-002), self-test, listeners registered. Real elapsed time. | Refused: `ENGINE_NOT_READY`, with "Fiji is starting; commands run when it is ready" | FR-SYS-006, FR-SYS-002 |
+| BUILDING_CATALOGUE | Phase line "Loading Fiji commands…"; menus show the same (D14 §4.1) | Refused as above | FR-SYS-006 |
 | READY | UI-19 is replaced by the workspace. Slot 5: "Engine: ready". A version-mismatch banner appears if FR-SYS-010 detects one. | Accepted | FR-SYS-006, FR-SYS-010 |
 | FAILED (start-up) | UI-19 failure: which check failed, the log excerpt, and the actions "Show log" and "Quit". No retry loop is hidden behind a spinner. | — | FR-SYS-002, FR-SYS-006 |
-| LOST (`ENGINE_LOST`: crash, plugin `System.exit`, watchdog) | Workspace banner `state.error`: "The Fiji engine stopped. Unsaved changes in N documents are lost: <titles>." Documents become read-only "last known state" views, marked stale. | Refused | FR-SYS-007 |
-| RECOVERING (replay) | UI-19 replay view: stage-based "Replaying step k of n: <label>", with each step's outcome. At the end it states exactly what was and was not recovered. It never says "fully recovered" unless replay reproduced every step (A19 §6.4). | Refused until done | FR-SYS-007 |
+| QUITTING | Quit dialog progress: documents closing, prefs saved, journal closed (D03 §6) | Refused | FR-SYS-005 |
+| Engine lost (`ENGINE_LOST`: crash, plugin `System.exit`) | **Not shown in the same session**: under O2 the UI shares the JVM and is lost with it (D17 §3.11). Recovery is offered at the next start from the journal (J-13): UI-19 states the cause if known and what replay can restore. The only in-session cases are the `TIMEOUT` advisory, Cancel, and the controlled restart-with-replay (RA-RS, D03 §7), whose last in-session message is "Restarting Fiji; the session will be rebuilt by replay". | Refused | FR-SYS-007 |
+| Replaying (start-up recovery) | UI-19 replay view: stage-based "Replaying step k of n: <label>", with each step's outcome. At the end it states exactly what was and was not recovered. It never says "fully recovered" unless replay reproduced every step (A19 §6.4). | Refused until done | FR-SYS-007 |
 
 - **No percentage bar during start-up.** No counter exists; P85 measured 4.5–5.3 s to IJ1 ready.
 - **Elapsed time is shown** because it is real.
@@ -142,7 +148,7 @@ The UI applies **only** the transitions reported by the engine. It never infers 
 
 | Preview kind | Mechanism | Visual | Recorded? | Requirement |
 |---|---|---|---|---|
-| Filter preview (commands with IJ1 preview: Gaussian, Median, Subtract Background, …) | The engine computes it on a **copy** of the current plane (FR-PROC-010); the viewer displays the copy's rendering | Viewer label "Preview — not applied" (`state.preview`, dashed frame outside the image bounds); target strip "Preview: <label> <params>"; read-out shows preview values with the suffix "(preview)" | No | FR-PROC-010 |
+| Filter preview (commands with IJ1 preview: Gaussian, Median, Subtract Background, …) | The engine computes it on a **copy** of the current plane on the engine worker (`previewFilter`, D09 §4; FR-PROC-010); the viewer displays the copy's rendering | Viewer label "Preview — not applied" (`state.preview`, dashed frame outside the image bounds); target strip "Preview: <label> <params>"; read-out shows preview values with the suffix "(preview)" | No | FR-PROC-010 |
 | Display preview (B&C, channels, LUT) | Display state only (AC1); the actual state is changed, so there is no "preview" label | "DISPLAY ONLY" header (D13 §9.1) | Yes, as AC1 macro equivalents | FR-PROC-014, FR-HIST-003 |
 | Threshold preview | IJ1 threshold LUT (display state) | Threshold panel header "Preview — pixels unchanged until Apply" | The threshold call is recorded; Apply is separate | FR-PROC-015 |
 | Plan preview | C-08 V1 (text and parameters, not pixels) | — | No (until Run) | FR-NL-004 |
@@ -161,7 +167,7 @@ Comparison is a **mode of the viewer on real data**. It is not a static picture 
 
 | Source | Availability | Label |
 |---|---|---|
-| **Snapshot**: the pre-action state held by the undo manager (CMP-28) for an AC3 step | Only for steps that have a snapshot (not AC4; not evicted from the budget) | "Before step n: <label> (snapshot)" |
+| **Snapshot**: the pre-action state held by the undo manager (CMP-28) for an AC3 step, rendered through `renderSnapshot` (D09 §4) | Only for steps that have a snapshot (not AC4; not evicted from the budget) | "Before step n: <label> (snapshot)" |
 | **Source document**: the input of a step that created a new document (for example the original versus the `Convert to Mask` output, or raw versus `Z Project`) | While both documents are open | "<source title> (id) → <result title> (id)" |
 | **Any two open documents** | Always | Their titles |
 
@@ -209,7 +215,7 @@ Warnings appear **before** execution, inline in the originating form or sheet. A
 
 | Condition | Treatment | Blocking? | Requirement |
 |---|---|---|---|
-| Convert to Mask, Analyze Particles or a binary operation with no threshold or foreground definition | Inline: "No threshold set: Fiji will choose one automatically (method Default)." Offer: "Set threshold first" (opens UI-15) | Confirmation | FR-PROC-016 |
+| Convert to Mask, Analyze Particles or a binary operation with no threshold or foreground definition | Inline: "No threshold set: Fiji will choose one automatically (method Default)." Offer: "Set threshold first" (opens UI-15) | No: inline and non-blocking, shown before OK/Apply (A26 §14 C5; NFR-USE-001). In an NL plan it appears in the plan preview. | FR-PROC-016 |
 | Snapshot over budget, or a virtual stack (AC4) | Inline: "Cannot be undone: needs <N> MB, budget <M> MB" (D14 F-12) | Confirmation | FR-HIST-005 |
 | Lossy save | C-08 V3 loss list | Confirmation | FR-IMG-006 |
 | Save over a session input | C-08 V3 per-document decision | Confirmation | FR-IMG-009 |
@@ -240,7 +246,7 @@ Errors are never auto-dismissed (D14 §4.7).
 | `CONFIRMATION_REQUIRED` | Sheet or inline | (Not an error: AWAITING_CONFIRMATION, §2) | Confirm / Cancel | FR-NL-004, FR-HIST-005 |
 | `CAPABILITY_CONFIRMATION_REQUIRED` | C-08 V4 | (Not an error: §2) | Named confirmations | FR-MACRO-002 |
 | `DIALOG_PENDING` | C-09 | (Not an error: WAITING_FOR_DIALOG) | Bring to front | FR-PROC-007 |
-| `EXECUTION_FAILED` | Activity, History, Log | "<label> on <doc> failed. Fiji reported: <first log line>." | Show log; retry; Undo/restored note | FR-PROC-005, NFR-REL-001 |
+| `EXECUTION_FAILED` | Activity, History, Log | "<label> on <doc> failed. Fiji reported: <first line of the captured exception text or log>." | Show log; retry; Undo/restored note | FR-PROC-005, NFR-REL-001 |
 | `POSTCONDITION_FAILED` | Same | "<label> finished but <expected effect> did not occur (for example no output image, no Results rows)." | Show log; inspect digest delta | FR-PROC-005 |
 | `CANCELLED` | Activity, History | "Cancelled: <label>." Plus the state note (§2) | — | FR-PROC-013 |
 | `PARTIAL_RESULT` | Document banner, History | "<label> stopped after slices <a>–<b> of <N>; these are modified." | Undo if possible; Revert | FR-HIST-006 |
@@ -286,7 +292,7 @@ Observed entries carry the **partial-provenance label** wherever parameters are 
 | FS-05 | Decorative or "thinking" animations during NL interpretation, transcription or start-up; typing-effect text | NFR-USE-002; D11 A-07 | UI review |
 | FS-06 | Optimistic rendering of scientific results (drawing an expected result before the digest) | FR-IMG-001 | Inspection. ROI pending outlines are explicitly marked provisional (D13 §10.5). |
 | FS-07 | Claiming full recovery after replay unless every step was reproduced | FR-SYS-007; A19 §6.4 | Recovery test |
-| FS-08 | Hiding a legacy window, or presenting it as embedded | FR-PLUG-001/002; D11 UXP-14 | Tracker test |
+| FS-08 | Hiding a legacy window that the user opened, or that a plugin opened for interaction, or presenting it as embedded. (Windows with a workspace equivalent, such as the Results `TextWindow` and the ROI Manager singleton, are hidden by policy; Histogram and Plot windows stay visible and tracked; D04 §3.) | FR-PLUG-001/002; D11 UXP-14 | Tracker test |
 | FS-09 | Auto-dismissing errors, or showing information only in a toast | D14 §4.7 | UI review |
 | FS-10 | A cancel affordance that does nothing, or implies instant stop where cancellation is cooperative | FR-PROC-013; A19 §1 | Cancel tooltip per family |
 | FS-11 | Approximate macro text for actions without an exact equivalent | FR-HIST-002/003 | E7 replay; inspection |
@@ -295,7 +301,7 @@ Observed entries carry the **partial-provenance label** wherever parameters are 
 ## Constraints and Limitations
 
 - **Per-slice progress** depends on the NFR-REL-004 hook-chaining validation. Without it, stack filters are indeterminate.
-- **`TIMEOUT` state.** After a timeout, the true state is unknown until a digest can be computed. The UI states this rather than guessing.
+- **`TIMEOUT` advisory.** After a timeout, the true state is unknown until a digest can be computed. The UI states this rather than guessing.
 - **Comparison** requires snapshots (budget-bound) or open source documents. AC4 steps have no "before" view.
 
 ## Requirement gaps
@@ -323,3 +329,7 @@ Observed entries carry the **partial-provenance label** wherever parameters are 
 - D01 (CMP-08, CMP-09, CMP-10, CMP-11, CMP-20, CMP-25, CMP-26, CMP-27, CMP-28, CMP-50; IF-02, IF-03, IF-05); D11; D12; D13; D14.
 - `imagej/ImageJ@v1.54p` (03382be1): `ij/plugin/filter/PlugInFilterRunner.java#L124-L200`, `ij/Executer.java#L74-L117`, `ij/IJ.java#L774-L785` (showProgress).
 - `imagej/ij1-patcher@ij1-patcher-2.0.0` (70e570dc): `LegacyInjector.java#L177-L185, L443-L451`; `imagej/imagej-legacy@imagej-legacy-3.0.0` (fc31a563): `DefaultLegacyHooks.java`.
+
+## Change log
+
+- 2026-10-17: Phase 8 review fixes (findings #3, #5, #7, #10, #11, #13, #22).

@@ -34,13 +34,13 @@ The analysis stage produced 32 analysis documents (A01–A32), 4 foundation docu
 | 11 | Local speech (faster-whisper tiny.en, CPU) transcribes a 2 s command in about 0.2 s warm. Without VAD it hallucinates on silence. Vocabulary prompts both help and hurt. GPU needs extra NVIDIA DLLs. | P60–P64 |
 | 12 | A local 8B LLM with schema-constrained output matched only 5 of 16 expected plans and emitted placeholder values. Deterministic validation must decide execution. | P65 |
 | 13 | NL control of Fiji is not novel. The official `fiji/fiji-llm` exists (in-JVM, MCP, no auth token, parameterless command runs). | A06; fiji-llm source |
-| 14 | The core stack is public domain or BSD. Many Fiji plugins are GPL, 161 jars declare no licence, and the speech venv bundles x264/x265 and NVIDIA/Intel DLLs. BBBC data is NC-SA. | P70, P73; A24, A29 |
+| 14 | The core stack is public domain or BSD. Many Fiji plugins are GPL, 161 jars declare no licence, and the speech venv bundles x264/x265 and NVIDIA/Intel DLLs. BBBC data is NC-SA. | P70, P73 (VERIFIED (ad hoc inspection; no stored output)); A24, A29 |
 | 15 | The macro language is full-privilege (`exec`, `eval`, `call`, `File.delete`, network). The updater uses SHA-1 without signatures and has an HTTP fallback. | A25 |
 
 ## 2. Product requirements (baseline)
 
-- **Functional:** [A26](../05-requirements/A26-functional-requirements.md). 108 FRs across 13 areas: SYS 11, CMD 7, PROC 16, IMG 11, VIEW 6, ROI 7, MEAS 5, HIST 10, MACRO 7, PLUG 3, NL 13, SPEECH 7, WS 5. All 223 candidate requirements are mapped (A26 §15), and four conflicts are resolved (A26 §14).
-- **Non-functional:** [A27](../05-requirements/A27-non-functional-requirements.md). 43 NFRs. Performance targets are set only where measured, with "measure first" obligations elsewhere.
+- **Functional:** [A26](../05-requirements/A26-functional-requirements.md). 108 FRs across 13 areas: SYS 11, CMD 7, PROC 16, IMG 11, VIEW 6, ROI 7, MEAS 5, HIST 10, MACRO 7, PLUG 3, NL 13, SPEECH 7, WS 5. All 223 candidate requirements are mapped (A26 §15), and four conflicts are resolved (A26 §14). At design hand-off: 116 FR (CMD 9, VIEW 8, MEAS 6, PLUG 4, WS 7 after the design-stage additions in A26 §13a) and five conflicts (C5 added in Phase 8); D20.
+- **Non-functional:** [A27](../05-requirements/A27-non-functional-requirements.md). 43 NFRs at the analysis baseline; 46 NFRs after the design-stage additions in A27 (D20). Performance targets are set only where measured, with "measure first" obligations elsewhere.
 - **Parity:** [A28](../05-requirements/A28-fiji-functional-parity-matrix.md) and `parity-matrix.csv` (52 subsystems):
   - complete: 23
   - complete (new): 2
@@ -113,3 +113,4 @@ The analysis is **baselined for design**. It is **not approved**: approval is th
 ## Change log
 
 - 2026-10-17: Baseline by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #16, #29).

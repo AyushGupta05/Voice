@@ -114,7 +114,7 @@ def check():
                 and p.parent.name not in ("screenshots", "probes") and p.name not in (
                 "architecture.md", "environment.md", "setup.md", "upstreams.md", "verification.md"):
             fm = front_matter(text)
-            if p.name in ("DECISIONS.md", "WORK-PROGRESS.md", "GLOSSARY.md", "BIBLIOGRAPHY.md"):
+            if p.name in ("DECISIONS.md", "WORK-PROGRESS.md", "GLOSSARY.md", "BIBLIOGRAPHY.md") or p.name.startswith("phase8-"):
                 pass
             elif fm is None:
                 ERR.append(f"{rel}: missing front matter")
@@ -223,6 +223,7 @@ def write_index():
             "| Artefact | Content | Owner doc |", "|---|---|---|",
             "| [DECISIONS.md](DECISIONS.md) | Decision register | F04 §7 |",
             "| [WORK-PROGRESS.md](WORK-PROGRESS.md) | Recovery checkpoint | — |",
+            "| [02-design/06-handoff/phase8-review-record.md](02-design/06-handoff/phase8-review-record.md) | Phase 8 internal review findings and fix decisions | D20 |",
             "| [00-foundation/GLOSSARY.md](00-foundation/GLOSSARY.md) | Glossary | F04 |",
             "| [01-analysis/references/BIBLIOGRAPHY.md](01-analysis/references/BIBLIOGRAPHY.md) | Sources with versions and access dates | F04 §4 |",
             "| [01-analysis/references/probes/](01-analysis/references/probes/) | Probe scripts and raw outputs (README-*.md per agent) | F04 §9 |",

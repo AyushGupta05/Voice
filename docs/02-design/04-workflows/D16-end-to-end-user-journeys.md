@@ -31,7 +31,7 @@ J-12 is the MVP acceptance journey. It uses exactly the ten commands of A31 §3 
 - the error taxonomy, which this document references by code (D17);
 - test mechanics (D18).
 
-D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
+D12 owns the UI surfaces UI-01…UI-20. This document uses them only by ID.
 
 ## 1. Conventions
 
@@ -39,10 +39,11 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 |---|---|
 | Step table columns | **#**. **User action**. **System response**: UI surface, route (R1 `IJ.run(imp,label,options)`; R2 module; R3 direct API; R4 macro/script, as defined in A18/D04), `ActionRequest.kind`, consequence class (A19 §3), and lifecycle states shown on UI-12. **Fiji invocation**: exact label and option string. **History / macro line**: the `HistoryRecord` summary and the macro line the CMP-27 generator emits. |
 | Option strings | Keys are as in `commands-core-parameters.csv`. Value keys are always emitted. Boolean keys follow IJ1 macro semantics: present means true and absent means false (`commands-core-parameters.csv` "present=true; absent=false in macro mode"). The generator decides **every** schema key explicitly (FR-PROC-003) and never relies on a remembered static value. |
-| Lifecycle | `QUEUED → VALIDATING → (AWAITING_CONFIRMATION) → RUNNING → (WAITING_FOR_DIALOG) → COMPLETED / FAILED / CANCELLED / ROLLED_BACK / PARTIAL` (design brief vocabulary; D06/D09). For brevity a step that passes straight through is written `Q→V→R→C`. |
+| Lifecycle | `QUEUED → VALIDATING → (AWAITING_CONFIRMATION) → RUNNING → (WAITING_FOR_DIALOG) → COMPLETED / FAILED / CANCELLED / ROLLED_BACK / PARTIAL`: the canonical lifecycle in D06 §6. For brevity a step that passes straight through is written `Q→V→R→C`. |
 | Paths | Macro lines show `<in>/…` and `<out>/…` placeholders. Generated macros contain absolute, escaped paths (FR-MACRO-006). Logs and manifests store project-relative or hashed paths (NFR-PRIV-002). |
 | Record IDs | `H-n` is the n-th `HistoryRecord` of the session (FR-HIST-001). |
-| Origin | `origin` is the `ActionRequest` modality: `menu`, `search`, `shortcut`, `canvas`, `panel`, `nl-typed`, `nl-speech`, `macro`, `replay`, `observed`. |
+| Origin | `origin` is the `ActionRequest` modality, using the D06 §2 enum verbatim: `MENU`, `SEARCH`, `SHORTCUT`, `CANVAS`, `PANEL`, `NL_TYPED`, `NL_SPOKEN`, `MACRO`, `REPLAY`, `OBSERVED`. |
+| Macro lines | Generated per D07 G1–G11: globals block first, `idN = getImageID()` after each image-creating step, `selectImage(idN)` before every step, ROIs per G5 (rectangles and ovals through `makeRectangle`/`makeOval` with doubles; non-integer polygons through `makeSelection`), ROI-list entries inline (G11). The J-06 example shows a complete generated macro. |
 | Tags | Each journey's design is PROPOSED unless a step is tagged otherwise. |
 
 ### 1.1 Common preconditions (apply to every journey)
@@ -50,7 +51,7 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 | ID | Precondition | Requirement |
 |---|---|---|
 | PC-1 | The product has been launched through its launch mode, with the bundled Zulu 21 and `-Dimagej.updater.disableAutocheck=true` (D03 §2, D19). | FR-SYS-008, NFR-PLAT-003 |
-| PC-2 | UI-19 has shown `STARTING → INITIALISING_FIJI → BUILDING_CATALOGUE → READY`. Any action submitted earlier is rejected with `ENGINE_NOT_READY` (D17 §3.1). | FR-SYS-006 |
+| PC-2 | The Fiji splash screen covered the JVM start, then UI-19 has shown `INITIALISING → BUILDING_CATALOGUE → READY` (D03 §3). Any action submitted earlier is rejected with `ENGINE_NOT_READY` (D17 §3.1). | FR-SYS-006 |
 | PC-3 | The Fiji JVM is non-headless, `LegacyService` is active and the Fiji main frame is hidden (start-up self-test). | FR-SYS-001, FR-SYS-002 |
 | PC-4 | Fixtures that are not redistributable (FX-003, FX-030) come from the git-ignored cache and are verified by SHA-256 before use (D18 §5). | NFR-PKG-007, NFR-MAINT-002 |
 
@@ -70,7 +71,7 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 | J-10 | Legacy plugin (TrackMate C4; Cell Counter C5) | HACK | PER-3 | R1 + legacy window | FR-PLUG-001/002, FR-HIST-008 | L3 D + E3/E6 |
 | J-11 | Export images and measurement results | HACK | PER-2 | R3 | FR-IMG-005/006/009, FR-MEAS-003, FR-ROI-005 | L2 E1/E3/E4/E5 round trips |
 | J-12 | Cell counting end to end with the MVP command set | MVP | PER-2 (PER-1 assisted) | R3, R1 | FR-PROC-001/003/015/016, FR-MEAS-001…004, FR-HIST-002 | L3 E1–E7 (GUI reference) + L4 E9 on FX-003, FX-030 |
-| J-13 | Recover after an engine crash (replay) | PARITY | PER-2 | supervisor + R4 replay | FR-SYS-007 | L3 E1–E6 |
+| J-13 | Recover after an engine crash (replay) | PARITY | PER-2 | journal + R4 replay | FR-SYS-007 | L3 E1–E6 |
 | J-14 | Apply a recorded workflow to a folder | PARITY | PER-2, PER-3 | R4 / M1 batch | FR-MACRO-007, FR-PROC-009 | L3 E1/E3/E5/E7 |
 
 ## 3. Journeys
@@ -85,9 +86,9 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
-| 1 | `File › Open...` (UI-02), or drag a file onto UI-04 | Native file chooser. The selection is converted into `ActionRequest{kind=SESSION, commandId=ij1:File>Open..., params{path}, origin=menu}`. UI-12 shows `Q→V`. | — | — |
+| 1 | `File › Open...` (UI-02), or drag a file onto UI-04 | Native file chooser. The selection is converted into `ActionRequest{kind=SESSION, operation=OPEN, params{path}, origin=MENU}`. UI-12 shows `Q→V`. | — | — |
 | 2 | — | VALIDATING: the path exists and is readable, and its SHA-256 is computed (FR-IMG-004). RUNNING: R3 on the engine worker (D04 §2 R3). | `IJ.openImage(path)` (`ij/IJ.java#L1982`), the same routing as `File › Open` including Bio-Formats delegation (FR-IMG-003; A14). `run("Open...")` is **not** used because it produces no `ImagePlus` headless (A08 op 30b); the macro form `open(path)` passes (op 30c). | — |
-| 3 | — | Document registered (CMP-24, policy P-A show-then-hide, D04 §3). UI-04 gains a tab. UI-05 renders the plane through `getBufferedImage()` (FR-VIEW-001). The UI-05 subtitle shows C/Z/T, calibrated size, type, LUT inversion and memory (FR-VIEW-002). UI-06 shows C/Z/T sliders for hyperstacks. Lifecycle `C`. | — | `H-1 open docId=d1 path=<rel> sha256=… reader=IJ1 (or Bio-Formats formats-bsd/gpl) dims=W×H×C×Z×T type calibration units finterval` (FR-IMG-004). Macro: `open("<in>/hela-cells.tif");` |
+| 3 | — | Document registered (CMP-24, policy P-A show-then-hide, D04 §3). UI-04 gains a tab. UI-05 renders the plane through `getBufferedImage()` (FR-VIEW-001). The UI-05 subtitle shows C/Z/T, calibrated size, type, LUT inversion and memory (FR-VIEW-002). UI-06 shows C/Z/T sliders for hyperstacks. Lifecycle `C`. | — | `H-1 open docId=d1 path=<rel> sha256=… reader=IJ1 (or Bio-Formats formats-bsd/gpl) dims=W×H×C×Z×T type calibration units finterval` (FR-IMG-004). Macro: `open("<in>/hela-cells.tif"); id1 = getImageID();` |
 
 **Steps — HACK (Bio-Formats importer for OME-TIFF)**
 
@@ -95,7 +96,7 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 |---|---|---|---|---|
 | 1 | `File › Import › Bio-Formats` (UI-02) | UI-07 shows a schema form for the importer: series, colour mode, view, stack order, autoscale, ROI import. No Bio-Formats dialog is shown (FR-IMG-003). | — | — |
 | 2 | Chooses `color_mode=Default`, `view=Hyperstack`, `stack_order=XYCZT`, and **unticks** `autoscale`, then clicks Open | `ActionRequest{kind=COMMAND, commandId=ij1:Plugins>Bio-Formats>Bio-Formats Importer}`. R1 on the worker. `Q→V→R`. | `IJ.run(null-target, "Bio-Formats Importer", "open=[<in>/multi-channel-4D-series.ome.tif] color_mode=Default view=Hyperstack stack_order=XYCZT")`. Key names are **INFERRED** from `Macro.trimKey` applied to `importer-options.txt` (A14 §5) and must be confirmed in milestone 1 (gap G-D16-01). The plugin is GPL (`bio-formats_plugins`) and is invoked only by command string, never by class import (NFR-PKG-003; A24 Q-01). | — |
-| 3 | — | The new `ImagePlus` is detected in the digest (new ID; D04 §3) and registered. The reader jar variant is recorded. `C`. | — | `H-1 open … reader=Bio-Formats formats-bsd-8.5.0` (FR-IMG-004, CR-A24-07). Macro: `run("Bio-Formats Importer", "open=[…] color_mode=Default view=Hyperstack stack_order=XYCZT");` |
+| 3 | — | The new `ImagePlus` is detected in the digest (new ID; D04 §3) and registered. The reader jar variant is recorded. `C`. | — | `H-1 open … reader=Bio-Formats formats-bsd-8.5.0` (FR-IMG-004, CR-A24-07). Macro: `run("Bio-Formats Importer", "open=[…] color_mode=Default view=Hyperstack stack_order=XYCZT"); id1 = getImageID();` |
 
 **Postconditions:** one document is focused. Its provenance (path, SHA-256, reader, metadata) is in history. No pixel is modified. The input file is registered as a session input for the overwrite policy (FR-IMG-009).
 
@@ -104,14 +105,14 @@ D12 owns the UI surfaces UI-01…UI-19. This document uses them only by ID.
 | Condition | Code (D17) | User-visible treatment |
 |---|---|---|
 | Path missing, unreadable, zero-byte or truncated (FX-079) | `IO_ERROR` | UI-12 error with the path (relative) and the reader message. No document is created. |
-| `IJ.openImage` returns `null` with no exception | `EXECUTION_FAILED` (postcondition "image exists" failed) | As above, plus the log excerpt (D17 §3.6) |
+| `IJ.openImage` returns `null` with no exception | `IO_ERROR` (D17 §3.15) | As above, plus the captured reader message |
 | An importer key is missing or unrecognised, so a Bio-Formats dialog opens | `DIALOG_PENDING` | The native dialog is brought forward. UI-12 shows "waiting for input in a Fiji dialog" (FR-PROC-007). |
 | Header implies a size above the configured heap fraction (FX-080) | PARITY only (FR-IMG-010): `CONFIRMATION_REQUIRED` | Offer a virtual stack, or cancel |
 
 **Requirements:** FR-IMG-003, FR-IMG-004, FR-IMG-001, FR-IMG-002, FR-VIEW-001, FR-VIEW-002, FR-VIEW-004, FR-VIEW-005, FR-PLUG-002, FR-WS-001, NFR-PKG-003.
 
 **Verification:**
-- L2 E1/E3 of the product open against reference `open(path)` (headless) on FX-001, FX-003, FX-005, FX-014, FX-070, FX-072 and FX-075;
+- L2 E1/E3 of the product open against reference `open(path)` (GUI reference per DEC-043, because `ij1:File>Open...` has `headless_probe=fail`) on FX-001, FX-003, FX-005, FX-014, FX-070, FX-072 and FX-075;
 - HACK: the importer against reference `run("Bio-Formats Importer", …)` on FX-040, FX-041, FX-044 and FX-045;
 - history-field test on FX-001 and FX-040;
 - subtitle test on FX-075 (FX-008 in the scheduled tier).
@@ -126,10 +127,10 @@ Coverage rows are the FR-IMG-003/004 and FR-VIEW-* rows of `verification-coverag
 
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
-| 1 | Drags the min/max sliders for channel 2 in UI-14 | Local preview while dragging. On release, one `ActionRequest{kind=DIRECT, params{c=2,min,max}}`, AC1. R3. `Q→V→R→C`. No confirmation (NFR-USE-001). UI-14 states "display only — pixel values unchanged" (FR-VIEW-006). | `CompositeImage.setDisplayRange(min,max)` on channel 2 (`ij/CompositeImage.java#L683`) after `imp.setPosition(2,z,t)` | `H-n display c=2 min=… max=…`. Macro: `Stack.setChannel(2); setMinAndMax(110, 2100);` |
-| 2 | Switches the composite mode in UI-13 to *Composite* and the LUT of channel 1 to *Fire* | Mode change: DIRECT/R3, AC1. LUT: COMMAND/R1 `ij1:Image>Lookup Tables>Fire`, AC1. | `IJ.run(imp, "Fire", "")` | `Stack.setDisplayMode("composite");` / `run("Fire");` |
-| 3 | Clicks **Apply** in UI-14 (FX-013) | UI-14 shows a warning before anything changes: "Apply rewrites pixel values to the current display range [min–max]; this changes data" (FR-PROC-014). It names the type and range. AC3 (snapshot within budget), so `AWAITING_CONFIRMATION` comes from the product-specific Apply warning only. | — | — |
-| 4 | Confirms | COMMAND/R1 `ij1:Image>Lookup Tables>Apply LUT`. Precondition: 8/16-bit or RGB, and the display range differs from the full range (`LutApplier.java#L19, L37`; commands.csv). `Q→V→R→C`. Snapshot taken (CMP-28). | `IJ.run(imp, "Apply LUT", "")`. On a stack the user's scope choice is explicit: `"stack"` is present or absent. | `H-n Apply LUT range=[110,2100]`. Macro: `setMinAndMax(110, 2100); run("Apply LUT");` |
+| 1 | Drags the min/max sliders for channel 2 in UI-14 | Local preview while dragging. On release, one `ActionRequest{kind=DIRECT, params{c=2,min,max}}`, AC1. R3. `Q→V→R→C`. No confirmation (NFR-USE-001). UI-14 states "display only — pixel values unchanged" (FR-VIEW-006). | `CompositeImage.setDisplayRange(min,max)` on channel 2 (`ij/CompositeImage.java#L683`) after `imp.setPosition(2,z,t)` | `H-n display c=2 min=… max=…`. Macro: `selectImage(id1); Stack.setChannel(2); setMinAndMax(110, 2100);` |
+| 2 | Switches the composite mode in UI-13 to *Composite* and the LUT of channel 1 to *Fire* | Mode change: DIRECT/R3, AC1. LUT: COMMAND/R1 `ij1:Image>Lookup Tables>Fire`, AC1. | `IJ.run(imp, "Fire", "")` | `selectImage(id1); Stack.setDisplayMode("composite");` / `selectImage(id1); run("Fire");` |
+| 3 | Reads the warning next to **Apply** in UI-14 (FX-013) | UI-14 shows an inline warning before anything changes: "Apply rewrites pixel values to the current display range [min–max]; this changes data" (FR-PROC-014). It names the type and range. The warning is non-blocking: AC3 from a direct modality takes no confirmation step (A26 §14 C5, NFR-USE-001, D06 §4). | — | — |
+| 4 | Clicks **Apply** | COMMAND/R1 `ij1:Image>Lookup Tables>Apply LUT`. Precondition: 8/16-bit or RGB, and the display range differs from the full range (`LutApplier.java#L19, L37`; commands.csv). `Q→V→R→C`. Snapshot taken (CMP-28). | `IJ.run(imp, "Apply LUT", "")`. On a stack the user's scope choice is explicit: `"stack"` is present or absent. | `H-n Apply LUT range=[110,2100]`. Macro: `selectImage(id1); setMinAndMax(110, 2100); run("Apply LUT");` |
 
 **Postconditions:**
 - After steps 1–2, the pixel hash is unchanged.
@@ -140,7 +141,7 @@ Coverage rows are the FR-IMG-003/004 and FR-VIEW-* rows of `verification-coverag
 | Condition | Code | Treatment |
 |---|---|---|
 | Apply on a 32-bit image, or with the display range equal to the full range | `PRECONDITION_FAILED` | Message in UI-14 explaining the condition |
-| User cancels the warning | `CANCELLED` (no state change) | — |
+| User does not press Apply after reading the warning | Nothing is submitted (no state change) | — |
 | Snapshot exceeds the budget | `SNAPSHOT_BUDGET_EXCEEDED` → AC4 confirmation | — |
 
 Applying a LUT to one channel of a multi-channel composite affects only the current channel (**UNKNOWN**; verify against `LutApplier` before HACK).
@@ -160,10 +161,10 @@ Applying a LUT to one channel of a multi-channel composite affects only the curr
 
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
-| 1 | Selects the rectangle tool in UI-03 and drags on UI-05 | During the drag, the geometry is local to the UI (A18 §4). Hit-testing follows the IJ1 pixel-corner convention (FR-ROI-002). On release: `ActionRequest{kind=DIRECT, params{type=rect, x,y,w,h as float}}`, AC2, R3. `Q→V→R→C`. | `imp.setRoi(new Roi(x, y, w, h))` with double coordinates (`ij/gui/Roi.java#L140`) | `H-n roi rect (12.5, 8.25, 40.0, 20.0)`. Macro: `makeRectangle(12.5, 8.25, 40, 20);` |
-| 2 | Polygon tool; clicks five vertices at sub-pixel zoom; double-clicks to close | DIRECT/R3, AC2. The float vertices are sent without rounding (FR-ROI-001). | `new PolygonRoi(float[] xs, float[] ys, 5, Roi.POLYGON)` → `imp.setRoi(...)` | Macro: `makeSelection("polygon", newArray(10.25,30.5,…), newArray(…));` with float arrays (FR-HIST-003) |
+| 1 | Selects the rectangle tool in UI-03 and drags on UI-05 | During the drag, the geometry is local to the UI (A18 §4). Hit-testing follows the IJ1 pixel-corner convention (FR-ROI-002). On release: `ActionRequest{kind=DIRECT, params{type=rect, x,y,w,h as float}}`, AC2, R3. `Q→V→R→C`. | `imp.setRoi(new Roi(x, y, w, h))` with double coordinates (`ij/gui/Roi.java#L140`) | `H-n roi rect (12.5, 8.25, 40.0, 20.0)`. Macro (D07 G5, type-preserving): `selectImage(id1); makeRectangle(12.5, 8.25, 40, 20);` |
+| 2 | Polygon tool; clicks five vertices at sub-pixel zoom; double-clicks to close | DIRECT/R3, AC2. The float vertices are sent without rounding (FR-ROI-001). | `new PolygonRoi(float[] xs, float[] ys, 5, Roi.POLYGON)` → `imp.setRoi(...)` | Macro: `selectImage(id1); makeSelection("polygon", newArray(10.25,30.5,…), newArray(…));` with float arrays (FR-HIST-003) |
 | 3 | Drags a vertex, then Alt-clicks a vertex to delete it (HACK) | Modifier semantics per `ImageCanvas.setRoiModState` (FR-ROI-003). One DIRECT action is committed per gesture. | `PolygonRoi` vertex edit through the API | The edited `makeSelection(...)` replaces the previous line in the generated macro. The record keeps both states for undo. |
-| 4 | Clicks **Add** in UI-09 (HACK), or presses Ctrl+T (the IJ1 shortcut of `ij1:Edit>Selection>Add to Manager`; commands.csv) | DIRECT, AC2. The ROI is appended to the document's ROI set (engine-owned, D04 §4). UI-09 lists it bound to `d1`. The singleton `RoiManager` is synchronised only when an action needs it. | Product ROI set; CMP-30 sync on demand. The shortcut resolves to the catalogue command and keeps IJ1 precedence (FR-CMD-007, PARITY for the full table). | `H-n roi-list add index=0 name=0001-…`. Macro: `roiManager("add");` |
+| 4 | Clicks **Add** in UI-09 (HACK), or presses Ctrl+T (the IJ1 shortcut of `ij1:Edit>Selection>Add to Manager`; commands.csv) | DIRECT, AC2. The ROI is appended to the document's ROI set (engine-owned, D04 §4). UI-09 lists it bound to `d1`. The singleton `RoiManager` is synchronised only when an action needs it. | Product ROI set; CMP-30 sync on demand. The shortcut resolves to the catalogue command and keeps IJ1 precedence (FR-CMD-007, PARITY for the full table). | `H-n roi-list add index=0 name=0001-…`. No macro line of its own: the set is emitted where a step uses it (D07 G11). |
 | 5 | Selects ROI 0 in UI-09, then presses Ctrl+Z | Undo restores the previous ROI state (product snapshot of the ROI history). The IJ1 `Undo` slot is not used (FR-HIST-004). | — | `H-n undo of H-(n-1)` |
 
 **Postconditions:** the ROI geometry in the engine equals the drawn float geometry. `roiManager("count")` in a macro equals the length of UI-09 (FR-ROI-004).
@@ -193,8 +194,8 @@ Applying a LUT to one channel of a multi-channel composite affects only the curr
 |---|---|---|---|---|
 | 1 | `Analyze › Set Measurements...` (UI-02, or command search UI-11) | UI-07 shows the schema form with **every** key of `ij1:Analyze>Set Measurements...` and the current global values (FR-MEAS-002). UI-17 highlights that this is a result-affecting global (AC5). | — | — |
 | 2 | Ticks Area, Mean, Min & max, Centroid, Display label; leaves Redirect = None and Decimal = 3; OK | `ActionRequest{kind=COMMAND, commandId=ij1:Analyze>Set Measurements...}`, AC5. Immediate, no confirmation (NFR-USE-001). R1. `Q→V→R→C`. CMP-29 records the old and new globals. | `IJ.run(imp, "Set Measurements...", "area mean min centroid display redirect=None decimal=3")` | `H-n globals measurements: old={area,mean,min} new={area,mean,min,centroid,display}` (FR-HIST-007). Macro: `run("Set Measurements...", "area mean min centroid display redirect=None decimal=3");` |
-| 3 | Selects ROI 0 in UI-09; `Analyze › Measure` (Ctrl+M) | COMMAND/R1, AC2 (Results append; class per D06). The UI-07 strip shows the target `d1`, the ROI, the measurement set and the C/Z/T position (FR-MEAS-002). `Q→V→R→C`. CMP-26 copies the new row at full precision (`getValueAsDouble`) into the document's result store. UI-08 shows it bound to `d1`, rounded only in presentation (FR-MEAS-003). | `IJ.run(imp, "Measure", "")`, with the ROI set on `imp` | `H-n measure roi=0 rows+1`. Macro: `roiManager("select", 0); run("Measure");` |
-| 4 | Repeats for ROI 1 | Accumulates (row 2). The system Results table stays populated with unchanged column names (FR-MEAS-005). | as above | `roiManager("select", 1); run("Measure");` |
+| 3 | Selects ROI 0 in UI-09; `Analyze › Measure` (Ctrl+M) | COMMAND/R1, AC0 (Results append; same class as D13 §11). The UI-07 strip shows the target `d1`, the ROI, the measurement set and the C/Z/T position (FR-MEAS-002). `Q→V→R→C`. CMP-26 copies the new row at full precision (`getValueAsDouble`) into the document's result store. UI-08 shows it bound to `d1`, rounded only in presentation (FR-MEAS-003). | `IJ.run(imp, "Measure", "")`, with the ROI set on `imp` | `H-n measure roi=0 rows+1`. Macro (ROI inline, D07 G11): `selectImage(id1); makeSelection("polygon", newArray(10.25,30.5,…), newArray(…)); run("Measure");` |
+| 4 | Repeats for ROI 1 | Accumulates (row 2). The system Results table stays populated with unchanged column names (FR-MEAS-005). | as above | `selectImage(id1);` + ROI 1 in its G5 form + `run("Measure");` |
 
 **Postconditions:**
 - The Results in UI-08 equal `nResults`/`getResult(...)` read by a macro (FR-MEAS-005).
@@ -226,8 +227,8 @@ Applying a LUT to one channel of a multi-channel composite affects only the curr
 |---|---|---|---|---|
 | 1 | `Plugins › Macros › Run...` (UI-02), or opens a `.ijm` in UI-10 | The file is read and hashed (SHA-256). **Nothing executes** on open or preview (FR-MACRO-003). | — | — |
 | 2 | — | CMP-31 scans the text with `ij.macro.Tokenizer` for `exec`, `eval`, `call`, `runMacro`, `File.delete/rename/copy/append/saveString`, `File.openUrlAsString` (FR-MACRO-002). UI-18 lists the capabilities found, the file hash and the AC7 class. `AWAITING_CONFIRMATION` with code `CAPABILITY_CONFIRMATION_REQUIRED`. | — | — |
-| 3 | Confirms (a separate confirmation names each dangerous function) | `ActionRequest{kind=CODE, origin=macro, params{fileHash}}`, AC7. R4 on the engine worker. One interpreter at a time (FR-MACRO-005). `RUNNING`. Commands the macro calls are observed through `CommandListener` and nested under the CODE record (A18 F3). | `IJ.runMacro(text)` (`ij/IJ.java#L153`) on the worker (D04 R4) | `H-n code file=<rel> sha256=… capabilities=[…]`, with nested `H-n.k observed run("…","…")` entries |
-| 4 | Clicks Measure in the menu while the macro runs | The request is `QUEUED` behind the macro (FR-MACRO-005). UI-12 shows the queue position. | — | — |
+| 3 | Confirms (a separate confirmation names each dangerous function) | `ActionRequest{kind=CODE, origin=MACRO, params{fileHash}}`, AC7. R4 on the engine worker. One interpreter at a time (FR-MACRO-005). `RUNNING`. Commands the macro calls are observed through `CommandListener` and nested under the CODE record (A18 F3). | R4 adapter (owned `Interpreter`, DEC-034), mirroring `Macro_Runner.runMacro` (`ij/plugin/Macro_Runner.java#L161-L176`), on the worker (D04 R4). `IJ.runMacro` is not used (D17 §3.8). | `H-n code file=<rel> sha256=… capabilities=[…]`, with nested `H-n.k observed run("…","…")` entries |
+| 4 | Clicks Measure in the menu while the macro runs | The request is `QUEUED` behind the macro (FR-MACRO-005). UI-12 shows the queue position (`queuePosition`, D09 §3). | — | — |
 | 5 | — | The macro finishes; the digest refreshes UI-05, UI-08 and UI-09. `C`. The queued Measure then runs. | — | — |
 
 **Postconditions:** outputs, Results column names and macro semantics are as in classic Fiji (FR-MACRO-001). The history references the file by hash, and its internal commands are observed entries.
@@ -237,7 +238,7 @@ Applying a LUT to one channel of a multi-channel composite affects only the curr
 | Condition | Code | Treatment |
 |---|---|---|
 | User declines | `CANCELLED` | Nothing runs |
-| Interpreter error (`Interpreter.error` shows the modal "Macro Error" dialog with "<message> in line N", then throws `RuntimeException("Macro canceled")`; `ij/macro/Interpreter.java#L1357-L1408`; `ij/Macro.java#L17`) | `EXECUTION_FAILED` (macro error, D17 §3.8) | The dialog is detected as `DIALOG_PENDING` titled "Macro Error". Its text (message, line number, line) is shown in UI-10 next to the source line. Snapshots of documents modified by the macro are offered for rollback. |
+| Interpreter error (`Interpreter.error` shows the modal "Macro Error" dialog with "<message> in line N", then throws `RuntimeException("Macro canceled")`; `ij/macro/Interpreter.java#L1357-L1408`; `ij/Macro.java#L17`) | `EXECUTION_FAILED` / `MACRO_ERROR` (D17 §3.8; read from the owned interpreter's `wasError()`/`getErrorMessage()`) | The dialog is detected as `DIALOG_PENDING` titled "Macro Error". Its text (message, line number, line) is shown in UI-10 next to the source line. Snapshots of documents modified by the macro are offered for rollback. |
 | Macro calls `exit` or `IJ.getImage()` with no image | `EXECUTION_FAILED`, or `ENGINE_LOST` if the JVM terminates | D17 §3.11 |
 | Macro opens a modal dialog | `DIALOG_PENDING` | Brought forward |
 
@@ -256,19 +257,29 @@ Applying a LUT to one channel of a multi-channel composite affects only the curr
 
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
-| 1 | Works normally (open, blur, ROI, Set Measurements, Measure) | History is always on (FR-HIST-001). Each completed action appends a `HistoryRecord` to UI-10 and to the session journal (D03 §7). The IJ1 Recorder is not the source (FR-HIST-009). If the user has the classic Recorder open, exact lines are mirrored with `Recorder.recordString` (A18 F10). | as in J-01, J-03, J-04 | per step |
+| 1 | Works normally (open, blur, ROI, Set Measurements, Measure) | History is always on (FR-HIST-001). Each completed action appends a `HistoryRecord` to UI-10 and to the session journal (D03 §7). The IJ1 Recorder is not the source (FR-HIST-009). If the user has the classic Recorder open, exact lines are mirrored with `Recorder.recordString` (A18 F10; D07 §3 (a)). The optional cross-check uses a separate hidden Recorder with `recordInMacros=true` (D07 §3 (b)). | as in J-01, J-03, J-04 | per step |
 | 2 | Opens the *Macro* tab of UI-10 | Shows the macro generated from the structured records. Globals are set first. Images are addressed without relying on focus. Records that are not macro-expressible are marked (FR-HIST-002/003). | — | see the example below |
 | 3 | **Export…** | `ActionRequest{kind=SESSION}`, AC6. Writes `.ijm` plus a provenance manifest (lock hash, input SHA-256s, product version). Refuses a path that is a session input (FR-IMG-009). | — | `H-n export macro path=<rel> sha256=…` |
-| 4 | **Replay on original inputs** | UI-18 lists the inputs (resolved by SHA-256, FR-HIST-010), the output locations and the globals to be set. One confirmation. `kind=CODE, origin=replay`. R4 runs the generated macro. No capability prompt, because the macro contains only catalogue commands and was generated by the product (A19 §4). | `IJ.runMacro(generated)` | `H-n replay of export … result=equal/different` |
+| 4 | **Replay on original inputs** | UI-18 lists the inputs (resolved by SHA-256, FR-HIST-010), the output locations and the globals to be set. One confirmation. `kind=CODE, origin=REPLAY`. R4 runs the generated macro. No capability prompt, because the macro contains only catalogue commands and was generated by the product (A19 §4). | R4 adapter (owned `Interpreter`, DEC-034) with the generated text | `H-n replay of export … result=equal/different` |
 
-Example of a generated macro (FX-003):
+Example of a generated macro (FX-003), following D07 G1–G11 strictly:
 
 ```
 // generated by the product; runtime lock f6695397…; input sha256 <blobs.gif sha256>
+// ---- Result-affecting settings (values at the first step; restored before replay) ----
 setOption("BlackBackground", true);
-run("Set Measurements...", "area mean min centroid display redirect=None decimal=3");
-open("<in>/blobs.gif");
+run("Set Measurements...", "area mean min redirect=None decimal=3");
+run("Options...", "iterations=1 count=1 black");
+// ---- Inputs ----
+open("<in>/blobs.gif");   // sha256: <blobs.gif sha256>
+id1 = getImageID();
+// ---- Steps ----
+selectImage(id1);
 run("Gaussian Blur...", "sigma=2");
+// AC5 record: Set Measurements changed mid-session (G1)
+run("Set Measurements...", "area mean min centroid display redirect=None decimal=3");
+// Measure on ROI 0 of the document's ROI set, emitted inline (G5, G11)
+selectImage(id1);
 makeSelection("polygon", newArray(10.25,30.5,40.75), newArray(12.0,8.5,30.25));
 run("Measure");
 ```
@@ -299,9 +310,9 @@ run("Measure");
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
 | 1 | Types "blur this by 1 micron then threshold with Otsu" in UI-11 | CMP-40 grammar fast path plus catalogue retrieval. Deixis: "this" resolves to the focused document `d1` (FR-NL-005). Unit: "1 micron" resolves against the calibration to `sigma=1 scaled` (FR-NL-008; the D08 rule). | — | — |
-| 2 | — | CMP-41 validates against the schema and the live state (FR-NL-002). `Convert to Mask`'s `background` (Dark/Light) is consequential and not stated, so the plan gets a **clarify** slot (FR-NL-003). The decision is made by deterministic policy (FR-NL-006). | — | — |
+| 2 | — | CMP-41 validates against the schema and the live state (FR-NL-002). The threshold's dark-background flag (`dark` of `SET_AUTO_THRESHOLD`, as in `setAutoThreshold("Otsu dark")`) is consequential and not stated, so the plan gets a **clarify** slot (FR-NL-003). The decision is made by deterministic policy (FR-NL-006). | — | — |
 | 3 | — | UI-18 shows step 1, `Gaussian Blur...` on `d1` (title and ID), scope "current slice", `sigma=1 µm (4 px)`, menu path `Process › Filters › Gaussian Blur...`, macro text. It shows step 2, the threshold, with "Background: Dark / Light?" (choices displayed). `AWAITING_CONFIRMATION` (AC3 from NL; FR-NL-004). | — | — |
-| 4 | Picks *Dark* and clicks **Run** | Re-validation immediately before each step (FR-NL-002). Step 1: `ActionRequest{kind=COMMAND, origin=nl-typed, commandId=ij1:Process>Filters>Gaussian Blur..., params{sigma:1, scaled:true}}`. R1. Step 2: DIRECT `ij1:Image>Adjust>Threshold...` via `setAutoThreshold`. Progress is stage-based ("step 1 of 2"; NFR-USE-002). | `IJ.run(imp, "Gaussian Blur...", "sigma=1 scaled")`; `IJ.setAutoThreshold(imp, "Otsu dark")` (`ij/IJ.java#L1492`) | `H-n origin=nl-typed utterance="…" plan=… → run("Gaussian Blur...", "sigma=1 scaled");` and `setAutoThreshold("Otsu dark");` |
+| 4 | Picks *Dark* and clicks **Run** | Re-validation immediately before each step (FR-NL-002). Step 1: `ActionRequest{kind=COMMAND, origin=NL_TYPED, commandId=ij1:Process>Filters>Gaussian Blur..., params{sigma:1, scaled:true}}`. R1. Step 2: `ActionRequest{kind=DIRECT, origin=NL_TYPED, operation=SET_AUTO_THRESHOLD, params{method:"Otsu", dark:true}}` with no `commandId` (D06 §2). R3. If the live state changed since the preview, the plan returns to `AWAITING_CONFIRMATION` with a fresh preview (D06 §3). Progress is stage-based ("step 1 of 2"; NFR-USE-002). | `IJ.run(imp, "Gaussian Blur...", "sigma=1 scaled")`; `IJ.setAutoThreshold(imp, "Otsu dark")` (`ij/IJ.java#L1492`) | `H-n origin=NL_TYPED utterance="…" plan=… → selectImage(id1); run("Gaussian Blur...", "sigma=1 scaled");` and `selectImage(id1); setAutoThreshold("Otsu dark");` |
 
 ```mermaid
 sequenceDiagram
@@ -323,7 +334,7 @@ sequenceDiagram
   PS-->>U: steps, target, units, menu path, macro text, choice Dark/Light
   U->>PS: choose Dark, Run (confirmationToken)
   loop each step
-    PS->>EF: ActionRequest (IF-01) origin=nl-typed
+    PS->>EF: ActionRequest (IF-01) origin=NL_TYPED
     EF->>PV: re-validate against current state
     EF->>W: QUEUED → VALIDATING → RUNNING
     W->>F: IJ.run(imp,"Gaussian Blur...","sigma=1 scaled") / IJ.setAutoThreshold(imp,"Otsu dark")
@@ -333,7 +344,7 @@ sequenceDiagram
   end
 ```
 
-**Postconditions:** two history entries with `origin=nl-typed`, the utterance and the plan. The same macro lines are produced as if the menu had been used. No AC2+ step ran without the confirm event.
+**Postconditions:** two history entries with `origin=NL_TYPED`, the utterance and the plan. The same macro lines are produced as if the menu had been used. No AC2+ step ran without the confirm event.
 
 **Failure branches:**
 
@@ -341,7 +352,8 @@ sequenceDiagram
 |---|---|---|
 | No catalogue match | No action. The validator returns *refuse* with suggestions (command search results). | — |
 | Out-of-range value, or a placeholder from an LLM | `VALIDATION_FAILED` | The offending slot is highlighted in UI-18 |
-| Document closed or changed between preview and Run | `PRECONDITION_FAILED` on re-validation | UI-18 is re-shown with the change |
+| Document changed between preview and Run | Re-validation returns the plan to `AWAITING_CONFIRMATION` with a fresh preview (D06 §3) | UI-18 is re-shown with the change |
+| Document closed between preview and Run | `PRECONDITION_FAILED` on re-validation | UI-18 states that the target is gone |
 | LLM configured but unreachable | Degrades to the grammar/retrieval path (D17 §3.14) | — |
 | A request that would need code (for example "delete the files") | Refused; AC7 is never generated (FR-NL-007) | — |
 
@@ -364,7 +376,8 @@ sequenceDiagram
 | 1 | Presses the microphone button in UI-11 | Capture starts only now (FR-SPEECH-002). A persistent recording indicator appears in UI-11 and UI-12. CMP-43 captures 16 kHz mono PCM with Java Sound (ADR-005). | — | — |
 | 2 | Says "Gaussian blur sigma two point five"; presses the button again (or stops at 30 s) | CMP-43 sends the PCM to CMP-44 over IF-06, with a vocabulary prompt from the catalogue and the session (FR-SPEECH-005). Silero VAD gates the clip (FR-SPEECH-003). | — | — |
 | 3 | — | The transcript appears as **editable text** in UI-11 (FR-SPEECH-004). Spoken numbers are normalised: "two point five" becomes 2.5 (FR-SPEECH-006). No action yet. | — | — |
-| 4 | Corrects nothing; presses Enter | Same pipeline as J-07: plan, validation, UI-18 preview, confirm. | `IJ.run(imp, "Gaussian Blur...", "sigma=2.5")` | `H-n origin=nl-speech transcript="…" prompt-id=… → run("Gaussian Blur...", "sigma=2.5");` Audio is not persisted. The transcript is persisted only in the history entry text unless the user opts out (FR-SPEECH-002). |
+| 4 | Corrects nothing; presses Enter | Same pipeline as J-07: plan and validation. No unit was spoken for the unit-sensitive `sigma`, and, when the document is a stack, `stack` (consequential) is unresolved too. The validator therefore raises a **clarification** before anything runs (D08 §2.3, §2.4: "No unit given for a unit-sensitive parameter: Clarify … Always"). UI-18 asks "sigma 2.5 in pixels or in calibrated units?" and, for a stack, "Apply to the current slice only, or to all N slices?" | — | — |
+| 5 | Chooses *pixels* and *current slice*; clicks **Run** | UI-18 preview confirmed (FR-NL-004). `ActionRequest{kind=COMMAND, origin=NL_SPOKEN, commandId=ij1:Process>Filters>Gaussian Blur..., params{sigma:2.5, scaled:false, stack:false}}`. R1. `Q→V→R→C`. | `IJ.run(imp, "Gaussian Blur...", "sigma=2.5")` | `H-n origin=NL_SPOKEN transcriptRef=… prompt-id=… → selectImage(id1); run("Gaussian Blur...", "sigma=2.5");` Audio is not persisted. The transcript text is **not** persisted (record, journal or export) unless the user opted in; the record holds only a `transcriptRef` ID (FR-SPEECH-002; D06 §8). |
 
 ```mermaid
 sequenceDiagram
@@ -385,14 +398,14 @@ sequenceDiagram
   SC-->>CB: editable transcript (indicator OFF)
   U->>CB: confirm or edit text
   CB->>NL: transcript as utterance
-  NL-->>PS: plan preview
-  U->>PS: Run
-  PS->>EF: ActionRequest origin=nl-speech
+  NL-->>PS: plan preview + CLARIFY (unit of sigma, stack scope)
+  U->>PS: answer (pixels, current slice), Run
+  PS->>EF: ActionRequest origin=NL_SPOKEN
   EF->>F: IJ.run(imp,"Gaussian Blur...","sigma=2.5")
   EF-->>CB: COMPLETED + history line
 ```
 
-**Postconditions:** as J-07, plus no audio file remains after processing (FR-SPEECH-002). The worker is still alive for the next request.
+**Postconditions:** as J-07, plus no audio file remains after processing and no transcript text is persisted without opt-in (FR-SPEECH-002). The worker is still alive for the next request.
 
 **Failure branches:**
 
@@ -420,7 +433,7 @@ sequenceDiagram
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
 | 1 | `Process › Filters › Median...` | UI-07 schema form: `radius`, scope "current slice / whole stack" (the `stack` key made explicit), and "cancellation: cooperative between slices; partial results possible" (FR-PROC-013). It shows the snapshot cost (129 × 256 × 256 × 2 B ≈ 16.9 MB) against the remaining budget (NFR-PERF-003). | — | — |
-| 2 | radius = 2, whole stack, OK | Snapshot fits the budget, so AC3. `ActionRequest{kind=COMMAND, commandId=ij1:Process>Filters>Median...}`. R1. `Q→V→R`. Progress: determinate per slice **only** if the chained legacy hook is validated (NFR-REL-004, V-06); otherwise indeterminate (NFR-USE-002). | `IJ.run(imp, "Median...", "radius=2 stack")` | `H-n run("Median...", "radius=2 stack");` |
+| 2 | radius = 2, whole stack, OK | Snapshot fits the budget, so AC3. `ActionRequest{kind=COMMAND, commandId=ij1:Process>Filters>Median...}`. R1. `Q→V→R`. Progress: determinate per slice **only** if the chained legacy hook is validated (NFR-REL-004, V-06); otherwise indeterminate (NFR-USE-002). | `IJ.run(imp, "Median...", "radius=2 stack")` | `H-n selectImage(id1); run("Median...", "radius=2 stack");` |
 | 3 | Presses **Cancel** in UI-12 after about 40 slices | The engine sets the IJ1 Escape flag (`IJ.setKeyDown(KeyEvent.VK_ESCAPE)`, A19 §6). `PlugInFilterRunner` stops after the current slice (`PlugInFilterRunner.java#L200`). The engine detects the "INTERRUPTED" status and restores the snapshot (FR-HIST-006). `CANCELLED → ROLLED_BACK`. | — | `H-n run("Median...", …) outcome=CANCELLED, rolled back` (excluded from the generated macro) |
 | 4 | Repeats with the budget set below 16.9 MB | `SNAPSHOT_BUDGET_EXCEEDED`. UI-18 shows "cannot be undone: 16.9 MB > budget" (AC4; FR-HIST-005). `AWAITING_CONFIRMATION`. | — | — |
 | 5 | Confirms, then cancels mid-run | No snapshot exists, so the document is marked **partially processed, slices 1–k** where k is known from the progress hook; otherwise "slice range unknown". `PARTIAL`. | — | `H-n … outcome=PARTIAL slices=1-41` |
@@ -452,7 +465,7 @@ sequenceDiagram
 | 3 | Works through the TrackMate wizard; exports tracks | Not executed by the product. `CommandListener` and module events, `ImageListener` and the globals diff produce *observed* entries (FR-HIST-008). | — | `H-n.k observed …` with options where available, otherwise "parameters unknown" |
 | 4 | `Plugins › Analyze › Cell Counter › Cell Counter` on FX-003 | C5 needs a visible IJ1 `ImageWindow`, so the document switches to window policy P-C (visible legacy window) for the plugin's duration (D04 §3, §9). UI-05 shows "document shown in a Fiji window". The document is marked externally controlled and read-only until the plugin window closes; workspace edits to it are refused with an explanation (FR-PLUG-004, A26 §13a). | `IJ.run(imp, "Cell Counter", "")` | `H-n run("Cell Counter");` |
 | 5 | Clicks counter markers in the legacy window; closes Cell Counter | Overlay and ROI changes are observed through `RoiListener` and the digest. On close, the document returns to policy P-A. The digest refreshes UI-05 and UI-09. | — | `H-n.k observed overlay change (n markers)`, partial provenance |
-| 6 | Changes *Black background* in a legacy `Process › Binary › Options...` dialog | The globals diff records old and new values (FR-HIST-007). | — | `H-n observed globals blackBackground false→true` |
+| 6 | Changes *Black background* in a legacy `Process › Binary › Options...` dialog | The globals diff records old and new values (FR-HIST-007). The dialog-entered options themselves come from the dialog snapshot (V-10, D04 §7), or are recorded as "parameters entered in a Fiji dialog — not captured" (partial). | — | `H-n observed globals blackBackground false→true` |
 
 **Postconditions:** no untracked visible Fiji window remains (FR-PLUG-002). The history contains observed entries labelled with their provenance level.
 
@@ -461,7 +474,7 @@ sequenceDiagram
 | Condition | Code / treatment |
 |---|---|
 | Plugin opens a modal dialog | `DIALOG_PENDING` |
-| Plugin throws (swallowed by `Executer`) | `EXECUTION_FAILED` via log excerpt and postconditions (D17 §3.6) |
+| Plugin throws (swallowed by `Executer`) | `EXECUTION_FAILED` via the "Exception" window captured by the window tracker (M2), the log scan and postconditions (D17 §3.6) |
 | Plugin calls `System.exit` | `ENGINE_LOST` → J-13 |
 | Plugin unsupported in the current mode (for example C6 without OpenGL) | `UNSUPPORTED_IN_MODE` (D17 §3.9) |
 
@@ -482,11 +495,11 @@ FX-023 (TrackMate-style time series, 9.7 MB) is used in the scheduled tier only 
 
 | # | User action | System response | Fiji invocation | History / macro line |
 |---|---|---|---|---|
-| 1 | `File › Save As › Tiff...` with a new path | `kind=SESSION`, AC6. The path is checked against the session inputs (FR-IMG-009). R3. `Q→V→R→C`. The postcondition is a file that exists, is non-empty, and has its SHA-256 recorded. | `IJ.saveAsTiff(imp, path)` returns a boolean (`ij/IJ.java#L2155`) | `H-n save tiff path=<rel> sha256=…`. Macro: `saveAs("Tiff", "<out>/blobs-mask.tif");` |
-| 2 | `File › Save As › PNG...` on 16-bit composite FX-005 | **Before writing**, UI-18 lists what will be lost: bit depth reduced, composite flattened, calibration and overlay dropped (FR-IMG-006). `AWAITING_CONFIRMATION`. | `IJ.saveAs(imp, "PNG", path)` (`ij/IJ.java#L2078`) after confirmation | `saveAs("PNG", "<out>/hela.png");` |
+| 1 | `File › Save As › Tiff...` with a new path | `kind=SESSION`, AC6. The path is checked against the session inputs (FR-IMG-009). R3. `Q→V→R→C`. The postcondition is a file that exists, is non-empty, and has its SHA-256 recorded. | `IJ.saveAsTiff(imp, path)` returns a boolean (`ij/IJ.java#L2155`) | `H-n save tiff path=<rel> sha256=…`. Macro: `selectImage(id1); saveAs("Tiff", "<out>/blobs-mask.tif");` |
+| 2 | `File › Save As › PNG...` on 16-bit composite FX-005 | **Before writing**, UI-18 lists what will be lost: bit depth reduced, composite flattened, calibration and overlay dropped (FR-IMG-006). `AWAITING_CONFIRMATION`. | `IJ.saveAs(imp, "PNG", path)` (`ij/IJ.java#L2078`) after confirmation | `selectImage(id1); saveAs("PNG", "<out>/hela.png");` |
 | 3 | Chooses a path equal to the input `<in>/hela-cells.tif` | Refused by default: `CONFIRMATION_REQUIRED` with reason `OVERWRITE_INPUT`. An explicit per-document override is offered (FR-IMG-009, A26 §14-C3). | — | If overridden: `H-n save … overwrite-input=true input-sha-before=… after=…` |
 | 4 | **Export Results…** in UI-08 | Product CSV writer at full precision (`Double.toString`; FR-MEAS-003). | Not `File › Save As › Results...` (`ij.plugin.MeasurementsWriter`), which writes display-rounded values (P37) | `H-n export results path=<rel> rows=N precision=full`. The macro line `saveAs("Results", path)` is emitted **with a comment**: classic Fiji writes rounded values, so E7 compares the in-memory table, not the file (gap G-D16-02). |
-| 5 | **Export ROIs…** in UI-09 | `.zip` through `RoiEncoder` (FR-ROI-005). | `RoiEncoder` per ROI into a zip stream (D04 R3) | `roiManager("save", "<out>/blobs-rois.zip");` |
+| 5 | **Export ROIs…** in UI-09 | `.zip` through `RoiEncoder` (FR-ROI-005). | `RoiEncoder` per ROI into a zip stream (D04 R3) | Per D07 G11, `roiManager("reset");` then each ROI in its G5 form followed by `roiManager("add");`, then `roiManager("save", "<out>/blobs-rois.zip");` |
 
 **Postconditions:** every written file has its path and SHA-256 recorded in provenance. No input was overwritten without an explicit choice.
 
@@ -534,16 +547,16 @@ The BlackBackground global is set through the globals manager (CMP-29) as a reco
 
 | # | User action | System response (UI · route · kind · AC · lifecycle) | Fiji invocation (exact label and options) | History / macro line |
 |---|---|---|---|---|
-| 1 | `File › Open...` → `blobs.gif` | UI-02 → UI-04/05 · R3 · SESSION · AC1 · `Q→V→R→C` | `IJ.openImage("<cache>/blobs.gif")` | `H-1 open sha256=… reader=IJ1 8-bit 256×254 invertedLut=<as read>` · `open("<in>/blobs.gif");` |
-| 2 | `Process › Subtract Background...`; rolling = 50; *Light background* left unticked; Preview (HACK) checked, then OK | UI-07 form shows every key: `rolling`, `light`, `separate` (RGB only, hidden), `create`, `sliding`, `disable` (all consequential). Preview runs on a copy (FR-PROC-010, HACK). · R1 · COMMAND · AC3 (snapshot 65 KB) · `Q→V→R→C` | `IJ.run(imp, "Subtract Background...", "rolling=50")`. Booleans absent mean false. No `stack` key, because this is a single image. | `H-2` · `run("Subtract Background...", "rolling=50");` |
-| 3 | `Process › Filters › Gaussian Blur...`; sigma = 2 | UI-07 shows `sigma` in **pixels** because the image is uncalibrated. `scaled` is not offered: it is shown only when the image has a spatial scale (`GaussianBlur.java#L89-L91`). · R1 · COMMAND · AC3 · `Q→V→R→C` | `IJ.run(imp, "Gaussian Blur...", "sigma=2")` | `H-3` · `run("Gaussian Blur...", "sigma=2");` |
-| 4 | `Image › Adjust › Threshold...` → UI-15; method *Default*; inspects the red overlay; **Set** | The overlay preview is non-destructive (FR-PROC-015). The pixel hash is unchanged. · R3 · DIRECT (`commandId=ij1:Image>Adjust>Threshold...`, operation `setAutoThreshold`) · AC1 · `Q→V→R→C`. The engine reads back the resulting limits. | `IJ.setAutoThreshold(imp, "Default")` (`ij/IJ.java#L1492`). The `ThresholdAdjuster` frame is **not** opened (it fails headless, A08 op 27, and would add a window in M2). Whether *dark* is needed depends on FX-003's inverting LUT (UNKNOWN; `datasets.csv` note). The user decides from the overlay, and the choice is recorded. | `H-4 threshold method=Default dark=false lower=… upper=… blackBackground=<value>` (all four values; FR-PROC-015) · `setAutoThreshold("Default");` |
+| 1 | `File › Open...` → `blobs.gif` | UI-02 → UI-04/05 · R3 · SESSION · AC1 · `Q→V→R→C` | `IJ.openImage("<cache>/blobs.gif")` | `H-1 open sha256=… reader=IJ1 8-bit 256×254 invertedLut=<as read>` · `open("<in>/blobs.gif"); id1 = getImageID();` |
+| 2 | `Process › Subtract Background...`; rolling = 50; *Light background* left unticked; Preview (HACK) checked, then OK | UI-07 form shows every key: `rolling`, `light`, `separate` (RGB only, hidden), `create`, `sliding`, `disable` (all consequential). Preview runs on a copy (FR-PROC-010, HACK). · R1 · COMMAND · AC3 (snapshot 65 KB) · `Q→V→R→C` | `IJ.run(imp, "Subtract Background...", "rolling=50")`. Booleans absent mean false. No `stack` key, because this is a single image. | `H-2` · `selectImage(id1); run("Subtract Background...", "rolling=50");` |
+| 3 | `Process › Filters › Gaussian Blur...`; sigma = 2 | UI-07 shows `sigma` in **pixels** because the image is uncalibrated. `scaled` is not offered: it is shown only when the image has a spatial scale (`GaussianBlur.java#L89-L91`). · R1 · COMMAND · AC3 · `Q→V→R→C` | `IJ.run(imp, "Gaussian Blur...", "sigma=2")` | `H-3` · `selectImage(id1); run("Gaussian Blur...", "sigma=2");` |
+| 4 | `Image › Adjust › Threshold...` → UI-15; method *Default*; inspects the red overlay; **Set** | The overlay preview is non-destructive (FR-PROC-015). The pixel hash is unchanged. · R3 · DIRECT (`operation=SET_AUTO_THRESHOLD`, `params{method:"Default", dark:false}`, no `commandId`; D06 §2) · AC1 · `Q→V→R→C`. The engine reads back the resulting limits. | `IJ.setAutoThreshold(imp, "Default")` (`ij/IJ.java#L1492`). The `ThresholdAdjuster` frame is **not** opened (it fails headless, A08 op 27, and would add a window in M2). Whether *dark* is needed depends on FX-003's inverting LUT (UNKNOWN; `datasets.csv` note). The user decides from the overlay, and the choice is recorded. | `H-4 threshold method=Default dark=false lower=… upper=… blackBackground=<value>` (all four values; FR-PROC-015) · `selectImage(id1); setAutoThreshold("Default");` (always emitted, D07 G4/G6) |
 | 5 | `Analyze › Set Measurements...`; ticks Area, Mean, Centroid, Shape descriptors, Display label, Limit to threshold; Redirect None; Decimal 3 | UI-07 lists every key and the current globals (FR-MEAS-002). · R1 · COMMAND · AC5 · `Q→V→R→C` | `IJ.run(imp, "Set Measurements...", "area mean centroid shape display limit redirect=None decimal=3")` | `H-5 globals measurements old→new` (FR-HIST-007) · `run("Set Measurements...", "area mean centroid shape display limit redirect=None decimal=3");` |
-| 6 | `Analyze › Measure` (Ctrl+M) | Measures the thresholded area of the whole image (`limit`). UI-08 row 1 is bound to `d1`, at full precision. · R1 · COMMAND · AC2 · `Q→V→R→C`. The postcondition is Results rows +1. | `IJ.run(imp, "Measure", "")` | `H-6` · `run("Measure");` |
-| 7 | UI-17 shows *Black background* = false; the user sets it to **true**. Then `Process › Binary › Convert to Mask` | The FR-PROC-016 check passes (a threshold is set). UI-07 shows BlackBackground and the inverting LUT state before running (FR-MEAS-002; UP-04). The globals change is DIRECT/R3/AC5. Convert to Mask is R1 · COMMAND · AC3 · `Q→V→R→C`. | `Prefs.blackBackground = true` (CMP-29; D04 §5). Then `IJ.run(imp, "Convert to Mask", "")`: no keys for single images (`commands-core-parameters.csv`; `Thresholder.java#L40-L51`). | `H-7 globals blackBackground false→true` · `setOption("BlackBackground", true);` and `H-8` · `run("Convert to Mask");` |
-| 8 | `Process › Binary › Watershed` | Precondition: an 8-bit binary image (commands.csv). The result depends on `Prefs.blackBackground` and the inverting LUT (`EDM.java#L137, L428`). Output is always overwrite (`EDM.java#L122`). · R1 · COMMAND · AC3 · `Q→V→R→C` | `IJ.run(imp, "Watershed", "")` | `H-9` · `run("Watershed");` |
-| 9 | `Analyze › Analyze Particles...`; Size 20–Infinity px²; Circularity 0.00–1.00; Show Nothing; Display results, Exclude on edges, Summarize, Add to Manager | UI-07 shows every key. `size` is in pixel² because the image is uncalibrated; `pixel` is shown only for scaled images. `uses_roi_manager`, so CMP-30 loads the document's ROI set into the hidden singleton and reads it back afterwards (D04 §4). · R1 · COMMAND · AC2 · `Q→V→R→C`. Results rows +N, Summary +1 row, ROI set +N. | `IJ.run(imp, "Analyze Particles...", "size=20-Infinity circularity=0.00-1.00 show=Nothing display exclude summarize add")`. `clear`, `include`, `overlay`, `composite`, `record`, `in_situ` and `stack` are absent (false). | `H-10 particles=N roi-set+N` · same `run(...)` line |
-| 10 | `File › Save As › Tiff...` → `<out>/blobs-mask.tif` | Overwrite policy check (FR-IMG-009). · R3 · SESSION · AC6 · `Q→V→R→C`. The postcondition is that the file exists, is non-empty, and its SHA-256 is recorded. | `IJ.saveAsTiff(imp, "<out>/blobs-mask.tif")` | `H-11 save sha256=…` · `saveAs("Tiff", "<out>/blobs-mask.tif");` |
+| 6 | `Analyze › Measure` (Ctrl+M) | Measures the thresholded area of the whole image (`limit`). UI-08 row 1 is bound to `d1`, at full precision. · R1 · COMMAND · AC0 (Results append; D13 §11) · `Q→V→R→C`. The postcondition is Results rows +1. | `IJ.run(imp, "Measure", "")` | `H-6` · `selectImage(id1); run("Measure");` |
+| 7 | UI-17 shows *Black background* = false; the user sets it to **true**. Then `Process › Binary › Convert to Mask` | The FR-PROC-016 check passes (a threshold is set). UI-07 shows BlackBackground and the inverting LUT state before running (FR-MEAS-002; UP-04). The globals change is DIRECT/R3/AC5. Convert to Mask is R1 · COMMAND · AC3 · `Q→V→R→C`. | `Prefs.blackBackground = true` (CMP-29; D04 §5). Then `IJ.run(imp, "Convert to Mask", "")`: no keys for single images (`commands-core-parameters.csv`; `Thresholder.java#L40-L51`). | `H-7 globals blackBackground false→true` · `setOption("BlackBackground", true);` and `H-8` · `selectImage(id1); run("Convert to Mask");` |
+| 8 | `Process › Binary › Watershed` | Precondition: an 8-bit binary image (commands.csv). The result depends on `Prefs.blackBackground` and the inverting LUT (`EDM.java#L137, L428`). Output is always overwrite (`EDM.java#L122`). · R1 · COMMAND · AC3 · `Q→V→R→C` | `IJ.run(imp, "Watershed", "")` | `H-9` · `selectImage(id1); run("Watershed");` |
+| 9 | `Analyze › Analyze Particles...`; Size 20–Infinity px²; Circularity 0.00–1.00; Show Nothing; Display results, Exclude on edges, Summarize, Add to Manager | UI-07 shows every key. `size` is in pixel² because the image is uncalibrated; `pixel` is shown only for scaled images. `uses_roi_manager`, so CMP-30 loads the document's ROI set into the hidden singleton and reads it back afterwards (D04 §4). · R1 · COMMAND · AC2 · `Q→V→R→C`. Results rows +N, Summary +1 row, ROI set +N. | `IJ.run(imp, "Analyze Particles...", "size=20-Infinity circularity=0.00-1.00 show=Nothing display exclude summarize add")`. `clear`, `include`, `overlay`, `composite`, `record`, `in_situ` and `stack` are absent (false). | `H-10 particles=N roi-set+N` · `selectImage(id1);` + the same `run(...)` line. The ROIs it adds are not re-emitted (D07 G11). |
+| 10 | `File › Save As › Tiff...` → `<out>/blobs-mask.tif` | Overwrite policy check (FR-IMG-009). · R3 · SESSION · AC6 · `Q→V→R→C`. The postcondition is that the file exists, is non-empty, and its SHA-256 is recorded. | `IJ.saveAsTiff(imp, "<out>/blobs-mask.tif")` | `H-11 save sha256=…` · `selectImage(id1); saveAs("Tiff", "<out>/blobs-mask.tif");` |
 | 11 | UI-10 → Export macro | As in J-06 | — | The generated macro is the sequence above, with globals first (`setOption("BlackBackground", false)` initially and `run("Set Measurements...", …)` placed as recorded; ordering per D07) |
 
 **FX-030 differences:**
@@ -597,7 +610,7 @@ sequenceDiagram
 |---|---|---|---|
 | any | Engine not ready | `ENGINE_NOT_READY` | Wait for UI-19 `READY` |
 | 1 | Cache file missing or hash mismatch | `IO_ERROR` (the fixture layer refuses before the product sees the file) | Re-fetch into the cache (D18 §5) |
-| 7 | Convert to Mask with no threshold set (the user skipped step 4) | Warning before execution (FR-PROC-016) → `CONFIRMATION_REQUIRED` | Set a threshold, or confirm the IJ1 auto-threshold explicitly |
+| 7 | Convert to Mask with no threshold set (the user skipped step 4) | Inline, non-blocking warning in UI-07 before OK (FR-PROC-016; A26 §14 C5); no confirmation step | Set a threshold first, or press OK and accept the IJ1 auto-threshold |
 | 8 | Watershed on a non-binary image | `PRECONDITION_FAILED` | Explanation: "requires an 8-bit binary image; run Convert to Mask" (UP-17) |
 | 9 | ROI set read-back differs from the singleton | `POSTCONDITION_FAILED` | Snapshot rollback of the ROI set; flagged (V-03 risk R-A28-02) |
 | 9 | Analyze Particles dialog appears (a key not recognised) | `DIALOG_PENDING` | Native dialog brought forward |
@@ -607,10 +620,10 @@ sequenceDiagram
 **Requirements:** FR-PROC-001, FR-PROC-002, FR-PROC-003, FR-PROC-004, FR-PROC-005, FR-PROC-006, FR-PROC-010, FR-PROC-015, FR-PROC-016, FR-IMG-003, FR-IMG-004, FR-IMG-005, FR-IMG-009, FR-MEAS-001, FR-MEAS-002, FR-MEAS-003, FR-MEAS-004, FR-ROI-004, FR-HIST-001, FR-HIST-002, FR-HIST-007, FR-NL-009, FR-NL-013, FR-WS-001, FR-SYS-001, NFR-FID-001, NFR-REL-005, NFR-PRIV-001, NFR-PRIV-002.
 
 **Verification (D18):**
-- **L3 E1/E3/E4/E5/E6 against a GUI-mode reference run.** The independent reference generator emits the same sequence with all keys and globals explicit. The reference mode is GUI because `Analyze Particles...` with `add` fails headless (A08 op 11) and Watershed is untested headless (commands.csv). Tolerances: exact for E1 (8-bit), E3, E4 (float vertices and masks), E5 and E6 (NFR-FID-002).
+- **L3 E1/E3/E4/E5/E6 against a GUI-mode reference run.** The independent reference generator emits the same sequence with all keys and globals explicit. The reference mode is GUI because `Analyze Particles...` with `add` fails headless (A08 op 11) and Watershed is untested headless (commands.csv), and DEC-043 assigns a GUI reference to anything other than `headless_probe=pass`. Tolerances: exact for E1 (8-bit), E3, E4 (float vertices and masks), E5 and E6 (NFR-FID-002).
 - **L3 E7:** the exported macro in classic Fiji.
 - **L4 E9:** FX-030 count against the manual band.
-- **L2 equivalence per command:** a headless reference for steps 1–8 and 10, and a GUI reference for 9.
+- **L2 equivalence per command (DEC-043):** a headless reference for steps 2, 3, 5, 6, 7 and 10 (`headless_probe=pass`), and a GUI reference for steps 1 (`File>Open...`, fail), 4 (`Threshold...`, fail), 8 (Watershed, untested) and 9 (Analyze Particles, partial; `add` fails headless).
 - **Fixtures and tiers:** FX-003 (25 KB) and FX-030 (854 KB zip) qualify for the per-commit tier by size (< 5 MB, NFR-MAINT-005). Both are cache-only and are fetched by hash in CI.
 
 ### J-13 — Recover after an engine crash (replay)
@@ -623,7 +636,7 @@ sequenceDiagram
 |---|---|---|---|---|
 | 1 | — (a plugin calls `System.exit`, or the JVM crashes) | Product JVM lost. The UI is lost with it (same JVM, O2). The journal lacks its clean-close marker. | — | — |
 | 2 | Relaunches the product | UI-19 → READY. Unclean journal detected. A recovery sheet (UI-18) offers "Rebuild session by replay". It lists the inputs (resolved by SHA-256) and **what cannot be restored**: the unsaved mask is rebuilt only by replay; observed entries without parameters and edits inside plugin windows are lost (FR-SYS-007; A19 §6.4). | — | — |
-| 3 | Confirms | Inputs are re-opened with a hash check. Recorded globals are restored (FR-MEAS-001 HACK). The records are replayed in order through R4 (generated macro) or per record through R1/R3. Stage-based progress "record k of n". | `IJ.runMacro(generated)` | `H-1' replay-of-journal session=<id>` |
+| 3 | Confirms | Inputs are re-opened with a hash check. Recorded globals are restored (FR-MEAS-001 HACK). The records are replayed in order through R4 (generated macro) or per record through R1/R3. Stage-based progress "record k of n". | R4 adapter (owned `Interpreter`, DEC-034) with the generated text | `H-1' replay-of-journal session=<id>` |
 | 4 | — | Final state compared with the journal's last digest (image hashes, ROI count, Results row count). Differences are listed. | — | `H-n' replay result=equal / differences=[…]` |
 
 **Failure branches:**
@@ -648,7 +661,7 @@ sequenceDiagram
 |---|---|---|---|---|
 | 1 | UI-10 → **Apply to folder…**, choosing an input folder and an output folder | UI-18 plan: the list of inputs, the output file names per input, the overwrite/skip decision per file (none silent), and the globals to be set. Execution mode: headless batch (M1) **only if every step is VERIFIED headless-safe** (FR-MACRO-007, FR-PROC-009). J-12 contains `Analyze Particles...` with `add` (A08 op 11 fails headless), so the plan states "runs in the GUI engine". | — | — |
 | 2 | **Test on first image** | Runs the workflow on input 1 in the product engine. Shows the outputs for inspection. | per J-12 | `H-n test-run input=1` |
-| 3 | **Run on all** | Per input: open, replay and save. Determinate progress over files (a real counter). Cancel stops between files. Per-file postconditions: outputs exist with hashes recorded. | `IJ.runMacro(generated, …)` per file | `H-n batch inputs=k outputs=[…]` |
+| 3 | **Run on all** | Per input: open, replay and save. Determinate progress over files (a real counter). Cancel stops between files. Per-file postconditions: outputs exist with hashes recorded. | R4 adapter (owned `Interpreter`, DEC-034) with the generated text, per file | `H-n batch inputs=k outputs=[…]` |
 
 **Failure branches:**
 - A step not headless-safe in M1: `UNSUPPORTED_IN_MODE` → GUI engine.
@@ -670,7 +683,7 @@ The journeys exercise every MVP FR whose acceptance names a demonstration (FR-WS
 | G-D16-01 | The Bio-Formats importer option keys are INFERRED from `Macro.trimKey`, and `commands-core-parameters.csv` has no row for `Bio-Formats Importer`. FR-PROC-003 (HACK, core set) cannot be tested for it. | A14 §5; core-parameters file | Add importer rows after a key probe in milestone 1 |
 | G-D16-02 | No requirement says how a full-precision Results export is expressed in the generated macro, given that `saveAs("Results")` rounds (P37). FR-HIST-002 ("never fabricate options") and FR-MEAS-003 conflict for E7 on exported CSVs. | P37; FR-MEAS-003; FR-HIST-002 | Clarify FR-HIST-002: Results-file exports are excluded from E7 and compared in memory, or the export is emitted as `saveAs("Results")` after setting `decimal=9` (not equivalent; reject) |
 | G-D16-03 | FR-MACRO-001 acceptance runs "FX-050/051" macros, but A29/datasets.csv say FX-050 must never be executed automatically (CR-A25-05). | datasets.csv FX-050; A29 §5.5 | Amend FR-MACRO-001 acceptance to a reviewed, hashed executable subset (FX-051/052 plus project macros) |
-| G-D16-04 | No requirement fixes the consequence class of Open, Measure and Analyze Particles (Results append). A19's AC table does not list Results appends. | A19 §3 | Assign in D06; consider extending CR-A19-01 |
+| G-D16-04 | No requirement fixes the consequence class of Open, Measure and Analyze Particles (Results append). A19's AC table does not list Results appends. | A19 §3 | Assign in D06; consider extending CR-A19-01. Interim (Phase 8): Measure is AC0 in D13 §11 and in this document. |
 | G-D16-05 | `commands-core-parameters.csv` lists "Binary iterations/count" as a hidden dependency of Watershed. `EDM.java` at v1.54p references only `Prefs.blackBackground`, the inverting LUT and the static `outputType` (not used for Watershed, `EDM.java#L122`). | `imagej/ImageJ@v1.54p:ij/plugin/filter/EDM.java#L122, L137, L428` (grep) | Correct the CSV row (data owner G5/lead) |
 
 ## Decisions proposed
@@ -691,3 +704,4 @@ The journeys exercise every MVP FR whose acceptance names a demonstration (FR-WS
 ## Change log
 
 - 2026-10-17: Initial version (G10).
+- 2026-10-17: Phase 8 review fixes (findings #2, #3, #5, #7, #8, #9, #10, #12, #13, #15, #20, #21, #24, #26, #32).

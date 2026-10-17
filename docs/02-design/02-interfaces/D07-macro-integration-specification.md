@@ -39,7 +39,7 @@ The ImageJ macro language stays the project's workflow and interchange format. N
    - `selectWindow`/focus-dependent functions;
    - batch-mode use.
 3. **Consent sheet** (UI-18): names each capability found, and requires explicit confirmation for the dangerous set (FR-MACRO-002). Consent is keyed to the file's SHA-256, so an edit invalidates it.
-4. **Run:** R4 `IJ.runMacro(text, arg)` on the engine worker, or `ScriptService` for files with `#@` parameters (FR-MACRO-004). One interpreter at a time (FR-MACRO-005).
+4. **Run:** the R4 adapter (owned `Interpreter`, DEC-034) on the engine worker, or `ScriptService` for files with `#@` parameters (FR-MACRO-004). `IJ.runMacro` is not used, because it returns only `"[aborted]"` and hides `wasError()`/`getErrorMessage()` (D17 §3.8). One interpreter at a time (FR-MACRO-005).
 5. **Observation:** the commands it executes are captured by `CommandListener` (built-ins are not captured, P80) and nested under the CODE action in history.
 6. **Results:** a digest after completion, plus postcondition checks on any declared outputs.
 7. **Abort:** `Interpreter.abort()`. Errors come from the interpreter error output and the log (D17).
@@ -52,7 +52,10 @@ The history is built from:
 - `HistoryRecord`s (D06 §8) for every executed action;
 - *observed* entries (FR-HIST-008): `CommandListener` (label and options), module events (inputs), and digest-detected changes (no parameters).
 
-Optional Recorder mirror (FR-HIST-009, ADR-003): if the user opens the legacy Recorder window, the product writes each generated line with `Recorder.recordString(line + "\n")`. That call injects exact text from any thread (P81). The Recorder's own automatic records of the same command can be suppressed by not setting `recordInMacros`, because product commands run on `Run$_` threads (P81). The product compares the Recorder buffer with its history and flags differences.
+Two separate Recorder uses (FR-HIST-009, ADR-003; Phase 8 correction):
+
+- **(a) Visible mirror.** If the user opens the legacy Recorder window, the product writes each generated line with `Recorder.recordString(line + "\n")`. That call injects exact text from any thread (P81). `recordInMacros` is **not** set, so the Recorder's own automatic records of product commands are suppressed, because those commands run on `Run$_` threads (`ij/plugin/frame/Recorder.java#L151-L157`; P81). This buffer contains only the product's own lines and is therefore not a cross-check.
+- **(b) Optional hidden cross-check.** A separate hidden Recorder with `recordInMacros=true` records what IJ1 itself would record for the product's commands. The product compares that buffer with its history and flags differences (for example the lossy P81 Gaussian line), as FR-HIST-009 requires.
 
 ## 4. Macro generation rules (FR-HIST-002, FR-MACRO-006)
 
@@ -91,12 +94,13 @@ Rules:
 | G2 | Address images by IDs captured at run time (`idN = getImageID()` immediately after `open` or after a step that creates an image), and `selectImage(idN)` before every step | FR-HIST-002/CR-A12-03; no reliance on focus or titles |
 | G3 | Every option key is explicit. Choices are bracketed. Booleans are present or omitted per D06 §5. Strings go through the single escaping function, verified against `Tokenizer` with fuzz tests. | FR-PROC-003, FR-MACRO-006 |
 | G4 | Thresholds are emitted as exact numeric `setThreshold(lower, upper)` when set manually, or as `setAutoThreshold("Method [dark]")` with the method recorded. The Recorder's comment form (`//setThreshold`) is never used. | P81, FR-PROC-015 |
-| G5 | ROIs: integer geometry → `makeRectangle`/`makeOval`/`makePolygon`. Non-integer geometry → `makeSelection("<type>", xs, ys)` with arrays printed at ≥ 9 significant digits, so that each float32 vertex round-trips exactly. `makeSelection` switches to float coordinates whenever any value is non-integer (`ij/macro/Functions.java#L2120-L2136`, **VERIFIED** by source). Types without a `makeSelection` form (composite `ShapeRoi`, rotated rectangles with non-integer parameters) are marked *not macro-expressible*. The ROI is then exported as a `.roi` file, which the macro opens with `roiManager("Open", path)` and selects. | A10, FR-HIST-003 |
-| G6 | Display-only actions (AC1) are emitted as comments unless they affect a later result. Display range before a type conversion with scaling on is emitted as `setMinAndMax(min, max)`. | A09 H3, FR-VIEW-006 |
+| G5 | ROIs, emitted in the macro form that **preserves ROI type**, with every coordinate printed at ≥ 9 significant digits so that float32 values round-trip exactly. **Rectangles and ovals** (integer or not) → `makeRectangle(x, y, w, h)` / `makeOval(x, y, w, h)`. These accept doubles and call `IJ.makeRectangle(double…)`/`IJ.makeOval(double…)` (`ij/macro/Functions.java#L877-L894`; `ij/IJ.java#L1311`, `#L1330`; VERIFIED by source). **Polygons, polylines, freehand, lines and points**: integer geometry → `makePolygon`/`makeLine`/`makePoint`; non-integer → `makeSelection("<type>", xs, ys)`, which switches to float coordinates when any value is non-integer (`Functions.java#L2120-L2136`). `makeSelection` is never used for rectangles, because it maps RECTANGLE to POLYGON and would change the ROI type. Types without an exact form (composite `ShapeRoi`, rotated rectangles with non-integer parameters, rounded rectangles with float arcs) are *not macro-expressible*: the ROI is exported as a `.roi` file, which the macro opens with `roiManager("Open", path)` and selects. | A10, FR-HIST-003; Phase 8 correction (G11 residual #2) |
+| G6 | Display-only actions (AC1) are emitted as comments unless they affect a later result. Display range before a type conversion with scaling on is emitted as `setMinAndMax(min, max)`. Thresholds set with the DIRECT operations `SET_THRESHOLD` and `SET_AUTO_THRESHOLD` (D06 §2) always affect later results and are always emitted per G4; `SET_THRESHOLD_PREVIEW` is never recorded. | A09 H3, FR-VIEW-006, FR-PROC-015 |
 | G7 | Observed actions are emitted with their captured options, plus the comment `// observed from <window/plugin>; parameters may be incomplete` when they were not captured | FR-HIST-008, PR-5 |
 | G8 | Never fabricate an option that was not applied | FR-HIST-002/CR-A04-12 |
 | G9 | Multi-image commands reference inputs by captured ID variables, mapped to titles at run time (`getTitle()` after `selectImage(idK)`), because their option keys use titles (e.g. `image1=[…]`) | FR-PROC-008 |
 | G10 | The sidecar `.workflow.json` (IF-05) stores the structured records, input paths and hashes, the runtime lock hash, and per-step expected digests (for E7 verification) | FR-HIST-010 |
+| G11 | ROI-list references (Phase 8). A step that acts on one entry of the document's ROI set (for example Measure on ROI *i*) emits that ROI inline in its G5 form immediately before the step. `roiManager(...)` lines are emitted only for steps flagged `uses_roi_manager` (D04 §4): `roiManager("reset")`, then each ROI in its G5 form followed by `roiManager("add")`, in set order, then `roiManager("select", i)` where the step selects an entry. ROIs added by a step (Analyze Particles `add`) are not re-emitted, because replaying the step recreates them. | FR-ROI-004, FR-HIST-002 |
 
 Validation item **V-08**: closed by source inspection on 2026-10-17. `makeSelection` builds float ROIs when any coordinate is non-integer (`Functions.java#L2120-L2136`). A runtime E4 round-trip test is still required in D18 (generated macro → ROI → `Roi.getMask()` equality).
 
@@ -128,3 +132,5 @@ Validation item **V-08**: closed by source inspection on 2026-10-17. `makeSelect
 ## Change log
 
 - 2026-10-17: Initial version by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #8, #9, #20, #24).
+- 2026-10-17: G5 corrected (Phase 8 residual): rectangles and ovals keep their type through `makeRectangle`/`makeOval` with double arguments.

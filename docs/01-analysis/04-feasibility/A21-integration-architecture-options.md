@@ -113,7 +113,7 @@ O1 is excluded by maintainability and licensing (rewriting upstream UI code is o
 
 | Issue | O2 (in-JVM Swing workspace) | O4 (out-of-process web UI) |
 |---|---|---|
-| **Display fidelity** (LUTs, composite modes, display range, overlays) | Reuses IJ1's own rendering (`ImagePlus.getImage()`/`getBufferedImage()`, overlay drawing). What the user sees is what Fiji would show. | Either ships rendered frames from the JVM (V4: encoding cost per pan or zoom) or reimplements LUT, composite and overlay rendering in WebGL. Reimplementation is a fidelity risk (PR-1 spirit, A30 E3). |
+| **Display fidelity** (LUTs, composite modes, display range, overlays) | Reuses IJ1's own rendering (`ImagePlus.getImage()`/`getBufferedImage()`, overlay drawing). *Correction (Phase 8, finding 4): `getBufferedImage` excludes overlays (`ImagePlus.java#L606-L611`); in the design the viewer draws overlays from engine-supplied geometry (D13 §2.2).* What the user sees is what Fiji would show. | Either ships rendered frames from the JVM (V4: encoding cost per pan or zoom) or reimplements LUT, composite and overlay rendering in WebGL. Reimplementation is a fidelity risk (PR-1 spirit, A30 E3). |
 | **ROI semantics** | Native `ij.gui.Roi` objects and IJ1 tool semantics are available. | Pixel-corner and centre conventions, modifier algebra and sub-pixel rules must be duplicated in JS and tested against `Roi.getMask()` (CR-A10-03). |
 | **Legacy fallback windows** | Same process: can track, position, parent and focus AWT/Swing windows, and detect dialogs (V3). | Foreign top-level windows appear outside the browser or shell. Coordination only through engine messages. |
 | **Security** | No network port needed (A25 threats T-localhost not applicable). | Needs an authenticated loopback server. A25 found that both the prototype and fiji-llm accept requests without an Origin header and without auth (V11). |
@@ -159,11 +159,11 @@ Partitioning (brief Part 12 asks for this explicitly):
 
 | Stays inside native Fiji, unchanged | Accessed through programmatic services (engine) | Exposed through the new UI |
 |---|---|---|
-| All algorithms, IO, the macro interpreter, plugin code and windows; ImageJ2/SciJava services | IJ1 commands via `IJ.run(imp, label, completeOptions)` on the engine worker (A15 CR-A15-02); IJ2 commands via `CommandService` with resolved inputs; ROIs, Overlay, `RoiManager(true)`, private `ResultsTable` via the Java API; listeners and digests | Document workspace, viewer, tools, menus and command search generated from the catalogue, typed parameter panels for core commands (the original dialog for others), ROI list, Results, history and macro view, NL/voice panel |
+| All algorithms, IO, the macro interpreter, plugin code and windows; ImageJ2/SciJava services | IJ1 commands via `IJ.run(imp, label, completeOptions)` on the engine worker (A15 CR-A15-02); IJ2 commands via `CommandService` with resolved inputs; ROIs, Overlay, `RoiManager(true)` (*superseded in design by D04 §4: the hidden singleton `RoiManager`, loaded and read back around `uses_roi_manager` actions; see Phase 8 finding 1*), private `ResultsTable` via the Java API; listeners and digests | Document workspace, viewer, tools, menus and command search generated from the catalogue, typed parameter panels for core commands (the original dialog for others), ROI list, Results, history and macro view, NL/voice panel |
 
 Consequences:
 
-- Every plugin keeps running in its native environment. C4–C6 plugins appear as Fiji windows tracked by the workspace (A13, CR-A15-06).
+- Every plugin keeps running in its native environment. C4–C6 plugins appear as Fiji windows tracked by the workspace (A13, CR-A15-06). *Correction (Phase 8, finding 30): this is expected, not demonstrated (INFERRED): no C4–C6 plugin was run in M2 (static scans P44/P45/P48 only); per-plugin behaviour is UNKNOWN (A13 U-A13-2).*
 - The product is installed into a user's own Fiji through an update site, so the base Fiji distribution need not be redistributed. This is **INFERRED** from Fiji's update-site model and the fiji-llm precedent. A24 must still confirm the obligations for the plugin's own dependencies and the speech-worker bundle (DEC-005).
 - Engine shutdown must use an explicit quit sequence. `System.exit` hangs (V7).
 - The engine API is defined as Java interfaces (D06/D09) with serialisable payloads. An out-of-process transport for O4-style clients, MCP or fiji-llm interop can be added later behind authentication (A25).
@@ -210,3 +210,4 @@ Consequences:
 ## Change log
 
 - 2026-10-17: Initial draft by the lead, after all research agents reported.
+- 2026-10-17: Phase 8 review fixes (findings #1, #4, #30).

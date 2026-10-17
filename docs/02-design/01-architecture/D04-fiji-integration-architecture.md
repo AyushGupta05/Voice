@@ -71,12 +71,12 @@ flowchart TB
 |---|---|---|
 | Resolve label | Catalogue `command_id` → exact label, including whitespace (FR-CMD-003) | A08 |
 | Validate | `CommandSchema` (D06) plus preconditions against the target `ImagePlus` | FR-PROC-004 |
-| Prepare | `IJ.setKeyUp(IJ.ALL_KEYS)`; apply action globals through CMP-29; snapshot through CMP-28; ensure the target is registered (§3) | `ij/IJ.java#L1132-L1145`; ADR-004/008 |
+| Prepare | `IJ.setKeyUp(IJ.ALL_KEYS)`; apply action globals through CMP-29; snapshot through CMP-28; ensure the target is registered (§3). If `imp.isLocked()`, the action fails with `PRECONDITION_FAILED` ("image locked by another operation"): `PlugInFilterRunner` otherwise returns silently on a locked image. | `ij/IJ.java#L1132-L1145`; `ij/ImagePlus.java#L242`; `ij/plugin/filter/PlugInFilterRunner.java#L57-L58`; ADR-004/008 |
 | Execute | `IJ.run(ImagePlus imp, String command, String options)` on the engine worker (`ij/IJ.java#L410`). It sets the temp current image and delegates to `IJ.run(command, options)` (`#L310-L332`), which binds the macro options to the thread and runs `Executer` synchronously. | A15 §6; line reference corrected after G10 review |
 | Observe | `CommandListener` sees the command and options (records the product-initiated flag); `ImageListener` events arrive on the EDT | P31, P80 |
-| Complete | Per-family postconditions plus log-delta scan plus pending-dialog check (CMP-26). Success is never inferred from the return of `IJ.run` (it swallows `Throwable`). | `ij/Executer.java#L74-L117` (A08) |
+| Complete | Per-family postconditions plus window tracker (an "Exception" `TextWindow` or a "Macro Error" window opened during the action, DEC-035) plus log-delta scan plus pending-dialog check (CMP-26). Success is never inferred from the return of `IJ.run` (it swallows `Throwable`). In M2 `IJ.getInstance()` is the hidden legacy frame, so `Executer` opens an "Exception" window and does **not** log the exception (D17 §3.6). | `ij/Executer.java#L74-L117` (A08); `#L113-L117` |
 
-**Multi-image commands** (Image Calculator, Merge Channels and others: FR-PROC-008) run through R4 as a generated macro in batch mode, so the inputs are registered for `WindowManager`. They are flagged `requires_macro_registration` in the catalogue.
+**Multi-image commands** (Image Calculator, Merge Channels and others: FR-PROC-008) run through R1 on documents under window policy P-A, which already registers every input with `WindowManager` (§3, P82). Batch mode is not used for them, because outputs created in batch mode vanish from `WindowManager` when the flag is reset (P82). They are flagged `requires_macro_registration` in the catalogue. (Phase 8 correction: the earlier R4 batch-mode route is withdrawn.)
 
 ### R2: ImageJ2 modules
 
@@ -96,14 +96,16 @@ Validation item **V-01**: confirm that a harvester registered by the product UI 
 | Threshold preview | `ImageProcessor.setThreshold(lower, upper, lutUpdate)` (display only) |
 | ROI sets | `RoiDecoder`/`RoiEncoder` (`.roi`/`.zip`) |
 | Read results | `ResultsTable` getters at full precision (`getValueAsDouble`) |
-| Rendering | `imp.getBufferedImage()` / `imp.getImage()` for viewer planes (ADR-009) |
+| Rendering | `imp.getBufferedImage()` / `imp.getImage()` for viewer planes (ADR-009), called on the engine worker between actions only (rendering isolation, below). `getBufferedImage` excludes overlays (`ij/ImagePlus.java#L606-L611`); overlays and ROIs are delivered as geometry and drawn by the viewer (D13 §2.2). |
 
 R3 actions are recorded as direct-manipulation history entries with macro equivalents where exact (FR-HIST-003).
+
+**Rendering isolation (PROPOSED; V-11).** Rendered planes are produced on the engine worker between actions, never concurrently with a running command. After each action the worker renders the visible planes that the digest marks changed, as an internal post-action step. On-demand render requests (zoom, pan, plane change) are queued as internal AC0 tasks. The UI draws only cached ARGB copies (NFR-PERF-004) and shows the last cache while an operation runs (D09 SY-2). No product code takes `ImagePlus` locks for rendering: `ImagePlus.lock` is exclusive per thread (`ij/ImagePlus.java#L186-L221`), and a filter started while another thread holds it returns without running (`PlugInFilterRunner.java#L57-L58`). This replaces the "render proxy" with `lockSilently()` (former D13 DP-D13-01; Phase 8 finding 4).
 
 ### R4: macro and script engine
 
 - Product-generated macros (multi-image commands, replay): run on the engine worker by an `Interpreter` instance owned by the adapter, mirroring `Macro_Runner.java#L161-L176`, so that `wasError()`/`getErrorMessage()` can be read (refined in D17). One interpreter at a time (FR-MACRO-005). `setIgnoreErrors` is not used.
-- User macros: the capability scan first (CMP-31, `ij.macro.Tokenizer`), then the confirmation (FR-MACRO-002), then execution through `IJ.runMacro` or `ScriptService.run` for scripts with `#@` parameters (FR-MACRO-004).
+- User macros: the capability scan first (CMP-31, `ij.macro.Tokenizer`), then the confirmation (FR-MACRO-002), then execution through the R4 adapter (owned `Interpreter`, DEC-034), or `ScriptService.run` for scripts with `#@` parameters (FR-MACRO-004).
 - Abort: `Interpreter.abort()` (`ij/macro/Interpreter.java#L2102`); errors are captured from the interpreter error output and the log (D17).
 
 ## 3. Document registry and window policy (CMP-24)
@@ -121,8 +123,10 @@ R3 actions are recorded as direct-manipulation history entries with macro equiva
 The **window tracker** (CMP-11 via CMP-24) registers an `AWTEventListener` for `WINDOW_EVENT_MASK` and classifies each opened window:
 
 - product-hidden `ImageWindow` → ignore;
-- `GenericDialog` or other modal dialog during an action → `DIALOG_PENDING` (FR-PROC-007);
-- IJ1 tool windows (Histogram, Plot, Results `TextWindow`, `RoiManager`) → hide and redirect to product panels where an equivalent exists (P82). Otherwise track as legacy;
+- `GenericDialog` or other modal dialog during an action → state `WAITING_FOR_DIALOG`, event code `DIALOG_PENDING` (FR-PROC-007);
+- windows with a workspace equivalent (the Results `TextWindow`, the ROI Manager singleton) → hidden, with their content shown in product panels (P82);
+- the "Exception" `TextWindow` and the "Macro Error" window → captured as a failure signal for the running action (DEC-035, D17 §3.6);
+- Histogram and Plot windows → stay **visible, tracked legacy windows** until embedded panels exist (PARITY), consistent with D12 GAP-D12-03 and D15 FS-08;
 - plugin `JFrame`/`Frame` → track as external (FR-PLUG-001).
 
 Validation item **V-02**: measure the show-then-hide flash and decide whether to pre-position windows off-screen before showing them (A15 §7 notes the multi-monitor fragility of off-screen placement).
@@ -133,7 +137,7 @@ Verified facts (`ij/plugin/frame/RoiManager.java` @v1.54p):
 
 - `new RoiManager()` creates **the** singleton and shows its window (L87–L104).
 - `new RoiManager(boolean)` creates a hidden manager; **the boolean is ignored**, and it is never the singleton (L105–L112). This corrects the "`RoiManager(false)` vs `(true)`" wording in A15 and the G8 notes; both forms are equivalent.
-- `RoiManager.getInstance()` returns the singleton, or, only during a macro (`IJ.isMacro()`), the batch-mode manager (L2081–L2086).
+- `RoiManager.getInstance()` returns the singleton. It returns the batch-mode manager only when no singleton exists and a macro is running (`instance==null && IJ.isMacro()`, L2081–L2086). The product's singleton therefore takes precedence, even inside macros.
 - `ParticleAnalyzer.setRoiManager(RoiManager)` routes "add" output to a given manager (`ij/plugin/filter/ParticleAnalyzer.java#L1202`).
 
 **Design (PROPOSED):**
@@ -160,7 +164,7 @@ Validation item **V-03**: round-trip fidelity (order, names, positions, properti
 | Pad edges | `Prefs.padEdges` | Assign | `Prefs.java#L116` |
 | Inverting LUT | `Prefs.useInvertingLut` | Assign | `Prefs.java#L90` |
 | Binary iterations / count | **Not readable** (package-private statics `Binary.iterations`, `Binary.count`) | **Set explicitly** through R1 `run("Options...", "iterations=N count=M [black] …")` before the operations that read them (Erode, Dilate, Open, Close in `Binary`). Watershed (`EDM`) reads only `Prefs.blackBackground` and the inverting LUT (G10/D16). | `ij/plugin/filter/Binary.java#L22-L23` |
-| Global calibration | `imp.getGlobalCalibration()` / `ImagePlus.getStaticGlobalCalibration` (to verify in milestone 1, V-04) | Via Set Scale `global` | A09 |
+| Global calibration | `imp.getGlobalCalibration()` / `ImagePlus.getStaticGlobalCalibration()` (exists: `ij/ImagePlus.java#L2767`; V-04 closed by source) | Via Set Scale `global` | A09 |
 
 Policy:
 
@@ -178,7 +182,11 @@ Policy:
 
 - Commands with a complete schema never show dialogs: their macro options cover every key (A15 §4.5; P42 E1).
 - If a dialog appears during an action (no schema, a missing key, or a plugin asking a question), the watch detects it through `Window.getWindows()`/`GenericDialog.getInstance()` (P83), changes the state to `WAITING_FOR_DIALOG`, and brings the native dialog to the front, associated with the action.
-- The product **does not** fill dialogs automatically. P83 shows this is possible, but it would silently choose parameters, which violates PR-4. The values the user enters are captured by the `CommandListener`/`Macro.getOptions()` path, where available, or recorded as "legacy dialog input" (FR-HIST-008).
+- The product **does not** fill dialogs automatically. P83 shows this is possible, but it would silently choose parameters, which violates PR-4.
+- **Values typed into a surfaced dialog are not captured by `CommandListener` or `Macro.getOptions()`.** The listener fires before the command and its dialog run (`ij/Executer.java#L54-L61`), and a command started with empty options has no thread options entry, because `Macro.setOptions("")` removes it (`ij/Macro.java#L97-L103`). Capture design:
+  - Primary (**PROPOSED, V-10**): while `WAITING_FOR_DIALOG`, the dialog watch keeps an up-to-date snapshot of the open `GenericDialog`'s field values (P83 shows the fields are readable from code). On OK, the last snapshot is mapped to macro keys by applying `Macro.trimKey` to the labels (`ij/Macro.java#L159`), and recorded with provenance `dialog-snapshot`.
+  - Fallback, when V-10 fails or the dialog is not a `GenericDialog`: the step is recorded as "parameters entered in a Fiji dialog — not captured" (provenance PARTIAL, FR-HIST-008). E7 replay flags that step as non-reproducible.
+  - Mitigation: schema coverage grows so that product-initiated commands never show dialogs.
 
 ## 8. Observation hooks (CMP-25; ADR-011)
 
@@ -203,11 +211,15 @@ C4–C6 plugins run through R1/R2 unchanged. Their windows are tracked as extern
 | V-01 | Is a product input harvester used for R2 modules? | Probe with a test `@Parameter` command | FR-PROC-011 (PARITY) |
 | V-02 | Does show-then-hide flash? Is off-screen pre-positioning needed? | GUI probe with frame timing | FR-PLUG-002 |
 | V-03 | ROI bridge load/read-back fidelity and macro parity | Probe plus E4 | FR-ROI-004 |
-| V-04 | Global-calibration read API | Source check plus probe | FR-MEAS-001 |
+| V-04 | Global-calibration read API | **Closed by source** (`ImagePlus.getStaticGlobalCalibration()`, `ij/ImagePlus.java#L2767`); runtime use is covered by E-level tests | FR-MEAS-001 |
 | V-05 | Measure accumulation in M2 with a hidden Results window | Probe (20 Measure calls) | FR-MEAS-004 |
 | V-06 | Legacy hook chaining safety | Probe per A20 R-A20-01 | NFR-REL-004 |
 | V-07 | Jaunch `extra-*.toml` launch option delivered by an update site | Install test | DEC-028 (D03) |
+| V-10 | Can the dialog watch snapshot `GenericDialog` field values while `WAITING_FOR_DIALOG` and map them to macro keys (`Macro.trimKey`) that replay to the same result? | GUI probe: surface the Gaussian Blur dialog, type values, press OK, compare the snapshot-derived line against a direct `IJ.run` with the same options (E1) | FR-HIST-008, FR-PROC-007 (§7) |
+| V-11 | Render-on-worker latency: are post-action and on-demand renders on the engine worker fast enough, with no `ImagePlus` lock taken for rendering? | Timing probe on FX-001 and a large stack during zoom and pan (NFR-PERF-001) | NFR-PERF-001, NFR-PERF-004 (§2 R3) |
+| V-12 | Does a bounded `context.dispose()` complete without IJ1 quit prompts once all documents are closed with `changes=false`? | GUI probe of the D03 §6 quit sequence with a jstack on timeout (P85 method) | FR-SYS-005 (D03 §6) |
 
 ## Change log
 
 - 2026-10-17: Initial version by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #1, #2, #4, #7, #8, #17, #22, #25, #26, #32).

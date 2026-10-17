@@ -95,15 +95,15 @@ A jar that declares several licences counts in each family, so the column does n
 | Component | Version | Declared licence | Evidence |
 |---|---|---|---|
 | faster-whisper | 1.2.1 | MIT ("Copyright (c) 2023 SYSTRAN") | `SYSTRAN/faster-whisper@v1.2.1:LICENSE`; [licenses/faster-whisper-MIT.txt](../../../third_party/licenses/faster-whisper-MIT.txt) — VERIFIED |
-| CTranslate2 | 4.8.3 | MIT (`METADATA` `License: MIT`; upstream "Copyright (c) 2018- SYSTRAN") | P73; GitHub `OpenNMT/CTranslate2` LICENSE — VERIFIED. **No notice file copied** (`speech-packages.json` lists `notices: 0`) |
+| CTranslate2 | 4.8.3 | MIT (`METADATA` `License: MIT`; upstream "Copyright (c) 2018- SYSTRAN") | P73 (ad hoc inspection; no stored output); GitHub `OpenNMT/CTranslate2` LICENSE — VERIFIED. **No notice file copied** (`speech-packages.json` lists `notices: 0`) |
 | Whisper code and weights | — | MIT. The upstream README says "Whisper's code and model weights are released under the MIT License." | [openai/whisper README L160](https://github.com/openai/whisper) (accessed 2026-10-17); [Whisper-MIT.txt](../../../third_party/licenses/Whisper-MIT.txt) — VERIFIED as documentation |
 | Systran `faster-whisper-tiny.en` conversion | rev `0d3d19a3…` | Model card front matter `license: mit`; "conversion of openai/whisper-tiny.en to the CTranslate2 model format" | `external/models/tiny.en/README.md`; `external/stt.lock.json` — VERIFIED |
 | Silero VAD (`faster_whisper/assets/silero_vad_v6.onnx`) | v6 | MIT ("Copyright (c) 2020-present Silero Team") | `faster-whisper@v1.2.1:faster_whisper/vad.py#L13,L291`; GitHub `snakers4/silero-vad` LICENSE — VERIFIED |
-| onnxruntime | 1.31.0 | MIT (`METADATA`) | P73 — VERIFIED; no notice copied |
-| tokenizers / flatbuffers | 0.23.3 / 25.12.19 | Apache-2.0 (`Classifier` / `License: Apache 2.0`) | P73 — VERIFIED; no notice copied |
-| tqdm | 4.70.1 | `MPL-2.0 AND MIT` | P73 — VERIFIED; no notice copied |
-| PyAV (`av`) | 18.1.0 | `BSD-3-Clause` for the bindings. The bundled FFmpeg reports `LGPL version 3 or later`, and its `configure` string includes `--enable-version3 --enable-libx264 --enable-libx265 --enable-nvenc --enable-amf` with no `--enable-gpl`. `av.libs/` ships `libx264-165-*.dll` and `libx265-*.dll`. | P73 — VERIFIED (strings and files). The licence of the shipped x264/x265 binaries in this combination is **UNKNOWN**. x264 and x265 are GPL-2.0+ upstream (INFERRED, not checked against their sources here). |
-| CTranslate2 bundled DLLs | — | `ctranslate2/cudnn64_9.dll` (NVIDIA cuDNN) and `ctranslate2/libiomp5md.dll` (contains "Copyright (C) 1997-2025, Intel Corporation. All Rights Reserved.") | P73 — VERIFIED presence; redistribution terms **UNKNOWN** |
+| onnxruntime | 1.31.0 | MIT (`METADATA`) | P73 — VERIFIED (ad hoc inspection; no stored output); no notice copied |
+| tokenizers / flatbuffers | 0.23.3 / 25.12.19 | Apache-2.0 (`Classifier` / `License: Apache 2.0`) | P73 — VERIFIED (ad hoc inspection; no stored output); no notice copied |
+| tqdm | 4.70.1 | `MPL-2.0 AND MIT` | P73 — VERIFIED (ad hoc inspection; no stored output); no notice copied |
+| PyAV (`av`) | 18.1.0 | `BSD-3-Clause` for the bindings. The bundled FFmpeg reports `LGPL version 3 or later`, and its `configure` string includes `--enable-version3 --enable-libx264 --enable-libx265 --enable-nvenc --enable-amf` with no `--enable-gpl`. `av.libs/` ships `libx264-165-*.dll` and `libx265-*.dll`. | P73 — VERIFIED (ad hoc inspection; no stored output) (strings and files). The licence of the shipped x264/x265 binaries in this combination is **UNKNOWN**. x264 and x265 are GPL-2.0+ upstream (INFERRED, not checked against their sources here). |
+| CTranslate2 bundled DLLs | — | `ctranslate2/cudnn64_9.dll` (NVIDIA cuDNN) and `ctranslate2/libiomp5md.dll` (contains "Copyright (C) 1997-2025, Intel Corporation. All Rights Reserved.") | P73 — VERIFIED (ad hoc inspection; no stored output) presence; redistribution terms **UNKNOWN** |
 | whisper.cpp | master `0c7be696` | MIT ("Copyright (c) 2023-2026 The ggml authors") | `ggml-org/whisper.cpp@0c7be696:LICENSE` — VERIFIED. Its converted `ggml-*.bin` weights are downloaded from `huggingface.co/ggerganov/whisper.cpp` (`models/README.md` L27); the licence statement for that repository is **UNKNOWN** (INFERRED to inherit Whisper MIT) |
 
 The prototype only decodes short microphone clips. It does not need the x264/x265 encoders, the CUDA DLL or NVENC/AMF. INFERRED: if the speech path were changed to accept 16 kHz PCM WAV from the browser, PyAV and its codec DLLs could be removed from any redistributed speech runtime, and with them the GPL encoder question.
@@ -256,3 +256,4 @@ Whatever is chosen: AGPL `itextpdf` must not be linked, and the "within Fiji onl
 ## Change log
 
 - 2026-10-17: Initial draft (G7).
+- 2026-10-17: Phase 8 review fixes (findings #29).

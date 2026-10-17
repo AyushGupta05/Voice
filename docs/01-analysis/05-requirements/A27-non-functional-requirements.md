@@ -46,7 +46,7 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 |---|---|---|---|---|---|
 | NFR-USE-001 | Direct manipulation, menu and keyboard actions shall keep Fiji's immediacy. The product shall add no confirmation steps for AC0–AC3 actions from these modalities. | PR-2; must-stay-familiar | MVP | T: a policy test shows AC0–AC3 from menu, keyboard or canvas executes without a confirm event. | CR-A19-03 |
 | NFR-USE-002 | Progress shall be shown as determinate only from a real counter. It shall otherwise be indeterminate. Time-estimated or simulated progress shall never appear. | PR-5; brief §1.4 | MVP | I: a UI review checklist. T: the progress component rejects updates without a counter source. | CR-A20-01 |
-| NFR-USE-003 | Before release, labelled evaluation sets for NL instructions (A17 §12) and recorded human speech (FX-060–062; several speakers, accents and noise conditions) shall exist. Command-level accuracy shall be reported per model and prompt configuration. The unsafe-execution rate shall be 0. | All current speech evidence is synthetic; safety gate | MVP (typed NL set FX-064 exists); PARITY (speech sets exist); LONG (release gate) | T: evaluation report in `docs/04-verification/`. | CR-A16-10, CR-A17-12; G10 gap (D18) |
+| NFR-USE-003 | Before release, labelled evaluation sets for NL instructions (A17 §12) and recorded human speech (FX-060–062; several speakers, accents and noise conditions) shall exist. Command-level accuracy shall be reported per model and prompt configuration. The unsafe-execution rate shall be 0. | All current speech evidence is synthetic; safety gate | MVP (typed NL set FX-064 is created); PARITY (speech sets exist); LONG (release gate) | T: evaluation report in `docs/04-verification/`. | CR-A16-10, CR-A17-12; G10 gap (D18) |
 | NFR-USE-004 | The UI shall use Fiji's terminology (command labels, parameter names and menu paths) without renaming. | Familiarity; tutorials | MVP | I: terminology review against `commands.csv`. | A02, A04 |
 
 ## Accessibility (A11Y)
@@ -118,3 +118,4 @@ Quantitative targets appear only where measured evidence justifies them (P60, P8
 ## Change log
 
 - 2026-10-17: Baseline consolidated by the lead.
+- 2026-10-17: Phase 8 review fixes (findings #29).

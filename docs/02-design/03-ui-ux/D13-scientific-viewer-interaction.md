@@ -96,7 +96,7 @@ Paint order follows `ImageCanvas.paint`: image, overlay, Show All list, ROI, the
 | R-2 Cache key | `(docId, c, z, t, pixelVersion, displayVersion)`. `displayVersion` covers per-channel min/max, LUT identity, composite mode, active-channels string, threshold state and inverting-LUT flag. `pixelVersion` advances on a `StateDigest` pixel-hash change for that plane or stack. | FR-VIEW-005 |
 | R-3 Invalidation | Only from (i) `StateDigest` deltas published after each action (NFR-REL-005), or (ii) `ImageListener.imageUpdated` hints. Hints schedule a re-render; they are not trusted alone (A20 R-A20-02). | FR-IMG-001, NFR-REL-005 |
 | R-4 Zoom and pan | Zoom and pan draw the cached raster through Java2D with the IJ1 interpolation rule (§3.4). They never call `getBufferedImage` (FR-VIEW-005 acceptance). | FR-VIEW-005 |
-| R-5 Thread rules | No rendering and no engine call on the EDT. The EDT only blits cached images and paints vectors (L2–L5). Listener callbacks only enqueue (NFR-PERF-005). | NFR-PERF-005, NFR-PERF-006 |
+| R-5 Thread rules | No rendering and no engine call on the EDT. Rasters are rendered on the engine worker between actions (§2.3). The EDT only blits cached images and paints vectors (L2–L5). Listener callbacks only enqueue (NFR-PERF-005). | NFR-PERF-005, NFR-PERF-006 |
 | R-6 Copies | The UI receives a rendered `BufferedImage` and, for the read-out, a raw-value copy of the displayed plane (§4.3). It never holds live references to engine arrays. | NFR-PERF-004 |
 | R-7 Pre-fetch | When a stack is focused, the planes adjacent to the current position (±1 along the dimension last navigated) may be pre-rendered when the engine is idle. | FR-VIEW-005 (performance), INFERRED benefit |
 
@@ -104,19 +104,19 @@ Measured cost of R-1 at 2048²: 1.7 / 12.6 / 15.1 ms for 8/16/32-bit (P84, **VER
 
 ### 2.2 Overlays (L2) and the active ROI (L3)
 
-- **Who draws them.** IJ1 draws Overlays and ROIs in `ImageCanvas` (`drawOverlay`, `drawRoi`), not into `getBufferedImage()` (**INFERRED** from the `paint` order, `ImageCanvas.java#L233-L243`). The viewer therefore draws L2/L3 as vectors at screen resolution, following IJ1 conventions:
+- **Who draws them.** IJ1 draws Overlays and ROIs in `ImageCanvas` (`drawOverlay`, `drawRoi`), not into `getBufferedImage()` (**VERIFIED**: `getBufferedImage` returns `ip.getBufferedImage()` or a `ColorProcessor` copy with no overlay, `ImagePlus.java#L606-L611`; paint order `ImageCanvas.java#L233-L243`). The viewer therefore draws L2/L3 as vectors at screen resolution from engine-supplied geometry (`overlay`, `rois`; D09 §4), following IJ1 conventions:
   - area outlines on pixel corners; line coordinates on pixel centres (+0.5) (A10 §6);
   - stroke colour, width and fill from the `Roi`; labels as Show All (*Labels* option);
   - position filtering: an Overlay ROI is shown only at matching C/Z/T, and 0 means all (A10 §5);
   - the active ROI is shown regardless of position.
-- **Equivalence test.** At magnification 1, the overlay rendering is compared against `ImagePlus.flatten()` on fixtures (FR-VIEW-001 permits a "renderer proven equivalent by A30 E3"). **UNKNOWN** until tested. The alternative is to drive IJ1's own `drawOverlay` with a canvas instance (DP-D13-02).
+- **Equivalence test.** At magnification 1, the overlay rendering is compared against `ImagePlus.flatten()` on fixtures (FR-VIEW-001 permits a "renderer proven equivalent by A30 E3"). **UNKNOWN** until tested. This product-side drawing reimplements a Fiji behaviour, so the D18 equality test is a **gate**: the path is not used for results-relevant display until it passes. The alternative is to drive IJ1's own `drawOverlay` with a canvas instance (DP-D13-02).
 
 ### 2.3 Render isolation (validation item)
 
 - **The problem.** Rendering another hyperstack plane through IJ1 requires `setPosition`, which mutates the engine's `ImagePlus`. That `ImagePlus` is also the target of commands, which act on the current position (A17 §5).
-- **PROPOSED approach.** A **render proxy** per document: an `ImagePlus` (or `CompositeImage`) that shares the document's `ImageStack` (no pixel copy) and carries copies of calibration, LUTs, display ranges and composite mode, updated from `displayVersion`. The proxy is positioned freely. The engine `ImagePlus` position changes only through committed `DIRECT` actions (§6.4).
-- **Concurrency.** Renders take `ImagePlus.lockSilently()` on the *document's* `ImagePlus` (A19: `ImagePlus.java#L186-L242`). If it is locked (an operation is running on it), the viewer keeps the cached raster and marks the strip *updating* (D15 §2). There is no blocking and no partial frame.
-- **Status.** **UNKNOWN.** Whether a stack-sharing proxy reproduces `CompositeImage` rendering exactly, and whether reading a stack while a filter writes it can produce torn planes, must be tested. Validation is in D04 with E3 fixtures (A30). If it fails, the fallback is to render only between actions on the engine worker, accepting stale planes during long operations, which are labelled as such.
+- **PROPOSED approach (Phase 8; replaces the former render proxy).** Rendered planes are produced **on the engine worker between actions**, never concurrently with a running command (D04 §2 R3, rendering isolation). After each action the worker renders the visible planes that the digest marks changed, as an internal post-action step. Zoom, pan and plane-change requests that miss the cache are queued as internal AC0 tasks. To render a plane other than the engine's current position, the worker sets the position, renders and restores it within the same task; because no command runs concurrently, no command sees the temporary position. The engine `ImagePlus` position otherwise changes only through committed `DIRECT` actions (§6.4).
+- **Concurrency.** No product code takes `ImagePlus` locks for rendering. `ImagePlus.lock` is exclusive per thread (`ImagePlus.java#L186-L221`), and `PlugInFilterRunner` returns without running when the image is locked by another thread (`PlugInFilterRunner.java#L57-L58`), so a render lock could silently suppress a command. While an operation runs, the viewer keeps the last cached raster and marks the strip *updating* (D09 SY-2, D15 §2). There is no blocking and no partial frame. The UI holds only cached ARGB copies (NFR-PERF-004).
+- **Status.** **PROPOSED**, validation item **V-11** in D04 §10 (render-on-worker latency; E3 fixtures, A30). The cost is stale planes during long operations, which are labelled as such.
 
 ### 2.4 Large data
 
@@ -152,7 +152,7 @@ IJ1 `zoomIn` first tries to **enlarge the window** (`canEnlarge`, A04 §5.5). Do
 
 ### 3.3 Zoom display
 
-- The target strip shows the zoom as `NN%` using IJ1's title rule: 0 decimals when the percentage is above 100 or an integer, otherwise 1 decimal (`ImagePlus.java#L1199-L1203`).
+- The target strip shows the zoom as `NN%` using IJ1's title rule: 0 decimals when the percentage is above 100 or an integer, otherwise 1 decimal (`ImagePlus.java#L1202-L1204`).
 - When the source rectangle is smaller than the image, a non-interactive zoom indicator is drawn as IJ1 does (`drawZoomIndicator`).
 - Zoom is AC1, local to the UI and not queued (A18 §4). It is not recorded in history: FR-HIST-003 lists display range, LUT and C/Z/T, not zoom.
 
@@ -211,7 +211,7 @@ x=<X>[ (<x>)], y=<Y>[ (<y>)][, z=<Z>[ (<z>)]]
 
 ### 4.3 Read-out data source and test
 
-- **Data source (PROPOSED).** `getValueAsString` is private (`#L2848`), so the viewer formats values with a product formatter that reproduces the table above. Location uses the public `getLocationAsString` on the render proxy (§2.3), which carries the same calibration. Values come from the raw-plane copy delivered with the cached raster (R-6), so the read-out always describes the plane on screen.
+- **Data source (PROPOSED).** `getValueAsString` is private (`#L2848`), so the viewer formats values with a product formatter that reproduces the table above. Location is formatted by the same formatter, reproducing the public `getLocationAsString` (`ImagePlus.java#L2823-L2842`) from the calibration, image height and stack position delivered with the cached raster (the render proxy was withdrawn in Phase 8, §2.3). Values come from the raw-plane copy delivered with the cached raster (R-6), so the read-out always describes the plane on screen. Both formatters reimplement Fiji behaviour, so the golden-string test below is a **gate** for this path.
 - **Stale marking.** While the plane is stale (an operation is running on the document), the read-out shows the cached values with the suffix ` (before current operation)`. This is truthful labelling, not suppression (D15).
 - **Test.** FR-VIEW-003 acceptance: golden strings for sampled points on calibrated 8/16/32-bit and signed-16 fixtures. They are produced in classic Fiji by `ImagePlus.mouseMoved` status capture and compared character by character.
 - **During ROI gestures.** The slot shows IJ1's ROI geometry status instead of the read-out: size, calibrated together with raw (`Roi.java#L1713-L1731`, A10 §6). For lines it shows length and angle.
@@ -281,7 +281,7 @@ Positions are **clamped** at the ends; there is no wrap-around.
 
 ### 6.4 Committing position (FR-HIST-003; A18 §4)
 
-- **Viewer first.** The viewer changes position locally: it moves the render proxy and requests a render. The engine `ImagePlus` position is updated by **one `DIRECT` `ActionRequest` (AC1) at gesture end**: slider release, key release after a key-repeat run, or wheel idle. The PROPOSED wheel-idle threshold is 250 ms, justified as the typical inter-notch interval of continuous wheel motion. **INFERRED**; tune in usability tests.
+- **Viewer first.** The viewer changes position locally: it shows the cached raster for the new position, or requests a render on the engine worker (§2.3). The engine `ImagePlus` position is updated by **one `DIRECT` `ActionRequest` (AC1) at gesture end**: slider release, key release after a key-repeat run, or wheel idle. The PROPOSED wheel-idle threshold is 250 ms, justified as the typical inter-notch interval of continuous wheel motion. **INFERRED**; tune in usability tests.
 - **Recording.** History records the final position with the exact macro equivalent `Stack.setPosition(c,z,t)` (hyperstacks) or `setSlice(n)`. Consecutive position entries for one document with no intervening action are coalesced into one entry (**PROPOSED**; the replay result is identical).
 - **Ordering.** A command issued during a scrub first flushes the pending position commit. The engine then runs the command at the position the user sees (FR-IMG-002 spirit: the target is what is shown).
 
@@ -300,7 +300,7 @@ Positions are **clamped** at the ends; there is no wrap-around.
 | Channel visibility (composite) | One checkbox per channel; at most 8 (`CompositeImage.MAX_CHANNELS`) | Active-channels string | `Stack.setActiveChannels("101")` | AC1 |
 | Per-channel LUT | The `More »` LUT list (Red, Green, Blue, Cyan, Magenta, Yellow, Grays) | LUT for channel c | `Stack.setChannel(c); run("<LUT>");` | AC1 |
 | Per-channel range | Min/max (UI-14 bound to the current channel) | Display range | `Stack.setChannel(c); setMinAndMax(min,max);` | AC1 |
-| Colour-blind-safe option (FR-WS-003, PARITY) | Replaces *displayed* channel colours with a colour-blind-safe set | Display only. Stored LUTs and pixels unchanged. Implemented in the render proxy. | Not recorded: it is a viewer preference, not image state | AC0 |
+| Colour-blind-safe option (FR-WS-003, PARITY) | Replaces *displayed* channel colours with a colour-blind-safe set | Display only. Stored LUTs and pixels unchanged. Implemented in the engine-worker render step (§2.3) without modifying the document's stored LUTs. | Not recorded: it is a viewer preference, not image state | AC0 |
 
 `More »` commands (`Make Composite`, `Split Channels`, `Merge Channels...`, `Create RGB Image`, …) run as ordinary commands (R1), with their AC classes from the catalogue.
 
@@ -311,10 +311,10 @@ Positions are **clamped** at the ends; there is no wrap-around.
 | Control | Behaviour | Recorded as | Class |
 |---|---|---|---|
 | Minimum / Maximum / Brightness / Contrast sliders | Change the display range of the focused document (current channel for composites). The cache re-renders the plane. Pixels are unchanged (FR-PROC-014 acceptance: pixel hash constant). | Committed at slider release as `setMinAndMax(min,max)`. Fiji itself records only Set/Auto/Apply (UP-10a), so this is a superset. | AC1 |
-| Auto | IJ1 `ContrastAdjuster` auto behaviour | `run("Enhance Contrast", "saturated=0.35")`. **Verify** that replaying it reproduces the same range (PAR-013 note). Until verified, the record also stores the resulting `setMinAndMax`. | AC1 |
+| Auto | Runs `Enhance Contrast` with `saturated=0.35` through R1, which is what Fiji records for the B&C Auto button (`ContrastAdjuster.java#L860-L862`). The repeated-click escalation of the IJ1 dialog (`autoAdjust`, package-private and stateful, `ContrastAdjuster.java#L815-L825`) is not reproduced: a documented deviation. | `run("Enhance Contrast", "saturated=0.35")`. **Verify** that replaying it reproduces the same range (PAR-013 note). Until verified, the record also stores the resulting `setMinAndMax`. | AC1 |
 | Reset | Full range (respecting the 16-bit "default range" semantics, A04 §5.11) | `resetMinAndMax()` | AC1 |
 | Set | Form with min, max, "propagate to all open images", "16-bit range" | `setMinAndMax(...)` | AC1 |
-| **Apply** (`marker.pixels`) | Opens a confirmation: "Pixel values will be rewritten using the current display range." For stacks it asks the scope explicitly (`stack` key). Refused for 32-bit images with the IJ1 explanation. The default button is Cancel. | `run("Apply LUT"[, "stack"])` | AC3, or AC4 when above the snapshot budget (FR-HIST-005) |
+| **Apply** (`marker.pixels`) | Shows an inline, non-blocking warning next to the button: "Pixel values will be rewritten using the current display range" (A26 §14 C5; NFR-USE-001: no confirmation step for AC3 from direct modalities). For stacks the scope is an explicit parameter in the same inline form (`stack` key). Refused for 32-bit images with the IJ1 explanation. Above the snapshot budget the action is AC4 and takes the AC4 inline confirmation (D06 §4). | `run("Apply LUT"[, "stack"])` | AC3, or AC4 when above the snapshot budget (FR-HIST-005) |
 
 **Label.** The panel header reads "DISPLAY ONLY — pixel values unchanged" (D11 UXP-05).
 
@@ -405,13 +405,13 @@ Positions are **clamped** at the ends; there is no wrap-around.
   - position (A10 §5).
 - **Engine-side construction (FR-ROI-001, CR-A10-02).** The engine constructs the IJ1 `Roi` through the Java API and applies add or subtract with IJ1's `Roi.modifyRoi` semantics (`Roi.java#L1633-L1672`). It sets the ROI and returns the resulting geometry in the digest. The UI does **not** compute composite geometry.
 - **Provisional style.** Between submit and digest, the gesture's outline is drawn in a *pending* style: dashed, `state.preview` semantics. It is replaced by the engine geometry when the digest arrives. If the engine rejects the request (for example `PRECONDITION_FAILED`), the previous ROI is restored and the error is shown (D15 §7).
-- **History (FR-HIST-003).** History records an exact macro equivalent where one exists: float `makeSelection("polygon", xs, ys)`, `makeRectangle` / `makeOval` / `makeLine` with doubles, and add/subtract via `Roi.update` semantics (`setKeyDown("shift")` + `make…`, A10 §2). Otherwise it marks *not macro-expressible*, for example brush strokes and composite results without an exact macro form.
+- **History (FR-HIST-003).** History records an exact macro equivalent where one exists: `makeRectangle` / `makeOval` (double arguments, any precision) and `makePolygon` / `makeLine` for integer geometry, with float `makeSelection("<type>", xs, ys)` for non-integer polygon, line and point types (D07 G5), and add/subtract via `Roi.update` semantics (`setKeyDown("shift")` + `make…`, A10 §2). Otherwise it marks *not macro-expressible*, for example brush strokes and composite results without an exact macro form.
 
 ### 10.6 ROI list binding (UI-09; FR-ROI-004/005/006)
 
 | Action | Request | Engine effect | Macro equivalent |
 |---|---|---|---|
-| `Add [t]` (key `t`, button) | `DIRECT`, AC2 | Adds a copy of the active ROI, with its position from `setPosition(imp)` (`RoiManager.java#L418`), to the document's hidden `RoiManager(false)`. The singleton stays consistent (CMP-30). Default label `ZZZZ-YYYY-XXXX` (A10 §3). | `roiManager("add")` |
+| `Add [t]` (key `t`, button) | `DIRECT`, AC2 | Adds a copy of the active ROI, with its position from `setPosition(imp)` (`RoiManager.java#L418`), to the document's engine ROI set (D04 §4). The hidden singleton `RoiManager` is loaded from that set before, and read back after, every `uses_roi_manager` action (CMP-30). Default label `ZZZZ-YYYY-XXXX` (A10 §3). | `roiManager("add")` |
 | Select row(s) | `DIRECT`, AC1/AC2 | Selects the ROI. The document moves to the ROI's position, as IJ1 does (`RoiManager.java#L705-L733`). The viewer follows. | `roiManager("select", i)` (multi: array) |
 | Update, Delete, Rename..., Properties..., More » items | COMMAND or `DIRECT` per item | Same semantics as `RoiManager.runCommand`. Delete with nothing selected asks, as IJ1 does. | `roiManager("update")` etc. |
 | Measure (none selected → all) | COMMAND (Measure via the ROI Manager), AC0 for data plus a Results delta | One Results row per ROI, labelled `image:roi` | `roiManager("measure")` |
@@ -553,7 +553,7 @@ stateDiagram-v2
 
 | ID | Decision | One-line rationale |
 |---|---|---|
-| DP-D13-01 | Raster via IJ1 rendering (R-a) with a per-document **render proxy** sharing the stack; renders use `lockSilently()` and fall back to a stale cache | FR-VIEW-001 fidelity without mutating engine position or blocking on the worker. Needs validation. |
+| DP-D13-01 | Raster via IJ1 rendering (R-a), rendered on the engine worker between actions, with a stale-labelled cache while an operation runs; no product rendering lock (Phase 8: the render proxy with `lockSilently()` is withdrawn) | FR-VIEW-001 fidelity; a render lock could make `PlugInFilterRunner` skip a command silently. Validation V-11 (D04 §10). |
 | DP-D13-02 | Draw Overlay and ROI as vectors following IJ1 conventions, validated against `flatten()`. Fallback: IJ1 `drawOverlay` via a canvas instance. | Screen-resolution interaction and handles; the equivalence route is permitted by FR-VIEW-001 |
 | DP-D13-03 | Keep the 23-level ladder for all commands, keys and wheels; smooth zoom only for precision pinch; snap back on the next ladder step | Preserves `Image>Zoom` semantics and macros (PAR-008) |
 | DP-D13-04 | Commit ROI and C/Z/T changes as one `DIRECT` request per gesture; coalesce consecutive position entries | Avoids queue flooding (A18 §4); matches `RoiListener.COMPLETED` |
@@ -571,3 +571,7 @@ stateDiagram-v2
 ## Phase 8 requirement mapping (lead)
 
 Requirements added from the design gaps: FR-VIEW-007 (comparison mode, specified in D15), FR-VIEW-008 (linked navigation) and NFR-A11Y-003 (accessible canvas: document identity, C/Z/T, read-out under a keyboard cursor, ROI summary). The canvas specification here must provide the keyboard cursor and the accessible-description hooks.
+
+## Change log
+
+- 2026-10-17: Phase 8 review fixes (findings #1, #4, #9, #13, #31, #32).
