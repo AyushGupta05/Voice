@@ -75,6 +75,19 @@ public final class DefaultNlService implements NlService {
 
     public DefaultNlService(Engine engine) {
         this.engine = engine;
+        this.confirmation = new ConfirmationPolicy(engine::schema);
+    }
+
+    private final ConfirmationPolicy confirmation;
+
+    /** The confirmation policy over this engine's catalogue (see {@link ConfirmationPolicy}). */
+    public ConfirmationPolicy confirmationPolicy() {
+        return confirmation;
+    }
+
+    /** Whether, and how explicitly, the user must confirm {@code p} before its requests are submitted. */
+    public ConfirmationPolicy.Decision confirmation(Proposal p) {
+        return confirmation.assess(p);
     }
 
     /** One line describing the consequential-slot policy (shown by tools and tests). */
@@ -85,6 +98,80 @@ public final class DefaultNlService implements NlService {
                 + "stated; (2) Analyze Particles uses the Fidelis reporting convention display+clear+summarize+include (derived, shown in the "
                 + "preview) unless the user says otherwise; (3) Set Measurements decimals default to 9 (display only); (4) on a single image "
                 + "Convert to Mask polarity is the global BlackBackground preference, stated explicitly in the preview.";
+    }
+
+    // =============================================================================================
+    // speech vocabulary prompt
+    // =============================================================================================
+
+    /**
+     * Hard budget of the prompt in characters. Whisper keeps the last 223 prompt tokens (about 3 characters per
+     * token for technical words, so this stays well inside the limit) and the worker clips at 600 characters.
+     */
+    public static final int VOCABULARY_MAX_CHARS = 560;
+
+    /** Labels of the J-12 demo journey, spoken most often and most easily misheard ("Otsu", "Watershed"). */
+    private static final List<String> VOCABULARY_CORE = List.of("Subtract Background...", "Gaussian Blur...", "Convert to Mask",
+            "Watershed", "Set Measurements...", "Measure", "Analyze Particles...", "Invert", "Threshold", "Otsu");
+
+    private static final List<String> CHANNEL_NAMES = List.of("DAPI", "GFP", "FITC", "TRITC", "Cy5");
+
+    /**
+     * The vocabulary bias for the speech recogniser (to be passed to {@code SpeechService.setVocabularyPrompt}):
+     * the open document titles first, then the J-12 command labels, then further labels of commands whose options
+     * are catalogued (those are the ones this service can run), then common channel names. Items are added in that
+     * priority order while they fit in {@link #VOCABULARY_MAX_CHARS}; nothing is cut mid-word. Titles are reduced
+     * to plain word characters so that a document name cannot inject structure into the prompt.
+     */
+    public String vocabularyPrompt(List<String> documentTitles) {
+        List<String> titles = new ArrayList<>();
+        if (documentTitles != null) {
+            for (String t : documentTitles) {
+                String c = t == null ? "" : t.replaceAll("[^\\p{L}\\p{N} ._-]", " ").replaceAll("\\s+", " ").trim();
+                if (c.length() > 40) c = c.substring(0, 40).trim();
+                if (!c.isEmpty() && !titles.contains(c)) titles.add(c);
+            }
+        }
+        List<String> labels = new ArrayList<>();
+        for (String l : VOCABULARY_CORE) addLabel(labels, l);
+        for (CommandSchema.Summary h : engine.catalogue()) {
+            if (labels.size() >= 40) break;
+            String l = h.label().replace("...", "").trim();
+            // file-format entries of Save As and bit-depth conversions are not worth bias tokens
+            if (h.menuPath().contains("Save As") || l.matches("(?i)\\d+-bit|RGB Color|Image|Open|PNG|Tiff|Gif|Jpeg|Text Image|Zip")) continue;
+            if (engine.schema(h.commandId()).map(CommandSchema::schemaComplete).orElse(false)) addLabel(labels, h.label());
+        }
+        String images = segment("Images", titles, 5, 170);
+        String channels = segment("Channels", CHANNEL_NAMES, 5, 60);
+        String head = "ImageJ commands:";
+        int room = VOCABULARY_MAX_CHARS - images.length() - channels.length() - head.length() - 1;
+        StringBuilder cmds = new StringBuilder();
+        for (String item : labels) {
+            String piece = (cmds.length() == 0 ? " " : ", ") + item;
+            if (cmds.length() + piece.length() > room) break;
+            cmds.append(piece);
+        }
+        return (images + head + cmds + "." + channels).trim();
+    }
+
+    private static void addLabel(List<String> out, String label) {
+        String l = label.replace("...", "").trim();
+        if (!l.isEmpty() && !out.contains(l)) out.add(l);
+    }
+
+    /** "Heading: a, b." followed by a space (or empty), at most {@code max} items and {@code budget} characters. */
+    private static String segment(String heading, List<String> items, int max, int budget) {
+        StringBuilder seg = new StringBuilder(heading + ":");
+        int n = 0;
+        boolean any = false;
+        for (String item : items) {
+            if (n++ >= max) break;
+            String piece = (any ? ", " : " ") + item;
+            if (seg.length() + piece.length() + 2 > budget) break;
+            seg.append(piece);
+            any = true;
+        }
+        return any ? " " + seg + "." + " " : "";
     }
 
     // =============================================================================================
@@ -1040,17 +1127,22 @@ public final class DefaultNlService implements NlService {
     // =============================================================================================
 
     private Step retrieve(String clause, DocumentInfo doc, DocumentId id) {
-        List<CommandSchema.Summary> hits = engine.search(clause, 8);
         Set<String> tokens = new LinkedHashSet<>(NlText.words(clause));
+        List<CommandSchema.Summary> hits = candidates(clause, tokens);
         CommandSchema.Summary chosen = null;
         int bestTokens = 0;
+        boolean bestComplete = false;
         for (CommandSchema.Summary h : hits) {
             List<String> lt = labelTokens(h.label());
-            if (lt.size() <= bestTokens || !labelMentioned(lt, tokens)) continue;
+            if (lt.size() < bestTokens || !labelMentioned(lt, tokens)) continue;
             Optional<CommandSchema> sc = engine.schema(h.commandId());
             if (unexplainedWords(tokens, lt, sc.orElse(null)) > 1) continue; // the clause is about something else
+            boolean complete = sc.map(CommandSchema::schemaComplete).orElse(false);
+            // a longer label wins; at equal length a command whose options are catalogued beats one that is not
+            if (lt.size() == bestTokens && (bestComplete || !complete)) continue;
             chosen = h;
             bestTokens = lt.size();
+            bestComplete = complete;
         }
         if (chosen == null) {
             return Step.refused("I could not map that to a catalogue command." + suggestions(hits));
@@ -1069,6 +1161,22 @@ public final class DefaultNlService implements NlService {
         if (scopeKey.isPresent()) scope(s, clause, doc, "stack");
         targetRefs(s, clause, doc, id);
         return complete(s, doc);
+    }
+
+    /**
+     * Candidate commands for a clause: the engine's own ranked search, plus every catalogue entry whose
+     * label words all occur in the clause. The engine search is a ranking aid; on the 953-command
+     * catalogue it can return nothing for a long clause ("find maxima with prominence 10"), so
+     * retrieval must not depend on it alone.
+     */
+    private List<CommandSchema.Summary> candidates(String clause, Set<String> tokens) {
+        Map<String, CommandSchema.Summary> out = new LinkedHashMap<>();
+        for (CommandSchema.Summary h : engine.search(clause, 8)) out.putIfAbsent(h.commandId(), h);
+        for (CommandSchema.Summary h : engine.catalogue()) {
+            if (out.containsKey(h.commandId())) continue;
+            if (labelMentioned(labelTokens(h.label()), tokens)) out.put(h.commandId(), h);
+        }
+        return new ArrayList<>(out.values());
     }
 
     /** One missing numeric slot and exactly one number in the clause: unambiguous ("rotate by 90"). */
