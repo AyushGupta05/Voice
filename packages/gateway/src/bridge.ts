@@ -33,8 +33,6 @@ export class BridgeAdapter implements Adapter {
     const body = this.profile.conversationEnvelope
       ? { operation, arguments: args, ...(options.expectedContext !== undefined ? { expectedContext: options.expectedContext } : {}), ...(options.approved !== undefined ? { approved: options.approved } : {}), ...conversationEnvelope() }
       : { operation, arguments: args, ...options };
-    // Profiles whose context has no adapter identity declare their operations on GET /health instead; read it alongside.
-    const health = operation === 'context' && this.profile.bridgeIdentity === 'operations' ? bridgeHealth(this.port, token) : undefined;
     let response: Response;
     try {
       response = await fetch(`http://127.0.0.1:${this.port}/execute`, {
@@ -45,7 +43,9 @@ export class BridgeAdapter implements Adapter {
     const reply = await response.json() as { result?: unknown; error?: string };
     if (!response.ok) throw new Error(reply.error ?? `${app} returned ${response.status}`);
     if(operation==='context'&&reply.result&&typeof reply.result==='object'){
-      const identity = health ? { ...reply.result, adapter: (await health)?.adapter } : reply.result;
+      // A bridge identified by its operations (Fidelis) reports them in context.adapter; an older one only on GET /health.
+      const identity = this.profile.bridgeIdentity === 'operations' && !(reply.result as { adapter?: unknown }).adapter
+        ? { ...reply.result, adapter: (await bridgeHealth(this.port, token))?.adapter } : reply.result;
       return{...reply.result,adapterReadiness:await bridgeReadiness(this.root,identity,this.profile)};
     }
     return reply.result;

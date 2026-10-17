@@ -4,27 +4,17 @@ import { fidelisTools, FIDELIS_BUNDLE_ID } from './fidelis-tools.js';
 import { fidelisInstructions } from './fidelis-instructions.js';
 import { friendlyName } from './fiji.js';
 import { imageNameMatches, queryWords } from '../local-images.js';
-import { conversationEnvelope } from '../tool-request.js';
+import { conversationEnvelope, observedContext } from '../tool-request.js';
 
 /** The parts of the bridge's `context` result (docs/FIDELIS-PROTOCOL.md) the instant routes and sentences read. */
 type FidelisDocument = { id?: unknown; title?: unknown; width?: unknown; height?: unknown; channels?: unknown; slices?: unknown; frames?: unknown; bitDepth?: unknown;
   unit?: unknown; pixelWidth?: unknown; pixelHeight?: unknown; path?: unknown;
-  /** Not in the first contract table; used when the bridge reports them (brighter/darker, next/previous slice). */
+  /** Brighter/darker and next/previous slice read these; `binary` (requested of the bridge) gates spoken intensities. */
   displayRange?: unknown; display?: { min?: unknown; max?: unknown }; position?: { channel?: unknown; slice?: unknown; frame?: unknown }; binary?: unknown };
 type FidelisContext = { document?: FidelisDocument | null; documents?: Array<{ id?: unknown; title?: unknown; focused?: unknown }>; roi?: unknown;
   counts?: { rois?: unknown; resultsRows?: unknown; history?: unknown }; pending?: { planId?: unknown; reasons?: unknown } | null;
   lastStep?: { actionId?: unknown; label?: unknown; origin?: unknown; outcome?: unknown } | null };
 
-/** Evidence that the focused document already holds a segmentation mask: segment_cells converts it in place
- * (docs/FIDELIS-PROTOCOL.md), so its pixels are no longer intensities and segmenting again would threshold the mask.
- * The bridge may report `document.binary`; otherwise the last History step names a segmentation stage. */
-export function maskLikely(context: unknown): boolean {
-  const c = context as FidelisContext | undefined;
-  if (c?.document?.binary === true) return true;
-  if (c?.document?.binary === false) return false;
-  const label = `${text(c?.lastStep?.label) ?? ''} ${text(c?.lastStep?.actionId) ?? ''}`;
-  return /\b(?:segment\w*|analy[sz]e particles|convert to mask|make binary|watershed|fill holes)\b/i.test(label);
-}
 /** A mean measured on the focused document is an intensity only when the bridge says the document is not a binary mask.
  * The last History step cannot tell (a selection or zoom after segmenting hides it), so without `document.binary: false`
  * intensities are phrased by the model, never spoken locally. */
@@ -36,7 +26,7 @@ const acknowledgments: Record<string, string> = {
   fidelis_undo: 'Undoing.', fidelis_redo: 'Redoing.', fidelis_run_macro: 'Preparing the macro.', fidelis_confirm: 'Running it.', fidelis_cancel_plan: 'Cancelling.',
   fidelis_convert: 'Converting.', fidelis_duplicate: 'Duplicating.', fidelis_display: 'Adjusting the display.', fidelis_stack: 'Changing slice.', fidelis_activate_image: 'Switching image.',
   fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.',
-  fidelis_commands: 'Looking it up.', fidelis_macro: 'Here is the macro.',
+  fidelis_commands: 'Looking it up.', fidelis_macro: 'Here is the macro.', fidelis_dialog: 'Checking the dialog.', fidelis_dialog_action: 'Filling in the dialog.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
   if (name === 'fidelis_highlight') return highlightAcknowledgment(args);
@@ -66,6 +56,8 @@ export function awaitingConfirmation(result: unknown): Record<string, unknown> |
   const inner = completedPayload(result) ?? record(result);
   return inner?.status === 'awaiting_confirmation' ? inner : undefined;
 }
+/** The bridge payload when a legacy command's original Fiji dialog is waiting (`status: "dialog"`): the model fills it. */
+export function dialogWaiting(result: unknown): boolean { return (completedPayload(result) ?? record(result))?.status === 'dialog'; }
 /** "Ready to run 3 steps; say yes to go ahead." — nothing has run. */
 export function awaitingSentence(plan: Record<string, unknown>): string {
   const steps = Array.isArray(plan.steps) ? plan.steps.length : finite(plan.steps);
@@ -128,6 +120,8 @@ function confirmSentence(inner: Record<string, unknown>, context?: unknown): str
 function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, context?: unknown): string | undefined {
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
   const plan = awaitingConfirmation(result); if (plan) return awaitingSentence(plan);
+  // A waiting dialog is not an outcome: the model continues and fills it with fidelis_dialog_action.
+  if (dialogWaiting(result) || name === 'fidelis_dialog') return undefined;
   if (silentFinishTools.has(name)) return '';
   const inner = completedPayload(result);
   // Read and view operations return the bridge result itself, without a decision envelope.
@@ -154,10 +148,12 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   }
   if (name === 'fidelis_undo' || name === 'fidelis_redo') {
     const undo = name === 'fidelis_undo';
+    const ids = inner.undoneActionIds ?? inner.redoneActionIds;
+    if (Array.isArray(ids) && ids.length > 1) return `${undo ? 'Undid' : 'Redid'} ${ids.length} steps.`;
     const what = stepName(inner.step)?.replace(undo ? /^undo\b[:\s-]*/i : /^redo\b[:\s-]*/i, '').trim();
     return what ? `${undo ? 'Undid' : 'Redid'} ${what}.` : undo ? 'Undone.' : 'Redone.';
   }
-  if (name === 'fidelis_command') { const what = stepName(inner.step, args.commandId); return what ? `Ran ${what}.` : 'Done.'; }
+  if (name === 'fidelis_command' || name === 'fidelis_dialog_action') { const what = stepName(inner.step, args.commandId); return what ? `Ran ${what}.` : 'Done.'; }
   if (name === 'fidelis_filter') return 'Filter applied.';
   if (name === 'fidelis_convert') return typeof args.to === 'string' ? `Converted to ${args.to}.` : 'Converted.';
   if (name === 'fidelis_duplicate') return 'Duplicated.';
@@ -170,11 +166,10 @@ const analysisWords = /\b(?:measur\w*|count\w*|segment\w*|detect\w*|quantif\w*|c
  * whole answer: nothing later in the request may run before the researcher confirms it. */
 function requestContinuesAfter(name: string, utterance: string, result?: unknown): boolean {
   if (awaitingConfirmation(result)) return false;
+  if (dialogWaiting(result)) return true;
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
   if ((silentFinishTools.has(name) || name === 'fidelis_open_path') && (analysisWords.test(said) || compoundRequest(utterance))) return true;
-  // Re-segmenting reopens the original first; the segmentation itself is still to come.
-  if (name === 'fidelis_open_path' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|conservative|aggressive|again|re-?segment\w*|redo)\b/.test(said)) return true;
   if (name === 'fidelis_segment_cells' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative)\b/.test(said)) return false;
   if (name === 'fidelis_segment_cells') return !/\b(segment|count|find|detect|identify|outline|how many)\b/.test(said) || /\b(area|size|intens|measur|mean|bright|perimeter|circular)/.test(said)
     || /\b(positive|negative|ki-?67|marker|percent|fraction|proportion|index|express)/.test(said);
@@ -209,15 +204,17 @@ export function describeDocument(context: unknown): string | undefined {
 const confirmWords = /^(?:(?:yes|yeah|yep|yup|sure)(?: please)?(?: (?:go ahead|do it|run it|go|confirm|proceed|thanks|thank you))?|go ahead|go for it|do it|run it|confirm(?: it| that| the plan)?|confirmed|proceed|confirm and run)$/;
 const cancelWords = /^(?:no|nope|nah|no thanks|no thank you|cancel(?: it| that| this| the plan)?|no cancel(?: it| that)?|stop(?: that| it)?|don't(?: run it| do it| do that)?|do not run it|no don't|never ?mind|forget it)$/;
 /** Whole-utterance instant routes: confirm or cancel a pending plan, open, describe, zoom, count, brightness, find the nuclei, slices, undo and redo. */
+/** Typographic apostrophes and quotes as ASCII, so "don’t" reads like "don't" (cleanUtterance keeps only ASCII ones). */
+const asciiApostrophes = (value: string) => value.replace(/[\u2018\u2019\u02bc\u0060\u00b4]/g, "'");
 function fastRoute(spokenText: string, context: unknown): FastRoute | undefined {
-  const said = cleanUtterance(spokenText);
+  const said = cleanUtterance(asciiApostrophes(spokenText));
   const state = context as FidelisContext | undefined;
   // A plan waiting for confirmation is answered by "yes" or "no" before anything else (docs/FIDELIS-PROTOCOL.md, Confirmation).
   const pending = record(state?.pending);
   if (pending) {
     const planId = text(pending.planId);
     if (confirmWords.test(said)) return { tool: 'fidelis_confirm', arguments: planId ? { planId } : {}, reply: 'Running it.' };
-    if (cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: {}, reply: 'Cancelled; nothing ran.' };
+    if (cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: planId ? { planId } : {}, reply: 'Cancelled; nothing ran.' };
   }
   // "Open the hela cells image": the host resolves imageQuery with fidelis_find_images; an already-open document is focused instead.
   const raw = spokenText.toLowerCase().replace(/'s\b/g, 's').replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -252,8 +249,13 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   if (zoom) return { tool: 'fidelis_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
   if (/^(?:zoom to fit|fit (?:to|the) (?:window|screen|view)|fit to window)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' };
   if (/^zoom (?:in )?(?:to|on) (?:the |this |my )?(?:selection|selected region|roi)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { selection: true }, reply: 'Zooming to the selection.' };
-  // No instant "stricter/looser": segment_cells converts the focused document to its mask in place
-  // (docs/FIDELIS-PROTOCOL.md), so a second run would threshold the mask. The model undoes the segmentation first.
+  // Threshold strictness re-segments with a stricter or looser method; the bridge replaces the previous segmentation
+  // from the original pixels (segment_cells `replace`, docs/FIDELIS-PROTOCOL.md).
+  const strictness = said.match(/^(?:(?:now |please )?(?:make (?:it|that|the threshold|the segmentation) )?)(?:a (?:bit|little) )?(stricter|tighter|more strict|more conservative|less sensitive|looser|more sensitive|less strict|more aggressive)(?: threshold)?$/);
+  if (strictness) {
+    const stricter = /strict(?!.*less)|tight|conservative|less sensitive/.test(strictness[1]) && !/less strict/.test(strictness[1]);
+    return { tool: 'fidelis_segment_cells', arguments: { method: stricter ? 'Li' : 'Huang' }, reply: stricter ? 'Segmenting with a stricter threshold.' : 'Segmenting with a looser threshold.' };
+  }
   const objects = finite(state?.counts?.rois);
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
@@ -269,10 +271,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
     if (/^(?:make (?:it|the image|this) |a (?:bit|little) )*(?:a (?:bit|little) )?darker$/.test(said)) return { tool: 'fidelis_display', arguments: { min: low, max: low + span * 1.4 }, reply: 'Darker.' };
   }
   if (/^(?:(?:auto|fix|improve|boost|enhance|more) (?:the )?contrast|auto(?:matic)? (?:brightness|contrast)|make (?:it|this) (?:clearer|easier to see|pop))$/.test(said)) return { tool: 'fidelis_display', arguments: { auto: true }, reply: 'Auto contrast.' };
-  // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document. Once the
-  // ROI list holds objects, or the document already shows a segmentation (even one that found nothing), it is a mask,
-  // so a repeat goes to the model (undo first, or show them).
-  if (!objects && !maskLikely(context) && /^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
+  // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document (a repeat
+  // replaces the previous segmentation from the original pixels).
+  if (/^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {
     const slices = finite(doc.slices), current = finite(doc.position?.slice);
@@ -282,6 +283,12 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
     return { tool: 'fidelis_stack', arguments: { slice: next }, reply: slice[1] === 'next' ? 'Next slice.' : 'Previous slice.' };
   }
   if (/^undo(?: that| it| the last step)?$|^go back$|^take that back$/.test(said)) return { tool: 'fidelis_undo', arguments: {}, reply: 'Undoing.' };
+  // cleanUtterance drops digits, so "undo the last 3 steps" is read from the raw words.
+  const several = raw.replace(/^(?:(?:hey )?(?:penny|fidelis) |please |okay |ok |so )+/, '').match(/^(?:undo|go back) (?:the )?(?:last )?(two|three|four|five|six|seven|eight|nine|ten|\d{1,2}) steps$/);
+  if (several) {
+    const count = Number(several[1]) || ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].indexOf(several[1]) + 2;
+    if (count >= 1 && count <= 20) return { tool: 'fidelis_undo', arguments: { steps: count }, reply: 'Undoing.' };
+  }
   if (/^redo(?: that| it)?$|^go forward$|^put it back$/.test(said)) return { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' };
   return undefined;
 }
@@ -302,24 +309,27 @@ function modelArguments(name: string, args: Record<string, unknown>, utterance: 
   }
   return kept;
 }
-/** The researcher's own latest words assent to a plan ("yes", "go ahead, run it"); a negation anywhere refuses. */
+/** The researcher's own latest words assent to a plan ("yes", "go ahead, run it"); any negation or qualification
+ * ("but", "wait", "don’t", "dont") refuses, so only an unambiguous assent confirms. */
 export function researcherAssents(utterance: string | undefined): boolean {
-  const said = cleanUtterance(utterance ?? '');
+  const said = cleanUtterance(asciiApostrophes(utterance ?? ''));
   return /^(?:yes|yeah|yep|yup|sure|go ahead|go for it|do it|run it|confirm|confirmed|proceed)\b/.test(said)
-    && !/\b(?:no|not|don't|do not|cancel|stop|wait|never|hold on)\b/.test(said);
+    && !/\b(?:no|not|nope|don't|dont|do not|doesn't|won't|wont|can't|cant|shouldn't|cancel|stop|wait|never|hold|but|except|instead|unless|later)\b/.test(said);
 }
 /** `fidelis_confirm` runs an explicit plan, which only the researcher may approve (docs/FIDELIS-PROTOCOL.md,
  * Confirmation): it is refused unless the latest words of the conversation task are the researcher's assent, so neither
- * the model on its own nor a direct tool client can confirm. It is also bound to the plan observed now: the pending
- * planId is filled in (or checked), so a plan that replaced it in the meantime is never run by an earlier "yes". */
+ * the model on its own nor a direct tool client can confirm. The assent belongs to the plan that was pending when those
+ * words arrived (the request's first observation): a plan that replaced it since needs a fresh "yes", and the planId
+ * sent is that plan's, so the bridge never runs another one. */
 async function prepareAction(input: PrepareInput) {
   if (input.name !== 'fidelis_confirm') return;
   if (!researcherAssents(conversationEnvelope().utterance)) throw new Error('Only the researcher can confirm this plan: say "yes" or press Confirm in Fidelis.');
-  const pending = record((input.context as FidelisContext).pending);
-  const planId = text(pending?.planId);
-  if (!planId) throw new Error('Nothing is waiting for confirmation.');
-  if (input.args.planId === undefined) input.args.planId = planId;
-  else if (input.args.planId !== planId) throw new Error('That plan is no longer the one waiting; check the plan card in Fidelis.');
+  const pending = text(record((input.context as FidelisContext).pending)?.planId);
+  if (!pending) throw new Error('Nothing is waiting for confirmation.');
+  const assented = text(record((observedContext() as FidelisContext | undefined)?.pending)?.planId);
+  if (assented !== pending) throw new Error('The plan changed after you said yes; check the new plan and say yes again.');
+  if (input.args.planId === undefined) input.args.planId = pending;
+  else if (input.args.planId !== pending) throw new Error('That plan is no longer the one waiting; check the plan card in Fidelis.');
 }
 
 export const fidelis: AppProfile = {

@@ -10,7 +10,7 @@ import { profiles, selectApp, profileForTool, appIds } from '../src/apps/index.j
 import { fidelisTools, FIDELIS_BUNDLE_ID } from '../src/apps/fidelis-tools.js';
 import { fidelisInstructions } from '../src/apps/fidelis-instructions.js';
 import { fijiInstructions } from '../src/apps/fiji-instructions.js';
-import { awaitingSentence, describeDocument, maskLikely, researcherAssents } from '../src/apps/fidelis.js';
+import { awaitingSentence, describeDocument, dialogWaiting, researcherAssents } from '../src/apps/fidelis.js';
 import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/bridge-readiness.js';
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
@@ -23,6 +23,8 @@ import type { BackendClient, BackendRequest } from '../src/backend.js';
 const { fidelis, fiji, qupath } = profiles;
 const repository = new URL('../../../', import.meta.url);
 const riskOfKind: Record<string, 'read' | 'view' | 'data' | 'code'> = { read: 'read', view: 'view', data: 'data', code: 'code', session: 'data' };
+/** Operations the integrator announced on 17 Oct 2026 for the bridge (original Fiji dialogs) before they reach this branch's contract table. */
+const announced: Record<string, string> = { dialog: 'read', dialog_action: 'data' };
 /** Every operation row of docs/FIDELIS-PROTOCOL.md with its kind (`undo` / `redo` share a row). */
 async function contractOperations(): Promise<Record<string, string>> {
   const protocol = await readFile(new URL('docs/FIDELIS-PROTOCOL.md', repository), 'utf8');
@@ -72,8 +74,8 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
     assert.equal(typeof ajv.compile(tool.inputSchema), 'function');
     assert.equal((tool.inputSchema as { additionalProperties?: unknown }).additionalProperties, false);
   }
-  const contract = await contractOperations();
-  assert.equal(Object.keys(contract).length, 28, 'the contract table was parsed (27 rows, undo and redo share one)');
+  const contract = { ...announced, ...await contractOperations() };
+  assert.ok(Object.keys(contract).length >= 30, 'the contract table was parsed (27 rows, undo and redo share one) and the announced dialog operations added');
   const bridged = fidelisTools.filter(tool => tool.operation);
   assert.deepEqual(bridged.map(tool => tool.operation).sort(), Object.keys(contract).sort(), 'exactly the contract operations reach the bridge');
   for (const tool of bridged) {
@@ -92,11 +94,17 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_commands', { query: 'gaussian', limit: 5 }); bad('fidelis_commands', {});
   ok('fidelis_command', { commandId: 'ij1:Process>Filters>Gaussian Blur...', params: { sigma: 2, scaled: true, stack: 'all' } }); bad('fidelis_command', { params: { sigma: 2 } }); bad('fidelis_command', { commandId: 'Gaussian Blur...' });
   bad('fidelis_command', { commandId: 'ij1:Process>Filters>Gaussian Blur...', params: { nested: { a: 1 } } });
-  ok('fidelis_segment_cells', {}); ok('fidelis_segment_cells', { channel: 1, method: 'Otsu', minSize: 0, watershed: true }); bad('fidelis_segment_cells', { channel: 0 }); bad('fidelis_segment_cells', { keepArtifacts: true });
-  ok('fidelis_measure', { measurements: ['area', 'mean', 'integrated', "feret's"], scope: 'rois' }); ok('fidelis_measure', { scope: 'all' }); bad('fidelis_measure', { scope: 'manager' }); bad('fidelis_measure', { measurements: ['max'], scope: 'roi' });
+  ok('fidelis_segment_cells', {}); ok('fidelis_segment_cells', { channel: 1, method: 'Otsu', dark: true, minSize: 0, maxSize: 900, pixel: true, exclude: false, watershed: true, gaussian: true, sigma: 1, replace: true });
+  bad('fidelis_segment_cells', { channel: 0 }); bad('fidelis_segment_cells', { keepArtifacts: true });
+  ok('fidelis_measure', { measurements: ['area', 'mean', 'min', 'max', 'integrated', 'feret'], scope: 'rois' }); ok('fidelis_measure', { scope: 'all' }); bad('fidelis_measure', { scope: 'manager' }); bad('fidelis_measure', { measurements: ['maximum'], scope: 'roi' });
+  ok('fidelis_dialog', {}); ok('fidelis_dialog_action', {}); ok('fidelis_dialog_action', { fields: { sigma: 2, scaled: true, stack: 'all' }, press: 'OK' }); bad('fidelis_dialog_action', { fields: { nested: { a: 1 } } }); bad('fidelis_dialog_action', { button: 'OK' });
+  ok('fidelis_undo', { steps: 9 }); bad('fidelis_undo', { steps: 21 }); ok('fidelis_cancel_plan', { planId: 'plan-7' }); ok('fidelis_highlight', { rois: 'active', limit: 10 });
+  ok('fidelis_activate_image', { imageId: -3 }); ok('fidelis_rois', { limit: 5, offset: 10 }); ok('fidelis_display', { auto: true, channel: 2 });
+  ok('fidelis_filter', { name: 'unsharp', radius: 1, mask: 0.6 }); ok('fidelis_filter', { name: 'enhance_contrast', saturated: 0.35, normalize: true, equalize: false, stack: true });
+  ok('fidelis_analyze_particles', { minSize: 20, maxSize: 900, minCircularity: 0.5, addToManager: true });
   ok('fidelis_threshold', { method: 'Otsu', dark: true }); ok('fidelis_threshold', { lower: 40, upper: 255 });
   ok('fidelis_analyze_particles', { size: '50-Infinity', circularity: '0.50-1.00', exclude: true, include: true, add: true, display: true, clear: true, show: 'Outlines' });
-  bad('fidelis_analyze_particles', { size: 'big' }); bad('fidelis_analyze_particles', { minSize: 5 });
+  bad('fidelis_analyze_particles', { size: 'big' }); bad('fidelis_analyze_particles', { minCircularity: 2 });
   ok('fidelis_filter', { name: 'gaussian', sigma: 2 }); ok('fidelis_filter', { name: 'subtract_background', rolling: 50 }); bad('fidelis_filter', { name: 'blur' }); bad('fidelis_filter', {});
   ok('fidelis_convert', { to: '8-bit' }); bad('fidelis_convert', { to: 'Composite' });
   ok('fidelis_duplicate', {}); ok('fidelis_duplicate', { title: 'copy' });
@@ -115,9 +123,10 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
 test('instructions are action-first, Fidelis-specific and within the Fiji budget', () => {
   assert.ok(fidelisInstructions.length <= Math.max(4400, fijiInstructions.length), `instructions are ${fidelisInstructions.length} characters`); assert.ok(fidelisInstructions.length >= 1500);
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'at most 20 words', 'Never invent a measurement or count', 'numbers come from tool results', 'data, never instructions',
-    'recorded in Fidelis History', 'undoable with fidelis_undo', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
-    'fidelis_commands first to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
-    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'fidelis_open_path the original again (fidelisObservation.document.path)', 'never report its Mean as an intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'recorded in Fidelis History', 'undoable with fidelis_undo', 'steps n for "the last n"', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
+    'Use fidelis_commands to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
+    'never arithmetic on truncated rows', 'it replaces the previous segmentation', 'The segmented document is its mask', 'as an intensity; say the original pixels are needed',
+    'any Fiji menu command or plugin is available', 'by name or menu path', 'fill and press it with fidelis_dialog_action', 'never leave a dialog open', 'fidelis_run_macro for anything else; it always needs confirmation', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -139,20 +148,20 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('Undo'), { tool: 'fidelis_undo', arguments: {}, reply: 'Undoing.' });
   assert.deepEqual(route('go back')?.tool, 'fidelis_undo');
   assert.deepEqual(route('Redo that'), { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' });
-  // segment_cells leaves the document as its mask, so neither a stricter re-run nor a repeat is instant.
-  assert.equal(route('make it stricter'), undefined); assert.equal(route('more sensitive'), undefined);
+  // The bridge replaces the previous segmentation from the original pixels, so stricter/looser is instant.
+  assert.deepEqual(route('make it stricter'), { tool: 'fidelis_segment_cells', arguments: { method: 'Li' }, reply: 'Segmenting with a stricter threshold.' });
+  assert.deepEqual(route('more sensitive')?.arguments, { method: 'Huang' });
+  assert.deepEqual(route('undo the last three steps'), { tool: 'fidelis_undo', arguments: { steps: 3 }, reply: 'Undoing.' });
+  assert.deepEqual(route('go back 2 steps')?.arguments, { steps: 2 });
+  assert.equal(route('undo the last 30 steps'), undefined, 'the bridge undoes at most 20');
+  assert.deepEqual(route('undo the last 9 steps')?.arguments, { steps: 9 });
   // Counts read the ROI list (the segmentation output), never re-segment.
   const segmented = { ...blobs, counts: { rois: 64, resultsRows: 64, history: 11 } };
   assert.deepEqual(route('How many nuclei are there?', segmented), { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' });
   assert.deepEqual(route('how many cells', blobs)?.tool, 'fidelis_rois', 'an empty ROI list is still counted');
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
-  assert.equal(route('find the nuclei', segmented), undefined, 'the document is already a mask');
-  assert.equal(route('find the nuclei', { ...blobs, lastStep: { actionId: 'h4', label: 'Analyze Particles...', origin: 'NL_SPOKEN', outcome: 'COMPLETED' } }), undefined, 'a segmentation that found nothing is still a mask');
-  assert.equal(route('find the nuclei', { ...blobs, document: { ...blobs.document, binary: true } }), undefined, 'a bridge-reported mask');
-  assert.equal(maskLikely(blobs), false); assert.equal(maskLikely({ ...blobs, lastStep: { label: 'Gaussian Blur...' } }), false);
-  assert.equal(maskLikely({ ...blobs, lastStep: { label: 'Convert to Mask' } }), true);
-  assert.equal(maskLikely({ ...blobs, document: { ...blobs.document, binary: false }, lastStep: { label: 'Watershed' } }), false, 'the bridge flag wins');
+  assert.deepEqual(route('find the nuclei', segmented)?.tool, 'fidelis_segment_cells', 'a repeat replaces the previous segmentation');
   for (const other of ['what is the mean intensity of the nuclei', 'mean intensity of the nuclei in the top left', 'what is the median intensity of the nuclei'])
     assert.equal(route(other, segmented), undefined, `${other}: the ROI list would be measured on the mask`);
   // Brightness is display-only and needs the live display range; auto contrast does not.
@@ -173,7 +182,7 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   // Confirmation answers exist only while a plan waits.
   const pending = { ...blobs, pending: { planId: 'plan-7', reasons: ['step 1 (run_macro) is code'] } };
   for (const yes of ['Yes.', 'yes please', 'Go ahead', 'Okay, run it.', 'yeah do it', 'confirm', 'Yes, please go ahead.']) assert.deepEqual(route(yes, pending), { tool: 'fidelis_confirm', arguments: { planId: 'plan-7' }, reply: 'Running it.' }, yes);
-  for (const no of ['No.', 'cancel', 'Cancel that.', 'stop that', "don't run it", 'never mind', 'no thanks']) assert.deepEqual(route(no, pending), { tool: 'fidelis_cancel_plan', arguments: {}, reply: 'Cancelled; nothing ran.' }, no);
+  for (const no of ['No.', 'cancel', 'Cancel that.', 'stop that', "don't run it", 'Don\u2019t run it.', 'never mind', 'no thanks']) assert.deepEqual(route(no, pending), { tool: 'fidelis_cancel_plan', arguments: { planId: 'plan-7' }, reply: 'Cancelled; nothing ran.' }, no);
   assert.deepEqual(route('yes', { ...pending, document: null })?.tool, 'fidelis_confirm', 'a pending plan is confirmed even without a focused document');
   for (const word of ['yes', 'go ahead', 'no', 'cancel']) assert.equal(route(word), undefined, `${word}: nothing pending, the model answers`);
   for (const other of ['okay', 'yes and then measure it', 'zoom in on the cells', 'find the nuclei and measure their area', 'undo the threshold', 'fit', 'segment the cells then count them']) assert.equal(route(other, pending.document ? { ...pending, pending: null } : pending), undefined, other);
@@ -208,6 +217,13 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_undo', completed({ step: { actionId: 'h9', label: 'Undo Gaussian Blur...', outcome: 'COMPLETED' } })), 'Undid Gaussian Blur.');
   assert.equal(say('fidelis_undo', completed({ step: { label: 'Undo' } })), 'Undone.');
   assert.equal(say('fidelis_redo', completed({ step: {} })), 'Redone.');
+  assert.equal(say('fidelis_undo', completed({ step: { label: 'Undo' }, undoneActionId: 'h9', undoneActionIds: ['h9', 'h8', 'h7'] }), { steps: 3 }), 'Undid 3 steps.');
+  // An original Fiji dialog waiting is not an outcome: the model fills it.
+  const dialog = { status: 'dialog', dialog: { title: 'Gaussian Blur...', fields: [{ key: 'sigma', label: 'Sigma', type: 'number', value: 2 }], buttons: ['OK', 'Cancel'] } };
+  assert.equal(dialogWaiting(completed(dialog)), true); assert.equal(say('fidelis_command', completed(dialog), { commandId: 'ij1:Process>Filters>Gaussian Blur...' }), undefined);
+  assert.equal(fidelis.requestContinuesAfter('fidelis_command', 'blur it', completed(dialog)), true);
+  assert.equal(say('fidelis_dialog', { dialog: dialog.dialog }), undefined); assert.equal(say('fidelis_dialog_action', completed(dialog)), undefined, 'a second dialog is still waiting');
+  assert.equal(say('fidelis_dialog_action', completed({ status: 'completed', step: { label: 'Gaussian Blur...' }, steps: [{}] })), 'Ran Gaussian Blur.');
   assert.equal(say('fidelis_command', completed({ step: { label: 'Gaussian Blur...', commandId: 'ij1:Process>Filters>Gaussian Blur...', outcome: 'COMPLETED' } }), { commandId: 'ij1:Process>Filters>Gaussian Blur...' }), 'Ran Gaussian Blur.');
   assert.equal(say('fidelis_command', completed({ step: {} }), { commandId: 'ij1:Process>Binary>Fill Holes' }), 'Ran Fill Holes.');
   assert.equal(say('fidelis_open_path', completed({ document: { id: 'doc-4', title: 'hela-cells.tif', width: 672, height: 512 }, highlight: {} })), 'Opened hela cells, 672 by 512.');
@@ -233,8 +249,8 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(fidelis.requestContinuesAfter('fidelis_rois', 'how many nuclei are there'), false);
   assert.equal(fidelis.requestContinuesAfter('fidelis_rois', 'which nucleus is largest'), true);
   assert.equal(fidelis.requestContinuesAfter('fidelis_threshold', 'make the threshold stricter'), true);
-  assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'make it stricter'), true, 'reopening the original is only the first step of a re-segmentation');
   assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'open the embryos image'), false);
+  assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'open the embryos image and count the nuclei'), true);
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 255 } }), { ...blobs, document: { ...blobs.document, binary: true } }), undefined, 'a confirmed measurement on a mask is not spoken as an intensity');
   // Acknowledgments never claim a waiting macro ran.
   assert.equal(fidelis.acknowledgmentFor('fidelis_run_macro', {}, {}), 'Preparing the macro.');
@@ -244,7 +260,7 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(describeDocument({ document: { title: 'hela-cells.tif', width: 672, height: 512, channels: 3, slices: 1, frames: 1, bitDepth: 16, unit: 'micron', pixelWidth: 0.08, pixelHeight: 0.08 }, counts: { rois: 12 } }),
     'Hela cells: 672 by 512, 16-bit; 3 channels; 0.08 microns per pixel; 12 objects outlined.');
   for (const yes of ['Yes.', 'yes please', 'Okay, go ahead and run it.', 'confirm', 'yeah do it']) assert.equal(researcherAssents(yes), true, yes);
-  for (const other of ['okay', 'no', "yes but don't", 'yes wait', 'invert it with a macro', '', undefined]) assert.equal(researcherAssents(other), false, String(other));
+  for (const other of ['okay', 'no', "yes but don't", 'Yes, but don\u2019t run it yet.', 'yes dont', 'yes wait', 'yes, later', 'invert it with a macro', '', undefined]) assert.equal(researcherAssents(other), false, String(other));
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', minSize: 40, watershed: false, channel: 2 }, 'find the nuclei'), {}, 'unrequested tuning is dropped');
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', channel: 2 }, 'segment the green channel with triangle'), { method: 'Triangle', channel: 2 });
 });
@@ -382,10 +398,12 @@ test('confirm binds to the observed plan, and a reviewed action decided later ke
   const bridge = await fakeBridge(root, (request, state) => request.operation === 'filter' ? { step: { label: 'Gaussian Blur...' } } : engine()(request, state));
   try {
     const auto = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
-    const saying = <T>(words: string, work: () => Promise<T>) => toolTask.run('task-c', () => toolUtterance.run({ spoken: false, utterance: () => words }, work));
+    // The researcher's words and what Fidelis showed when they arrived (the request's first observation).
+    const saying = <T>(words: string, work: () => Promise<T>, observed: unknown = structuredClone(bridge.state.context)) => toolTask.run('task-c', () => toolUtterance.run({ spoken: false, utterance: () => words, observed: () => observed }, work));
     await assert.rejects(saying('yes', () => auto.call('fidelis_confirm', {})), /Nothing is waiting for confirmation/);
     bridge.state.context = { ...bridge.state.context, contextKey: 'k2', pending: { planId: 'plan-9', reasons: [] } };
     await assert.rejects(saying('yes', () => auto.call('fidelis_confirm', { planId: 'plan-1' })), /no longer the one waiting/);
+    await assert.rejects(saying('yes', () => auto.call('fidelis_confirm', {}), { ...bridge.state.context, pending: { planId: 'plan-8', reasons: [] } }), /The plan changed after you said yes/, 'a "yes" to plan 8 never runs plan 9');
     // Only the researcher's own assent confirms: never a direct client, never the model on another request.
     await assert.rejects(auto.call('fidelis_confirm', {}), /Only the researcher can confirm this plan/);
     await assert.rejects(saying('invert it with a macro', () => auto.call('fidelis_confirm', {})), /Only the researcher can confirm/);
@@ -477,4 +495,53 @@ test('instant routes are bound to the context they were chosen from: a changed p
     assert.equal(steady.requests.find(request => request.operation === 'zoom')!.expectedContext, 'k1');
     assert.equal(second.result()!.text, 'Zooming in.');
   } finally { second.conversation.stop(); await steady.close(); await rm(root2, { recursive: true, force: true }); }
+});
+
+test('a legacy command whose original dialog waits is filled and pressed, then finishes with the command result', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-dialog-'));
+  let open: Record<string, unknown> | null = null;
+  const bridge = await fakeBridge(root, (request, state) => {
+    if (request.operation === 'command') {
+      open = { title: 'Gaussian Blur...', fields: [{ key: 'sigma', label: 'Sigma (Radius)', type: 'number', value: 2, choices: null }, { key: 'scaled', label: 'Scaled units', type: 'checkbox', value: false }], buttons: ['OK', 'Cancel'] };
+      return { status: 'dialog', dialog: open };
+    }
+    if (request.operation === 'dialog') return { dialog: open };
+    if (request.operation === 'dialog_action') {
+      assert.ok(open, 'a dialog is waiting');
+      open = null; state.context = { ...state.context, contextKey: 'k-blurred', counts: { rois: 0, resultsRows: 0, history: 3 } };
+      return { status: 'completed', step: { actionId: 'h3', label: 'Gaussian Blur...', commandId: 'ij1:Process>Filters>Gaussian Blur...', outcome: 'COMPLETED' }, steps: [{}], contextKey: 'k-blurred' };
+    }
+    throw new Error(`unexpected ${request.operation}`);
+  });
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  const rounds: BackendRequest[] = [];
+  const client: BackendClient = { complete: async request => {
+    rounds.push(request);
+    if (rounds.length === 1) return { output: [{ type: 'function_call', call_id: 'c1', name: 'fidelis_command', arguments: JSON.stringify({ commandId: 'ij1:Process>Filters>Gaussian Blur...' }) }] };
+    const seen = JSON.stringify(request.input);
+    assert.match(seen, /\\"status\\":\\"dialog\\"/, 'the model sees the waiting dialog');
+    return { output: [{ type: 'function_call', call_id: 'c2', name: 'fidelis_dialog_action', arguments: JSON.stringify({ fields: { sigma: 3 }, press: 'OK' }) }] };
+  } };
+  const { conversation: talk, result } = conversation(runtime, client);
+  try {
+    await talk.submit('Blur it with a Gaussian of sigma 3', true);
+    assert.equal(rounds.length, 2, 'the dialog sent the request back to the model, which filled it');
+    assert.deepEqual(bridge.requests.filter(request => request.operation !== 'context').map(request => [request.operation, request.arguments]),
+      [['command', { commandId: 'ij1:Process>Filters>Gaussian Blur...' }], ['dialog_action', { fields: { sigma: 3 }, press: 'OK' }]]);
+    const pressed = bridge.requests.find(request => request.operation === 'dialog_action')!;
+    assert.equal(pressed.approved, true); assert.equal(pressed.utterance, 'Blur it with a Gaussian of sigma 3');
+    assert.equal(result()!.text, 'Ran Gaussian Blur.');
+    assert.equal(open, null, 'no dialog is left open');
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('readiness uses the operations a newer bridge reports in context.adapter without asking /health', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-adapter-'));
+  const bridge = await fakeBridge(root, () => ({}));
+  bridge.state.context = { ...bridge.state.context, adapter: { adapterVersion: 'fidelis-bridge-1', protocolVersion: 1, operations: requiredOperationsFor(fidelis).filter(op => !op.startsWith('dialog')), sourceSha256: 'f'.repeat(64) } };
+  try {
+    const context = await new BridgeAdapter(root, fidelis, bridge.port).execute('context') as { adapterReadiness: { status: string; missingOperations?: string[] } };
+    assert.equal(bridge.healthHeaders.length, 0, 'no /health request');
+    assert.equal(context.adapterReadiness.status, 'restart_required'); assert.deepEqual(context.adapterReadiness.missingOperations, ['dialog', 'dialog_action']);
+  } finally { await bridge.close(); await rm(root, { recursive: true, force: true }); }
 });

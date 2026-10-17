@@ -36,9 +36,9 @@ try {
   add('gateway',health.application==='Luma','Authenticated Luma gateway is reachable.','Unexpected service on the gateway port.');
   add('gateway application',health.app?.id===profile.id,`The running gateway drives ${app}.`,`The running gateway drives ${String(health.app?.id??'an older build without an app field')}, not ${profile.id}; restart it with LUMA_APP=${profile.id}.`);
   add(`${app} bridge`,!health.bridgeError&&!!health.context,'Real application context is reachable.',`Bridge unavailable or busy. Start ${app} with ${profile.launcherScript} and inspect local logs.`);
-  // A profile without a bridge build identity (Fidelis) declares its operations on the bridge's own /health: read it directly.
+  // A profile without a bridge build identity (Fidelis) declares its operations in context.adapter, or on the bridge's own /health.
   let identity:unknown=health.context;
-  if(profile.bridgeIdentity==='operations'&&health.context){
+  if(profile.bridgeIdentity==='operations'&&health.context&&!(health.context as {adapter?:unknown}).adapter){
     let bridgeToken:string|undefined;try{bridgeToken=(await readFile(resolve(root,'.local/state/bridge-token'),'utf8')).trim();}catch{bridgeToken=undefined;}
     identity={...health.context,adapter:(await bridgeHealth(profile.bridgePort,bridgeToken))?.adapter};
   }

@@ -162,7 +162,7 @@ export class ResponsesBackend implements DelegationBackend {
   run(task: DelegatedTask) {
     // Bridges that take the conversation envelope (Fidelis) record the task, how it was asked and the latest words.
     const utterance = () => task.conversation().fragments.filter(fragment => fragment.role === 'user').at(-1)?.text ?? '';
-    return toolTask.run(task.id, () => toolUtterance.run({ spoken: task.spoken === true, utterance }, () => this.runTask(task)));
+    return toolTask.run(task.id, () => toolUtterance.run({ spoken: task.spoken === true, utterance, observed: () => task.context }, () => this.runTask(task)));
   }
   private async runTask(task: DelegatedTask) {
     if (this.memories.filter(memory => memory.status === 'running').length >= 4) throw new Error('Finish or interrupt an existing backend task before starting more work.');

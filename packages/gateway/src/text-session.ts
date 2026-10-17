@@ -35,8 +35,10 @@ export class TextConversation {
   try{
    const {profile}=this.runtime;
    // The conversation envelope (task, spoken, these words) for bridges that record it (Fidelis); the backend sets its own.
-   const request:ToolUtterance={spoken,utterance:()=>text.trim()};
+   let observed:Context|undefined;
+   const request:ToolUtterance={spoken,utterance:()=>text.trim(),observed:()=>observed};
    const context=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal))) as Context;
+   observed=context;
    active.controller.signal.throwIfAborted();
    // QuPath and Fiji report the open image as `image`, Fidelis as `document`.
    const image=(context.image??context.document) as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;

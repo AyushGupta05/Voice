@@ -4,7 +4,9 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export const toolTask = new AsyncLocalStorage<string>();
 /** The request behind the running conversation task: whether it was spoken and the latest user utterance. The
  * utterance is read when a call is dispatched, so a transcript correction counts. */
-export type ToolUtterance = { spoken: boolean; utterance: () => string };
+export type ToolUtterance = { spoken: boolean; utterance: () => string;
+  /** The application observation taken when the request arrived (what the researcher was answering); never sent to a bridge. */
+  observed?: () => unknown };
 export const toolUtterance = new AsyncLocalStorage<ToolUtterance>();
 /** What a bridge that takes the conversation envelope (docs/FIDELIS-PROTOCOL.md) receives with a call. */
 export type ConversationEnvelope = { spoken?: boolean; taskId?: string; utterance?: string };
@@ -24,6 +26,8 @@ export function conversationEnvelope(): ConversationEnvelope {
   if (taskId) envelope.taskId = taskId;
   return envelope;
 }
+/** The observation the current request started from, if the host recorded one (Fidelis binds a "yes" to the plan pending then). */
+export function observedContext(): unknown { try { return toolUtterance.getStore()?.observed?.(); } catch { return undefined; } }
 /** Runs `work` inside a captured envelope (a human-reviewed action decided later, outside the task's own context). */
 export function withConversation<T>(envelope: ConversationEnvelope | undefined, work: () => T): T {
   if (!envelope || (!envelope.taskId && envelope.spoken === undefined && envelope.utterance === undefined)) return work();

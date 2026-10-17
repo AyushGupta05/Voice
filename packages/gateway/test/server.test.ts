@@ -101,6 +101,42 @@ test('authenticated health settles idle proposals without executing a scientific
   }finally{await gateway.close();await rm(root,{recursive:true,force:true});}
 });
 
+test('desktop requests go only to sockets that offer them (Fidelis says desktop:false) and a voice clash names the holder', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-desktop-owner-'));
+  const gateway = await startServer(root, 0, { speechProvider: {
+    transcribe: async (_audio, signal, callbacks) => { callbacks.inputReady(); await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true })); },
+    speak: async () => new Uint8Array([0, 0]),
+  } });
+  const state = join(root, '.local/state'), expiresAt = new Date(Date.now() + 60_000).toISOString(), accountHash = 'a'.repeat(64);
+  const { BEDROCK_MODEL } = await import('../src/aws-credit-proof.js');
+  await writeFile(join(state, 'text-funding.json'), JSON.stringify({ version: 1, accountHash, expiresAt, model: BEDROCK_MODEL, maximumReservedUSD: 200 }));
+  await writeFile(join(state, 'speech-funding.json'), JSON.stringify({ version: 1, route: 'aws-transcribe-polly-openai', accountHash, expiresAt, maximumReservedUSD: 200, maximumSessionSeconds: 180 }));
+  const address = gateway.server.address(); assert(address && typeof address === 'object');
+  const human = (await readFile(join(state, 'companion-token'), 'utf8')).trim(), machine = (await readFile(join(state, 'gateway-token'), 'utf8')).trim();
+  const connect = (name: string) => { const ws = new WebSocket(`ws://127.0.0.1:${address.port}/events`, { headers: { Authorization: `Bearer ${human}` } }); const events: any[] = [];
+    ws.on('message', raw => { const event = JSON.parse(raw.toString()); events.push(event); if (event.type === 'desktop_request') ws.send(JSON.stringify({ type: 'desktop_response', requestId: event.requestId, result: { trusted: true, answeredBy: name } })); });
+    return { ws, events }; };
+  const until = async (events: any[], type: string) => { const deadline = Date.now() + 2000; while (!events.some(event => event.type === type)) { assert(Date.now() < deadline, `Expected ${type}`); await new Promise(resolve => setTimeout(resolve, 5)); } return events.find(event => event.type === type); };
+  const inspect = async () => (await (await fetch(`http://127.0.0.1:${address.port}/tools/call`, { method: 'POST', headers: { Authorization: `Bearer ${machine}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'qupath_desktop_inspect', arguments: {} }) })).json()) as { result?: { answeredBy?: string }; error?: string };
+  const companion = connect('companion');
+  let fidelis: ReturnType<typeof connect> | undefined, silent: ReturnType<typeof connect> | undefined;
+  try {
+    await once(companion.ws, 'open'); companion.ws.send(JSON.stringify({ type: 'hello', clientId: 'companion-desk-0001' }));
+    await until(companion.events, 'connected');
+    fidelis = connect('fidelis'); await once(fidelis.ws, 'open');
+    fidelis.ws.send(JSON.stringify({ type: 'hello', clientId: 'fidelis-1234-5678', client: 'fidelis-workspace', desktop: false }));
+    silent = connect('silent'); await once(silent.ws, 'open'); await until(silent.events, 'connected');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal((await inspect()).result?.answeredBy, 'companion', 'the most recent sockets (Fidelis, one without a hello) never take desktop control');
+    assert.ok(!fidelis.events.some(event => event.type === 'desktop_request')); assert.ok(!silent.events.some(event => event.type === 'desktop_request'));
+    companion.ws.send(JSON.stringify({ type: 'start_voice', requestId: '33333333-3333-4333-8333-333333333333' }));
+    await until(companion.events, 'voice_state');
+    fidelis.ws.send(JSON.stringify({ type: 'start_voice', requestId: '44444444-4444-4444-8444-444444444444' }));
+    const clash = await until(fidelis.events, 'voice_error');
+    assert.equal(clash.message, 'Voice is already active in the Luma companion; stop it there first.');
+  } finally { companion.ws.terminate(); fidelis?.ws.terminate(); silent?.ws.terminate(); await gateway.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test('broadcast tool events stay under the companion bound and keep the rendered fields',async()=>{
   const {compactToolEvent,MAX_TOOL_EVENT_BYTES}=await import('../src/server.js');
   const small={type:'tool',name:'qupath_focus',arguments:{x:1},result:{pointer:{x:1,y:2}}};

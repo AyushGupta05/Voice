@@ -180,7 +180,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 ## Fidelis profile (integration in progress)
 
-- `LUMA_APP=fidelis` (written to `.local/state/app` by `./script/run-fidelis.sh`, which builds and launches the Fidelis workstation with its Penny bridge on port 49558) drives Fidelis through 31 tools over the 28 operations of the [bridge contract](docs/FIDELIS-PROTOCOL.md). Every change goes through the Fidelis engine and its History; explicit plans wait for Confirm or a spoken "yes".
+- `LUMA_APP=fidelis` (written to `.local/state/app` by `./script/run-fidelis.sh`, which builds and launches the Fidelis workstation with its Penny bridge on port 49558) drives Fidelis through 33 tools over the 30 operations of the [bridge contract](docs/FIDELIS-PROTOCOL.md) (every Fiji menu command and plugin through the catalogue, original dialogs included). Every change goes through the Fidelis engine and its History; explicit plans wait for Confirm or the researcher's spoken "yes".
 - Protocol-tested against a fake bridge only; the Java bridge is being written in parallel. See [the integration notes](docs/INTEGRATION.md).
 
 ## QuPath profile
