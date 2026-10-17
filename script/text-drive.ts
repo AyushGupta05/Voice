@@ -15,7 +15,7 @@ const done=new Promise<void>((resolveDone,reject)=>{
  const timer=setTimeout(()=>{error='timed out after 180 s';resolveDone();},180_000);
  ws.on('open',()=>{ws.send(JSON.stringify({type:'hello',clientId:`text-drive-${randomUUID().slice(0,8)}`}));ws.send(JSON.stringify({type:'text',text:request,spoken:true}));});
  ws.on('message',raw=>{const e=JSON.parse(raw.toString());
-  if(e.type==='tool'&&e.name&&e.name!=='qupath_context'){tools.push(`${e.name}@${Date.now()-t0}ms`);const r=e.result?.result??e.result;if(r&&typeof r==='object'&&('highlight' in r||'pointer' in r))highlights.push(e.name);}
+  if(e.type==='tool'&&e.name&&!/_context$/.test(e.name)){tools.push(`${e.name}@${Date.now()-t0}ms`);const r=e.result?.result??e.result;if(r&&typeof r==='object'&&('highlight' in r||'pointer' in r))highlights.push(e.name);}
   else if(e.type==='text_ack')ack=`${e.text}@${Date.now()-t0}ms`;
   else if(e.type==='text_result'){reply=`${e.text}@${Date.now()-t0}ms`;}
   else if(e.type==='text_error'||e.type==='error'){error=e.message;}

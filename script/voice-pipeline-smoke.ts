@@ -31,7 +31,7 @@ const done=new Promise<void>((resolveDone,reject)=>{
   }
   else if(event.type==='voice_transcript'&&!event.partial){transcript=event.text;mark('finalTranscript');}
   else if(event.type==='voice_transcript')mark('firstPartial');
-  else if(event.type==='tool'&&event.name){tools.push(event.name);if(event.name!=='qupath_context')mark('firstAction');}
+  else if(event.type==='tool'&&event.name){tools.push(event.name);if(!/_context$/.test(event.name))mark('firstAction');}
   else if(event.type==='action'&&event.action?.status==='pending'&&Date.parse(event.action.createdAt)>=t0){
    if(!allowApproval){clearTimeout(timer);reject(new Error('Unexpected approval request; this check never approves.'));}
    else{mark('approvalRequested');console.error(`APPROVAL NEEDED in Luma: ${event.action.tool} ${JSON.stringify(event.action.arguments)}`);}
