@@ -1,0 +1,9 @@
+# P64 run 2026-10-17T08:11:55+01:00
+name, driver_version, memory.total [MiB]
+NVIDIA GeForce RTX 5070 Laptop GPU, 616.56, 8151 MiB
+ctranslate2 4.8.3 cuda_device_count 1
+cuda compute types {'float32', 'float16', 'int8_bfloat16', 'int8', 'bfloat16', 'int8_float32', 'int8_float16'}
+cuda run ERROR RuntimeError Library cublas64_12.dll is not found or cannot be loaded
+.venv-stt/Lib/site-packages/ctranslate2/ctranslate2.dll*
+.venv-stt/Lib/site-packages/ctranslate2/cudnn64_9.dll*
+.venv-stt/Lib/site-packages/ctranslate2/libiomp5md.dll*

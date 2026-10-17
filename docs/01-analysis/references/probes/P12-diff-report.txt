@@ -1,0 +1,97 @@
+commands.csv rows: 1390
+by framework: {'IJ1': 972, 'script': 111, 'IJ2': 277, 'macro-tool': 16, 'IJ1-tool': 14}
+by source_kind: {'IJ_Props': 349, 'Menus.java': 163, 'luts-dir': 36, 'plugins-dir-script': 74, 'plugins.config': 424, 'scijava-index': 277, 'scripts-dir': 34, 'jar-scripts-resource': 3, 'startup-macros': 16, 'Toolbar.java': 14}
+by (framework, source_kind, runtime_status): 
+   IJ1 / IJ_Props / n/a: 10
+   IJ1 / IJ_Props / present: 339
+   IJ1 / Menus.java / n/a: 86
+   IJ1 / Menus.java / present: 77
+   IJ1 / luts-dir / menu-only: 36
+   IJ1 / plugins.config / overridden-by-IJ2: 1
+   IJ1 / plugins.config / present: 413
+   IJ1 / plugins.config / shadowed: 10
+   IJ1-tool / Toolbar.java / n/a: 14
+   IJ2 / scijava-index / absent from ModuleService: 201
+   IJ2 / scijava-index / module: 14
+   IJ2 / scijava-index / module + IJ1 command table: 62
+   macro-tool / startup-macros / n/a: 16
+   script / jar-scripts-resource / absent: 1
+   script / jar-scripts-resource / module + IJ1 command table: 2
+   script / plugins-dir-script / absent: 8
+   script / plugins-dir-script / module + IJ1 command table: 36
+   script / plugins-dir-script / module only: 1
+   script / plugins-dir-script / suppressed: 29
+   script / scripts-dir / absent: 19
+   script / scripts-dir / module + IJ1 command table: 15
+headless_probe: {'untested': 1357, 'pass': 23, 'fail': 6, 'partial': 4}
+core commands missing from commands.csv: []
+core parameter rows: 212 for 54 commands
+duplicate command_id bases: 0 []
+IJ1 labels defined more than once (static): 10
+   'Apply Transformations' -> runtime 'spim.fiji.plugin.Apply_Transformation' <= [('net.preibisch.mvrecon.fiji.plugin.Apply_Transformation', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Apply_Transformation', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Define Bounding Box' -> runtime 'spim.fiji.plugin.Define_Bounding_Box' <= [('net.preibisch.mvrecon.fiji.plugin.Define_Bounding_Box', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Define_Bounding_Box', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Define Multi-View Dataset' -> runtime 'spim.fiji.plugin.Define_Multi_View_Dataset' <= [('net.preibisch.mvrecon.fiji.plugin.Define_Multi_View_Dataset', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Define_Multi_View_Dataset', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Detect Interest Points for Registration' -> runtime 'spim.fiji.plugin.Interest_Point_Detection' <= [('net.preibisch.mvrecon.fiji.plugin.Interest_Point_Detection', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Interest_Point_Detection', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Display View' -> runtime 'spim.fiji.plugin.Display_View' <= [('net.preibisch.mvrecon.fiji.plugin.Display_View', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Display_View', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Duplicate Transformations' -> runtime 'spim.fiji.plugin.Duplicate_Transformation' <= [('net.preibisch.mvrecon.fiji.plugin.Duplicate_Transformation', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Duplicate_Transformation', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Register Dataset based on Interest Points' -> runtime 'spim.fiji.plugin.Interest_Point_Registration' <= [('net.preibisch.mvrecon.fiji.plugin.Interest_Point_Registration', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Interest_Point_Registration', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Remove Detections by Distance' -> runtime 'spim.fiji.plugin.ThinOut_Detections' <= [('net.preibisch.mvrecon.fiji.plugin.ThinOut_Detections', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.ThinOut_Detections', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Specify Calibration' -> runtime 'spim.fiji.plugin.Specify_Calibration' <= [('net.preibisch.mvrecon.fiji.plugin.Specify_Calibration', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Specify_Calibration', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+   'Visualize Detections' -> runtime 'spim.fiji.plugin.Visualize_Detections' <= [('net.preibisch.mvrecon.fiji.plugin.Visualize_Detections', 'Fiji/jars/multiview-reconstruction-9.0.11.jar'), ('spim.fiji.plugin.Visualize_Detections', 'Fiji/plugins/SPIM_Registration-5.0.26.jar')]
+IJ1 labels overridden by IJ2 commands/scripts: 1 [('BigStitcher', 'command:net.preibisch.stitcher.plugin.BigStitcher')]
+headless hook menu structure: 851 entries, 398 flat Plugins>leaf entries
+effective runtime menu leaves: 954
+MENU File	leaves=163	direct=11	submenus=Export (3); Import (52); New (8); Open Samples (42); Save As (40); Show Folder (7)
+MENU Edit	leaves=70	direct=11	submenus=Options (28); Selection (31)
+MENU Image	leaves=161	direct=6	submenus=Adjust (16); Annotate (1); Axes (1); Color (21); Drawing (2); Hyperstacks (7); Lookup Tables (14); Overlay (13); Stacks (44); Transform (10); Type (9); Video Editing (9); Zoom (8)
+MENU Process	leaves=97	direct=12	submenus=Batch (6); Binary (15); FFT (9); Filters (19); Math (19); Morphology (1); Noise (7); Shadows (9)
+MENU Analyze	leaves=67	direct=19	submenus=Classification (1); Colocalization (4); Gels (7); Local Thickness (6); Multi Kymograph (4); Optic Flow (1); QuickPALM (11); Skeleton (1); Tools (11); TopoJ (2)
+MENU Plugins	leaves=364	direct=6	submenus=Analyze (13); AutoRun (1); BIJ (4); BigDataViewer (16); BigStitcher (40); Bio-Formats (10); Cluster (5); Debug (4); Examples (36); Feature Extraction (3); HDF5 (8); Image5D (18); Integral Image Filters (5); Kymograph (1); LSM Toolbox (2); Labkit (8); Landmarks (1); Macros (6); Multiview Reconstruction (17); New (8); Optic Flow (3); Process (33); Registration (15); SPIM Registration (4); Sandbox (2); Scripting (1); Segmentation (16); Shortcuts (5); Skeleton (1); Stacks (2); Stitching (9); Time Lapse (6); Tracking (7); Transform (15); Utilities (33)
+MENU Window	leaves=6	direct=6	submenus=
+MENU Help	leaves=24	direct=11	submenus=About Plugins (12); Examples (1)
+MENU (no menu)	leaves=2	direct=2	submenus=
+IJ2 static rows: 277; runtime status: {'module + IJ1 command table': 62, 'module': 14, 'absent from ModuleService (blocklisted no-legacy, non-Command type or failed to load)': 201}
+IJ2 static rows with menu path: 230; of these in IJ1 table: 62
+modules: {'org.scijava.command.CommandInfo': 988, 'net.imagej.legacy.command.LegacyCommandInfo': 830, 'org.scijava.script.ScriptInfo': 54}
+modules canRunHeadless=true: ['command:org.scijava.plugins.commands.debug.DumpStack', 'command:net.imagej.ops.commands.filter.FrangiVesselness', 'command:net.imagej.plugins.commands.axispos.SetActiveAxis', 'command:org.scijava.plugins.commands.debug.SystemInformation']
+no-legacy modules present after removal: 0
+probe matrix:
+   01	ij1:Edit>Invert	groovy=pass [cks 48764102->325206100]; groovy-batch=pass [cks 48764102->325206100]; macro-cli=pass [cks 48764102->325206100]; macro-cli-batch=pass [cks 48764102->325206100]; macro-inproc=pass [PASS cks 48764102->325206100]
+   02	ij1:Process>Filters>Gaussian Blur...	groovy=pass [cks 48764102->69768574]; groovy-batch=pass [cks 48764102->69768574]; macro-cli=pass (process did not exit; killed at 120 s) [cks 48764102->69768574]; macro-cli-batch=pass (process did not exit; killed at 120 s) [cks 48764102->69768574]; macro-inproc=pass [PASS cks 48764102->69768574]
+   03	ij1:Process>Subtract Background...	groovy=pass [mean 53.30078125->33.13800048828125]; groovy-batch=pass [mean 53.30078125->33.13800048828125]; macro-cli=pass [mean 53.3008->33.138]; macro-cli-batch=pass [mean 53.3008->33.138]; macro-inproc=pass [PASS mean 53.3008->33.138]
+   04	ij1:Process>Filters>Median...	groovy=pass [cks 48776020->48764102]; groovy-batch=pass [cks 48776020->48764102]; macro-cli=pass (process did not exit; killed at 120 s) [cks 48776020->48764102]; macro-cli-batch=pass (process did not exit; killed at 120 s) [cks 48776020->48764102]; macro-inproc=pass [PASS cks 48776020->48764102]
+   05	ij1:Process>Binary>Convert to Mask	groovy=pass [bins=2 invertedLut=false]; groovy-batch=pass [bins=2 invertedLut=false]; macro-cli=pass [bins=2 inverting=0]; macro-cli-batch=pass [bins=2 inverting=0]; macro-inproc=pass [PASS bins=2 inverting=0]
+   06	ij1:Image>Adjust>Auto Threshold	groovy=pass [bins=2]; groovy-batch=pass [bins=2]; macro-cli=pass [bins=2]; macro-cli-batch=pass [bins=2]; macro-inproc=pass [PASS bins=2]
+   07	(API/macro function)	groovy=pass [min=220.0 max=255.0]; groovy-batch=pass [min=220.0 max=255.0]; macro-cli=pass [220-255]; macro-cli-batch=pass [220-255]; macro-inproc=pass [PASS 220-255]
+   08	ij1:Analyze>Set Measurements...	groovy=pass [measurements=51 want=51]; groovy-batch=pass [measurements=51 want=51]; macro-cli=pass [ ]; macro-cli-batch=pass [ ]; macro-inproc=pass [PASS   Area Mean Min Max X Y]
+   09	ij1:Analyze>Measure	groovy=pass [rows=1 headings=Area Mean Min Max X Y]; groovy-batch=pass [rows=1 headings=Area Mean Min Max X Y]; macro-cli=pass [rows=1 mean=33.3008]; macro-cli-batch=pass [rows=1 mean=33.3008]; macro-inproc=pass [PASS rows=1 mean=33.3008]
+   10	ij1:Analyze>Analyze Particles...	groovy=pass [rows=4]; groovy-batch=pass [rows=4]; macro-cli=pass [rows=4]; macro-cli-batch=pass [rows=4]; macro-inproc=pass [PASS rows=4]
+   11	ij1:Analyze>Analyze Particles...	groovy=fail [check failed: java.awt.HeadlessException]; groovy-batch=fail [check failed: java.awt.HeadlessException]; macro-cli=aborted [no result file (macro aborted at or after the operation)]; macro-cli-batch=aborted [no result file (macro aborted at or after the operation)]; macro-inproc=aborted [java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(]
+   12	ij1:Analyze>Histogram	groovy=fail [current=null]; groovy-batch=fail [current=null]; macro-cli=fail [current=blobs]; macro-cli-batch=fail [current=blobs]; macro-inproc=fail [FAIL current=blobs]
+   13	ij1:Image>Duplicate...	groovy=pass [current=dup]; groovy-batch=pass [current=dup]; macro-cli=pass [current=dup]; macro-cli-batch=pass [current=dup]; macro-inproc=pass [PASS current=dup]
+   14	ij1:Image>Crop	groovy=pass [imp=100x80 current=null nullxnull]; groovy-batch=pass [imp=100x80 current=null nullxnull]; macro-cli=pass [100x80]; macro-cli-batch=pass [100x80]; macro-inproc=pass [PASS 100x80]
+   15	ij1:Image>Scale...	groovy=pass [current=scaled w=128]; groovy-batch=pass [current=scaled w=128]; macro-cli=pass [scaled w=128]; macro-cli-batch=pass [scaled w=128]; macro-inproc=pass [PASS scaled w=128]
+   16	ij1:Image>Transform>Rotate...	groovy=pass [cks 48764102->49466578]; groovy-batch=pass [cks 48764102->49466578]; macro-cli=pass [cks 48764102->49466578]; macro-cli-batch=pass [cks 48764102->49466578]; macro-inproc=pass [PASS cks 48764102->49466578]
+   16b	ij1:Edit>Selection>Rotate...	groovy=fail [Edit>Selection>Rotate... without ROI; cks 48764102->48764102 roi=null]; groovy-batch=fail [Edit>Selection>Rotate... without ROI; cks 48764102->48764102 roi=null]; macro-cli=aborted [no result file (macro aborted at or after the operation)]; macro-cli-batch=aborted [no result file (macro aborted at or after the operation)]; macro-inproc=aborted [Macro Error: This command requires a selection in line 12 |   | blobs ( ) ; c0 = cks ( ) ;]
+   17	ij1:Image>Stacks>Z Project...	groovy=pass [current=MAX_stack]; groovy-batch=pass [current=MAX_stack]; macro-cli=pass [MAX_stack]; macro-cli-batch=pass [MAX_stack]; macro-inproc=pass [PASS MAX_stack]
+   18	ij1:Image>Stacks>Tools>Make Substack...	groovy=pass [current=Substack (1-2) n=2]; groovy-batch=pass [current=Substack (1-2) n=2]; macro-cli=pass [Substack (1-2) n=2]; macro-cli-batch=pass [Substack (1-2) n=2]; macro-inproc=pass [PASS Substack (1-2) n=2]
+   19	ij1:Image>Color>Split Channels	groovy=pass [current=rgb (blue)]; groovy-batch=pass [current=rgb (blue)]; macro-cli=pass [current=rgb (blue) nImages=3]; macro-cli-batch=pass [current=rgb (blue) nImages=3]; macro-inproc=pass [PASS current=rgb (blue) nImages=3]
+   20	ij1:Image>Color>Merge Channels...	groovy=fail [current=g composite=false ids=[-34]]; groovy-batch=fail [current=g composite=false ids=[-34]]; macro-cli=pass [Composite n=2]; macro-cli-batch=pass [Composite n=2]; macro-inproc=pass [PASS Composite n=2]
+   21	ij1:Process>Enhance Contrast...	groovy=pass [cks 48885712->49281176]; groovy-batch=pass [cks 48885712->49281176]; macro-cli=pass [cks 48885712->49281176]; macro-cli-batch=pass [cks 48885712->49281176]; macro-inproc=pass [PASS cks 48885712->49281176]
+   22	ij1:Image>Lookup Tables>Apply LUT	groovy=pass [cks 48764102->49281176]; groovy-batch=pass [cks 48764102->49281176]; macro-cli=pass [cks 48764102->49281176]; macro-cli-batch=pass [cks 48764102->49281176]; macro-inproc=pass [PASS cks 48764102->49281176]
+   23	ij1:Edit>Fill	groovy=pass [pixel(210,20)=255]; groovy-batch=pass [pixel(210,20)=255]; macro-cli=fail [pixel=220]; macro-cli-batch=fail [pixel=220]; macro-inproc=fail [FAIL pixel=220]
+   23b	ij1:Edit>Fill	groovy=pass [pixel(10,10)=255]; groovy-batch=pass [pixel(10,10)=255]; macro-cli=pass [pixel=255]; macro-cli-batch=pass [pixel=255]; macro-inproc=pass [PASS pixel=255]
+   24	ij1:Edit>Clear	groovy=pass [pixel(30,30)=0]; groovy-batch=pass [pixel(30,30)=0]; macro-cli=pass [pixel=0]; macro-cli-batch=pass [pixel=0]; macro-inproc=pass [PASS pixel=0]
+   25	ij1:Edit>Selection>Add to Manager	groovy=fail [check failed: java.awt.HeadlessException]; groovy-batch=fail [check failed: java.awt.HeadlessException]; macro-cli=aborted [no result file (macro aborted at or after the operation)]; macro-cli-batch=aborted [no result file (macro aborted at or after the operation)]; macro-inproc=aborted [java.awt.HeadlessException  |  at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(]
+   26	ij1:Image>Adjust>Brightness/Contrast...	groovy=fail [frame command; no measurable effect expected; display range 0.0-255.0]; groovy-batch=fail [frame command; no measurable effect expected; display range 0.0-255.0]; macro-cli=fail [returned; no effect measurable; range 0-255]; macro-cli-batch=fail [returned; no effect measurable; range 0-255]; macro-inproc=fail [FAIL returned; no effect measurable; range 0-255]
+   27	ij1:Image>Adjust>Threshold...	groovy=fail [frame command; isThreshold=false]; groovy-batch=fail [frame command; isThreshold=false]; macro-cli=fail [returned; threshold -1--1]; macro-cli-batch=fail [returned; threshold -1--1]; macro-inproc=fail [FAIL returned; threshold -1--1]
+   28	ij1:Edit>Undo	groovy=pass [orig=48764102 afterInvert=325206100 afterUndo=48764102]; groovy-batch=pass [orig=48764102 afterInvert=325206100 afterUndo=48764102]; macro-cli=pass [orig=48764102 inv=325206100 undo=48764102]; macro-cli-batch=pass [orig=48764102 inv=325206100 undo=48764102]; macro-inproc=pass [PASS orig=48764102 inv=325206100 undo=48764102]
+   29	ij1:Image>Type>8-bit	groovy=pass [bitDepth=8]; groovy-batch=pass [bitDepth=8]; macro-cli=pass [bitDepth=8]; macro-cli-batch=pass [bitDepth=8]; macro-inproc=pass [PASS bitDepth=8]
+   30a	ij1:File>Save As>Tiff...	groovy=pass [exists=true size=65696]; groovy-batch=pass [exists=true size=65696]; macro-cli=pass [exists=1]; macro-cli-batch=pass [exists=1]; macro-inproc=pass [PASS exists=1]
+   30b	ij1:File>Open...	groovy=fail [current=null]; groovy-batch=fail [current=null]; macro-cli=fail [nImages=0 title=-]; macro-cli-batch=fail [nImages=0 title=-]; macro-inproc=fail [FAIL nImages=0 title=-]
+   30c	(API/macro function)	macro-cli=pass [nImages=1 title=p14c.tif]; macro-cli-batch=pass [nImages=1 title=p14c.tif]; macro-inproc=pass [PASS nImages=1 title=p14c.tif]
+   31	ij1:Process>Find Maxima...	groovy=fail [Count=-1]; groovy-batch=fail [Count=-1]; macro-cli=fail [nResults=0 Count=-1]; macro-cli-batch=fail [nResults=0 Count=-1]; macro-inproc=fail [FAIL nResults=0 Count=-1]
+   32	ij1:Process>Image Calculator...	groovy=fail [current=b]; groovy-batch=fail [current=b]; macro-cli=pass [Result of a]; macro-cli-batch=pass [Result of a]; macro-inproc=pass [PASS Result of a]
+   33	ij1:Analyze>Set Scale...	groovy=pass [pixelWidth=0.1 unit=µm]; groovy-batch=pass [pixelWidth=0.1 unit=µm]; macro-cli=pass [pw=0.1 unit=µm]; macro-cli-batch=pass [pw=0.1 unit=µm]; macro-inproc=pass [PASS pw=0.1 unit=µm]
+   34	ij1:Image>Stacks>Add Slice	groovy=pass [n=4]; groovy-batch=pass [n=4]; macro-cli=pass [n=4]; macro-cli-batch=pass [n=4]; macro-inproc=pass [PASS n=4]
+   35	ij1:Analyze>Histogram	groovy=fail [current=null]; groovy-batch=fail [current=null]; macro-cli=fail [current=stack]; macro-cli-batch=fail [current=stack]; macro-inproc=fail [FAIL current=stack]

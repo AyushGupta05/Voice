@@ -1,0 +1,1014 @@
+// ===== P14-batch-01.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Invert"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-02.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Gaussian Blur...", "sigma=2"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-03.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Add...", "value=20"); getStatistics(a,m0); run("Subtract Background...", "rolling=50"); getStatistics(a,m1); ok=(m1<m0); result(ok, "mean "+m0+"->"+m1);
+// ===== P14-batch-04.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setPixel(128,5,255); setPixel(5,128,255); setPixel(250,250,255); c0=cks(); run("Median...", "radius=2"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-05.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setAutoThreshold("Default dark"); run("Convert to Mask"); ok=(nbins()==2 && bitDepth()==8); result(ok, "bins="+nbins()+" inverting="+is("Inverting LUT"));
+// ===== P14-batch-06.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Auto Threshold", "method=Otsu white"); ok=(nbins()==2); result(ok, "bins="+nbins());
+// ===== P14-batch-07.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setAutoThreshold("Otsu dark"); getThreshold(lo,hi); ok=(lo!=-1); result(ok, ""+lo+"-"+hi);
+// ===== P14-batch-08.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+run("Set Measurements...", "area mean min centroid redirect=None decimal=3"); blobs(); run("Clear Results"); run("Measure"); h=String.getResultsHeadings; ok=(indexOf(h,"X")>=0 && indexOf(h,"Min")>=0 && indexOf(h,"StdDev")<0); result(ok, h);
+// ===== P14-batch-09.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Clear Results"); run("Measure"); ok=(nResults==1); result(ok, "rows="+nResults+" mean="+getResult("Mean",0));
+// ===== P14-batch-10.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setThreshold(128,255); run("Analyze Particles...", "size=0-Infinity display clear"); ok=(nResults==4); result(ok, "rows="+nResults);
+// ===== P14-batch-11.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setThreshold(128,255); roiManager("reset"); run("Analyze Particles...", "size=0-Infinity clear add"); ok=(roiManager("count")==4); result(ok, "rm.count="+roiManager("count"));
+// ===== P14-batch-12.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); t=getTitle(); run("Histogram"); ok=(getTitle()!=t); result(ok, "current="+getTitle());
+// ===== P14-batch-13.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Duplicate...", "title=dup"); ok=(getTitle()=="dup"); result(ok, "current="+getTitle());
+// ===== P14-batch-14.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,100,80); run("Crop"); ok=(getWidth()==100 && getHeight()==80); result(ok, ""+getWidth()+"x"+getHeight());
+// ===== P14-batch-15.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Scale...", "x=0.5 y=0.5 interpolation=Bilinear average create title=scaled"); ok=(getTitle()=="scaled" && getWidth()==128); result(ok, getTitle()+" w="+getWidth());
+// ===== P14-batch-16.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Rotate... ", "angle=15 grid=1 interpolation=Bilinear"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-16b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Rotate...", "angle=15"); ok=(cks()!=c0 || selectionType()!=-1); result(ok, "cks "+c0+"->"+cks()+" sel="+selectionType());
+// ===== P14-batch-17.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); run("Z Project...", "projection=[Max Intensity]"); ok=(startsWith(getTitle(),"MAX_")); result(ok, getTitle());
+// ===== P14-batch-18.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); id0=getImageID(); run("Make Substack...", "slices=1-2"); ok=(getImageID()!=id0 && nSlices==2); result(ok, getTitle()+" n="+nSlices);
+// ===== P14-batch-19.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("rgb","RGB ramp",128,128,1); run("Split Channels"); ok=(endsWith(getTitle(),"(blue)")); result(ok, "current="+getTitle()+" nImages="+nImages);
+// ===== P14-batch-20.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("r","8-bit ramp",64,64,1); newImage("g","8-bit black",64,64,1); run("Merge Channels...", "c1=r c2=g create"); ok=(is("composite") && nSlices==2); result(ok, getTitle()+" n="+nSlices);
+// ===== P14-batch-21.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Multiply...", "value=0.5"); c0=cks(); run("Enhance Contrast...", "saturated=0.35 normalize"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-22.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); setMinAndMax(50,150); run("Apply LUT"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-batch-23.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(200,10,30,30); setForegroundColor(255,255,255); run("Fill", "slice"); ok=(getPixel(210,20)==255); result(ok, "pixel="+getPixel(210,20));
+// ===== P14-batch-23b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("z","8-bit black",64,64,1); makeRectangle(5,5,20,20); setForegroundColor(255,255,255); run("Fill", "slice"); ok=(getPixel(10,10)==255); result(ok, "pixel="+getPixel(10,10));
+// ===== P14-batch-24.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,30,30); setBackgroundColor(0,0,0); run("Clear", "slice"); ok=(getPixel(30,30)==0); result(ok, "pixel="+getPixel(30,30));
+// ===== P14-batch-25.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,60,60); roiManager("reset"); roiManager("add"); run("Clear Results"); roiManager("measure"); ok=(roiManager("count")==1 && nResults==1); result(ok, "count="+roiManager("count")+" rows="+nResults);
+// ===== P14-batch-26.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Brightness/Contrast..."); getMinAndMax(a,b); ok=(false); result(ok, "returned; no effect measurable; range "+a+"-"+b);
+// ===== P14-batch-27.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Threshold..."); getThreshold(lo,hi); ok=(false); result(ok, "returned; threshold "+lo+"-"+hi);
+// ===== P14-batch-28.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c00=cks(); run("Invert"); c0=cks(); run("Undo"); ok=(cks()==c00); result(ok, "orig="+c00+" inv="+c0+" undo="+cks());
+// ===== P14-batch-29.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("f","32-bit ramp",64,64,1); run("8-bit"); ok=(bitDepth()==8); result(ok, "bitDepth="+bitDepth());
+// ===== P14-batch-30a.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14-"+getTime()+".tif"; run("Tiff...", "path=["+p+"]"); ok=(File.exists(p)); result(ok, "exists="+File.exists(p));
+// ===== P14-batch-30b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14b.tif"; saveAs("Tiff", p); close("*"); run("Open...", "path=["+p+"]"); n=nImages; t="-"; if (n>0) t=getTitle(); ok=(n==1 && t=="p14b.tif"); result(ok, "nImages="+n+" title="+t);
+// ===== P14-batch-30c.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14c.tif"; saveAs("Tiff", p); close("*"); open(p); n=nImages; t="-"; if (n>0) t=getTitle(); ok=(n==1 && t=="p14c.tif"); result(ok, "nImages="+n+" title="+t);
+// ===== P14-batch-31.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Clear Results"); run("Find Maxima...", "prominence=10 output=Count"); n=nResults; c=-1; if (n>0) c=getResult("Count",n-1); ok=(n>=1 && c>=1); result(ok, "nResults="+n+" Count="+c);
+// ===== P14-batch-32.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("a","8-bit ramp",64,64,1); newImage("b","8-bit ramp",64,64,1); run("Image Calculator...", "image1=a operation=Add image2=b create"); ok=(startsWith(getTitle(),"Result of")); result(ok, getTitle());
+// ===== P14-batch-33.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Set Scale...", "distance=10 known=1 unit=um"); getPixelSize(u,pw,ph); ok=(abs(pw-0.1)<1e-9); result(ok, "pw="+pw+" unit="+u);
+// ===== P14-batch-34.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); run("Add Slice"); ok=(nSlices==4); result(ok, "n="+nSlices);
+// ===== P14-batch-35.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+setBatchMode(true);
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); t=getTitle(); run("Histogram", "bins=256 use x_min=0 x_max=256 y_max=Auto stack"); ok=(getTitle()!=t); result(ok, "current="+getTitle());
+// ===== P14-nobatch-01.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Invert"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-02.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Gaussian Blur...", "sigma=2"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-03.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Add...", "value=20"); getStatistics(a,m0); run("Subtract Background...", "rolling=50"); getStatistics(a,m1); ok=(m1<m0); result(ok, "mean "+m0+"->"+m1);
+// ===== P14-nobatch-04.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setPixel(128,5,255); setPixel(5,128,255); setPixel(250,250,255); c0=cks(); run("Median...", "radius=2"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-05.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setAutoThreshold("Default dark"); run("Convert to Mask"); ok=(nbins()==2 && bitDepth()==8); result(ok, "bins="+nbins()+" inverting="+is("Inverting LUT"));
+// ===== P14-nobatch-06.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Auto Threshold", "method=Otsu white"); ok=(nbins()==2); result(ok, "bins="+nbins());
+// ===== P14-nobatch-07.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setAutoThreshold("Otsu dark"); getThreshold(lo,hi); ok=(lo!=-1); result(ok, ""+lo+"-"+hi);
+// ===== P14-nobatch-08.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+run("Set Measurements...", "area mean min centroid redirect=None decimal=3"); blobs(); run("Clear Results"); run("Measure"); h=String.getResultsHeadings; ok=(indexOf(h,"X")>=0 && indexOf(h,"Min")>=0 && indexOf(h,"StdDev")<0); result(ok, h);
+// ===== P14-nobatch-09.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Clear Results"); run("Measure"); ok=(nResults==1); result(ok, "rows="+nResults+" mean="+getResult("Mean",0));
+// ===== P14-nobatch-10.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setThreshold(128,255); run("Analyze Particles...", "size=0-Infinity display clear"); ok=(nResults==4); result(ok, "rows="+nResults);
+// ===== P14-nobatch-11.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); setThreshold(128,255); roiManager("reset"); run("Analyze Particles...", "size=0-Infinity clear add"); ok=(roiManager("count")==4); result(ok, "rm.count="+roiManager("count"));
+// ===== P14-nobatch-12.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); t=getTitle(); run("Histogram"); ok=(getTitle()!=t); result(ok, "current="+getTitle());
+// ===== P14-nobatch-13.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Duplicate...", "title=dup"); ok=(getTitle()=="dup"); result(ok, "current="+getTitle());
+// ===== P14-nobatch-14.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,100,80); run("Crop"); ok=(getWidth()==100 && getHeight()==80); result(ok, ""+getWidth()+"x"+getHeight());
+// ===== P14-nobatch-15.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Scale...", "x=0.5 y=0.5 interpolation=Bilinear average create title=scaled"); ok=(getTitle()=="scaled" && getWidth()==128); result(ok, getTitle()+" w="+getWidth());
+// ===== P14-nobatch-16.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Rotate... ", "angle=15 grid=1 interpolation=Bilinear"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-16b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); run("Rotate...", "angle=15"); ok=(cks()!=c0 || selectionType()!=-1); result(ok, "cks "+c0+"->"+cks()+" sel="+selectionType());
+// ===== P14-nobatch-17.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); run("Z Project...", "projection=[Max Intensity]"); ok=(startsWith(getTitle(),"MAX_")); result(ok, getTitle());
+// ===== P14-nobatch-18.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); id0=getImageID(); run("Make Substack...", "slices=1-2"); ok=(getImageID()!=id0 && nSlices==2); result(ok, getTitle()+" n="+nSlices);
+// ===== P14-nobatch-19.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("rgb","RGB ramp",128,128,1); run("Split Channels"); ok=(endsWith(getTitle(),"(blue)")); result(ok, "current="+getTitle()+" nImages="+nImages);
+// ===== P14-nobatch-20.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("r","8-bit ramp",64,64,1); newImage("g","8-bit black",64,64,1); run("Merge Channels...", "c1=r c2=g create"); ok=(is("composite") && nSlices==2); result(ok, getTitle()+" n="+nSlices);
+// ===== P14-nobatch-21.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Multiply...", "value=0.5"); c0=cks(); run("Enhance Contrast...", "saturated=0.35 normalize"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-22.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c0=cks(); setMinAndMax(50,150); run("Apply LUT"); ok=(cks()!=c0); result(ok, "cks "+c0+"->"+cks());
+// ===== P14-nobatch-23.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(200,10,30,30); setForegroundColor(255,255,255); run("Fill", "slice"); ok=(getPixel(210,20)==255); result(ok, "pixel="+getPixel(210,20));
+// ===== P14-nobatch-23b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("z","8-bit black",64,64,1); makeRectangle(5,5,20,20); setForegroundColor(255,255,255); run("Fill", "slice"); ok=(getPixel(10,10)==255); result(ok, "pixel="+getPixel(10,10));
+// ===== P14-nobatch-24.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,30,30); setBackgroundColor(0,0,0); run("Clear", "slice"); ok=(getPixel(30,30)==0); result(ok, "pixel="+getPixel(30,30));
+// ===== P14-nobatch-25.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); makeRectangle(10,10,60,60); roiManager("reset"); roiManager("add"); run("Clear Results"); roiManager("measure"); ok=(roiManager("count")==1 && nResults==1); result(ok, "count="+roiManager("count")+" rows="+nResults);
+// ===== P14-nobatch-26.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Brightness/Contrast..."); getMinAndMax(a,b); ok=(false); result(ok, "returned; no effect measurable; range "+a+"-"+b);
+// ===== P14-nobatch-27.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Threshold..."); getThreshold(lo,hi); ok=(false); result(ok, "returned; threshold "+lo+"-"+hi);
+// ===== P14-nobatch-28.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); c00=cks(); run("Invert"); c0=cks(); run("Undo"); ok=(cks()==c00); result(ok, "orig="+c00+" inv="+c0+" undo="+cks());
+// ===== P14-nobatch-29.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("f","32-bit ramp",64,64,1); run("8-bit"); ok=(bitDepth()==8); result(ok, "bitDepth="+bitDepth());
+// ===== P14-nobatch-30a.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14-"+getTime()+".tif"; run("Tiff...", "path=["+p+"]"); ok=(File.exists(p)); result(ok, "exists="+File.exists(p));
+// ===== P14-nobatch-30b.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14b.tif"; saveAs("Tiff", p); close("*"); run("Open...", "path=["+p+"]"); n=nImages; t="-"; if (n>0) t=getTitle(); ok=(n==1 && t=="p14b.tif"); result(ok, "nImages="+n+" title="+t);
+// ===== P14-nobatch-30c.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); p=TMP+"/p14c.tif"; saveAs("Tiff", p); close("*"); open(p); n=nImages; t="-"; if (n>0) t=getTitle(); ok=(n==1 && t=="p14c.tif"); result(ok, "nImages="+n+" title="+t);
+// ===== P14-nobatch-31.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Clear Results"); run("Find Maxima...", "prominence=10 output=Count"); n=nResults; c=-1; if (n>0) c=getResult("Count",n-1); ok=(n>=1 && c>=1); result(ok, "nResults="+n+" Count="+c);
+// ===== P14-nobatch-32.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+newImage("a","8-bit ramp",64,64,1); newImage("b","8-bit ramp",64,64,1); run("Image Calculator...", "image1=a operation=Add image2=b create"); ok=(startsWith(getTitle(),"Result of")); result(ok, getTitle());
+// ===== P14-nobatch-33.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+blobs(); run("Set Scale...", "distance=10 known=1 unit=um"); getPixelSize(u,pw,ph); ok=(abs(pw-0.1)<1e-9); result(ok, "pw="+pw+" unit="+u);
+// ===== P14-nobatch-34.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); run("Add Slice"); ok=(nSlices==4); result(ok, "n="+nSlices);
+// ===== P14-nobatch-35.ijm
+
+var OUT = getArgument();
+var TMP = File.getParent(OUT);
+File.saveString("started", OUT + ".started");
+
+function blobs() { newImage("blobs","8-bit black",256,256,1); setColor(220); fillOval(10,10,60,60); fillOval(100,40,40,40); fillOval(165,145,70,70); fillOval(35,165,50,50); }
+function stack3() { newImage("stack","8-bit ramp",128,128,3); }
+function cks() { s=0; for (y=0; y<getHeight(); y++) for (x=0; x<getWidth(); x++) s += (getPixel(x,y)*(x+1)*(y+3)) % 9973; return s; }
+function nbins() { getHistogram(v, c, 256); n=0; for (k=0; k<256; k++) if (c[k]>0) n++; return n; }
+function result(ok, detail) { if (ok) File.saveString("PASS\t"+detail, OUT); else File.saveString("FAIL\t"+detail, OUT); }
+
+stack3(); t=getTitle(); run("Histogram", "bins=256 use x_min=0 x_max=256 y_max=Auto stack"); ok=(getTitle()!=t); result(ok, "current="+getTitle());

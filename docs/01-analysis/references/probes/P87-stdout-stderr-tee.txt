@@ -1,0 +1,26 @@
+Prism pipeline init order: d3d sw 
+Using Double Precision Marlin Rasterizer
+Using dirty region optimizations
+Not using texture mask for primitives
+Not forcing power of 2 sizes for textures
+Using hardware CLAMP_TO_ZERO mode
+Opting in for HiDPI pixel scaling
+Prism pipeline name = com.sun.prism.d3d.D3DPipeline
+Loading D3D native library ...
+	succeeded.
+Direct3D initialization succeeded
+(X) Got class = class com.sun.prism.d3d.D3DPipeline
+Initialized prism pipeline: com.sun.prism.d3d.D3DPipeline
+Maximum supported texture size: 16384
+Maximum texture size clamped to 4096
+OS Information:
+	Windows 8.0 build 9200
+D3D Driver Information:
+	Intel(R) Arc(TM) 140T GPU (16GB)
+	\\.\DISPLAY1
+	Driver igd9trinity64.dll, version 32.0.101.8132
+	Pixel Shader version 3.0
+	Device : ven_8086, dev_7D51, subsys_37781043
+	Max Multisamples supported: 4
+ vsync: true vpipe: true
+QuantumRenderer: shutdown
