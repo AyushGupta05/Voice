@@ -263,3 +263,14 @@ test('already-open image matching retains spoken channel and slice numbers inste
   const fallback = fiji.fastRoute('Open BBBC008 channel one image', onlyOtherChannels);
   assert.equal(fallback?.tool, 'fiji_open_path');assert.equal(fallback?.imageQuery, 'bbbc008 channel one');
 });
+
+test('an exact open-image title or stem wins over an earlier loose mask match', () => {
+  const context = { images: [
+    { id: 1, title: 'hela-cells-mask.tif', active: true },
+    { id: 3, title: 'hela-cells-preview.tif', active: false },
+    { id: 2, title: 'hela-cells.tif', active: false },
+  ] };
+  for (const request of ['Open hela-cells.tif', 'Open hela cells', 'Open the hela cells image'])
+    assert.deepEqual(fiji.fastRoute(request, context)?.arguments, { id: 2 }, request);
+  assert.equal(fiji.fastRoute('Open hela-cells-mask.tif', context)?.tool, 'fiji_context');
+});

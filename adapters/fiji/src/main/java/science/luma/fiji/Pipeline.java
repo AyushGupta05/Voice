@@ -196,6 +196,14 @@ public final class Pipeline {
         return keep.toArray(new Roi[0]);
     }
     /**
+     * Only this image's own outlines: ImageJ's ROI Manager "Show All" mode (left on by macros and recipes) paints every
+     * image's manager entries, numbered, onto whichever image is in front, which buries the result under other analyses.
+     */
+    static void ownOverlayOnly(ImagePlus imp, RoiManager manager) {
+        try { if (manager != null) manager.runCommand("show none"); } catch (RuntimeException ignored) { /* manager without a window */ }
+        if (imp != null && imp.getCanvas() != null) { imp.getCanvas().setShowAllList(null); imp.setHideOverlay(false); imp.updateAndDraw(); }
+    }
+    /**
      * Shows a result window (plot, table, macro) next to the image instead of on top of it, and keeps the image the
      * current one: a plot is itself an ImageWindow and would otherwise become the target of the next request.
      */

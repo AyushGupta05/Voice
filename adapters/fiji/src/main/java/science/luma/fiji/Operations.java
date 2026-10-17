@@ -601,6 +601,7 @@ final class Operations {
         for (int i = 0; i < overlay.size(); i++) { var roi = overlay.get(i); roi.setStrokeColor(java.awt.Color.MAGENTA); roi.setStrokeWidth(2); roi.setName(String.valueOf(i + 1)); }
         overlay.drawLabels(count <= 200); overlay.drawNames(count <= 200); overlay.setLabelColor(java.awt.Color.WHITE); overlay.drawBackgrounds(true);
         imp.setOverlay(overlay); imp.setHideOverlay(false); imp.updateAndDraw();
+        Pipeline.ownOverlayOnly(imp, manager);
     }
     Map<String, Object> segmentCells(JsonObject args) {
         var imp = active();

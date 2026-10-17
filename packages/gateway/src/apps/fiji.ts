@@ -327,9 +327,14 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     const words = queryWords(opening[1]);
     const open = Array.isArray((context as { images?: unknown } | undefined)?.images) ? (context as { images: Array<{ id?: unknown; title?: unknown; active?: unknown }> }).images : [];
     const squash = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    const hit = words.length ? open.find(entry => typeof entry.title === 'string' && imageNameMatches(entry.title, opening[1])
+    const canonical = (value: string) => squash(queryWords(value).join(' '));
+    const requested = canonical(opening[1]);
+    // An exact requested filename or natural stem wins before a derived image's loose name match.
+    const exactTitle = open.find(entry => typeof entry.title === 'string' && canonical(entry.title) === requested);
+    const exactStem = open.find(entry => typeof entry.title === 'string' && canonical(entry.title.replace(/\.(?:ome\.)?[^.]+$/i, '')) === requested);
+    const hit = exactTitle ?? exactStem ?? (words.length ? open.find(entry => typeof entry.title === 'string' && imageNameMatches(entry.title, opening[1])
       // Explicit numeric selectors stay exact: channel one means channel1, never channel2 or channel10.
-      && words.filter(word => /\d$/.test(word)).every(word => new RegExp(`${squash(word)}(?!\\d)`).test(squash(entry.title as string)))) : undefined;
+      && words.filter(word => /\d$/.test(word)).every(word => new RegExp(`${squash(word)}(?!\\d)`).test(squash(entry.title as string)))) : undefined);
     if (hit && typeof hit.title === 'string') {
       const name = friendlyName(hit.title);
       if (hit.active === true) return { tool: 'fiji_context', arguments: {}, reply: `${name.charAt(0).toUpperCase()}${name.slice(1)} is already open.` };
