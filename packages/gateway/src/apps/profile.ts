@@ -8,6 +8,8 @@ export type FastRoute = { tool: string; arguments: Record<string, unknown>; repl
 /** Inputs for a profile's pre-dispatch check of a data/code tool. `check()` re-validates the request after every
  * adapter read (abort signal, conversation revision, context) and must be called after each one. */
 export type PrepareInput = { name: string; args: Arguments; context: Context; adapter: Adapter; check: () => void };
+/** Inputs for a profile-answered tool without a bridge operation (see `AppProfile.localTool`). */
+export type LocalToolInput = { runtime: Runtime; name: string; args: Arguments; root: string; signal?: AbortSignal; beforeDispatch?: (context?: Context) => void };
 
 /**
  * Everything that differs between the scientific applications Penny drives. The generic gateway (runtime, backend,
@@ -52,6 +54,10 @@ export type AppProfile = {
   longRunningTools: Set<string>;
   /** Pre-dispatch checks for data/code tools; sets `context.reviewTarget` and throws to refuse. */
   prepareAction?(input: PrepareInput): Promise<void>;
+  /** Answers a tool that has no bridge operation of its own (`name` without the prefix), or returns undefined. A tool
+   * that acts must do so through `runtime.call` of a real operation tool, so the decision, audit and checkpoint path
+   * is the same as for a direct call. `root` is the repository root. */
+  localTool?(input: LocalToolInput): Promise<unknown> | undefined;
   /** After a completed auto-approved action, settle any dialog the application raised; the returned fields are
    * merged into the tool result so the model learns what happened. */
   settleDialogs?(runtime: Runtime, name: string, args: Arguments, signal?: AbortSignal): Promise<Record<string, unknown> | undefined>;

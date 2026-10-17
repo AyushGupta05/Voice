@@ -41,6 +41,8 @@ export function fuzzyNameScore(name: string, query: string): number | undefined 
   for (const word of words) { const d = nameDistance(name, word); if (d === 0) exact++; else if (word.length < 4 || d > Math.ceil(word.length / 2)) return undefined; total += d; }
   return exact > 0 ? total : undefined;
 }
+/** The last two folder names of a path, e.g. "bbbc008 images". */
+const folderWords = (directory: string) => directory.split('/').filter(Boolean).slice(-2).join(' ');
 /** Where a researcher's slides usually are: the project's data folder first, then common user folders, two levels deep. */
 export function searchRoots(root: string, home = homedir()) {
   return [join(root, '.local', 'data'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
@@ -55,10 +57,11 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const path = join(directory, entry.name);
-      if (entry.isDirectory()) { if (depth < 2) await visit(path, depth + 1); continue; }
+      if (entry.isDirectory()) { if (depth < 3) await visit(path, depth + 1); continue; }
       if (!entry.isFile()) continue;
       const ext = extension(entry.name);
-      if (!IMAGE_EXTENSIONS.has(ext) || !imageNameMatches(entry.name, query) || seen.has(path)) continue;
+      // The folder names count too: "the BBBC nuclei image" lives in …/bbbc008/images/.
+      if (!IMAGE_EXTENSIONS.has(ext) || !imageNameMatches(`${folderWords(directory)} ${entry.name}`, query) || seen.has(path)) continue;
       if (matches.length >= limit) { truncated = true; return; }
       let size = 0;
       try { size = (await stat(path)).size; } catch { continue; }
@@ -75,9 +78,9 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
       for (const entry of entries) {
         if (entry.name.startsWith('.')) continue;
         const path = join(directory, entry.name);
-        if (entry.isDirectory()) { if (depth < 2) await fuzzy(path, depth + 1); continue; }
+        if (entry.isDirectory()) { if (depth < 3) await fuzzy(path, depth + 1); continue; }
         const ext = extension(entry.name); if (!entry.isFile() || !IMAGE_EXTENSIONS.has(ext) || seen.has(path)) continue;
-        const score = fuzzyNameScore(entry.name, query); if (score === undefined) continue;
+        const score = fuzzyNameScore(`${folderWords(directory)} ${entry.name}`, query); if (score === undefined) continue;
         let size = 0; try { size = (await stat(path)).size; } catch { continue; }
         seen.add(path); scored.push({ path, name: basename(entry.name), sizeBytes: size, kind: ext === '.qpproj' ? 'project' : 'image', score });
       }

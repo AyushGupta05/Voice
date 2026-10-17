@@ -12,14 +12,14 @@ test('loose slide names match file names regardless of case, spaces and dashes',
   assert(imageNameMatches('anything.tif', ''));
 });
 
-test('finds slides two levels deep in the given roots, largest first, and skips other files', async () => {
+test('finds slides three levels deep in the given roots, largest first, and skips other files', async () => {
   const root = await mkdtemp(join(tmpdir(), 'luma-images-'));
   try {
-    await mkdir(join(root, 'deep', 'deeper', 'deepest'), { recursive: true });
+    await mkdir(join(root, 'deep', 'deeper', 'deepest', 'abyss'), { recursive: true });
     await writeFile(join(root, 'OS-2.ndpi'), 'x'.repeat(30));
     await writeFile(join(root, 'deep', 'CMU-1.svs'), 'x'.repeat(10));
     await writeFile(join(root, 'deep', 'deeper', 'study.qpproj'), 'x');
-    await writeFile(join(root, 'deep', 'deeper', 'deepest', 'hidden.svs'), 'x');
+    await writeFile(join(root, 'deep', 'deeper', 'deepest', 'abyss', 'hidden.svs'), 'x');
     await writeFile(join(root, 'notes.txt'), 'x');
     const all = await findLocalImages(root, '', 20, [root], false);
     assert.deepEqual(all.matches.map(m => [m.name, m.kind]), [['OS-2.ndpi', 'image'], ['CMU-1.svs', 'image'], ['study.qpproj', 'project']]);

@@ -251,6 +251,9 @@ public final class LumaBridge implements PlugIn {
         }
         if (!folder.isBlank()) run.addProperty("folder", folder);
         for (var key : List.of("pattern", "limit", "recursive", "saveResults")) if (args.has(key)) run.add(key, args.get(key));
+        // Folders often hold every channel as its own file (…_channel1.tif, …_c1.tif, …_w1…): replay on the same channel only.
+        var token = imp == null ? null : java.util.regex.Pattern.compile("(?i)(channel\\d+|_c\\d+|_w\\d+|_ch\\d+)").matcher(imp.getTitle());
+        if (!args.has("pattern") && target.equals("folder") && token != null && token.find()) { run.addProperty("pattern", "*" + token.group(1) + "*"); out.put("pattern", "*" + token.group(1) + "*"); }
         out.put("run", macros.runWorkflow(run, imp));
         return out;
     }

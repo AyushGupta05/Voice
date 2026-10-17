@@ -36,7 +36,17 @@ export class TextConversation {
    let route=spoken?profile.fastRoute(text,context):undefined;
    if(route&&!this.runtime.autoApprove){const risk=profile.tools.find(tool=>tool.name===route!.tool)?.risk;if(risk==='data'||risk==='code')route=undefined;}
    if(route){
-    const result=await this.runtime.call(route.tool,route.arguments,active.controller.signal) as Record<string,unknown>|undefined;
+    let result:Record<string,unknown>|undefined;
+    try{result=await this.runtime.call(route.tool,route.arguments,active.controller.signal) as Record<string,unknown>|undefined;}
+    catch(error){
+     active.controller.signal.throwIfAborted();
+     // The bridge's refusals are short, speakable sentences ("No cell under the pointer; point at it."): say them.
+     const message=error instanceof Error?error.message.trim():'';
+     if(!message||message.length>160||/[{}\[\]<>]|\bat \w+\./.test(message))throw error;
+     active.answered=true;this.append('assistant',`${message} (${route.tool} ${JSON.stringify(route.arguments)})`);
+     this.emit({type:'text_result',taskId:active.id,text:message,fastPath:true});
+     return;
+    }
     active.controller.signal.throwIfAborted();
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||('status' in result&&result.status!=='completed');
