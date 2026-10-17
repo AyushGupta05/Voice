@@ -167,6 +167,7 @@ public final class Workspace {
 
     private void onEvent(EngineEvent e) {
         if (e instanceof EngineEvent.EngineStateChanged s) applyEngineState(s.state(), s.reason());
+        if (e instanceof EngineEvent.DocumentsChanged) commandBar.refreshVocabulary();
         banners.handle(e);
         documents.handle(e);
         parameters.handle(e);
@@ -198,13 +199,15 @@ public final class Workspace {
     void requestQuit() {
         new Thread(() -> {
             engine.quit(false);
+            if (engine.state() == EngineState.QUITTING) return; // accepted: the engine is exiting the JVM
             SwingUtilities.invokeLater(() -> {
                 int c = JOptionPane.showConfirmDialog(frame, "Some images have unsaved changes. Quit and discard them?",
                         "Quit Fidelis", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
                 if (c == JOptionPane.OK_OPTION) {
                     new Thread(() -> {
                         engine.quit(true);
-                        quitAction.run();
+                        // a real engine exits the JVM itself; only a stub needs the host's quit action
+                        if (quitAction != null && engine.state() != EngineState.QUITTING) quitAction.run();
                     }, "fidelis-quit-discard").start();
                 }
             });
@@ -295,7 +298,8 @@ public final class Workspace {
     }
 
     /** Command-line options of the workspace (handled in {@link #launch}). */
-    record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search, String scenario) {
+    record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search, String scenario,
+                   boolean confirm, boolean closeWindow) {
         static Options parse(String[] args) {
             Path shot = null;
             java.util.List<String> open = new java.util.ArrayList<>();
@@ -303,6 +307,8 @@ public final class Workspace {
             String instruction = null;
             String search = null;
             String scenario = null;
+            boolean confirm = false;
+            boolean closeWindow = false;
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
                     case "--screenshot" -> {
@@ -317,6 +323,8 @@ public final class Workspace {
                     case "--scenario" -> {
                         if (i + 1 < args.length) scenario = args[++i];
                     }
+                    case "--confirm" -> confirm = true;
+                    case "--close-window" -> closeWindow = true;
                     case "--search" -> {
                         if (i + 1 < args.length) search = args[++i];
                     }
@@ -335,7 +343,7 @@ public final class Workspace {
                 shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
-            return new Options(shot, open, size, instruction, search, scenario);
+            return new Options(shot, open, size, instruction, search, scenario, confirm, closeWindow);
         }
     }
 }

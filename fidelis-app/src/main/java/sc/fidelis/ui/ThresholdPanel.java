@@ -187,7 +187,8 @@ public final class ThresholdPanel extends JPanel {
         Map<String, Object> prefill = new LinkedHashMap<>();
         prefill.put("method", String.valueOf(method.getSelectedItem()));
         prefill.put("background", dark.isSelected() ? "Dark" : "Light");
-        String black = ctx.engine.globals().get("Prefs.blackBackground");
+        String black = ctx.engine.globals().get("blackBackground");
+        if (black == null) black = ctx.engine.globals().get("Prefs.blackBackground");
         if (black != null) prefill.put("black", Boolean.parseBoolean(black));
         ctx.runCommand(CONVERT_TO_MASK, Origin.PANEL, prefill);
     }

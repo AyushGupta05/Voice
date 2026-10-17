@@ -499,6 +499,15 @@ public final class ParametersPanel extends JPanel {
 
     // ---- test hooks ---------------------------------------------------------------------------
 
+    /** Press Run (the scenario and tests drive the form through the same handler as the button). */
+    void runNow() {
+        run();
+    }
+
+    boolean isBusy() {
+        return busy;
+    }
+
     CommandSchema currentSchema() {
         return schema;
     }

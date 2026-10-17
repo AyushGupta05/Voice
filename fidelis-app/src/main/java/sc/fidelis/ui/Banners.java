@@ -80,6 +80,10 @@ public final class Banners extends JPanel {
         repaint();
     }
 
+    JComponent sheet() {
+        return sheet;
+    }
+
     void clearSheet() {
         if (sheet != null) {
             remove(sheet);

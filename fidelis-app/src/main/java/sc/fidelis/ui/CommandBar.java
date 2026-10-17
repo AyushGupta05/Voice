@@ -287,14 +287,14 @@ public final class CommandBar extends JPanel {
 
     // ---- natural language ---------------------------------------------------------------------
 
-    void interpret(String text, Origin origin) {
+    ProposalSheet interpret(String text, Origin origin) {
         NlService nl = ServiceRegistry.nl();
         ProposalSheet sheet = new ProposalSheet(ctx, text, origin);
         ctx.banners().setSheet(sheet);
         if (nl == null) {
             sheet.showUnavailable();
             ctx.notice("Natural-language interpreter not available", true);
-            return;
+            return sheet;
         }
         sheet.showBusy();
         final long t0 = System.nanoTime();
@@ -307,6 +307,7 @@ public final class CommandBar extends JPanel {
                     if (ex != null) sheet.showError(String.valueOf(ex.getCause() != null ? ex.getCause() : ex));
                     else sheet.showProposal(p, (System.nanoTime() - t0) / 1e9);
                 }));
+        return sheet;
     }
 
     // ---- speech -------------------------------------------------------------------------------
@@ -334,9 +335,30 @@ public final class CommandBar extends JPanel {
         ctx.notice("Transcript ready: review it, then press Enter to interpret", false);
     }
 
+    /** The last vocabulary prompt handed to the speech service (test hook). */
+    volatile String lastVocabularyPrompt;
+
+    /**
+     * Bias the next transcription with command labels and the open image names (D08): called when a speech service
+     * attaches, on every DocumentsChanged and before each recording.
+     */
+    void refreshVocabulary() {
+        SpeechService s = speech;
+        NlService nl = ServiceRegistry.nl();
+        if (s == null || !(nl instanceof sc.fidelis.nl.DefaultNlService d)) return;
+        try {
+            String prompt = d.vocabularyPrompt(ctx.engine.documents().stream().map(sc.fidelis.engine.api.DocumentInfo::title).toList());
+            lastVocabularyPrompt = prompt;
+            s.setVocabularyPrompt(prompt);
+        } catch (RuntimeException ex) {
+            System.err.println("[fidelis] vocabulary prompt not set: " + ex);
+        }
+    }
+
     private void bindSpeech(SpeechService s) {
         speech = s;
         if (s == null) return;
+        refreshVocabulary();
         if (s instanceof sc.fidelis.speech.WhisperSpeechService w) {
             // auto-stopped recordings (30 s limit) deliver their transcript only through this callback
             w.onTranscript(t -> SwingUtilities.invokeLater(() -> deliver(t)));
@@ -353,10 +375,11 @@ public final class CommandBar extends JPanel {
         });
     }
 
-    private void toggleMic() {
+    void toggleMic() {
         if (speech == null) return;
         if (speechState == SpeechService.State.READY) {
             try {
+                refreshVocabulary();
                 speech.startRecording();
             } catch (IllegalStateException ex) {
                 ctx.notice("Cannot record: " + ex.getMessage(), true);
