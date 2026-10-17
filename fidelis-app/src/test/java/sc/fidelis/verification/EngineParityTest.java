@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import sc.fidelis.engine.api.Engine;
 import sc.fidelis.testkit.FijiFixture;
 import sc.fidelis.testkit.HarnessSelfCheckEngine;
+import sc.fidelis.testkit.ProductEngine;
 import sc.fidelis.testkit.IjState;
 
 /**
@@ -45,20 +46,8 @@ class EngineParityTest {
             engineKind = "harness self-check adapter (NOT the product engine)";
             return;
         }
-        try {
-            Class<?> engines = Class.forName("sc.fidelis.engine.Engines");
-            Object current = engines.getMethod("current").invoke(null);
-            if (current instanceof Optional<?> o) current = o.orElse(null);
-            if (current instanceof Engine e) {
-                engine = e;
-                engineKind = "product engine " + e.getClass().getName();
-            }
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            engine = null;
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("sc.fidelis.engine.Engines.current() failed", e);
-        }
-        assumeTrue(engine != null, "sc.fidelis.engine.Engines is not available yet (engine agent A1): parity tests skipped");
+        engine = ProductEngine.get();
+        engineKind = "product engine " + engine.getClass().getName();
     }
 
     @ParameterizedTest(name = "J-12 on {0}: engine output equals the pinned-Fiji baseline at every step")

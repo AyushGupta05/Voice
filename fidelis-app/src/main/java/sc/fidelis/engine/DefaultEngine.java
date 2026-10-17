@@ -61,6 +61,7 @@ public final class DefaultEngine implements Engine {
     private volatile EngineState state = EngineState.INITIALISING;
     private volatile DocumentId focused;
     private volatile boolean reconcileQueued;
+    private final java.util.concurrent.locks.ReentrantLock adoptLock = new java.util.concurrent.locks.ReentrantLock();
     private volatile Catalogue catalogue = Catalogue.empty();
     final Results results = new Results(events);
     final RoiLists roiLists = new RoiLists();
@@ -240,12 +241,39 @@ public final class DefaultEngine implements Engine {
 
     /** Reconcile with IJ1 window list; releases snapshots of closed documents and fixes focus. */
     Registry.Change reconcile() {
-        Registry.Change ch = registry.reconcile();
-        for (Doc d : ch.removed()) {
-            snapshots.releaseAll(d);
-            if (d.id.equals(focused)) focused = null;
+        adoptLock.lock();
+        try {
+            Registry.Change ch = registry.reconcile();
+            for (Doc d : ch.removed()) {
+                snapshots.releaseAll(d);
+                if (d.id.equals(focused)) focused = null;
+            }
+            return ch;
+        } finally {
+            adoptLock.unlock();
         }
-        return ch;
+    }
+
+    /**
+     * Adopt images that IJ1 opened behind our back <em>before</em> a native command runs on the calling
+     * thread. Re-hosting swaps the image's window, and IJ1's window swap briefly makes another image
+     * current; done asynchronously on the worker it raced a macro's {@code open(); run("...")} and the
+     * command hit the wrong image (observed in InJvmCrossCheckTest). On the EDT the adoption is skipped
+     * when the worker is in the middle of one (it is waiting for this very thread).
+     */
+    void adoptBeforeNative() {
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            if (!adoptLock.tryLock()) return;
+        } else {
+            adoptLock.lock();
+        }
+        try {
+            reconcile();
+        } catch (RuntimeException e) {
+            System.err.println("[fidelis-engine] adoption before a native command failed: " + e);
+        } finally {
+            adoptLock.unlock();
+        }
     }
 
     /** Append a record created by an observer and tell listeners. */
@@ -530,6 +558,13 @@ public final class DefaultEngine implements Engine {
     @Override
     public String exportMacro() {
         return MacroExport.generate(history.list(), sessionId, "Fiji runtime ImageJ " + IJ.getFullVersion());
+    }
+
+    /** The macro for the history from record {@code fromIndex} on: a slice of the session (verification uses it). */
+    public String exportMacroSince(int fromIndex) {
+        List<HistoryRecord> all = history.list();
+        return MacroExport.generate(all.subList(Math.min(Math.max(0, fromIndex), all.size()), all.size()), sessionId,
+                "Fiji runtime ImageJ " + IJ.getFullVersion());
     }
 
     @Override

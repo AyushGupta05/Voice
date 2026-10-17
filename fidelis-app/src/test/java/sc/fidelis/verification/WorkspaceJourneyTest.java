@@ -14,6 +14,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import sc.fidelis.testkit.FijiFixture;
+import sc.fidelis.testkit.ProductEngine;
 import sc.fidelis.testkit.Fixtures;
 import sc.fidelis.testkit.IjState;
 
@@ -33,6 +34,7 @@ class WorkspaceJourneyTest {
     @BeforeAll
     static void context() {
         FijiFixture.imageJ(); // before any ij.* class loads
+        ProductEngine.get(); // the workspace is then built around DefaultEngine, as in the application
     }
 
     @BeforeEach

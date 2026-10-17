@@ -12,15 +12,7 @@ final class EngineFixture {
     private EngineFixture() {}
 
     static synchronized DefaultEngine engine() {
-        if (engine == null) {
-            engine = DefaultEngine.create(FijiFixture.imageJ());
-            try {
-                if (!engine.awaitReady(120, TimeUnit.SECONDS)) throw new IllegalStateException("engine not ready: " + engine.state());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(e);
-            }
-        }
+        if (engine == null) engine = (DefaultEngine) sc.fidelis.testkit.ProductEngine.get();
         return engine;
     }
 

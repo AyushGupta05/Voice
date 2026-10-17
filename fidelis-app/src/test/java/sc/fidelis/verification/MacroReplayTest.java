@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import sc.fidelis.testkit.FijiFixture;
+import sc.fidelis.testkit.ProductEngine;
 import sc.fidelis.testkit.Fixtures;
 import sc.fidelis.testkit.IjState;
 
@@ -38,6 +39,7 @@ class MacroReplayTest {
     @BeforeAll
     static void context() {
         FijiFixture.imageJ();
+        ProductEngine.get(); // the exported macro under test is DefaultEngine's
     }
 
     @BeforeEach
@@ -57,11 +59,12 @@ class MacroReplayTest {
         J12Reference.Fixture fixture = J12Reference.fixture(fixtureId);
         Path baseline = Fixtures.requireBaseline(fixtureId, "gui");
         JourneyScenario.start();
+        int since = JourneyScenario.historySize(); // the engine is shared by the test JVM: replay this journey only
         List<String> uiFailures = new ArrayList<>();
         J12Session.Run run = JourneyScenario.journey(fixtureId, tmp, baseline, uiFailures);
         assertEquals(List.of(), run.failures(), "the live session must itself match the baseline first");
 
-        String exported = JourneyScenario.exportMacro();
+        String exported = JourneyScenario.exportMacroSince(since);
         assumeFalse(exported.contains("Development stub"),
                 "the engine's macro export is the development stub's: E7 replay skipped");
         Snapshot live = JourneyScenario.liveSnapshot(run.document());

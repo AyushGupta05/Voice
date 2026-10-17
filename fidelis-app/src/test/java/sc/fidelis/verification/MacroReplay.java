@@ -44,12 +44,23 @@ final class MacroReplay {
         String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (!p.waitFor(180, TimeUnit.SECONDS)) {
             p.destroyForcibly();
-            throw new AssertionError("replay did not finish: " + output);
+            throw new AssertionError("replay did not finish: " + output + "\n--- macro run ---\n" + text);
         }
-        if (p.exitValue() != 0) throw new AssertionError("replay failed (exit " + p.exitValue() + "): " + output);
+        if (p.exitValue() != 0) {
+            throw new AssertionError("replay failed (exit " + p.exitValue() + "): " + output + "\n--- macro run ---\n" + text
+                    + "\n--- dumper.log ---\n" + readIfPresent(runDir.resolve("out").resolve("dumper.log")));
+        }
         System.out.println("[replay] " + output.trim());
         Path finalJson = runDir.resolve("out").resolve("final.json");
         return new Replayed(Fixtures.readJson(finalJson), text, runDir);
+    }
+
+    private static String readIfPresent(Path p) {
+        try {
+            return Files.isRegularFile(p) ? Files.readString(p, StandardCharsets.UTF_8) : "(none)";
+        } catch (java.io.IOException e) {
+            return "(unreadable: " + e + ")";
+        }
     }
 
     private static String swap(String text, Path from, Path to) {

@@ -394,13 +394,31 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
 
     private void killNow() {
         Process p = process;
-        if (p != null && p.isAlive()) {
-            p.destroyForcibly();
+        if (p == null) return;
+        // A virtualenv python.exe on Windows is a launcher that runs the real interpreter as a child, which
+        // inherits the log file handle: terminate the whole tree, close our end of its stdin, then wait so
+        // the log file is released before a caller (a test's temp directory) deletes it.
+        List<ProcessHandle> tree = p.toHandle().descendants().toList();
+        synchronized (lock) {
             try {
-                p.waitFor(3, TimeUnit.SECONDS); // release the worker's log file before a caller deletes it
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                if (toWorker != null) toWorker.close();
+            } catch (IOException ignored) {
+                // the pipe may already be broken
             }
+        }
+        if (p.isAlive()) p.destroyForcibly();
+        for (ProcessHandle h : tree) h.destroyForcibly();
+        try {
+            p.waitFor(3, TimeUnit.SECONDS);
+            for (ProcessHandle h : tree) {
+                try {
+                    h.onExit().get(3, TimeUnit.SECONDS);
+                } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException ignored) {
+                    // best effort
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -61,6 +61,17 @@ final class JourneyScenario {
         return ws.engine().exportMacro();
     }
 
+    /** Number of history records so far (the shared engine carries every earlier test's steps). */
+    static int historySize() {
+        return ws.engine().history().size();
+    }
+
+    /** The macro of the records added since {@code since}: the product engine exports a session slice. */
+    static String exportMacroSince(int since) {
+        Engine e = ws.engine();
+        return e instanceof sc.fidelis.engine.DefaultEngine d ? d.exportMacroSince(since) : e.exportMacro();
+    }
+
     /** The live session as the engine reports it, with the IJ1 globals read directly. */
     static Snapshot liveSnapshot(sc.fidelis.engine.api.DocumentId original) {
         Snapshot s = J12Session.snapshot(ws.engine(), original, List.of(), productEngine);

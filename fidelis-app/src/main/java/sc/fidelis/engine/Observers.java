@@ -95,6 +95,7 @@ final class Observers {
 
     private void onCommand(String label) {
         Op op = Op.CURRENT.get();
+        if (op == null) eng.adoptBeforeNative(); // the command must see hosted documents, not a window mid-swap
         String options = Macro.getOptions();
         ImagePlus cur = WindowManager.getCurrentImage();
         Doc doc = cur == null ? null : eng.registry.byImp(cur);

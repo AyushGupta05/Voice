@@ -33,6 +33,11 @@ public final class ExitListener implements LauncherSessionListener, TestExecutio
             finished.incrementAndGet();
             if (result.getStatus() == TestExecutionResult.Status.FAILED) failed.incrementAndGet();
         }
+        if (result.getStatus() == TestExecutionResult.Status.FAILED) {
+            // the launcher's failure summary is never printed (this listener halts the JVM first)
+            System.out.println("[fidelis-tests] FAILED " + id.getDisplayName());
+            result.getThrowable().ifPresent(t -> t.printStackTrace(System.out));
+        }
     }
 
     @Override
