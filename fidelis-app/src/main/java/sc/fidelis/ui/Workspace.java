@@ -56,6 +56,7 @@ public final class Workspace {
     public static void launch(ImageJ ij, String[] args) {
         Options o = Options.parse(args);
         Theme.install();
+        if ("dark".equalsIgnoreCase(o.theme())) Theme.setDark(true);
         System.out.println("[fidelis] display scale (default transform) = "
                 + java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
                         .getDefaultConfiguration().getDefaultTransform().getScaleX());
@@ -76,6 +77,7 @@ public final class Workspace {
         // Interactive launches stay on screen; a screenshot run keeps the exact requested size (evidence at demo resolution)
         Dimension requested = o.size() != null ? o.size() : DEFAULT_SIZE;
         Workspace w = create(engine, quit, o.screenshot() == null ? clampToScreen(requested) : requested);
+        if (o.toolLabels()) w.tools.setLabelled(true);
         // The speech service spawns a Python process: construct it off the EDT, attach when it exists
         if (ServiceRegistry.speech() == null) {
             new Thread(() -> {
@@ -331,7 +333,7 @@ public final class Workspace {
 
     /** Command-line options of the workspace (handled in {@link #launch}). */
     record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search, String scenario,
-                   boolean confirm, boolean closeWindow) {
+                   boolean confirm, boolean closeWindow, String theme, boolean toolLabels) {
         static Options parse(String[] args) {
             Path shot = null;
             java.util.List<String> open = new java.util.ArrayList<>();
@@ -341,6 +343,8 @@ public final class Workspace {
             String scenario = null;
             boolean confirm = false;
             boolean closeWindow = false;
+            String theme = null;
+            boolean toolLabels = false;
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
                     case "--screenshot" -> {
@@ -357,6 +361,10 @@ public final class Workspace {
                     }
                     case "--confirm" -> confirm = true;
                     case "--close-window" -> closeWindow = true;
+                    case "--theme" -> { // light (default) or dark (issue #20)
+                        if (i + 1 < args.length) theme = args[++i];
+                    }
+                    case "--tool-labels" -> toolLabels = true;
                     case "--search" -> {
                         if (i + 1 < args.length) search = args[++i];
                     }
@@ -375,7 +383,7 @@ public final class Workspace {
                 shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
-            return new Options(shot, open, size, instruction, search, scenario, confirm, closeWindow);
+            return new Options(shot, open, size, instruction, search, scenario, confirm, closeWindow, theme, toolLabels);
         }
     }
 }

@@ -292,10 +292,10 @@ public final class HistoryPanel extends JPanel {
                 case UNRECORDABLE -> "UNRECORDABLE";
             };
             Color color = switch (p) {
-                case NATIVE -> new Color(0x2f6fdb);
-                case TYPED -> new Color(0x2a8a4a);
-                case LEGACY_DIALOG -> new Color(0xb07400);
-                case UNRECORDABLE -> new Color(0xc0262d);
+                case NATIVE -> Theme.isDark() ? new Color(0x7fb0ff) : new Color(0x2f6fdb);
+                case TYPED -> Theme.isDark() ? new Color(0x6fd08a) : new Color(0x2a8a4a);
+                case LEGACY_DIALOG -> Theme.isDark() ? new Color(0xf0b440) : new Color(0xb07400);
+                case UNRECORDABLE -> Theme.isDark() ? new Color(0xff7b7b) : new Color(0xc0262d);
             };
             setText(text);
             setFont(getFont().deriveFont(Font.BOLD, 11f));

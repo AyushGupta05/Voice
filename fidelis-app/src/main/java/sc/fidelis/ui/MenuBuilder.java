@@ -141,11 +141,14 @@ final class MenuBuilder {
         right.addActionListener(e -> ctx.docks().setRightVisible(right.isSelected()));
         JCheckBoxMenuItem bottom = new JCheckBoxMenuItem("Bottom dock", true);
         bottom.addActionListener(e -> ctx.docks().setBottomCollapsed(!bottom.isSelected()));
+        JCheckBoxMenuItem labels = new JCheckBoxMenuItem("Labelled tools", false);
+        labels.addActionListener(e -> workspace.tools().setLabelled(labels.isSelected()));
         m.addMenuListener(new MenuListener() {
             @Override
             public void menuSelected(MenuEvent e) {
                 right.setSelected(ctx.docks().isRightVisible());
                 bottom.setSelected(!ctx.docks().isBottomCollapsed());
+                labels.setSelected(workspace.tools().isLabelled());
                 light.setSelected(!Theme.isDark());
                 dark.setSelected(Theme.isDark());
             }
@@ -160,6 +163,7 @@ final class MenuBuilder {
         });
         m.add(right);
         m.add(bottom);
+        m.add(labels);
         m.addSeparator();
         m.add(panelItem("Parameters", () -> ctx.docks().showParameters()));
         m.add(panelItem("Brightness/Contrast", () -> ctx.docks().showDisplay()));

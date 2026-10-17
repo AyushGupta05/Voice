@@ -139,6 +139,17 @@ public final class MacroEditorPanel extends JPanel {
         add(split, BorderLayout.CENTER);
     }
 
+    /** A theme switch (FlatLaf.updateUI) re-skins the tree; the editor's colours are re-applied once that is done. */
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        if (editor != null) javax.swing.SwingUtilities.invokeLater(this::applyEditorTheme);
+    }
+
+    java.awt.Color editorBackground() {
+        return editor.getBackground();
+    }
+
     private void applyEditorTheme() {
         String name = Theme.isDark() ? "dark.xml" : "default.xml";
         try (InputStream in = RSyntaxTextArea.class.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/" + name)) {

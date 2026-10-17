@@ -162,6 +162,31 @@ final class LayoutScenario {
         for (int i = 0; i < all.length; i++) assertTrue(frame.contains(all[i]), names[i] + " " + all[i] + " lies inside the frame" + where);
     }
 
+    // ---- dark theme (issue #20) ----------------------------------------------------------------------------
+
+    /** Switching to the dark theme keeps every demo panel laid out and the editor follows (RSyntaxTextArea dark theme). */
+    static void darkThemeKeepsTheDemoLayout() throws Exception {
+        try {
+            edt(() -> {
+                Theme.setDark(true);
+                ws.frame().setSize(1500, 940);
+                ws.frame().validate();
+                ws.docks().applyDefaultDividers();
+                ws.frame().validate();
+            });
+            edt(() -> { }); // the editor re-applies its colours after the tree update
+            assertTrue(Theme.isDark(), "dark theme installed");
+            assertLayout(1500, 940);
+            java.awt.Color bg = ws.editor().editorBackground();
+            assertTrue(bg.getRed() + bg.getGreen() + bg.getBlue() < 3 * 110, "the macro editor follows the dark theme, background was " + bg);
+            java.awt.Color panel = ws.results().getBackground();
+            assertTrue(panel.getRed() + panel.getGreen() + panel.getBlue() < 3 * 110, "panels are dark, Results background was " + panel);
+        } finally {
+            edt(() -> Theme.setDark(false));
+            edt(() -> { });
+        }
+    }
+
     // ---- dividers and reset ---------------------------------------------------------------------------
 
     private static void move(JSplitPane sp, int delta) throws Exception {
