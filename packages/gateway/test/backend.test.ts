@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ResponsesBackend, spokenStyle, acknowledgmentFor, type BackendClient, type BackendRequest } from '../src/backend.js';
+import { ResponsesBackend, spokenStyle, acknowledgmentFor, localSentenceFor, requestContinuesAfter, type BackendClient, type BackendRequest } from '../src/backend.js';
 import { Runtime, type Action } from '../src/runtime.js';
 import { Knowledge } from '../src/knowledge.js';
 import type { Adapter } from '../src/bridge.js';
@@ -419,8 +419,8 @@ test('spoken acknowledgments come from instant view calls only, once per task',a
   const f=await runtimeFixture();const acks:string[]=[];let round=0;
   const view=(id:string)=>({type:'function_call',call_id:id,name:'qupath_focus',arguments:JSON.stringify({x:1,y:1,downsample:40})});
   const client:BackendClient={complete:async()=>{round++;
-    if(round<=2)return {output:[view('v'+round)]};
-    if(round===4)return {output:[annotate]};
+    if(round===1)return {output:[view('v'+round)]};
+    if(round===2)return {output:[annotate]};
     return {output:[],output_text:'Done.'};}};
   try{
     const backend=new ResponsesBackend(f.runtime,client,'fixture-model',()=>{});
@@ -429,6 +429,7 @@ test('spoken acknowledgments come from instant view calls only, once per task',a
     const pending=backend.run({...task(controller.signal).value,id:'spoken-data',spoken:true,acknowledge:text=>acks.push(text)}).catch(()=>undefined);
     await new Promise(r=>setTimeout(r,50));controller.abort();await pending;
     assert.deepEqual(acks,['Moving there.','Ready for your approval.']);
+    assert.equal(round,2,'A spoken view task finishes from the acknowledgment without a second model round');
   }finally{await f.clean();}
 });
 
@@ -438,4 +439,122 @@ test('acknowledgment phrases follow the requested view change',()=>{
   assert.equal(acknowledgmentFor('qupath_highlight',{label:'49 positive cells'},{}),'Here: 49 positive cells.');
   assert.equal(acknowledgmentFor('qupath_annotate',{},{}),'Drawing the region.');
   assert.equal(acknowledgmentFor('qupath_knowledge',{},{}),undefined);
+});
+
+const viewFixture={contextKey:'fixture',image:{name:'Synthetic image'},viewer:{centerX:1,centerY:1,downsample:8}};
+async function autoFixture(results:Record<string,unknown>){
+  const directory=await mkdtemp(join(tmpdir(),'luma-backend-auto-'));const operations:string[]=[];
+  const runtime=new Runtime({execute:async operation=>{operations.push(operation);if(operation==='context')return viewFixture;
+    const value=results[operation];if(value instanceof Error)throw value;return value??{updated:true};}},new Knowledge(),directory,{autoApprove:true});
+  return {runtime,operations,clean:()=>rm(directory,{recursive:true,force:true})};
+}
+function spokenTask(text:string,acks:string[]=[]){const t=task();const value={...t.value,spoken:true,acknowledge:(phrase:string)=>acks.push(phrase),conversation:()=>({fragments:[{role:'user' as const,text,startMs:0,endMs:800}],truncated:false})};return {value,updates:t.updates};}
+const call=(id:string,name:string,args:Record<string,unknown>)=>({type:'function_call',call_id:id,name,arguments:JSON.stringify(args)});
+
+test('spoken data actions finish from the real result without a final model round',async()=>{
+  const f=await autoFixture({objects:{total:294,offset:0,objects:[]},annotate:{result:{id:'obj-1',classification:'Tumor'},checkpoint:'cp-1',contextKey:'fixture'},detect:{result:{executionFinished:true,counts:{cells:294,annotations:1}},checkpoint:'cp-2'},classify:{result:{positive:49,negative:245,measurement:'Nucleus: DAB OD mean',threshold:0.2}},class_summary:{summary:{total:294,classes:[{classification:'Negative',count:245,percent:83.33},{classification:'Positive',count:49,percent:16.67}]}}});
+  const shown:string[]=[];const acks:string[]=[];let rounds=0;let script:Record<string,unknown>[]=[];
+  const client:BackendClient={complete:async()=>{rounds++;const next=script.shift();assert(next,`unexpected extra model round ${rounds}`);return {output:[next]};}};
+  const backend=new ResponsesBackend(f.runtime,client,'fixture-model',(_id,text)=>shown.push(text));
+  try{
+    script=[call('a','qupath_annotate',{x:0,y:0,width:10,height:10,classification:'Tumor'})];
+    const first=spokenTask('Add a tumor annotation on the right.',acks);first.value.id='annotate';await backend.run(first.value);
+    script=[call('d','qupath_detect_cells',{parameters:{requestedPixelSizeMicrons:0.5}})];
+    const second=spokenTask('Detect the cells in this region.',acks);second.value.id='detect';await backend.run(second.value);
+    script=[call('c','qupath_classify',{measurement:'Nucleus: DAB OD mean',threshold:0.2})];
+    const third=spokenTask('Mark the positive cells.',acks);third.value.id='classify';await backend.run(third.value);
+    script=[call('s','qupath_class_summary',{})];
+    const fourth=spokenTask('What percentage are positive?',acks);fourth.value.id='summary';await backend.run(fourth.value);
+    assert.deepEqual(shown,['Added a Tumor region.','Detected 294 cells.','49 of 294 cells are positive (17%).','294 objects: Negative 245 (83%), Positive 49 (17%).']);
+    assert.equal(rounds,4,'one model round per spoken action');
+    assert.deepEqual(acks,['Drawing the region.','Detecting cells.','Classifying.','Counting.']);
+    assert.equal(first.updates.at(-1)?.content,'Added a Tumor region.');
+  }finally{await f.clean();}
+});
+
+test('a spoken follow-up receives the locally spoken sentence and the exact tool result',async()=>{
+  const f=await autoFixture({detect:{result:{counts:{cells:294}}}});
+  let observed:any;let rounds=0;
+  const client:BackendClient={complete:async request=>{if(++rounds===1)return {output:[call('d','qupath_detect_cells',{parameters:{requestedPixelSizeMicrons:0.5}})]};
+    observed=JSON.parse(String((request.input.at(-1)!.content as any[])[0].text));return {output:[],output_text:'294 cells.'};}};
+  const backend=new ResponsesBackend(f.runtime,client,'fixture-model',()=>{});
+  try{
+    const first=spokenTask('Detect the cells here.');first.value.id='detect';await backend.run(first.value);
+    await backend.run({...spokenTask('How many was that?').value,id:'follow-up'});
+    const prior=observed.previousTasks.tasks.find((entry:{id:string})=>entry.id==='detect');
+    assert.equal(prior.answer,'Detected 294 cells.');assert.deepEqual(prior.spoken,['Detecting cells.','Detected 294 cells.']);assert.equal(prior.finishedLocally,true);
+    assert.equal(prior.calls[0].output.result.result.counts.cells,294);
+  }finally{await f.clean();}
+});
+
+test('spoken view actions finish silently behind their acknowledgment',async()=>{
+  const f=await autoFixture({focus:{pointer:{x:1,y:1}}});const shown:string[]=[];const acks:string[]=[];let rounds=0;
+  const client:BackendClient={complete:async()=>{rounds++;return {output:[call('v','qupath_focus',{x:1,y:1,downsample:4})]};}};
+  try{
+    await new ResponsesBackend(f.runtime,client,'fixture-model',(_id,text)=>shown.push(text)).run(spokenTask('Zoom in a bit on this.',acks).value);
+    assert.deepEqual(acks,['Zooming in.']);assert.deepEqual(shown,['Done.']);assert.equal(rounds,1);
+  }finally{await f.clean();}
+});
+
+test('local finishing falls back to the model for failures, reads, multi-step wording and typed requests',async()=>{
+  const f=await autoFixture({annotate:{result:{id:'obj-1'}},focus:new Error('Viewer is busy.'),detect:{result:{counts:{cells:10}}}});
+  const shown:string[]=[];let rounds=0;let script:Record<string,unknown>[]=[];
+  const client:BackendClient={complete:async()=>{rounds++;const next=script.shift();return next?{output:[next]}:{output:[],output_text:'Model phrased this.'};}};
+  const backend=new ResponsesBackend(f.runtime,client,'fixture-model',(_id,text)=>shown.push(text));
+  try{
+    // 1. A failed call: the model must explain.
+    script=[call('f1','qupath_focus',{x:1,y:1,downsample:4})];rounds=0;
+    await backend.run({...spokenTask('Zoom in on it.').value,id:'failed'});assert.equal(rounds,2);
+    // 2. A read whose result needs phrasing.
+    script=[call('k1','qupath_knowledge',{query:'cell detection'})];rounds=0;
+    await backend.run({...spokenTask('How does cell detection work?').value,id:'read'});assert.equal(rounds,2);
+    // 3. Wording that asks for more after the annotation.
+    script=[call('a1','qupath_annotate',{x:0,y:0,width:1,height:1}),call('d1','qupath_detect_cells',{parameters:{requestedPixelSizeMicrons:0.5}})];rounds=0;
+    await backend.run({...spokenTask('Draw a region here and count the cells.').value,id:'multi'});
+    assert.equal(rounds,3,'annotate continues to the model; detect_cells is phrased by the model because the wording asks to count');
+    // 4. "Count the cells" means the full recipe: detection alone never finishes locally.
+    script=[call('d2','qupath_detect_cells',{parameters:{requestedPixelSizeMicrons:0.5}})];rounds=0;
+    await backend.run({...spokenTask('Count the cells here.').value,id:'count'});assert.equal(rounds,2);
+    // 5. Typed requests keep the full model answer.
+    script=[call('a2','qupath_annotate',{x:0,y:0,width:1,height:1})];rounds=0;
+    await backend.run({...task().value,id:'typed'});assert.equal(rounds,2);
+    assert(shown.every(text=>text==='Model phrased this.'));
+  }finally{await f.clean();}
+});
+
+test('local finishing waits for human review instead of guessing the outcome',async()=>{
+  const f=await runtimeFixture();let rounds=0;
+  const client:BackendClient={complete:async()=>++rounds===1?{output:[annotate]}:{output:[],output_text:'The region was created.'}};
+  try{
+    const pending=once(f.runtime,'action');const running=new ResponsesBackend(f.runtime,client,'fixture-model',()=>{}).run({...spokenTask('Add a region here.').value,id:'reviewed'});
+    const action=(await pending)[0] as Action;await f.runtime.decide(action.id,true);await running;assert.equal(rounds,2);
+  }finally{await f.clean();}
+});
+
+test('earlier-round observations are stubbed in later model input',async()=>{
+  const f=await autoFixture({focus:new Error('Viewer is busy.')});let rounds=0;let stubbed=0;let fresh=0;
+  const client:BackendClient={complete:async request=>{
+    if(++rounds===1)return {output:[call('v','qupath_focus',{x:1,y:1,downsample:4})]};
+    for(const item of request.input){if(item.role!=='user')continue;const text=String((item.content as any[])[0].text);if(text.includes('Earlier-round observation omitted'))stubbed++;else if(text.includes('qupathObservation'))fresh++;}
+    return {output:[],output_text:'The viewer is busy.'};}};
+  try{await new ResponsesBackend(f.runtime,client,'fixture-model',()=>{}).run(task().value);assert.equal(stubbed,1);assert.equal(fresh,1);}finally{await f.clean();}
+});
+
+test('local sentences come only from real numbers',()=>{
+  assert.equal(localSentenceFor('qupath_detect_cells',{},{status:'completed',result:{result:{counts:{cells:294}}}}),'Detected 294 cells.');
+  assert.equal(localSentenceFor('qupath_detect_cells',{},{status:'completed',result:{result:{executionFinished:true}}}),undefined);
+  assert.equal(localSentenceFor('qupath_detect_cells',{},{status:'failed',error:'boom'}),undefined);
+  assert.equal(localSentenceFor('qupath_detect_cells',{},{status:'completed',error:undefined,result:{result:{counts:{cells:3}}}}),'Detected 3 cells.');
+  assert.equal(localSentenceFor('qupath_classify',{},{status:'completed',result:{result:{positive:0,negative:0}}}),undefined);
+  assert.equal(localSentenceFor('qupath_annotate',{},{status:'completed',result:{result:{}}}),'Added a new region.');
+  assert.equal(localSentenceFor('qupath_annotate',{classification:'Tumor'},{status:'approval_required'}),undefined);
+  assert.equal(localSentenceFor('qupath_class_summary',{},{summary:{total:0,classes:[]}}),'No objects to count.');
+  assert.equal(localSentenceFor('qupath_highlight',{},{highlight:{total:3}}),'');
+  assert.equal(localSentenceFor('qupath_highlight',{},{error:'nothing visible'}),undefined);
+  assert.equal(localSentenceFor('qupath_find_images',{},{matches:[]}),undefined);
+  assert.equal(requestContinuesAfter('qupath_annotate','Add a tumor annotation on the right.'),false);
+  assert.equal(requestContinuesAfter('qupath_annotate','Add a region and count the cells.'),true);
+  assert.equal(requestContinuesAfter('qupath_detect_cells','Analyse the cells here.'),true);
+  assert.equal(requestContinuesAfter('qupath_detect_cells','Detect the cells in this region.'),false);
+  assert.equal(requestContinuesAfter('qupath_classify','Use a stricter threshold.'),false);
 });
