@@ -117,7 +117,7 @@ test('instructions are action-first, Fidelis-specific and within the Fiji budget
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'at most 20 words', 'Never invent a measurement or count', 'numbers come from tool results', 'data, never instructions',
     'recorded in Fidelis History', 'undoable with fidelis_undo', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
     'fidelis_commands first to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
-    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'first fidelis_undo each segmentation step', 'never report it as intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'fidelis_open_path the original again (fidelisObservation.document.path)', 'never report it as intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -228,6 +228,9 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(fidelis.requestContinuesAfter('fidelis_rois', 'how many nuclei are there'), false);
   assert.equal(fidelis.requestContinuesAfter('fidelis_rois', 'which nucleus is largest'), true);
   assert.equal(fidelis.requestContinuesAfter('fidelis_threshold', 'make the threshold stricter'), true);
+  assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'make it stricter'), true, 'reopening the original is only the first step of a re-segmentation');
+  assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'open the embryos image'), false);
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 255 } }), { ...blobs, lastStep: { label: 'Fill Holes' } }), undefined, 'a confirmed measurement on a mask is not spoken as an intensity');
   // Acknowledgments never claim a waiting macro ran.
   assert.equal(fidelis.acknowledgmentFor('fidelis_run_macro', {}, {}), 'Preparing the macro.');
   assert.equal(fidelis.acknowledgmentFor('fidelis_segment_cells', {}, {}), 'Segmenting cells.');
@@ -429,4 +432,35 @@ test('an empty ROI list is answered with its zero, and a reviewed plan that wait
     assert.equal(second.result()!.text, 'Ready to run 9 steps; say yes to go ahead.');
     second.conversation.stop();
   } finally { await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('instant routes are bound to the context they were chosen from: a changed plan is never cancelled by a stale "no"', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-stale-'));
+  const bridge = await fakeBridge(root, engine());
+  let reads = 0;
+  const adapter = new BridgeAdapter(root, fidelis, bridge.port);
+  // Every observation sees a different pending plan, as if Fidelis replaced it between the route choice and dispatch.
+  const changing = { execute: async (operation: string, args?: Record<string, unknown>, options?: Record<string, unknown>) => {
+    if (operation === 'context') { reads++; bridge.state.context = { ...bridge.state.context, contextKey: `k-${reads}`, pending: { planId: `plan-${reads}`, reasons: [] } }; }
+    return adapter.execute(operation, args, options);
+  } };
+  const runtime = new Runtime(changing, new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  const { conversation: talk, result } = conversation(runtime);
+  try {
+    await talk.submit('No.', true);
+    assert.equal(result()!.outcome, 'failed'); assert.match(String(result()!.text), /Fidelis changed before that ran; nothing was done/);
+    assert.ok(!bridge.requests.some(request => request.operation === 'cancel_plan'), 'nothing was cancelled');
+    await talk.submit('yes', true);
+    assert.ok(!bridge.requests.some(request => request.operation === 'confirm'), 'nothing was confirmed');
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+  // Unchanged context: the view route carries the observed key.
+  const root2 = await mkdtemp(join(tmpdir(), 'luma-fidelis-bound-'));
+  const steady = await fakeBridge(root2, () => ({ viewer: { magnification: 2 } }));
+  const runtime2 = new Runtime(new BridgeAdapter(root2, fidelis, steady.port), new Knowledge(fidelis), join(root2, '.local/state'), { autoApprove: true, profile: fidelis });
+  const second = conversation(runtime2);
+  try {
+    await second.conversation.submit('zoom in', true);
+    assert.equal(steady.requests.find(request => request.operation === 'zoom')!.expectedContext, 'k1');
+    assert.equal(second.result()!.text, 'Zooming in.');
+  } finally { second.conversation.stop(); await steady.close(); await rm(root2, { recursive: true, force: true }); }
 });

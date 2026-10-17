@@ -102,10 +102,12 @@ function thresholdSentence(inner: Record<string, unknown>): string | undefined {
   return `Thresholded at ${round(lower)}–${round(upper)}${method}.`;
 }
 /** A confirmed plan answers with the result of what it ran: a count, a measurement, a threshold or its steps. */
-function confirmSentence(inner: Record<string, unknown>): string {
+function confirmSentence(inner: Record<string, unknown>, context?: unknown): string | undefined {
   const counted = countSentence(inner); if (counted) return counted;
   const threshold = thresholdSentence(inner); if (threshold) return threshold;
   if (inner.lastRow || inner.summary) {
+    // A mean measured on a segmentation mask is not an intensity: the model explains instead.
+    if (maskLikely(context) && measuresIntensity(inner)) return undefined;
     // The confirm call does not carry the plan's scope: more than one measured row is a multi-ROI measurement, reported from its summary.
     const rows = finite(inner.rows) ?? finite((column(inner.summary, 'Mean') as { count?: unknown } | undefined)?.count);
     const measured = measureSentence({ scope: !inner.lastRow || (rows !== undefined && rows > 1) ? 'rois' : 'roi' }, inner); if (measured) return measured;
@@ -152,7 +154,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fidelis_convert') return typeof args.to === 'string' ? `Converted to ${args.to}.` : 'Converted.';
   if (name === 'fidelis_duplicate') return 'Duplicated.';
   if (name === 'fidelis_run_macro') return 'Ran the macro.';
-  if (name === 'fidelis_confirm') return confirmSentence(inner);
+  if (name === 'fidelis_confirm') return confirmSentence(inner, context);
   return undefined;
 }
 const analysisWords = /\b(?:measur\w*|count\w*|segment\w*|detect\w*|quantif\w*|coloc\w*|correlat\w*|overlap\w*|track\w*|analy[sz]\w*|threshold\w*|classif\w*|how many|intensit\w*|percent\w*|compar\w*|subtract\w*|project\w*|export\w*|macro)\b/;
@@ -163,6 +165,8 @@ function requestContinuesAfter(name: string, utterance: string, result?: unknown
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
   if ((silentFinishTools.has(name) || name === 'fidelis_open_path') && (analysisWords.test(said) || compoundRequest(utterance))) return true;
+  // Re-segmenting reopens the original first; the segmentation itself is still to come.
+  if (name === 'fidelis_open_path' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|conservative|aggressive|again|re-?segment\w*|redo)\b/.test(said)) return true;
   if (name === 'fidelis_segment_cells' && /\b(strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative)\b/.test(said)) return false;
   if (name === 'fidelis_segment_cells') return !/\b(segment|count|find|detect|identify|outline|how many)\b/.test(said) || /\b(area|size|intens|measur|mean|bright|perimeter|circular)/.test(said)
     || /\b(positive|negative|ki-?67|marker|percent|fraction|proportion|index|express)/.test(said);
@@ -309,7 +313,7 @@ export const fidelis: AppProfile = {
   // Fidelis is built by its own tools; there is no separate bridge artifact or build manifest (bridgeIdentity 'operations').
   launcherScript: './script/run-fidelis.sh', bridgeJar: 'fidelis-app/build/fidelis-app.jar', buildManifest: '', buildScript: 'python3 -I fidelis-app/tools/build.py --no-tests',
   doctorArtifacts: [['fidelis-app/build/fidelis-app.jar', 'Fidelis build'], ['.local/fiji/Fiji.app/jars', 'Fiji runtime for Fidelis']],
-  bridgeIdentity: 'operations', conversationEnvelope: true,
+  bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true,
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),

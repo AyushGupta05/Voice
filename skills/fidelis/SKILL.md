@@ -42,8 +42,8 @@ researcher presses *Confirm and run* or says "yes"; `fidelis_confirm` then runs 
 - `fidelis_measure` takes Set Measurements keys (`area`, `mean`, `min`, `integrated`, `shape`, `feret's`, …) and a scope:
   `roi` (the active selection), `all` (the whole document) or `rois` (every ROI-list entry).
 - `fidelis_segment_cells` converts the focused document to its mask in place (no duplicate). To re-segment with a
-  stricter (`Li`) or looser (`Huang`) method, first undo its steps with `fidelis_undo` (`fidelis_history` lists them),
-  then segment again; never threshold the mask.
+  stricter (`Li`) or looser (`Huang`) method, open the original file again (`fidelis_open_path` with `document.path`)
+  and segment that; never threshold the mask. Intensities of the objects need the original pixels too.
 - "What did you do" is `fidelis_history`; "show me the macro / make this reproducible" is `fidelis_macro`.
 
 ## Limits

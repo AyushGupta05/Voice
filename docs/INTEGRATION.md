@@ -97,8 +97,10 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 
 Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model. There is
 no instant "stricter / looser" and no instant repeat of "find the nuclei" once ROIs exist: `segment_cells` turns the
-focused document into its mask in place, so re-segmenting needs the segmentation undone first (the model does this from
-`fidelis_history`).
+focused document into its mask in place, so re-segmenting needs the original pixels (the model reopens the
+document's file). Instant routes are bound to the context they were chosen from (`bindInstantRoutes`): if the
+`contextKey` changed before dispatch (another plan became pending, the focus moved), the route is refused with
+"Fidelis changed before that ran; nothing was done. Say it again.", and view routes carry `expectedContext`.
 
 ### Readiness
 
@@ -141,8 +143,9 @@ The bridge should match these readings of [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL
    `document.display: {min, max}`) for "brighter/darker", and `document.position: {channel, slice, frame}` for
    "next/previous slice". Without them those phrases go to the model.
 6. `segment_cells` works in place (no Duplicate), which leaves two gaps the bridge should close:
-   re-segmenting with another method needs the original pixels back (the model undoes the plan one `undo` at a time;
-   one undoable History step per plan, or segmenting from the pre-segmentation state, would be safer), and
+   re-segmenting with another method needs the original pixels back (the model reopens `document.path`, which loses
+   unsaved changes made before segmenting; one undoable History step per plan, or segmenting from the
+   pre-segmentation state, would be better), and
    `measure {scope: "rois"}` right after segmenting reads the mask (0/255), not intensities (measure on the
    pre-segmentation pixels, for example by redirecting Set Measurements to a kept original). Until then the gateway has
    no instant intensity route, never speaks a mean as an intensity locally when the document looks segmented (a

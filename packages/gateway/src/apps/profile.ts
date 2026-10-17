@@ -59,6 +59,9 @@ export type AppProfile = {
   /** The bridge takes the conversation envelope with every `/execute`: `spoken`, `taskId` and the latest user
    * `utterance` (docs/FIDELIS-PROTOCOL.md). Other bridges receive the original body unchanged. */
   conversationEnvelope?: boolean;
+  /** Instant routes are dispatched bound to the context they were chosen from: a changed contextKey refuses the route
+   * before dispatch, and view operations carry it as `expectedContext` (a "no" meant for one plan never cancels another). */
+  bindInstantRoutes?: boolean;
   fastRoute(text: string, context: unknown): FastRoute | undefined;
   acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined;
   /** `context` is the application observation the call was dispatched from, when the host has it. */

@@ -72,7 +72,9 @@ export class TextConversation {
     const acknowledged=(risk==='data'||risk==='code')&&profile.longRunningTools.has(route.tool);
     if(acknowledged)this.emit({type:'text_ack',taskId:active.id,text:route.reply});
     let result:Record<string,unknown>|undefined;
-    try{result=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal))) as Record<string,unknown>|undefined;}
+    // A profile that binds instant routes refuses one whose application state changed since it was chosen.
+    const bound=profile.bindInstantRoutes?(current?:Context)=>{if(current&&current.contextKey!==context.contextKey)throw new Error(`${profile.displayName} changed before that ran; nothing was done. Say it again.`);}:undefined;
+    try{result=await toolTask.run(active.id,()=>toolUtterance.run(request,()=>this.runtime.call(route!.tool,route!.arguments,active.controller.signal,bound))) as Record<string,unknown>|undefined;}
     catch(error){
      active.controller.signal.throwIfAborted();
      // The bridge's refusals are short, speakable sentences ("No cell under the pointer; point at it."): say them.
