@@ -40,7 +40,7 @@ Record evidence separately from claims. Mark a feature implemented, locally prot
 
 ## Publication
 
-Use ordinary incremental commits. Do not commit `.local`, tokens, caches, source datasets or raw logs. Public documentation may include screenshots of freely distributable sample data with provenance. The approved progress destination is the personal fork at https://github.com/AyushGupta05/Voice . Keep the original remote intact and do not force-push.
+Use ordinary incremental commits. Do not commit `.local`, tokens, caches, source datasets or raw logs. Public documentation may include screenshots of freely distributable sample data with provenance. The primary repository and approved progress destination is https://github.com/Sleep-On-It/Voice (`origin`), as explicitly requested by Ayush on 17 October 2026. The personal fork at https://github.com/AyushGupta05/Voice (`publish`) remains secondary. Keep both remote URLs intact and do not force-push.
 
 Run `./script/test-bridge.sh` after Java adapter changes. It tests parameter rejection and workflow replay against the installed QuPath jars using a synthetic in-memory image. The public slide integration fixture requires the explicit disposable-fixture authorization described in the demo documentation.
 

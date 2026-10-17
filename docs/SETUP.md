@@ -17,7 +17,7 @@ No cloud account, API key or paid resource is needed for the local build. Nothin
 ## Install and run
 
 ```sh
-git clone https://github.com/AyushGupta05/Voice.git
+git clone https://github.com/Sleep-On-It/Voice.git
 cd Voice
 python3 script/setup.py
 ./script/run-qupath.sh

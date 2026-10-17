@@ -9,7 +9,7 @@ Read README.md, docs/CAPABILITIES.md and docs/BUILD-JOURNAL.md before changing b
 - Data/code actions execute immediately by default (`LUMA_APPROVALS=auto`, the user's decision on 17 Oct 2026: no available action is damaging enough to need a card). They still go through the recorded `Runtime.decide()` path with `decidedBy: "policy"`, an audit record and a hierarchy checkpoint. `LUMA_APPROVALS=review` restores human review cards bound to exact arguments, image, selection, hierarchy and dialog state; there is still no model-callable approval tool.
 - Never promise universal undo. Hierarchy checkpoints do not undo files, image settings or arbitrary code effects.
 - Preserve unrelated dirty work. Keep dependencies, tokens, slides, logs and caches out of Git.
-- Use the approved `publish` remote (AyushGupta05/Voice) for progress pushes. `origin` is the original read-only Sleep-On-It/Voice repository; do not silently change it.
+- Use `origin` (Sleep-On-It/Voice) as the primary repository and destination for progress pushes, as explicitly requested by Ayush on 17 Oct 2026. `publish` (AyushGupta05/Voice) remains the secondary fork. Keep both remote URLs intact and do not force-push.
 
 ## Map
 
