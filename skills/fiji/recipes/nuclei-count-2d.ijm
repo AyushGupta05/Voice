@@ -54,11 +54,11 @@ run("Analyze Particles...", options);
 run("Set Measurements...", "area mean centroid perimeter shape display redirect=None decimal=3");
 close("penny-nuclei-mask");
 selectImage(orig);
-if (area) Roi.paste();
 count = nResults; sumArea = 0; sumMean = 0;
 for (i = 0; i < count; i++) { sumArea += getResult("Area", i); sumMean += getResult("Mean", i); }
 run("Remove Overlay");
 if (count > 0) { run("From ROI Manager"); }
+if (area) Roi.paste();
 getPixelSize(unit, pw, ph);
 if (!wasBatch) setBatchMode("exit and display");
 print("RESULT count=" + count + " meanArea=" + d2s(sumArea / maxOf(count, 1), 2) + " meanIntensity=" + d2s(sumMean / maxOf(count, 1), 2) + " unit=" + replace(unit, " ", "_") + " channel=" + channel + " threshold=" + method + ":" + d2s(lower, 0) + "-" + d2s(upper, 0));

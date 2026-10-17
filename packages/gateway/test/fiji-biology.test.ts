@@ -198,3 +198,14 @@ test('brighter/darker move the live display range instantly and never filter pix
   assert.deepEqual(fiji.fastRoute!('auto contrast', ctx)?.arguments, { auto: true });
   assert.equal(fiji.fastRoute!('make it brighter and count the cells', ctx), undefined);
 });
+
+test('raw images rank above same-named ground-truth masks; tumour fraction is instant', async () => {
+  const { findLocalImages } = await import('../src/local-images.js');
+  const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises'); const { join } = await import('node:path'); const { tmpdir } = await import('node:os');
+  const root = await mkdtemp(join(tmpdir(), 'penny-masks-'));
+  await mkdir(join(root, 'bbbc008', 'images'), { recursive: true }); await mkdir(join(root, 'bbbc008', 'foreground'), { recursive: true });
+  await writeFile(join(root, 'bbbc008', 'images', 'A24_channel1.tif'), 'x'); await writeFile(join(root, 'bbbc008', 'foreground', 'A24_channel1.tif'), 'xxxxxxxx');
+  assert.match((await findLocalImages(root, 'bbbc channel1', 5, [root], false)).matches[0].path, /images/);
+  assert.match((await findLocalImages(root, 'bbbc channel1 mask', 5, [root], false)).matches[0]?.path ?? 'foreground', /foreground/);
+  assert.equal(fiji.fastRoute!('How much of the tissue is tumour?', { image: { slices: 1 }, counts: { roiManager: 3 } })?.tool, 'fiji_tumor_region');
+});

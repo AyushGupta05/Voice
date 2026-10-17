@@ -126,7 +126,11 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     matches.push({ path, name: basename(path), sizeBytes: size, kind: extension(path) === '.qpproj' ? 'project' : 'image' });
   }
   // Images largest first, then folders with the most images.
-  matches.sort((a, b) => Number(a.kind === 'folder') - Number(b.kind === 'folder') || b.sizeBytes - a.sizeBytes || (b.images ?? 0) - (a.images ?? 0));
+  // Ground-truth masks and label images often share the raw image's file name (BBBC008 images/ vs foreground/): the raw image
+  // comes first unless the researcher asked for the mask.
+  const wantsMask = /\b(mask|masks|foreground|label|labels|ground ?truth|annotation|segmentation)\b/i.test(query);
+  const derived = (path: string) => !wantsMask && /\/(foreground|masks?|labels?|ground[_ -]?truth|gt|annotations?|segmentations?)\//i.test(path) ? 1 : 0;
+  matches.sort((a, b) => Number(a.kind === 'folder') - Number(b.kind === 'folder') || derived(a.path) - derived(b.path) || b.sizeBytes - a.sizeBytes || (b.images ?? 0) - (a.images ?? 0));
   return { matches, searched: useSpotlight ? [...roots, 'Spotlight: home folder'] : roots, truncated };
 }
 /** macOS Spotlight query for slide/project files by extension; silent on any failure (non-macOS, indexing off, timeout). */

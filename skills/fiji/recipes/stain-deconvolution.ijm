@@ -1,7 +1,7 @@
 // @recipe stain-deconvolution
 // @title Colour deconvolution of H&E / IHC stains
 // @when separate haematoxylin, eosin or DAB from a brightfield RGB image and measure how much of each stain is present ("colour deconvolution", "split the H&E stains", "how much haematoxylin / eosin", "unmix the stains")
-// @param vectors = H&E | stain vectors: "H&E", "H&E 2", "H DAB", "H&E DAB", "Feulgen Light Green", "Giemsa", "FastRed FastBlue DAB", "Methyl Green DAB", "Masson Trichrome", "Alcian blue & H", "H PAS", "RGB", "CMY"
+// @param vectors = H&E | stain vectors built into Colour Deconvolution: "H&E", "H&E 2", "H DAB", "H&E DAB", "H AEC", "H PAS", "Feulgen Light Green", "Giemsa", "FastRed FastBlue DAB", "Methyl Green DAB", "Azan-Mallory", "Masson Trichrome", "Alcian blue & H", "Brilliant_Blue", "RGB", "CMY"
 // @param method = Default | auto-threshold method applied to each stain image
 // @output Three 8-bit stain images "<title>-(Colour_1/2/3)" (dark = more stain). Reports the area fraction of the image (or of the active selection) above threshold for stain 1 and stain 2 and their mean optical density there.
 // @say Stain 1 covers {fraction1:%} and stain 2 {fraction2:%} of the {basis}.
@@ -10,7 +10,7 @@ method = pennyParam("method", "Default");
 
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 // Only the built-in vector sets: "From ROI" and "User values" would wait for the mouse or a dialog.
-knownVectors = newArray("H&E", "H&E 2", "H DAB", "H&E DAB", "NBT/BCIP Red Counterstain II", "H DAB NewFuchsin", "H HRP-Green NewFuchsin", "Feulgen LightGreen", "Giemsa", "FastRed FastBlue DAB", "Methyl Green DAB", "H AEC", "Azan-Mallory", "Masson Trichrome", "Alcian blue & H", "H PAS", "Brilliant_Blue", "AstraBlue Fuchsin", "RGB", "CMY");
+knownVectors = newArray("H&E", "H&E 2", "H DAB", "Feulgen Light Green", "Giemsa", "FastRed FastBlue DAB", "Methyl Green DAB", "H&E DAB", "H AEC", "Azan-Mallory", "Masson Trichrome", "Alcian blue & H", "H PAS", "Brilliant_Blue", "RGB", "CMY");
 known = false; for (k = 0; k < knownVectors.length; k++) if (vectors == knownVectors[k]) known = true;
 if (!known) { print("RESULT error=unknown_vectors vectors=[" + vectors + "]"); exit; }
 if (bitDepth() != 24) { print("RESULT error=needs_rgb_brightfield"); exit; }

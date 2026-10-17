@@ -307,6 +307,8 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     // "How many are left?" reads the ROI Manager; re-segmenting would discard the researcher's corrections.
     if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' };
   }
+  // "How much of the tissue is tumour?" is answered by the (deterministic) tumour outline, never by a generic measure.
+  if (/^(?:so |and |now )?(?:how much|what (?:fraction|percentage|proportion|percent)) of (?:the )?(?:tissue|section|slide|sample|image) is (?:tumou?r|cancer)\b/.test(said)) return { tool: 'fiji_tumor_region', arguments: {}, reply: 'Measuring the tumour.' };
   // Brightness is display-only: move the display range from the live values, never filter the pixels.
   const range = (context as { image?: { displayRange?: unknown } } | undefined)?.image?.displayRange;
   if (Array.isArray(range) && range.length === 2 && range.every(v => typeof v === 'number')) {
