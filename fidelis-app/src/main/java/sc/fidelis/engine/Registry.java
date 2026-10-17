@@ -167,6 +167,9 @@ final class Registry {
                 ignored.add(imp); // plots, histograms and other special windows are not documents
                 continue;
             }
+            // a HostCanvas window that is not in this registry is another engine's host (a workspace on the UI's stub
+            // engine in the same JVM) or one of ours being registered right now: re-hosting it would steal it
+            if (w.getCanvas() instanceof HostCanvas) continue;
             // not yet reported opened while some thread is still showing a window: perhaps this one, half-built (see
             // showInProgress); adopted on a later reconcile (imageOpened reconciles again, and a deferral retries)
             if (!opened.contains(imp)) {
