@@ -144,7 +144,7 @@ public final class LumaBridge implements PlugIn {
         } catch (Exception error) {
             var cause = error instanceof ExecutionException ? error.getCause() : error;
             // Unexpected failures (not argument/state refusals) go to .local/fiji.log with their stack so bridge bugs are diagnosable.
-            if (!(cause instanceof IllegalArgumentException || cause instanceof IllegalStateException)) { System.err.println("[Luma] operation failed: " + cause); cause.printStackTrace(); }
+            if (!(cause instanceof IllegalArgumentException || cause instanceof IllegalStateException)) { System.out.println("[Luma] operation failed: " + cause); cause.printStackTrace(System.out); }
             respond(exchange, cause instanceof IllegalArgumentException ? 400 : 409, Map.of("error", Objects.toString(cause.getMessage(), cause.getClass().getSimpleName())));
         } finally { exchange.close(); }
     }

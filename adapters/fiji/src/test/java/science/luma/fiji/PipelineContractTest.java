@@ -174,6 +174,26 @@ public final class PipelineContractTest {
             expect(found.get("count").getAsInt() == 6, "FluorescentCells: 6 nuclei after caption and speck exclusion: " + found.get("count") + " " + found.get("excluded"));
             System.out.println("PASS FluorescentCells.tif: 6 nuclei, excluded " + found.get("excluded"));
         } else System.out.println("SKIP FluorescentCells.tif (run script/fetch-samples.sh)");
+        // HeLa: four nuclei; the watershed cuts the kidney-shaped top-right one in two, which must be joined again.
+        Path hela = Path.of(repo, ".local", "data", "samples", "hela-cells", "hela-cells.tif");
+        if (Files.isRegularFile(hela)) {
+            ImagePlus cells = IJ.openImage(hela.toString());
+            java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(cells));
+            var found = call("segment_cells", new JsonObject(), true, null);
+            expect(found.get("count").getAsInt() == 4, "HeLa: 4 nuclei after joining the over-split one: " + found.get("count") + " joined " + found.get("joinedOversplit"));
+            var keep = new JsonObject(); keep.addProperty("keepSplits", true);
+            System.out.println("PASS hela-cells.tif: 4 nuclei (joined " + found.get("joinedOversplit") + "; raw watershed gives " + call("segment_cells", keep, true, null).get("count") + ")");
+        }
+        Path bbbc = Path.of(repo, ".local", "data", "samples", "bbbc008", "images", "AS_09125_050116000001_A24f00d0_slice2_channel1.tif");
+        if (Files.isRegularFile(bbbc)) {
+            ImagePlus field = IJ.openImage(bbbc.toString());
+            java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(field));
+            var found = call("segment_cells", new JsonObject(), true, null);
+            var keep = new JsonObject(); keep.addProperty("keepSplits", true);
+            int raw = call("segment_cells", keep, true, null).get("count").getAsInt();
+            expect(found.get("count").getAsInt() >= raw * 0.9, "BBBC008 touching round nuclei are not merged away: " + found.get("count") + " vs raw " + raw);
+            System.out.println("PASS BBBC008 field: " + found.get("count") + " nuclei (raw watershed " + raw + ")");
+        }
         Path channels = Files.createTempDirectory("penny-pipeline-channels");
         for (int i = 1; i <= 2; i++) {
             var nuclear = nuclei("nuclear"); var unrelated = new ByteProcessor(240, 160); unrelated.setValue(33); unrelated.fill();

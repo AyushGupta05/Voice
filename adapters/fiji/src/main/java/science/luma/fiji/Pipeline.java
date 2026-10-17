@@ -213,9 +213,21 @@ public final class Pipeline {
         var image = imp == null ? null : imp.getWindow();
         if (window != null && image != null) {
             var screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            var b = image.getBounds(); int x = b.x + b.width + 8, y = b.y;
-            if (x + window.getWidth() > screen.x + screen.width) x = Math.max(screen.x, b.x - window.getWidth() - 8);
-            window.setLocation(x, Math.max(screen.y, Math.min(y, screen.y + screen.height - window.getHeight())));
+            var b = image.getBounds(); int w = window.getWidth(), h = window.getHeight(), gap = 10;
+            int clampY = Math.max(screen.y, Math.min(b.y, screen.y + screen.height - h)), clampX = Math.max(screen.x, Math.min(b.x, screen.x + screen.width - w));
+            // Beside the image if there is room (right, left), else below or above it; never on top of the cells.
+            java.awt.Point[] candidates = { new java.awt.Point(b.x + b.width + gap, clampY), new java.awt.Point(b.x - w - gap, clampY),
+                new java.awt.Point(clampX, b.y + b.height + gap), new java.awt.Point(clampX, b.y - h - gap) };
+            java.awt.Point chosen = null;
+            for (var c : candidates) if (screen.contains(new java.awt.Rectangle(c.x, c.y, w, h))) { chosen = c; break; }
+            if (chosen == null) {
+                // No free side: the screen corner farthest from the image, overlapping it as little as possible.
+                java.awt.Point[] corners = { new java.awt.Point(screen.x + screen.width - w, screen.y + screen.height - h), new java.awt.Point(screen.x, screen.y + screen.height - h),
+                    new java.awt.Point(screen.x + screen.width - w, screen.y), new java.awt.Point(screen.x, screen.y) };
+                double least = Double.MAX_VALUE;
+                for (var c : corners) { var overlap = new java.awt.Rectangle(c.x, c.y, w, h).intersection(b); double a = overlap.isEmpty() ? 0 : (double) overlap.width * overlap.height; if (a < least) { least = a; chosen = c; } }
+            }
+            window.setLocation(chosen);
         }
         if (image != null) {
             // After the new window's own activation event has run, hand "current image" back to the researcher's image.
@@ -310,6 +322,62 @@ public final class Pipeline {
         return high > 0 && low / high >= 0.85 && peak >= 0.5 && high >= 0.25 * range;
     }
 
+    /**
+     * Watershed over-splits large irregular nuclei (a kidney-shaped HeLa nucleus became "1" and "3"). Two touching pieces are
+     * one object again when their union is convex (solidity ≥ 0.90), not elongated (Feret / min Feret ≤ 1.7: two touching
+     * round nuclei give ~2) and not oversized (≤ 2.2× the median area) — or when together they make a normal-sized object
+     * (≤ 1.3× median) from an undersized piece (< 0.6× median), as concave nuclei do. Returns pairs to merge, best first.
+     */
+    static List<int[]> oversplitPairs(Roi[] rois) {
+        int n = rois.length; var pairs = new ArrayList<int[]>(); if (n < 2) return pairs;
+        double[] px = new double[n]; for (int i = 0; i < n; i++) px[i] = rois[i].getStatistics().pixelCount;
+        double[] sorted = px.clone(); Arrays.sort(sorted); double median = sorted[n / 2];
+        var scored = new ArrayList<double[]>();
+        for (int i = 0; i < n; i++) for (int j = i + 1; j < n; j++) {
+            var a = rois[i].getBounds(); var b = rois[j].getBounds();
+            if (!a.intersects(new java.awt.Rectangle(b.x - 3, b.y - 3, b.width + 6, b.height + 6))) continue;
+            if (px[i] + px[j] > 2.2 * median) continue;
+            if (!touching(rois[i], rois[j])) continue;
+            Roi union = union(List.of(rois[i], rois[j])); if (union == null) continue;
+            double area = union.getStatistics().pixelCount, solidity = Operations.solidity(union, area);
+            double[] feret = union.getFeretValues(); double aspect = feret[2] > 0 ? feret[0] / feret[2] : 99;
+            // Convex and compact, or (kidney-shaped nuclei are concave) a normal-sized object made of undersized pieces.
+            boolean convex = solidity >= 0.90 && aspect <= 1.7;
+            boolean fragments = px[i] + px[j] <= 1.3 * median && Math.min(px[i], px[j]) < 0.6 * median && aspect <= 2.0 && solidity >= 0.75;
+            if (convex || fragments) scored.add(new double[]{solidity - 0.05 * aspect, i, j});
+        }
+        scored.sort((x, y) -> Double.compare(y[0], x[0]));
+        var used = new HashSet<Integer>();
+        for (var s : scored) { int i = (int) s[1], j = (int) s[2]; if (used.add(i) && used.add(j)) pairs.add(new int[]{i, j}); else { used.remove(i); used.remove(j); } }
+        return pairs;
+    }
+    private static boolean touching(Roi a, Roi b) {
+        var grown = ij.plugin.RoiEnlarger.enlarge((Roi) a.clone(), 2);
+        var overlap = new ij.gui.ShapeRoi(grown).and(new ij.gui.ShapeRoi((Roi) b.clone()));
+        return overlap != null && overlap.getBounds().width > 0 && overlap.getStatistics().pixelCount > 0;
+    }
+    /** One closed outline covering the pieces (the 1 px watershed line between them is closed). */
+    static Roi union(List<Roi> parts) {
+        var box = new java.awt.Rectangle(parts.get(0).getBounds()); for (var p : parts) box.add(p.getBounds());
+        var mask = new ByteProcessor(box.width + 6, box.height + 6); mask.setColor(255);
+        for (var part : parts) { var local = (Roi) part.clone(); local.setLocation(local.getXBase() - box.x + 3, local.getYBase() - box.y + 3); mask.fill(local); }
+        mask.dilate(); mask.dilate(); mask.erode(); mask.erode();
+        Roi merged = Analysis.maskToRoi(mask); if (merged == null) return null;
+        merged.setLocation(merged.getXBase() + box.x - 3, merged.getYBase() + box.y - 3);
+        return merged;
+    }
+    /** Applies {@link #oversplitPairs}: merged outlines replace their pieces, order kept. */
+    static List<Roi> mergeOversplit(Roi[] rois) {
+        var pairs = oversplitPairs(rois); var out = new ArrayList<Roi>();
+        if (pairs.isEmpty()) { out.addAll(Arrays.asList(rois)); return out; }
+        var partner = new HashMap<Integer, Integer>(); for (var p : pairs) { partner.put(p[0], p[1]); partner.put(p[1], p[0]); }
+        for (int i = 0; i < rois.length; i++) {
+            Integer j = partner.get(i);
+            if (j == null) out.add(rois[i]);
+            else if (j > i) { var merged = union(List.of(rois[i], rois[j])); if (merged != null) { var tag = rois[i].getProperty(Operations.ROI_IMAGE_PROPERTY); if (tag != null) merged.setProperty(Operations.ROI_IMAGE_PROPERTY, tag); out.add(merged); } else { out.add(rois[i]); out.add(rois[j]); } }
+        }
+        return out;
+    }
     /** Macro entry point: split oversized objects, then apply the area/circularity filter, on the macro's ROI Manager. */
     public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) { return refine(factor, tolerance, minArea, maxArea, minCircularity, "false", "1"); }
     /** As live: drop artifacts (as segment_cells does), then split oversized objects, then apply the area/circularity filter. */
@@ -320,6 +388,8 @@ public final class Pipeline {
         if (rm == null || imp == null) return "0";
         Roi[] rois = rm.getRoisAsArray(); if (rois.length == 0) return "0";
         if ("true".equals(artifacts) || "1".equals(artifacts)) rois = withoutArtifacts(imp, rois, (int) Math.round(Double.parseDouble(channel)));
+        // As live segment_cells: pieces the watershed cut out of one nucleus are joined again.
+        rois = mergeOversplit(rois).toArray(new Roi[0]);
         double f = Double.parseDouble(factor), tol = Double.parseDouble(tolerance), lo = Double.parseDouble(minArea), circ = Double.parseDouble(minCircularity);
         double hi = "Infinity".equals(maxArea) ? Double.POSITIVE_INFINITY : Double.parseDouble(maxArea);
         if (rois.length == 0) { rm.reset(); return "0"; }

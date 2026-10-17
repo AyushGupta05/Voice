@@ -63,5 +63,6 @@ public final class LumaBridgeService extends AbstractService implements SciJavaS
         } catch (ClassNotFoundException error) { return "no imagej-legacy on the class path"; }
         catch (Throwable error) { return null; }
     }
-    static void log(String message) { System.err.println("[Luma] " + message); }
+    // stdout, not stderr: Fiji pops its Console window open for anything on stderr; run-fiji.sh still writes both to .local/fiji.log.
+    static void log(String message) { System.out.println("[Luma] " + message); }
 }

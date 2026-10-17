@@ -589,6 +589,27 @@ final class Operations {
         if (text + tiny > 0) dropParticles(result, keep);
         result.put("excluded", Map.of("text", text, "tiny", tiny));
     }
+    /** Joins watershed over-splits among the objects this segmentation added (Pipeline.oversplitPairs); returns how many pairs. */
+    int mergeOversplit(Map<String, Object> result, ImagePlus imp) {
+        int count = ((Number) result.get("count")).intValue(); var manager = managerOrNull();
+        int added = ((Number) result.get("addedToManager")).intValue(); int managerBefore = ((Number) result.get("managerTotal")).intValue() - added;
+        if (manager == null || count < 2 || added != count || manager.getCount() < managerBefore + count) return 0;
+        var all = captureManagerRois(manager);
+        Roi[] mine = new Roi[count]; for (int i = 0; i < count; i++) mine[i] = all.get(managerBefore + i).roi();
+        var pairs = Pipeline.oversplitPairs(mine); if (pairs.isEmpty()) { result.put("joinedOversplit", 0); return 0; }
+        var merged = Pipeline.mergeOversplit(mine);
+        manager.reset();
+        for (int i = 0; i < managerBefore; i++) all.get(i).appendTo(manager);
+        for (int i = 0; i < merged.size(); i++) { var roi = merged.get(i); tag(roi, imp); new ManagerRoi(roi, String.format(Locale.ROOT, "%04d-%d", i + 1, imp.getID())).appendTo(manager); }
+        for (int i = managerBefore + count; i < all.size(); i++) all.get(i).appendTo(manager);
+        // Rows of this segmentation are re-measured from the manager below; keep the counts consistent until then.
+        var table = results(); for (int r = table.size() - 1; r >= Math.max(0, table.size() - count); r--) table.deleteRows(r, r);
+        var cal = imp.getCalibration(); double pixelArea = cal.pixelWidth * cal.pixelHeight, total = 0;
+        for (var roi : merged) { roi.setImage(imp); var stats = roi.getStatistics(); total += stats.pixelCount * pixelArea; table.addRow(); table.addValue("Area", stats.pixelCount * pixelArea); var b = roi.getBounds(); table.addValue("BX", cal.getX(b.x)); table.addValue("BY", cal.getY(b.y)); table.addValue("Width", b.width * cal.pixelWidth); table.addValue("Height", b.height * cal.pixelHeight); }
+        result.put("count", merged.size()); result.put("addedToManager", merged.size()); result.put("managerTotal", manager.getCount());
+        result.put("totalArea", total); result.put("averageSize", merged.isEmpty() ? 0.0 : total / merged.size()); result.put("joinedOversplit", pairs.size());
+        return pairs.size();
+    }
     static double solidity(Roi roi, double area) {
         try { var hull = roi.getConvexHull(); if (hull == null) return 1; double hullArea = Math.abs(polygonArea(hull)); return hullArea <= 0 ? 1 : Math.min(1, area / hullArea); }
         catch (RuntimeException error) { return 1; }
@@ -658,6 +679,7 @@ final class Operations {
             result.put("scope", "image");
             if (!bool(args, "keepArtifacts", false)) { excludeArtifacts(result, imp, channel); var excluded = (Map<?, ?>) result.get("excluded"); if (((Number) excluded.get("text")).intValue() + ((Number) excluded.get("tiny")).intValue() > 0) steps.add("excluded annotation text (" + excluded.get("text") + ") and specks (" + excluded.get("tiny") + ")"); }
             if (saved != null && saved.isArea()) { restrictToSelection(result, saved, imp.getCalibration()); steps.add("kept particles whose centroid lies inside the selection (" + result.get("count") + ")"); }
+            if (watershed && !bool(args, "keepSplits", false)) { int joined = mergeOversplit(result, imp); if (joined > 0) steps.add("joined " + joined + " nucleus pieces the watershed over-split (" + result.get("count") + ")"); }
             for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro"))); 
             macro.add("close(\"luma-segmentation-mask\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nroiManager(\"Show All without labels\");");
             journal.record("segment_cells", macro.getLast());
