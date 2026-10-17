@@ -9,7 +9,7 @@ struct CompanionView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 14) {
                 contextCard
                 Picker("Workspace", selection: $model.selectedTab) {
                     Text("Session").tag(0)
@@ -50,7 +50,7 @@ struct CompanionView: View {
             }
             Button { NSApp.hide(nil) } label: { Image(systemName: "minus").font(.system(size: 11)).foregroundStyle(PennyPalette.textSecondary) }
                 .buttonStyle(.plain).help("Hide Penny; reopen from the menu bar")
-        }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 20)
+        }.padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 14)
     }
     private var contextCard: some View {
         HStack(spacing: 12) {
@@ -67,12 +67,12 @@ struct CompanionView: View {
         }.padding(12).background(PennyPalette.surfaceMuted, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(PennyPalette.border))
     }
     private var session: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             if model.activities.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Less navigating.\nMore discovering.").font(.system(size: 27, weight: .medium)).tracking(-0.8).lineSpacing(1).fixedSize(horizontal: false, vertical: true)
+                    Text("Less navigating.\nMore discovering.").font(.system(size: 24, weight: .medium)).tracking(-0.8).lineSpacing(1).fixedSize(horizontal: false, vertical: true)
                     Text("Your scientific tools, one conversation away.").font(.system(size: 12)).foregroundStyle(PennyPalette.textSecondary)
-                }.padding(.top, 8).padding(.bottom, 2)
+                }.padding(.top, 2)
             }
             HStack(spacing: 8) {
                 ForEach(model.application.quickActions) { action in
@@ -163,7 +163,7 @@ struct CompanionView: View {
                     HStack(spacing: 7) { Image(systemName: model.voiceActive || model.voiceStarting ? "stop.fill" : "waveform"); Text(model.voiceActive || model.voiceStarting ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(PennyPalette.accent, in: Capsule()).foregroundStyle(PennyPalette.onAccent)
                 }.buttonStyle(HoverButtonStyle()).disabled(!model.voiceOn && !model.canStartVoice)
             }
-        }.padding(.horizontal, 22).padding(.bottom, 20).padding(.top, 12)
+        }.padding(.horizontal, 22).padding(.bottom, 16).padding(.top, 10)
     }
 }
 struct BuddyMark: View {
