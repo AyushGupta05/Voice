@@ -18,6 +18,7 @@ import net.imagej.ImageJ;
 import sc.fidelis.Bootstrap;
 import sc.fidelis.engine.api.Engine;
 import sc.fidelis.engine.api.EngineEvent;
+import sc.fidelis.engine.api.EngineListener;
 import sc.fidelis.engine.api.Enums.EngineState;
 
 /**
@@ -47,6 +48,8 @@ public final class Workspace {
     private final Docks docks;
     private final LegacyWindows legacy;
     private final Runnable quitAction;
+    private final EngineListener engineListener = this::onEvent;
+    static final Dimension DEFAULT_SIZE = new Dimension(1440, 900);
 
     /** Entry point called by {@code Bootstrap} on the EDT. */
     public static void launch(ImageJ ij, String[] args) {
@@ -69,7 +72,9 @@ public final class Workspace {
         }, "fidelis-quit").start();
         Engine engine = EngineProvider.get(quit);
         if (ServiceRegistry.nl() == null) ServiceRegistry.registerNl(new sc.fidelis.nl.DefaultNlService(engine));
-        Workspace w = create(engine, quit, o.size());
+        // Interactive launches stay on screen; a screenshot run keeps the exact requested size (evidence at demo resolution)
+        Dimension requested = o.size() != null ? o.size() : DEFAULT_SIZE;
+        Workspace w = create(engine, quit, o.screenshot() == null ? clampToScreen(requested) : requested);
         // The speech service spawns a Python process: construct it off the EDT, attach when it exists
         if (ServiceRegistry.speech() == null) {
             new Thread(() -> {
@@ -83,6 +88,12 @@ public final class Workspace {
                 }
             }, "fidelis-speech-init").start();
         }
+        if (o.screenshot() != null && o.size() != null) {
+            // Windows clamps a decorated frame to the screen; evidence at a resolution larger than this desktop
+            // needs an undecorated frame (the capture paints the root pane, never the title bar).
+            Dimension fit = clampToScreen(o.size());
+            if (!fit.equals(o.size())) w.frame.setUndecorated(true);
+        }
         w.frame.setVisible(true);
         for (String p : o.open()) w.ctx.openPath(Path.of(p));
         if (o.screenshot() != null) ScreenshotRun.schedule(w, o, () -> Bootstrap.exit(ij, 0));
@@ -90,7 +101,14 @@ public final class Workspace {
 
     /** Build a workspace around {@code engine} without showing it (tests show it themselves). */
     public static Workspace create(Engine engine, Runnable quitAction, Dimension size) {
-        return new Workspace(engine, quitAction, size == null ? new Dimension(1440, 900) : size);
+        return new Workspace(engine, quitAction, size == null ? DEFAULT_SIZE : size);
+    }
+
+    /** The requested size bounded by the usable screen (null stays null: the default size applies). */
+    static Dimension clampToScreen(Dimension size) {
+        if (size == null) return null;
+        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        return new Dimension(Math.min(size.width, screen.width), Math.min(size.height, screen.height));
     }
 
     private Workspace(Engine engine, Runnable quitAction, Dimension size) {
@@ -135,17 +153,22 @@ public final class Workspace {
         frame.getContentPane().add(docks.build(documents, parameters, display, threshold, rois, results, history, log, activity), BorderLayout.CENTER);
         frame.getContentPane().add(status, BorderLayout.SOUTH);
 
-        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        frame.setSize(Math.min(size.width, screen.width), Math.min(size.height, screen.height));
+        frame.setSize(size);
         frame.setLocationRelativeTo(null);
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 requestQuit();
             }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                // A disposed workspace must not keep receiving (and acting on) engine events (#16)
+                engine.removeListener(engineListener);
+            }
         });
 
-        engine.addListener(this::onEvent);
+        engine.addListener(engineListener);
         applyEngineState(engine.state(), null);
         documents.sync();
         history.reload();

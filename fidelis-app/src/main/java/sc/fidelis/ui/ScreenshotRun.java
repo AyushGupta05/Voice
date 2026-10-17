@@ -57,7 +57,11 @@ final class ScreenshotRun {
                 Thread.sleep(1500);
                 if (opts.instruction() != null) ScreenshotJ12.instructionFlow(w, ctx, opts, out);
                 else shoot(w, out);
-                if (opts.instruction() == null && "j12".equals(opts.scenario())) ScreenshotJ12.roiShot(w, out);
+                SwingUtilities.invokeAndWait(() -> System.out.println("[fidelis] frame " + w.frame().getWidth() + "x" + w.frame().getHeight()
+                        + "; layout " + w.docks().describe()
+                        + (w.documents().focusedView() == null ? "" : "; canvas " + w.documents().focusedView().canvas().getWidth() + "x"
+                        + w.documents().focusedView().canvas().getHeight() + " at " + w.documents().focusedView().zoomLabelText())
+                        + "; results columns visible " + w.results().visibleColumnCount()));
                 if (opts.closeWindow()) ScreenshotJ12.closeWindowFlow(w); // a working quit never returns: the engine halts the JVM
                 return;
             }
