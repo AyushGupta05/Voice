@@ -55,11 +55,10 @@ final class ScreenshotRun {
                     w.frame().toFront();
                 });
                 Thread.sleep(1500);
-                BufferedImage[] one = new BufferedImage[1];
-                SwingUtilities.invokeAndWait(() -> one[0] = capture(w));
-                Files.createDirectories(out.toAbsolutePath().getParent());
-                ImageIO.write(one[0], "png", out.toFile());
-                System.out.println("[fidelis] screenshot written: " + out.toAbsolutePath());
+                if (opts.instruction() != null) ScreenshotJ12.instructionFlow(w, ctx, opts, out);
+                else shoot(w, out);
+                if (opts.instruction() == null && "j12".equals(opts.scenario())) ScreenshotJ12.roiShot(w, out);
+                if (opts.closeWindow()) ScreenshotJ12.closeWindowFlow(w); // a working quit never returns: the engine halts the JVM
                 return;
             }
             engine.open(repo.resolve("fixtures").resolve("two-squares.png")).get();
@@ -134,6 +133,14 @@ final class ScreenshotRun {
         }
     }
 
+    static void shoot(Workspace w, Path out) throws Exception {
+        BufferedImage[] one = new BufferedImage[1];
+        SwingUtilities.invokeAndWait(() -> one[0] = capture(w));
+        Files.createDirectories(out.toAbsolutePath().getParent());
+        ImageIO.write(one[0], "png", out.toFile());
+        System.out.println("[fidelis] screenshot written: " + out.toAbsolutePath());
+    }
+
     /** The whole frame, with every showing hosted canvas composited in (EXP-01 section 5.2). */
     static BufferedImage capture(Workspace w) {
         JRootPane root = w.frame().getRootPane();
@@ -179,7 +186,7 @@ final class ScreenshotRun {
         return ni;
     }
 
-    private static void waitUntil(java.util.function.BooleanSupplier c, int seconds) throws InterruptedException {
+    static void waitUntil(java.util.function.BooleanSupplier c, int seconds) throws InterruptedException {
         long end = System.currentTimeMillis() + seconds * 1000L;
         while (!c.getAsBoolean() && System.currentTimeMillis() < end) Thread.sleep(50);
     }
@@ -187,6 +194,10 @@ final class ScreenshotRun {
     /** U2 scenarios: real work through the engine so every panel shows genuine state. */
     private static void scenario(Workspace w, UiContext ctx, String name, Path repo) throws Exception {
         var engine = w.engine();
+        if (name.startsWith("j12")) {
+            ScreenshotJ12.j12(w, ctx, name, repo);
+            return;
+        }
         engine.open(repo.resolve("fixtures").resolve("two-squares.png")).get();
         switch (name) {
             case "threshold" -> {

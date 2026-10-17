@@ -62,7 +62,7 @@ public final class ResultsPanel extends JPanel {
     }
 
     /** Full-precision text of a double: the shortest string that round-trips, never scientific. */
-    static String full(double d) {
+    public static String full(double d) {
         if (Double.isNaN(d)) return "NaN";
         if (Double.isInfinite(d)) return d > 0 ? "Infinity" : "-Infinity";
         if (d == Math.rint(d) && Math.abs(d) < 1e15) return Long.toString((long) d);
@@ -88,12 +88,24 @@ public final class ResultsPanel extends JPanel {
             }
             model.addRow(cells);
         }
-        for (int i = 0; i < table.getColumnCount(); i++) table.getColumnModel().getColumn(i).setPreferredWidth(i == 0 ? 36 : i == 1 ? 110 : 96);
+        boolean anyLabel = rows.stream().anyMatch(r -> r.label() != null && !r.label().isEmpty());
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            var col = table.getColumnModel().getColumn(i);
+            if (i == 1 && !anyLabel) { // an empty Label column only costs width; the data stays in the model and the TSV
+                col.setMinWidth(0);
+                col.setMaxWidth(0);
+                col.setPreferredWidth(0);
+            } else {
+                col.setMinWidth(15);
+                col.setMaxWidth(Integer.MAX_VALUE);
+                col.setPreferredWidth(i == 0 ? 36 : i == 1 ? 110 : 84);
+            }
+        }
         header.setText("Results — " + rows.size() + " row(s), full precision");
         copy.setEnabled(!rows.isEmpty());
     }
 
-    String tsv() {
+    public String tsv() {
         StringBuilder sb = new StringBuilder();
         for (int c = 0; c < model.getColumnCount(); c++) sb.append(c == 0 ? "" : "\t").append(model.getColumnName(c));
         sb.append('\n');

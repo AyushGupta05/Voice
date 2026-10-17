@@ -42,6 +42,7 @@ final class Docks {
                      JComponent roi, JComponent results, JComponent history, JComponent log, JComponent activity) {
         displayTab = display;
         thresholdTab = threshold;
+        right.putClientProperty(FlatClientProperties.STYLE, "tabInsets: 4,8,4,8");
         right.addTab("Parameters", parameters);
         right.addTab("B&C", display);
         right.addTab("Threshold", threshold);

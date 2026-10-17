@@ -236,6 +236,7 @@ final class ProposalSheet extends JPanel {
                 return f.thenApply(res -> res.state() == OperationState.COMPLETED);
             });
         }
+        outcome = chain;
         chain.whenComplete((ok, ex) -> Theme.onEdt(() -> {
             if (ex == null && Boolean.TRUE.equals(ok)) ctx.banners().clearSheet();
             else {
@@ -249,6 +250,18 @@ final class ProposalSheet extends JPanel {
     @Override
     public java.awt.Dimension getMaximumSize() {
         return new java.awt.Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+    }
+
+    /** Press Confirm (test and scenario hook; same handler as the button). */
+    void confirmNow() {
+        if (confirm.isEnabled()) run();
+    }
+
+    /** Completes true when every step of a confirmed proposal completed; null until confirmed. */
+    volatile CompletableFuture<Boolean> outcome;
+
+    NlService.Proposal proposal() {
+        return proposal;
     }
 
     String instructionText() {

@@ -287,14 +287,14 @@ public final class CommandBar extends JPanel {
 
     // ---- natural language ---------------------------------------------------------------------
 
-    void interpret(String text, Origin origin) {
+    ProposalSheet interpret(String text, Origin origin) {
         NlService nl = ServiceRegistry.nl();
         ProposalSheet sheet = new ProposalSheet(ctx, text, origin);
         ctx.banners().setSheet(sheet);
         if (nl == null) {
             sheet.showUnavailable();
             ctx.notice("Natural-language interpreter not available", true);
-            return;
+            return sheet;
         }
         sheet.showBusy();
         final long t0 = System.nanoTime();
@@ -307,6 +307,7 @@ public final class CommandBar extends JPanel {
                     if (ex != null) sheet.showError(String.valueOf(ex.getCause() != null ? ex.getCause() : ex));
                     else sheet.showProposal(p, (System.nanoTime() - t0) / 1e9);
                 }));
+        return sheet;
     }
 
     // ---- speech -------------------------------------------------------------------------------

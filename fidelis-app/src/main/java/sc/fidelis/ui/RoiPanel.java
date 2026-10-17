@@ -106,7 +106,7 @@ public final class RoiPanel extends JPanel {
                 List<RoiGeometry> rois = ctx.engine.rois(info.get().id());
                 for (int i = 0; i < rois.size(); i++) {
                     RoiGeometry g = rois.get(i);
-                    model.addRow(new Object[] {i, g.name() == null ? "" : g.name(), g.type().toLowerCase(Locale.ROOT), bounds(g)});
+                    model.addRow(new Object[] {i + 1, g.name() == null ? "" : g.name(), g.type().toLowerCase(Locale.ROOT), bounds(g)});
                 }
                 if (keep >= 0 && keep < model.getRowCount()) table.setRowSelectionInterval(keep, keep);
             }
