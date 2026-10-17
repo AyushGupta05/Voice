@@ -67,6 +67,34 @@ class EngineDocumentsTest {
     }
 
     @Test
+    void transientHelperImagesAreNotAdopted() throws Exception {
+        // the UI's before/after copy lives in its own hidden IJ1 window (DocumentView.buildBefore)
+        DefaultEngine engine = EngineFixture.engine();
+        int before = engine.documents().size();
+        ImagePlus helper = IJ.createImage("[before] helper", "8-bit ramp", 40, 30, 1);
+        helper.setProperty(HostCanvas.TRANSIENT_PROPERTY, Boolean.TRUE);
+        ij.gui.ImageWindow w = Edt.call(() -> {
+            ij.gui.ImageWindow x = new ij.gui.ImageWindow(helper, new HostCanvas(helper));
+            x.setVisible(false);
+            return x;
+        });
+        try {
+            assertTrue(WindowManager.getIDList() != null && java.util.Arrays.stream(WindowManager.getIDList()).anyMatch(i -> i == helper.getID()),
+                    "the helper is registered with IJ1 like the UI's copy");
+            engine.scheduleReconcile();
+            engine.submit(ActionRequest.session(Origin.PANEL, ActionRequest.Operations.CLOSE, Map.of("discard", true),
+                    TargetScope.of(new DocumentId("doc-none")))).get(30, TimeUnit.SECONDS); // barrier behind the reconcile
+            assertEquals(before, engine.documents().size(), "a transient helper image must not become a document");
+        } finally {
+            Edt.run(() -> {
+                WindowManager.removeWindow(w);
+                w.dispose();
+            });
+            helper.flush();
+        }
+    }
+
+    @Test
     void imagesCreatedByIj1AreAdoptedAndHidden() throws Exception {
         DefaultEngine engine = EngineFixture.engine();
         ImagePlus imp = IJ.createImage("adopt-me", "8-bit ramp", 40, 30, 1);

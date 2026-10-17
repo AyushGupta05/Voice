@@ -1,3 +1,16 @@
+---
+id: DEV-02
+title: Implementation agent brief
+stage: 03-development
+status: Living record
+priority: P0
+source_revisions: [Fiji archive 20261013-1517 (lock f6695397 / 9403b619 LF), imagej/ImageJ@v1.54p, integration branch development/fidelis-workstation]
+related_requirements: [FR-SYS-002, FR-VIEW-001, FR-PROC-001, NFR-MAINT-004]
+related_decisions: [DEC-010, ADR-002]
+last_reviewed: 2026-10-17
+approval: Development record (not a design approval)
+---
+
 # Fidelis development brief (shared by all implementation agents)
 
 You are one of four implementation agents building **Fidelis**, a modernisation of Fiji/ImageJ. The lead (Fable) integrates your work. Today is 2026-10-17; the hackathon ends tomorrow. Deliver working, verified code in small commits.
@@ -30,7 +43,9 @@ Hybrid B, proven by spike EXP-01 (`C:\Users\arnav\Documents\dev\fidelis-spikes\s
 - Result-affecting globals (`Prefs.blackBackground`, `Analyzer.getMeasurements()/getPrecision()`, `ImageConverter.getDoScaling()`) are captured, shown and never set silently.
 - Known hazards from the probes: `IJ.getImage()` opens a modal "No Image" dialog when there is no current image; preview dialogs drop options in the Recorder; `System.exit` can deadlock on the SciJava shutdown hook (use `Bootstrap.exit`); macro `selectImage` on a hidden-window image can wait ~1 s.
 
-## Documentation you may need (your worktree `docs/`): `INDEX.md`; A08 (commands), A09–A12 (IJ1 state, ROIs, processing, macros), A15, A16–A17 (speech/NL), D04 (integration), D06 (contract), D07 (macro generation rules G1–G11), D08 (speech/NL pipeline), D09 (events), D12–D15 (UI), D16 J-12 (the demo journey), D17 (errors), D18 (verification). `docs/data/commands-core-parameters.csv` has exact macro keys with source lines.
+## Documentation you may need
+
+In your worktree `docs/`: `INDEX.md`; A08 (commands), A09–A12 (IJ1 state, ROIs, processing, macros), A15, A16–A17 (speech/NL), D04 (integration), D06 (contract), D07 (macro generation rules G1–G11), D08 (speech/NL pipeline), D09 (events), D12–D15 (UI), D16 J-12 (the demo journey), D17 (errors), D18 (verification). `docs/data/commands-core-parameters.csv` has exact macro keys with source lines.
 
 ## Quality bar (mandatory)
 - Every feature you report must have been **run**: a test, a launch with observed output, or a screenshot you inspected. Say exactly what you ran.

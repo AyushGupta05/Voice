@@ -53,6 +53,24 @@ final class JourneyScenario {
         ws = null;
     }
 
+    /** The text of the status bar's engine label (a JLabel starting "Engine:"), read from the live frame. */
+    static String statusEngineText() throws Exception {
+        String[] out = new String[1];
+        SwingUtilities.invokeAndWait(() -> out[0] = findEngineLabel(ws.frame()));
+        return out[0];
+    }
+
+    private static String findEngineLabel(Component c) {
+        if (c instanceof javax.swing.JLabel l && l.getText() != null && l.getText().startsWith("Engine:")) return l.getText();
+        if (c instanceof Container k) {
+            for (Component child : k.getComponents()) {
+                String t = findEngineLabel(child);
+                if (t != null) return t;
+            }
+        }
+        return null;
+    }
+
     static String engineName() {
         return ws.engine().getClass().getName() + (productEngine ? " (registered product engine)" : " (UI development stub)");
     }
