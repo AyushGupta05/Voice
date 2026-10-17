@@ -1,0 +1,18 @@
+:root { font-family: 'Segoe UI', system-ui, sans-serif; color: #123e35; background: #f4f6ef; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1020px; margin: auto; padding: 48px 32px; }
+header { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; letter-spacing: .1em; }
+.mark { display: grid; place-items: center; background: #123e35; color: #e5f2b9; border-radius: 12px; width: 40px; height: 40px; font-size: 26px; }
+.eyebrow { margin-top: 90px; font-size: 12px; letter-spacing: .14em; color: #52635c; }
+h1 { font-weight: 600; font-size: clamp(44px, 8vw, 84px); line-height: 1.06; letter-spacing: -.055em; margin: 24px 0; }
+.intro { font-size: 20px; color: #52635c; line-height: 1.5; }
+section { margin-top: 48px; padding: 28px; background: white; border: 1px solid #dce3d5; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+h2 { font-size: 17px; margin: 0; }
+section p { font-size: 14px; margin-bottom: 0; color: #52635c; }
+button { padding: 13px 20px; border: 0; border-radius: 9px; background: #123e35; color: white; font: inherit; cursor: pointer; white-space: nowrap; }
+button:disabled { opacity: .65; cursor: wait; }
+button:focus-visible { outline: 3px solid #779e35; outline-offset: 4px; }
+.next { margin-top: 28px; line-height: 1.6; }
+footer { max-width: 700px; margin-top: 56px; color: #52635c; font-size: 13px; line-height: 1.6; }
+@media (max-width: 600px) { main { padding: 28px 20px; } .eyebrow { margin-top: 56px; } section { align-items: flex-start; flex-direction: column; } }
