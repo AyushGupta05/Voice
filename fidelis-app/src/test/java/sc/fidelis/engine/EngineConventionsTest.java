@@ -73,7 +73,9 @@ class EngineConventionsTest {
         assertEquals(4, replay.getNFrames());
         assertEquals(16, replay.getBitDepth());
         replay.changes = false;
-        replay.close();
+        // Close on the EDT: disposing an ImageWindow from the test thread can deadlock AppKit on macOS when an earlier
+        // test left the event queue busy (observed in the full suite; the class alone passes).
+        javax.swing.SwingUtilities.invokeAndWait(replay::close);
         assertEquals(before, WindowCount.images());
     }
 
