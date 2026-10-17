@@ -25,6 +25,9 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_ui`](#qupath-ui) | read | No |
 | [`qupath_ui_action`](#qupath-ui-action) | code | Required |
 | [`qupath_annotate`](#qupath-annotate) | data | Required |
+| [`qupath_class_summary`](#qupath-class-summary) | read | No |
+| [`qupath_workflow_steps`](#qupath-workflow-steps) | read | No |
+| [`qupath_save_workflow`](#qupath-save-workflow) | code | Required |
 | [`qupath_detect_cells`](#qupath-detect-cells) | data | Required |
 | [`qupath_classify`](#qupath-classify) | data | Required |
 | [`qupath_image_type`](#qupath-image-type) | data | Required |
@@ -259,16 +262,48 @@ Operate a previously observed visible QuPath JavaFX control after human approval
 
 ## qupath_annotate
 
-Create a rectangle or ellipse annotation using full-resolution image pixels on the active z/t plane. Requires human approval; a hierarchy checkpoint is made first.
+Create a rectangle or ellipse annotation using full-resolution image pixels on the active z/t plane, optionally with a class such as "Tumor" or "Stroma". A hierarchy checkpoint is made first. Infer position and size from the viewer/selection; never ask the researcher for coordinates.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `x` | Yes | number |  |
+| `y` | Yes | number |  |
+| `width` | Yes | number; greater than 0 |  |
+| `height` | Yes | number; greater than 0 |  |
+| `shape` | No | "rectangle", "ellipse" |  |
+| `name` | No | string |  |
+| `classification` | No | string; max 80 characters | Class label to assign, e.g. "Tumor". Omit for an unclassified region. |
+
+<a id="qupath-class-summary"></a>
+
+## qupath_class_summary
+
+Count objects by their current class with percentages computed by QuPath, for the whole image, the selection or the selected region. Use this for "how many / what percentage are positive", never arithmetic on listings.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+
+<a id="qupath-workflow-steps"></a>
+
+## qupath_workflow_steps
+
+List the analysis steps QuPath has recorded for this image (its workflow history) and the Groovy script it would generate. Read only.
+
+Input: `{}`.
+
+<a id="qupath-save-workflow"></a>
+
+## qupath_save_workflow
+
+Save the recorded analysis steps as a reusable Groovy script in Luma's workflow folder, so the same procedure can be applied to other samples. Returns the path, step names and script. Pick a short descriptive name yourself.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
-| `x` | Yes | number |
-| `y` | Yes | number |
-| `width` | Yes | number; greater than 0 |
-| `height` | Yes | number; greater than 0 |
-| `shape` | No | "rectangle", "ellipse" |
-| `name` | No | string |
+| `name` | Yes | string; max 80 characters |
 
 <a id="qupath-detect-cells"></a>
 

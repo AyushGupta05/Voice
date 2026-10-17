@@ -15,4 +15,4 @@ if [[ ! -f dist/luma-qupath-bridge.jar ]]; then ./script/build-bridge.sh; fi
 # Refresh configuration/resources only after normal exit; packaging rechecks
 # exact process state before writing. Source edits still need an explicit build.
 ./script/package-qupath.sh
-/usr/bin/open -n "$APP" --env "LUMA_BRIDGE_TOKEN=$(cat .local/state/bridge-token)" --stdout "$PWD/.local/qupath.log" --stderr "$PWD/.local/qupath-error.log" --args --quiet "$@"
+/usr/bin/open -n "$APP" --env "LUMA_BRIDGE_TOKEN=$(cat .local/state/bridge-token)" --env "LUMA_ROOT=$PWD" --stdout "$PWD/.local/qupath.log" --stderr "$PWD/.local/qupath-error.log" --args --quiet "$@"

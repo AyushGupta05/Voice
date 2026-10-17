@@ -166,7 +166,7 @@ public final class LumaExtension implements QuPathExtension {
         catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
     private Object execute(String operation, JsonObject args, JsonObject request) throws Exception {
-        if (analysisRunning.get() && !Set.of("context","objects","measurements","measurement_summary","analysis_catalog","project_images","commands","ui","snapshot","checkpoints","compare").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
+        if (analysisRunning.get() && !Set.of("context","objects","measurements","measurement_summary","analysis_catalog","project_images","commands","ui","snapshot","checkpoints","compare","class_summary","workflow_steps").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
         if (request.has("expectedContext") && !contextKey().equals(request.get("expectedContext").getAsString())) throw new IllegalStateException("QuPath image, selection or results changed. Review the action again.");
         return switch (operation) {
             case "context" -> context();
@@ -177,6 +177,12 @@ public final class LumaExtension implements QuPathExtension {
             case "select" -> select(args);
             case "focus" -> focus(args);
             case "highlight" -> highlight(args);
+            case "class_summary" -> classSummary(args);
+            case "workflow_steps" -> workflowSteps();
+            case "save_workflow" -> {
+                if (!request.has("approved") || !request.get("approved").getAsBoolean()) throw new IllegalStateException("Saving a workflow requires the recorded decision path.");
+                yield saveWorkflow(args);
+            }
             case "overlays" -> overlays(args);
             case "snapshot" -> snapshot();
             case "commands" -> commands(args);
@@ -415,6 +421,53 @@ public final class LumaExtension implements QuPathExtension {
         var rect = new LinkedHashMap<String, Object>();
         rect.put("x", cx - w / 2); rect.put("y", cy - h / 2); rect.put("width", w); rect.put("height", h);
         return rect;
+    }
+    /** Per-class counts and percentages computed here, so spoken numbers never come from the model's arithmetic. */
+    private Object classSummary(JsonObject args) {
+        var matches = matching(args);
+        var counts = new TreeMap<String, Integer>();
+        for (var object : matches) counts.merge(object.getPathClass() == null ? "Unclassified" : object.getPathClass().toString(), 1, Integer::sum);
+        int total = matches.size();
+        var classes = new ArrayList<Map<String, Object>>();
+        for (var entry : counts.entrySet()) classes.add(Map.of("classification", entry.getKey(), "count", entry.getValue(), "percent", total == 0 ? 0.0 : Math.round(entry.getValue() * 10000.0 / total) / 100.0));
+        var selected = image().getHierarchy().getSelectionModel().getSelectedObject();
+        var result = new LinkedHashMap<String, Object>();
+        result.put("summary", Map.of("scope", string(args, "scope", "all"), "kind", string(args, "kind", "all"), "total", total, "classes", classes,
+            "region", selected == null ? null : Objects.toString(selected.getName(), "Selected region"),
+            "note", "Counts of QuPath objects by current class. A class is a software label from the applied threshold or classifier, not a validated biological finding."));
+        return result;
+    }
+    /** QuPath's own history of applied steps, and the Groovy it would generate, without writing anything. */
+    private Object workflowSteps() {
+        var workflow = image().getHistoryWorkflow(); var steps = workflow.getSteps();
+        var script = workflow.createScript();
+        return Map.of("workflow", Map.of("total", steps.size(), "truncated", steps.size() > 50,
+            "steps", steps.stream().skip(Math.max(0, steps.size() - 50)).map(step -> Map.of("name", Objects.toString(step.getName(), "Unnamed step"), "type", step.getClass().getSimpleName())).toList(),
+            "script", script.length() > 60_000 ? script.substring(0, 60_000) + "\n// … truncated" : script,
+            "note", "Generated from QuPath's workflow history; review parameters before reuse on other images."));
+    }
+    private static Path workflowDirectory() throws IOException {
+        String root = System.getenv("LUMA_ROOT");
+        Path directory = root != null && !root.isBlank() ? Path.of(root, ".local", "workflows") : Path.of(System.getProperty("user.home"), "Luma workflows");
+        return Files.createDirectories(directory);
+    }
+    /** Save the history as a reusable Groovy script. Only writes inside Luma's workflow directory. */
+    private Object saveWorkflow(JsonObject args) throws IOException {
+        var workflow = image().getHistoryWorkflow(); var steps = workflow.getSteps();
+        if (steps.isEmpty()) throw new IllegalStateException("No workflow steps have been recorded for this image yet.");
+        String name = string(args, "name", "Luma analysis").trim();
+        String slug = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        if (slug.isEmpty()) slug = "luma-analysis";
+        if (slug.length() > 60) slug = slug.substring(0, 60);
+        var directory = workflowDirectory();
+        var path = directory.resolve(slug + ".groovy");
+        for (int suffix = 2; Files.exists(path); suffix++) path = directory.resolve(slug + "-" + suffix + ".groovy");
+        var header = "// " + name + "\n// Generated by Luma from QuPath's workflow history on " + java.time.ZonedDateTime.now() + "\n// Image: " + image().getServer().getMetadata().getName() + "\n// Review parameters before applying to other images.\n\n";
+        Files.writeString(path, header + workflow.createScript(), StandardCharsets.UTF_8);
+        return Map.of("workflow", Map.of("name", name, "path", path.toString(), "steps", steps.size(),
+            "stepNames", steps.stream().limit(50).map(step -> Objects.toString(step.getName(), "Unnamed step")).toList(),
+            "script", header + workflow.createScript(),
+            "howToRun", "QuPath → Automate → Show script editor → File → Open, or Automate → Project scripts after copying it into the project's scripts folder."));
     }
     private Map<String, Object> pointer(double x, double y) {
         var viewer = qupath.getViewer();
@@ -776,7 +829,10 @@ public final class LumaExtension implements QuPathExtension {
                 var plane = qupath.getViewer().getImagePlane();
                 var roi = string(args,"shape","rectangle").equals("ellipse") ? ROIs.createEllipseROI(x,y,w,h,plane) : ROIs.createRectangleROI(x,y,w,h,plane);
                 var object = PathObjects.createAnnotationObject(roi);
-                object.setName(string(args,"name","Luma region")); hierarchy.addObject(object); qupath.getViewer().setSelectedObject(object);
+                object.setName(string(args,"name","Luma region"));
+                String classification = string(args,"classification","").trim();
+                if (!classification.isEmpty()) object.setPathClass(PathClass.fromString(classification));
+                hierarchy.addObject(object); qupath.getViewer().setSelectedObject(object);
                 result = describe(object);
             }
             case "classify" -> {

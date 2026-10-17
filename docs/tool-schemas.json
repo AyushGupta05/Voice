@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "application": "QuPath",
-  "toolCount": 33,
+  "toolCount": 36,
   "tools": [
     {
       "name": "qupath_context",
@@ -548,7 +548,7 @@
     },
     {
       "name": "qupath_annotate",
-      "description": "Create a rectangle or ellipse annotation using full-resolution image pixels on the active z/t plane. Requires human approval; a hierarchy checkpoint is made first.",
+      "description": "Create a rectangle or ellipse annotation using full-resolution image pixels on the active z/t plane, optionally with a class such as \"Tumor\" or \"Stroma\". A hierarchy checkpoint is made first. Infer position and size from the viewer/selection; never ask the researcher for coordinates.",
       "operation": "annotate",
       "risk": "data",
       "inputSchema": {
@@ -577,6 +577,11 @@
           },
           "name": {
             "type": "string"
+          },
+          "classification": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Class label to assign, e.g. \"Tumor\". Omit for an unclassified region."
           }
         },
         "required": [
@@ -584,6 +589,78 @@
           "y",
           "width",
           "height"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_class_summary",
+      "description": "Count objects by their current class with percentages computed by QuPath, for the whole image, the selection or the selected region. Use this for \"how many / what percentage are positive\", never arithmetic on listings.",
+      "operation": "class_summary",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_workflow_steps",
+      "description": "List the analysis steps QuPath has recorded for this image (its workflow history) and the Groovy script it would generate. Read only.",
+      "operation": "workflow_steps",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_save_workflow",
+      "description": "Save the recorded analysis steps as a reusable Groovy script in Luma's workflow folder, so the same procedure can be applied to other samples. Returns the path, step names and script. Pick a short descriptive name yourself.",
+      "operation": "save_workflow",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "name"
         ],
         "additionalProperties": false
       }
