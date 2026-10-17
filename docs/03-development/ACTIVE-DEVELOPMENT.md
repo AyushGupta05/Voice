@@ -70,6 +70,18 @@ Rules: never write outside your ownership; never run two Fiji JVMs from the same
 always `--isolated-home` / test.py; never modify `C:\Users\arnav\Documents\dev\Fiji`; commit on your
 own branch only; the lead merges.
 
+## Active agents (started 2026-10-17 ~12:20, all Sonnet 5.5 high effort, background)
+
+| Agent | Status | Branch | Task |
+|---|---|---|---|
+| A1 Engine | running | `agent/engine` | E1–E7: DefaultEngine, catalogue/schemas, R1 execution with postconditions and dialog watch, observation, ROI Manager singleton bridge, globals, snapshot undo, history/macro export, engine tests |
+| A2 UI | running | `agent/ui` | Workspace per D12 W-1 with hosted real IJ1 canvases (EXP-01 S3), Fiji menu bar from `Menus.getMenuBar()`, tool palette, command bar + proposal sheet, parameters/ROI/results/history/log/activity panels, status read-out, themes, `--screenshot` flag, UI test |
+| A3 Voice/NL | **merged** 13:05 (7f046e0, 2b42cdc, db9093b) | `agent/voice` | `speech/server.py` persistent worker + `WhisperSpeechService`; `DefaultNlService` (grammar + catalogue retrieval + deterministic validator/policy); eval set ≥30 cases; tests |
+| A4 Verify | running | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
+| Spike (prior session) | **finished** 12:50 | `spike/architecture-gate` (pushed) | EXP-01…05 PASS/INCONCLUSIVE per `spikes/arch-gate/README.md`; EXP-06 script only (NOT RUN) |
+
+Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
+
 ## Milestones
 
 | Milestone | Status | Evidence |
@@ -79,13 +91,24 @@ own branch only; the lead merges.
 | M2 Modern workspace (hosted canvas, menus, panels) | Not started | |
 | M3 ROIs and results | Not started | |
 | M4 Macros and history | Not started | |
-| M5 Speech and NL | Not started | |
+| M5 Speech and NL | **Core done** (services + tests); UI wiring pending (M2) | 129 tests pass on the integration branch; eval 103/103, 0 unsafe; fixture transcribes; live microphone unverified (needs a person) |
 | M6 End-to-end demo (J-12 cell counting) | Not started | |
 | M7 Hardening | Not started | |
 
 ## Working capabilities (verified by running)
 
-- Engine bootstrap: SciJava context with the legacy layer, FlatLaf, real `IJ.run` on a synthetic image, orderly exit.
+- Engine bootstrap: SciJava context with the legacy layer, FlatLaf, real `IJ.run` on a synthetic image, orderly exit (EXP-04 recipe: close images → dispose → halt; 3.6 s total).
+- Speech: persistent `speech/server.py` worker (hash-verified tiny.en, VAD) through `WhisperSpeechService`; typed/spoken text → `DefaultNlService` proposals with deterministic policy (no code generation, consequential slots only from the user).
+- Launching `java.exe` directly (tools/run.py) gives a **DPI-aware** JVM: `dpiScale=1.50` on the 150 % display. The spikes' Jaunch-launched JVM was DPI-unaware (blurry); the product launcher avoids that.
+
+## Spike facts every workstream must respect (from EXP-01…05)
+
+- Host window: `canEnlarge()==null` **and** `win.setLayout(null)`; viewport order size → source rect → magnification; never `zoomOut`/`unzoom` on the canvas.
+- Current image follows `WindowManager.setCurrentWindow(win)` only (not clicks/focus); make the target current **before** any `RoiManager.select`.
+- Error signals are non-uniform; a plugin exception on a hidden-window document can be silent → postconditions decide success. Modal `MessageDialog`s block the worker → the dialog watch must capture and dispose them.
+- Macros ending with `setBatchMode(false)` re-show hidden windows → re-apply the window policy after CODE actions. First macro `selectImage` on a hidden window costs ~1 s.
+- Shutdown: close images, then `context.dispose()` (1.45 s) or `IJ.getInstance().quit()` (0.44 s); never bare `System.exit` with documents open.
+- Native canvas paint 0.14–1.7 ms median at 2048²; IJ1 caches the converted image.
 
 ## Known failures / open issues
 

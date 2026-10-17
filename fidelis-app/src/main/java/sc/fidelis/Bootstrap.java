@@ -38,9 +38,11 @@ public final class Bootstrap {
         final ImageJ ij = new ImageJ();
         LegacyService legacy = ij.get(LegacyService.class);
         boolean legacyActive = legacy != null && legacy.isActive();
-        System.out.printf("[fidelis] context ready in %.1fs; legacy active=%s; IJ1 %s; LAF %s%n",
+        double dpiScale = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                .getDefaultConfiguration().getDefaultTransform().getScaleX();
+        System.out.printf("[fidelis] context ready in %.1fs; legacy active=%s; IJ1 %s; LAF %s; dpiScale=%.2f%n",
                 (System.nanoTime() - t0) / 1e9, legacyActive, IJ.getFullVersion(),
-                UIManager.getLookAndFeel().getName());
+                UIManager.getLookAndFeel().getName(), dpiScale);
         if (!legacyActive) {
             System.err.println("[fidelis] LegacyService inactive: ImageJ1 patching failed (FR-SYS-002)");
             Runtime.getRuntime().halt(3);
@@ -66,11 +68,17 @@ public final class Bootstrap {
     }
 
     /**
-     * Provisional orderly exit used until EXP-04 fixes the shutdown path: dispose the context off the
-     * EDT with a bound, then halt. {@code System.exit} is avoided because the SciJava shutdown hook
-     * can deadlock on the EDT in GUI mode (probe P85).
+     * Orderly exit per spike EXP-04: close every image (discarding, as the caller has already
+     * resolved unsaved changes) and its windows on the EDT, then dispose the context off the EDT with
+     * a bound, then halt. {@code System.exit} with documents still open deadlocks in the SciJava
+     * shutdown hook ({@code IJ1Helper.closeImageWindows} inside {@code invokeAndWait}; P85, EXP-04).
      */
     public static void exit(ImageJ ij, int code) {
+        try {
+            SwingUtilities.invokeAndWait(Bootstrap::closeAllImages);
+        } catch (Exception e) {
+            System.err.println("[fidelis] closing images: " + e);
+        }
         Thread t = new Thread(() -> {
             try {
                 ij.context().dispose();
@@ -88,5 +96,20 @@ public final class Bootstrap {
         System.out.println("[fidelis] exit " + code + (t.isAlive() ? " (dispose timed out; halting)" : ""));
         System.out.flush();
         Runtime.getRuntime().halt(code);
+    }
+
+    private static void closeAllImages() {
+        int[] ids = ij.WindowManager.getIDList();
+        if (ids == null) return;
+        for (int id : ids) {
+            ImagePlus imp = ij.WindowManager.getImage(id);
+            if (imp == null) continue;
+            try {
+                imp.changes = false;
+                imp.close();
+            } catch (Throwable e) {
+                System.err.println("[fidelis] close " + imp.getTitle() + ": " + e);
+            }
+        }
     }
 }
