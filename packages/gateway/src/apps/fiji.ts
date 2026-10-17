@@ -304,21 +304,28 @@ const importDialog = (title: string) => !/export/i.test(title) && /^bio-formats 
 async function settleOpenDialog(runtime: Runtime, signal?: AbortSignal): Promise<string | undefined> {
   type Control = { id?: string; type?: string; text?: string; label?: string; enabled?: boolean; disabled?: boolean };
   type Ui = { windows?: Array<{ title?: string; controls?: Control[] }> };
-  for (let attempt = 0; attempt < 12; attempt++) {
-    if (signal?.aborted) return undefined;
+  // Bio-Formats chains dialogs (Import Options, then Series Options for multi-series files such as whole slides), so
+  // confirmation continues until no import dialog has appeared for two seconds; each confirmation is reported.
+  const confirmed: string[] = []; let idle = 0; let lastFired: string | undefined;
+  for (let attempt = 0; attempt < 60 && idle < 4; attempt++) {
+    if (signal?.aborted) break;
     await new Promise(resolve => setTimeout(resolve, 500));
     let ui: Ui | undefined;
-    try { ui = await runtime.adapter.execute('ui') as Ui; } catch { return undefined; }
+    try { ui = await runtime.adapter.execute('ui') as Ui; } catch { break; }
     const dialog = ui?.windows?.find(window => importDialog(window.title ?? ''));
-    if (!dialog) { if (attempt >= 3) return undefined; continue; }
+    if (!dialog) { idle++; if (!confirmed.length && attempt >= 3) return undefined; continue; }
+    idle = 0;
     const ok = dialog.controls?.find(control => /^button$/i.test(control.type ?? '') && /^ok$/i.test((control.text ?? control.label ?? '').trim()) && control.enabled !== false && !control.disabled);
-    if (!ok?.id) return `A "${dialog.title}" dialog is open without an enabled OK button; inspect it with fiji_ui.`;
+    if (!ok?.id) return [...confirmed, `A "${dialog.title}" dialog is open without an enabled OK button; inspect it with fiji_ui.`].join(' ');
+    // The same control seen again is a dialog still closing, not a new one.
+    if (ok.id === lastFired) continue;
     try {
       const outcome = await runtime.call('fiji_ui_action', { nodeId: ok.id, action: 'fire' }, signal) as { status?: unknown };
-      return outcome?.status === 'completed' ? `Confirmed the "${dialog.title}" dialog with its default settings.` : `Could not confirm the "${dialog.title}" dialog; inspect it with fiji_ui.`;
-    } catch (error) { return `The "${dialog.title}" dialog is open; confirming it failed: ${error instanceof Error ? error.message : String(error)}`; }
+      if (outcome?.status !== 'completed') return [...confirmed, `Could not confirm the "${dialog.title}" dialog; inspect it with fiji_ui.`].join(' ');
+      lastFired = ok.id; confirmed.push(`Confirmed the "${dialog.title}" dialog with its default settings.`);
+    } catch (error) { return [...confirmed, `The "${dialog.title}" dialog is open; confirming it failed: ${error instanceof Error ? error.message : String(error)}`].join(' '); }
   }
-  return undefined;
+  return confirmed.length ? confirmed.join(' ') : undefined;
 }
 
 export const fiji: AppProfile = {
