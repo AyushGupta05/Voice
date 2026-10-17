@@ -1,4 +1,7 @@
 .venv/
+.venv-stt/
+external/models/
+external/downloads/
 __pycache__/
 *.py[cod]
 *.egg-info/

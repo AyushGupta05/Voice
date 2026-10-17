@@ -5,7 +5,7 @@
       "label": "Backend",
       "type": "process",
       "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["-m", "uvicorn", "click_to_batch.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "args": ["-m", "uvicorn", "fidelis.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": [],
       "presentation": { "panel": "dedicated" }

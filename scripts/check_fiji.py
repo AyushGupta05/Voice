@@ -24,7 +24,7 @@ def configured_executable() -> Path:
 def main() -> None:
     executable = configured_executable()
     macro = ROOT / "fiji" / "macros" / "smoke-test.ijm"
-    with tempfile.TemporaryDirectory(prefix="click-to-batch-fiji-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="fidelis-fiji-") as temporary:
         marker = Path(temporary) / "result.txt"
         result = subprocess.run(
             [str(executable), "--headless", "-macro", str(macro), str(marker)],

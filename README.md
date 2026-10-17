@@ -1,63 +1,57 @@
-# Click to Batch
+# Fidelis
 
-Local Fiji/ImageJ workflow companion for the **Reinvent the Wheel** hackathon.
+A local companion that brings real Fiji / ImageJ operations into a modern, observable interface. Formerly Click to Batch; this milestone extends the existing repository instead of replacing Fiji.
 
-This is a working development scaffold: a FastAPI health endpoint, a React/TypeScript/Vite starter screen, local development tooling and a verified Fiji macro smoke check. Scientific image analysis, batch processing and voice input are future work.
+**Implemented:** a React workbench, a FastAPI job service, a pinned external Fiji process adapter, an isolated faster-whisper CPU worker, command review, per-action image previews, measurements, supported-action macro recording and replay.
 
-## Quick start on Windows
+**Scope:** invert, Gaussian blur, fixed threshold and whole-image measurements on single-frame 8-bit grayscale PNGs. Speech understands a small explicit English command grammar. This is a working integration milestone, not a complete Fiji replacement.
 
-Open this folder in VS Code. Choose **Terminal → Run Task → Dev: start both**. The frontend is at <http://127.0.0.1:5173>; API documentation is at <http://127.0.0.1:8000/docs>.
+## Run on this machine
 
-Alternatively, run these commands in two PowerShell terminals from the project root:
+Open [Fidelis.code-workspace](Fidelis.code-workspace) in VS Code and run the **Dev: start both** task, or use two terminals from this directory:
 
-```powershell
-# Terminal 1
-.\.venv\Scripts\python.exe -m uvicorn click_to_batch.main:app --reload --host 127.0.0.1 --port 8000
+    ./.venv/Scripts/python.exe -m uvicorn fidelis.main:app --host 127.0.0.1 --port 8000
 
-# Terminal 2
-npm.cmd --prefix frontend run dev
-```
+    npm.cmd --prefix frontend run dev
 
-No virtual environment activation or PowerShell policy change is needed. Stop each server with Ctrl+C. Stop a running Backend task before using F5 to debug on the same port.
+Open http://127.0.0.1:5173. Use the synthetic image, review “invert the image then measure the image”, then click Run in Fiji. Click a timeline stage to inspect its output; download the macro or replay the recording.
 
-## Layout
+To test speech without a microphone, upload fixtures/invert-command.wav through the audio control. Its generated speech says “Invert the image.” The transcript becomes a visible command for review; transcription alone never runs image processing.
 
-```text
-backend/src/click_to_batch/  Python API package
-frontend/src/               React interface
-tests/backend/              API contract tests
-fixtures/                   Small synthetic test inputs
-fiji/macros/                Fiji smoke check and future analysis macros
-scripts/                   Local Fiji verification helper
-docs/                       Architecture, setup and local inventory
-.vscode/                    Interpreter, tasks, debugging and extensions
-pyproject.toml              Python dependencies and tooling
-requirements-dev.lock.txt   Resolved Python development dependencies
-click-to-batch.code-workspace
-```
+## Documentation
 
-## Recreate dependencies
+- [Setup and dependency recreation](docs/setup.md)
+- [Architecture, boundaries and next milestones](docs/architecture.md)
+- [Upstream research and license decisions](docs/upstreams.md)
+- [Verification results and limitations](docs/verification.md)
+- [Environment inventory](docs/environment.md)
+- [Third-party notices](third_party/NOTICE.md)
 
-Use Python 3.11+ and Node.js 22.12+ (this environment was verified with Python 3.14.3 and Node 24.14.0). The existing `.venv` and frontend dependencies are already set up on this machine.
+## Repository layout
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.lock.txt
-.\.venv\Scripts\python.exe -m pip install --no-deps -e ".[dev]"
-npm.cmd --prefix frontend ci
-```
+    backend/src/fidelis/       API, typed command grammar and upstream adapters
+    frontend/                 React / TypeScript / Vite workbench
+    speech/                   Isolated speech worker and hash-locked requirements
+    external/                 Runtime/model pins; downloaded model data is ignored
+    fiji/macros/              Original integration smoke macro
+    fixtures/                 Original synthetic image and generated speech fixture
+    scripts/                  Setup, pinning and fixture tools
+    tests/backend/            Validation, failure-path and real integration tests
+    third_party/              Preserved upstream licenses and package inventories
+    outputs/                  Ignored per-run macros, previews, measurements and manifests
+    data/inputs/              Ignored imported grayscale images
 
-The Python lock is a snapshot tested on this Windows/Python environment; re-resolve and test for another platform or Python version. After deliberately changing Python dependencies, install `-e ".[dev]"`, rerun checks and refresh the lock with `python -m pip freeze --exclude-editable` using the project interpreter.
+The API package, UI and workspace are named Fidelis. The existing checkout directory remains C:/Users/arnav/Documents/dev/click-to-batch to preserve local tooling paths. Its existing GitHub remote remains https://github.com/reverez/click-to-batch. No GitHub rename, push or publication was performed.
 
 ## Verify
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
-.\.venv\Scripts\python.exe -m ruff check .
-npm.cmd --prefix frontend run build
-.\.venv\Scripts\python.exe scripts/check_fiji.py
-```
+    ./.venv/Scripts/python.exe -m pytest -m "not integration"
+    ./.venv/Scripts/python.exe -m ruff check .
+    npm.cmd --prefix frontend run build
 
-Fiji is installed at `C:\Users\arnav\Documents\dev\Fiji`. The Fiji check reads `FIJI_EXECUTABLE` from the ignored local `.env` file and runs `fiji/macros/smoke-test.ijm` in headless mode. You can also run the **Check Fiji** VS Code task. The app's health endpoint and interface do not yet run scientific Fiji analysis.
+Opt into real Fiji and speech tests in PowerShell:
 
-See [architecture and next steps](docs/architecture.md) and [local environment](docs/environment.md). The `main` branch tracks the private GitHub repository at <https://github.com/reverez/click-to-batch>. Claude Code is installed and signed in; run `claude` from a terminal in this folder to begin development.
+    $env:FIDELIS_INTEGRATION = "1"
+    ./.venv/Scripts/python.exe -m pytest --junitxml=outputs/all-tests.xml
+
+See docs/verification.md for what was actually checked and what remains pending.
