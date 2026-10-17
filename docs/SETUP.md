@@ -94,3 +94,9 @@ Random tokens are generated in `.local/state` with restrictive permissions. The 
 ## Other operating systems
 
 The gateway and QuPath API design are portable. The companion and bootstrap are currently macOS Apple Silicon implementations. Windows/Linux adapters, installers and native overlays have not been built or verified. Do not advertise cross-platform support from the architecture alone.
+
+## Updating the loaded adapter and reference tools
+
+QuPath loads the bridge at application startup. After Java adapter changes, save your work and quit the project instance normally, then rebuild/relaunch through the existing scripts. Restart Luma and reconnect an MCP client after tool-registry changes. A new source checkout or compiled jar does not replace classes already loaded in a running QuPath process. Never force-close unsaved research work to update the adapter.
+
+`npm run smoke:api` checks the pinned reference corpus independently of QuPath. The api_search/api_read tools use the configured commit’s Java blobs; they can work without an open image. Missing source returns setup guidance while the other local tools remain available. See [API-LOOKUP.md](API-LOOKUP.md).

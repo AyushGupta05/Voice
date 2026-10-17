@@ -18,6 +18,8 @@ export class Runtime extends EventEmitter {
     signal?.throwIfAborted(); beforeDispatch?.();
     const spec = validateTool(name, args);
     if (name === 'qupath_knowledge') return this.knowledge.search(args.query as string);
+    if (name === 'qupath_api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
+    if (name === 'qupath_api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
     if (name === 'qupath_action_status') {
       const action = this.actions.get(args.actionId as string);
       if (!action) throw new Error('Action not found (history is scoped to the running gateway).');

@@ -1,6 +1,6 @@
 # QuPath task coverage
 
-The target experience is an audience-selected task in the actual QuPath application: observe what is open/selected, choose a supported operation, act, then verify its visible or measured result. The interface combines 30 structured MCP tools with a live installed-command catalog and reviewed native-control/scripting fallbacks. A separate endpoint for every button would become stale as plugins and QuPath versions change; the live catalog and control observation supply that changing surface.
+The target experience is an audience-selected task in the actual QuPath application: observe what is open/selected, choose a supported operation, act, then verify its visible or measured result. The interface combines 32 structured MCP tools with a live installed-command catalog and reviewed native-control/scripting fallbacks. A separate endpoint for every button would become stale as plugins and QuPath versions change; the live catalog and control observation supply that changing surface.
 
 ## Task routes
 
@@ -14,7 +14,7 @@ The target experience is an audience-selected task in the actual QuPath applicat
 | “Open the other image in this project” | project_images → open_project_image | Exact entry and observed source fingerprint; verify context after native dispatch |
 | “Bring in these annotations” | inspect_import → import_annotations | Reviewed file hash, counts/classes, full-resolution pixel coordinates, valid original geometry/plane, native precision-change disclosure, unique IDs, checkpoint and actual imported count |
 | “Open this analysis panel / click this button” | commands → run_command → ui → ui_action | Exact installed paths and current controls; review button/text/choice/tab action; inspect result, never assume dispatch completed |
-| “Use a pixel/object classifier, TMA tool or extension” | knowledge + installed command discovery | Inspect actual project/model/plugin prerequisites; reviewed native interaction or exact-source script; specialized algorithms are not all individually pretested |
+| “Use a pixel/object classifier, TMA tool or extension” | knowledge + API lookup + installed command discovery | Inspect actual project/model/plugin prerequisites; reviewed native interaction or exact-source script; specialized algorithms are not all individually pretested |
 | “Export these results / run across the project” | native measurement exporter or documented reviewed script | Explicit destination/scope; native saved-data prerequisites; verify output; external files lie outside hierarchy recovery |
 | “Compare / restore the earlier objects” | checkpoints, compare, restore | Exact image-bound checkpoint, full class/count changes; restore requires human review |
 
@@ -24,7 +24,7 @@ The current narrow GeoJSON importer supports a Feature, array or FeatureCollecti
 
 The earlier real QuPath 0.7 discovery found 232 menu commands across File, Edit, Tools, View, Objects, TMA, Measure, Automate, Analyze, Classify, Extensions, Window and Help. Those counts depend on installed plugins and current application state. [The discovery record](pitch/capability-discovery.json) proves enumeration, not execution of all 232 commands.
 
-The new increment adds seven tools: measurement_summary, analysis_catalog, project_images, open_path, open_project_image, inspect_import and import_annotations. Existing ui/ui_action now also expose exact choice-box options and enabled tab titles. Schemas and approval requirements are generated in [TOOL-REFERENCE.md](TOOL-REFERENCE.md).
+The import/analysis increment adds seven tools: measurement_summary, analysis_catalog, project_images, open_path, open_project_image, inspect_import and import_annotations. Two additional read-only tools, api_search/api_read, expose the pinned base API source; see [API-LOOKUP.md](API-LOOKUP.md). Existing ui/ui_action now also expose exact choice-box options and enabled tab titles. Schemas and approval requirements are generated in [TOOL-REFERENCE.md](TOOL-REFERENCE.md).
 
 ## Fast, visible interaction
 

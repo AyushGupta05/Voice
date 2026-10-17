@@ -1,9 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { ApiSource } from './api-source.js';
 type Document = { title: string; source: string; text: string };
 export class Knowledge {
   private documents: Document[] = [];
+  readonly api = new ApiSource();
   async load(root: string) {
+    this.documents = [];
     for (const directory of ['skills/qupath', '.local/upstream/qupath-docs/docs']) {
       const walk = async (path: string): Promise<void> => {
         let entries;
@@ -20,6 +23,7 @@ export class Knowledge {
       };
       await walk(join(root, directory));
     }
+    await this.api.load(root);
   }
   search(query: string) {
     const terms = query.toLowerCase().match(/[a-z0-9_]+/g) ?? [];

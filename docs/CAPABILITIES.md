@@ -1,6 +1,6 @@
 # Capability matrix
 
-There are 30 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
+There are 32 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
 
 | Surface | Behavior | Approval | Evidence / limit |
 |---|---|---|---|
@@ -24,6 +24,7 @@ There are 30 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, an
 | JavaFX control action | Fire, edit text, select exact combo/choice option or enabled tab title | Yes | Image-type dialog toggle and Apply verified; bound to reviewed dialog fingerprint and revalidated at dispatch; password fields excluded |
 | Groovy execution | Full QuPath scripting context | Yes | Requires open project + image; full local privileges; exact-source review; external effects not recoverable |
 | Knowledge | Authored guides + pinned official documentation | No | 67 documents indexed in the current local checkout |
+| API source lookup | Search/read bounded immutable Java source at the pinned commit | No | Actual 879-file lookup, authenticated gateway tests and actual model search/read/declaration proof pass; base QuPath source only, no source execution |
 | AWS-credit OpenAI text | Per-peer follow-ups, full answers, Stop, same Runtime and real human approvals | Data actions: yes | Real authenticated WebSocket → GPT-OSS-120B → exact QuPath focus passed; text-only, no viewer vision; native controls compile, foreground checks pending |
 | Native companion | Floating panel, action history, approvals, knowledge search | N/A | Builds, launches and visually inspected on this Mac |
 | Realtime voice transport | Continuous PCM protocol, VAD, function calls, interruption events | Funding gate | Local protocol fixture passes; no live provider session; production activation intentionally absent |

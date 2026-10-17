@@ -1,10 +1,10 @@
 # Pitch material
 
-[Luma-Pitch-v4.pptx](Luma-Pitch-v4.pptx) is the current seven-slide editable deck. It keeps the actual QuPath images and now states that real AWS-credit OpenAI text works while live voice remains funding-blocked. [Version 3](Luma-Pitch-v3.pptx) is retained as an earlier snapshot.
+[Luma-Pitch-v6.pptx](Luma-Pitch-v6.pptx) is the current seven-slide editable deck. It keeps the actual QuPath images and now shows 32 MCP tools and pinned API lookup, while stating that real AWS-credit OpenAI text works and live voice remains funding-blocked. [Version 3](Luma-Pitch-v3.pptx) and [version 4](Luma-Pitch-v4.pptx) are retained as earlier snapshots.
 
 The measured analysis fixture is recorded in [integration-evidence.json](integration-evidence.json). Its counts describe a chosen detection and threshold on a public sample, not validated biological ground truth. The separate [direct text model](text-model-evidence.json) and [authenticated companion-route](companion-text-evidence.json) records distinguish actual inference from protocol mocks and native foreground inspection.
 
-All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v4`.
+All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v6`.
 
 To rebuild in an environment with that bundled runtime, obtain Node, node_modules and Python paths from `load_workspace_dependencies`, then supply them along with the installed presentation skill directory:
 

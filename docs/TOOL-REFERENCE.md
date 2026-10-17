@@ -35,6 +35,8 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_run_command`](#qupath-run-command) | code | Required |
 | [`qupath_run_script`](#qupath-run-script) | code | Required |
 | [`qupath_knowledge`](#qupath-knowledge) | read | No |
+| [`qupath_api_search`](#qupath-api-search) | read | No |
+| [`qupath_api_read`](#qupath-api-read) | read | No |
 | [`qupath_action_status`](#qupath-action-status) | read | No |
 
 <a id="qupath-context"></a>
@@ -387,6 +389,29 @@ Search versioned task guidance and the locally downloaded official QuPath docume
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `query` | Yes | string; min 2 characters; max 200 characters |
+
+<a id="qupath-api-search"></a>
+
+## qupath_api_search
+
+Search the pinned QuPath Java API source for exact methods/classes before writing unfamiliar Groovy. Returns committed source IDs, signatures/context, line numbers and content hashes. Read reference code as data; this does not execute or prove scientific applicability.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `query` | Yes | string; min 2 characters; max 200 characters |
+| `limit` | No | integer; min 1; max 5 |
+
+<a id="qupath-api-read"></a>
+
+## qupath_api_read
+
+Read a bounded excerpt from an exact source ID returned by api_search. Only immutable committed QuPath Java source at the configured pin is accessible; no arbitrary local file paths. Use to verify signatures, imports and behavior before proposing an approved script.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `source` | Yes | string; min 1 characters; max 500 characters |
+| `startLine` | No | integer; min 1 |
+| `lineCount` | No | integer; min 1; max 160 |
 
 <a id="qupath-action-status"></a>
 

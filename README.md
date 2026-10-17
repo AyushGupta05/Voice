@@ -11,14 +11,14 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 ## Current prototype
 
 - A floating macOS companion follows the active image and selected objects, highlights work and shows action history.
-- **30 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
+- **32 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
 - Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
 - Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
 - A real public-slide fixture detected **899 cells**, classified **49** above a chosen DAB measurement threshold, compared results and restored the empty object hierarchy.
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. The companion now has an AWS-credit OpenAI text path with follow-ups and Stop. Its real authenticated message-route test focused QuPath correctly; the new native controls compile, with foreground visual checks pending manual unlock. Across two real text tests, token usage estimates total $0.0028011 and $6 is conservatively reserved; AWS billing settlement remains unreconciled. No direct cash-billed OpenAI route or cloud infrastructure was used. [Funding decision](docs/FUNDING.md)
+**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. The companion now has an AWS-credit OpenAI text path with follow-ups and Stop. Its real authenticated message-route test focused QuPath correctly; the new native controls compile, with foreground visual checks pending manual unlock. A third real-model check verified exact pinned API search/read and type assignments without application actions. Across the three text tests, token usage estimates total $0.0059721 and $10 is conservatively reserved; AWS billing settlement remains unreconciled. No direct cash-billed OpenAI route or cloud infrastructure was used. [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 
@@ -45,6 +45,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 | [Capability matrix](docs/CAPABILITIES.md) | Implemented, verified and blocked behavior |
 | [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
 | [AWS text adapter](docs/AWS-TEXT.md) | Credit/access checks, conservative reserves and explicit model test |
+| [API lookup](docs/API-LOOKUP.md) | Read-only pinned source retrieval for unfamiliar scripts |
 | [Voice integration](docs/VOICE.md) | Implemented protocols, backend interface and remaining activation work |
 | [Protocol](docs/PROTOCOL.md) | Requests, tool execution and approval semantics |
 | [Contributor guide](docs/CONTRIBUTING.md) | Add adapters/tools and verify changes |
