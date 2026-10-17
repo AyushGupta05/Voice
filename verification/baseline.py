@@ -16,7 +16,7 @@ prefix is generated too and compared with the GUI run (E1/E5 across modes).
 Checking instead of (re)generating, e.g. on another machine or platform (macOS runs the same pinned components,
 see reference_runner.py), never overwrites a stored baseline:
     python -I verification/baseline.py --check --fixture FX-003 [--modes gui]
-        runs into verification/runs/<key>/<mode> and compares every step with the stored per-step dumps (E1, E3-E6)
+        runs into verification/runs/check/<key>/<mode> and compares every step with the stored per-step dumps (E1, E3-E6)
         and with the committed summary.json; exit 1 on any difference.
     python -I verification/baseline.py --check --fill-missing --fixture FX-030 --fixture FX-031 --modes gui
         additionally stores the per-step dumps of a mode that has none (FX-030/031 keep only summary.json in Git)
@@ -79,11 +79,11 @@ def run_mode(fixture_id: str, mode: str, timeout: float, threshold: str = j12.TH
 
 
 def run_reference(fixture_id: str, mode: str, timeout: float, threshold: str = j12.THRESHOLD,
-                  key: str | None = None) -> tuple[dict, Path, str]:
-    """Run the reference macro into verification/runs/<key>/<mode> (git-ignored); stores no baseline."""
+                  key: str | None = None, runs: Path = RUNS) -> tuple[dict, Path, str]:
+    """Run the reference macro into <runs>/<key>/<mode> (git-ignored); stores no baseline."""
     path = fixture_path(fixture_id)
     key = key or fixture_id
-    run_dir = RUNS / key / mode
+    run_dir = runs / key / mode
     if run_dir.exists():
         shutil.rmtree(run_dir)
     out_dir = run_dir / "out"
@@ -216,7 +216,9 @@ def check(fixture_id: str, mode: str, timeout: float, threshold: str = j12.THRES
     stored_summary = BASELINES / key / lock16() / "summary.json"
     if not (stored / "run.json").exists() and not stored_summary.exists():
         return [f"{key} {mode}: nothing stored under lock {lock16()} to check against"]
-    meta, out_dir, macro = run_reference(fixture_id, mode, timeout, threshold, key)
+    # a check never replaces verification/runs/<key>/<mode>: that is the run the stored baseline came from, which
+    # test_verification.py reads the saved Tiff of
+    meta, out_dir, macro = run_reference(fixture_id, mode, timeout, threshold, key, runs=RUNS / "check")
     problems = []
     if not meta["complete"] or meta["missing_steps"] or meta["timed_out"]:
         problems.append(f"run incomplete: missing={meta['missing_steps']} timed_out={meta['timed_out']}")
