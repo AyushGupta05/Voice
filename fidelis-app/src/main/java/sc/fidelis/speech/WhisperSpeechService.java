@@ -121,13 +121,17 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
     });
     private final AtomicInteger activeTranscriptions = new AtomicInteger();
     private final Object lock = new Object();
-    private final CompletableFuture<Void> ready = new CompletableFuture<>();
+    private volatile CompletableFuture<Void> ready = new CompletableFuture<>();
     private final Thread shutdownHook = new Thread(this::killNow, "fidelis-speech-shutdown");
 
     private volatile State state = State.STARTING;
     private volatile String unavailableReason;
     private volatile String vocabularyPrompt = DEFAULT_PROMPT;
     private volatile boolean closing;
+    /** Set when the worker died unexpectedly or was killed after a timeout; the next request restarts it once. */
+    private volatile boolean crashed;
+    /** Test hook: runs right after a request has been written to the worker (used to kill it mid-request). */
+    volatile Consumer<Process> afterRequestSent;
     private volatile String modelName = "Systran/faster-whisper-tiny.en";
 
     private Process process;
@@ -358,7 +362,10 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
         IOException gone = new IOException("speech worker exited");
         pending.values().forEach(f -> f.completeExceptionally(gone));
         pending.clear();
-        if (!closing && state != State.UNAVAILABLE) fail("speech worker exited unexpectedly (see " + config.log() + ")");
+        if (!closing && process == p && state != State.UNAVAILABLE) {
+            crashed = true;
+            fail("speech worker exited unexpectedly (see " + config.log() + "); it restarts on the next request");
+        }
     }
 
     private CompletableFuture<Map<String, Object>> request(Map<String, Object> message, Duration timeout) {
@@ -379,6 +386,8 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
             f.completeExceptionally(new IOException("cannot reach the speech worker: " + e.getMessage(), e));
             return f;
         }
+        Consumer<Process> hook = afterRequestSent;
+        if (hook != null) hook.accept(process);
         return f.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                 .whenComplete((r, e) -> pending.remove(id));
     }
@@ -396,7 +405,25 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
 
     // ---- transcription --------------------------------------------------------------------------
 
+    /** Replace a crashed worker with a fresh one (one automatic attempt per crash). */
+    private void restartIfCrashed() {
+        synchronized (lock) {
+            Process p = process;
+            boolean dead = p != null && !p.isAlive();
+            if (closing || !(crashed || (dead && state != State.UNAVAILABLE)) || checkEnvironment() != null) return;
+            crashed = false;
+            if (p != null && p.isAlive()) p.destroyForcibly();
+            process = null;
+            toWorker = null;
+            unavailableReason = null;
+            ready = new CompletableFuture<>();
+            setState(State.STARTING);
+        }
+        executor.execute(this::launchWorker);
+    }
+
     private CompletableFuture<Transcript> transcribe(Map<String, Object> message) {
+        restartIfCrashed();
         if (state == State.UNAVAILABLE) {
             return CompletableFuture.failedFuture(new IllegalStateException("Speech is unavailable: " + unavailableReason));
         }
@@ -413,7 +440,8 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
                 Throwable c = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                         ? err.getCause() : err;
                 if (c instanceof java.util.concurrent.TimeoutException) {
-                    fail("speech worker timed out; restart the application to re-enable voice");
+                    crashed = true;
+                    fail("speech worker timed out; it restarts on the next request");
                     killNow();
                 }
                 throw new java.util.concurrent.CompletionException(c);

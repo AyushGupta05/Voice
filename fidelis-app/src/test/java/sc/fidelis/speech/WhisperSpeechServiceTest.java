@@ -189,6 +189,91 @@ class WhisperSpeechServiceTest {
         assertTrue(seconds > 0.2 && seconds < 1.0, "captured " + seconds + " s");
     }
 
+    // ---- worker hardening (V4) ----------------------------------------------------------------
+
+    @Test
+    void killedWorkerReportsUnavailableThenRestartsOnTheNextCall() throws Exception {
+        requireReady();
+        Path wav = resource("invert-command.wav", dir.resolve("kill-invert.wav"));
+        try (WhisperSpeechService s = new WhisperSpeechService(service.config())) {
+            assertEquals(State.READY, s.awaitReady(Duration.ofSeconds(120)));
+            List<State> seen = new CopyOnWriteArrayList<>();
+            s.addListener(seen::add);
+            // kill the worker right after the request has been written, before it can answer
+            s.afterRequestSent = proc -> {
+                s.afterRequestSent = null;
+                proc.destroyForcibly();
+            };
+            ExecutionException e = assertThrows(ExecutionException.class, () -> s.transcribeFile(wav).get(60, TimeUnit.SECONDS));
+            assertTrue(e.getCause() instanceof IOException, "cause: " + e.getCause());
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (s.state() != State.UNAVAILABLE && System.nanoTime() < deadline) Thread.sleep(20);
+            assertEquals(State.UNAVAILABLE, s.state());
+            assertTrue(s.unavailableReason().contains("exited"), s.unavailableReason());
+            // the next call restarts the worker once and succeeds
+            Transcript t = s.transcribeFile(wav).get(120, TimeUnit.SECONDS);
+            assertTrue(t.text().toLowerCase().contains("invert"), t.text());
+            assertEquals(State.READY, s.state());
+            assertNull(s.unavailableReason());
+            assertTrue(seen.contains(State.UNAVAILABLE) && seen.contains(State.STARTING), "states: " + seen);
+        }
+    }
+
+    @Test
+    void corruptAudioFilesFailFastWithAnErrorNotAHang() throws Exception {
+        requireReady();
+        byte[] noise = new byte[4096];
+        new java.util.Random(7).nextBytes(noise);
+        Path garbage = dir.resolve("garbage.wav");
+        Files.write(garbage, noise);
+        Path empty = dir.resolve("empty.wav");
+        Files.write(empty, new byte[0]);
+        Path truncated = dir.resolve("truncated.wav");
+        byte[] real = Files.readAllBytes(resource("invert-command.wav", dir.resolve("full.wav")));
+        Files.write(truncated, java.util.Arrays.copyOf(real, 30)); // header only, no samples
+        for (Path bad : new Path[] {garbage, empty, truncated}) {
+            ExecutionException e = assertThrows(ExecutionException.class,
+                    () -> service.transcribeFile(bad).get(30, TimeUnit.SECONDS), bad.getFileName().toString());
+            assertTrue(e.getCause() instanceof WhisperSpeechService.SpeechException, bad + " cause: " + e.getCause());
+            String code = ((WhisperSpeechService.SpeechException) e.getCause()).code();
+            assertTrue(code.equals("BAD_AUDIO") || code.equals("EMPTY_AUDIO"), bad + " code " + code);
+        }
+        // the worker is still healthy afterwards
+        Transcript t = service.transcribeFile(dir.resolve("full.wav")).get(60, TimeUnit.SECONDS);
+        assertTrue(t.text().toLowerCase().contains("invert"));
+        assertEquals(State.READY, service.state());
+    }
+
+    @Test
+    void recordingAutoStopDeliversATranscriptThroughOnTranscript() throws Exception {
+        String mic = AudioCapture.unavailableReason();
+        assumeTrue(mic == null, "no TargetDataLine available: " + mic + " (live microphone use is unverified)");
+        requireReady();
+        try (WhisperSpeechService s = new WhisperSpeechService(service.config())) {
+            assertEquals(State.READY, s.awaitReady(Duration.ofSeconds(120)));
+            java.util.concurrent.CompletableFuture<Transcript> got = new java.util.concurrent.CompletableFuture<>();
+            s.onTranscript(got::complete);
+            AudioCapture.setMaxSecondsForTest(1.5); // stands in for the 30 s cap
+            try {
+                s.startRecording();
+                assertEquals(State.RECORDING, s.state());
+                Transcript t = got.get(60, TimeUnit.SECONDS); // nobody calls stopRecording()
+                assertEquals(1.5, t.durationSeconds(), 0.1);
+                assertEquals(State.READY, waitFor(s, State.READY));
+                // stopRecording after an auto-stop returns the same transcript instead of failing
+                assertEquals(t.id(), s.stopRecording().get(5, TimeUnit.SECONDS).id());
+            } finally {
+                AudioCapture.setMaxSecondsForTest(AudioCapture.MAX_SECONDS);
+            }
+        }
+    }
+
+    private static State waitFor(WhisperSpeechService s, State wanted) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (s.state() != wanted && System.nanoTime() < deadline) Thread.sleep(20);
+        return s.state();
+    }
+
     /** Writes a 16 kHz mono 16-bit PCM WAV of zeros. */
     static Path writeSilence(Path target, int seconds) throws IOException {
         byte[] zeros = new byte[seconds * 16000 * 2];
