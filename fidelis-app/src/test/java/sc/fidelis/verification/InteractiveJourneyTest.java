@@ -140,10 +140,14 @@ class InteractiveJourneyTest {
         SwingUtilities.invokeAndWait(() -> ij.actionPerformed(ev));
     }
 
-    /** True while an IJ1 command thread for {@code label} ("Run$_label") is alive. */
+    /**
+     * True while an IJ1 command thread for {@code label} is alive. IJ1's Executer names the thread after the command
+     * and IJ.run renames it "Run$_label" once the command runs another one (Analyze Particles opening the ROI Manager),
+     * so both names mean the command is still running.
+     */
     static boolean commandRunning(String label) {
         for (Thread t : Thread.getAllStackTraces().keySet()) {
-            if (t.isAlive() && t.getName().equals("Run$_" + label)) return true;
+            if (t.isAlive() && (t.getName().equals(label) || t.getName().equals("Run$_" + label))) return true;
         }
         return false;
     }
@@ -167,64 +171,136 @@ class InteractiveJourneyTest {
     /**
      * Run a menu command that opens a GenericDialog titled {@code title}, fill it from {@code params} (keys as in
      * the command schema; booleans tick checkboxes, numbers and strings go into fields, choices are selected) and
-     * press OK. Keys that have no field in the dialog are reported, not ignored silently.
+     * press OK. Every field of the dialog must be answered by a parameter (the preview checkbox excepted), and every
+     * parameter must reach a field, except a {@code false} boolean the dialog does not show for this image (IJ1 shows
+     * "Separate colors" only for RGB images, "Scaled units" only for calibrated ones; macro-only keys such as
+     * {@code in_situ} have no field): absent and false are the same option in macro mode. Both are reported.
      */
     void menuWithDialog(String label, String title, Map<String, Object> params) throws Exception {
         click(label);
         waitFor("dialog '" + title + "' of " + label, () -> showingDialog(title) != null, 30);
         GenericDialog gd = showingDialog(title);
-        List<String> unmatched = new ArrayList<>(params.keySet());
+        List<String> unmatched = new ArrayList<>();
+        List<String> unanswered = new ArrayList<>();
         SwingUtilities.invokeAndWait(() -> {
-            // every GenericDialog field keeps its label as the component name's neighbour; IJ1 derives the macro
-            // key with Macro.trimKey(label). Match fields the same way.
-            Map<String, Component> byKey = fieldsByKey(gd);
+            Map<String, Component> byKey = fieldsByKey(gd, new ArrayList<>(params.keySet()));
             for (Map.Entry<String, Object> e : params.entrySet()) {
                 Component c = byKey.get(e.getKey());
-                if (c == null) continue;
                 Object v = e.getValue();
                 if (c instanceof Checkbox cb && v instanceof Boolean b) cb.setState(b);
                 else if (c instanceof TextField tf) tf.setText(String.valueOf(v));
                 else if (c instanceof Choice ch) ch.select(String.valueOf(v));
-                else continue;
-                unmatched.remove(e.getKey());
+                else if (!Boolean.FALSE.equals(v)) unmatched.add(e.getKey());
+            }
+            for (Component c : fields(gd)) {
+                if (!byKey.containsValue(c)) unanswered.add(c instanceof Checkbox cb ? cb.getLabel() : labelOf(gd, c));
             }
             Button ok = gd.getButtons()[0];
             gd.actionPerformed(new ActionEvent(ok, ActionEvent.ACTION_PERFORMED, ok.getLabel()));
         });
         assertEquals(List.of(), unmatched, "parameters without a field in '" + title + "'");
-        waitFor(label + " to finish", () -> !commandRunning(label) && showingDialog(title) == null, 120);
+        assertEquals(List.of(), unanswered, "fields of '" + title + "' that no parameter answers");
+        finish(label, title);
     }
 
-    /** Fields of a GenericDialog keyed like IJ1 keys its macro options (first word of the label, lower-case). */
+    /**
+     * Wait for a menu command to finish. IJ1 asks "Save N measurements?" before a command clears a Results table with
+     * unsaved rows (Analyze Particles with "Clear results" after a Measure; never in macro mode, so the reference macro
+     * is not asked): the person answers "Don't Save", which clears the rows exactly as the macro does.
+     */
+    void finish(String label, String title) throws Exception {
+        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(120);
+        while (System.nanoTime() < end) {
+            for (Window w : Window.getWindows()) {
+                if (!(w instanceof ij.gui.YesNoCancelDialog yn) || !yn.isShowing()) continue;
+                Button dontSave = button(yn, "Don't Save", "No");
+                if (dontSave == null) continue;
+                SwingUtilities.invokeAndWait(() -> yn.actionPerformed(new ActionEvent(dontSave, ActionEvent.ACTION_PERFORMED,
+                        dontSave.getLabel())));
+                notes.add(label + ": answered '" + dontSave.getLabel().trim() + "' to IJ1's question in '" + yn.getTitle() + "'");
+            }
+            if (!commandRunning(label) && (title == null || showingDialog(title) == null)) return;
+            Thread.sleep(30);
+        }
+        throw new AssertionError("timed out waiting for " + label + " to finish");
+    }
+
+    private static Button button(Container c, String... labels) {
+        for (Component k : c.getComponents()) {
+            if (k instanceof Button b && List.of(labels).contains(b.getLabel().trim())) return b;
+            if (k instanceof Container kc) {
+                Button found = button(kc, labels);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /** The option fields of a GenericDialog: checkboxes (not the preview), numeric and string fields, choices. */
     @SuppressWarnings("unchecked")
-    static Map<String, Component> fieldsByKey(GenericDialog gd) {
-        Map<String, Component> out = new java.util.LinkedHashMap<>();
-        List<String> labels = labelsInOrder(gd);
-        // numeric and string fields are preceded by their Label in the dialog's layout; checkboxes carry their own
-        for (Checkbox cb : (Vector<Checkbox>) orEmpty(gd.getCheckboxes())) out.put(Macro.trimKey(cb.getLabel()), cb);
-        for (Choice ch : (Vector<Choice>) orEmpty(gd.getChoices())) out.put(keyOfPreceding(gd, ch, labels), ch);
-        for (TextField tf : (Vector<TextField>) orEmpty(gd.getNumericFields())) out.put(keyOfPreceding(gd, tf, labels), tf);
-        for (TextField tf : (Vector<TextField>) orEmpty(gd.getStringFields())) out.put(keyOfPreceding(gd, tf, labels), tf);
+    static List<Component> fields(GenericDialog gd) {
+        List<Component> out = new ArrayList<>();
+        for (Checkbox cb : (Vector<Checkbox>) orEmpty(gd.getCheckboxes())) if (cb != gd.getPreviewCheckbox()) out.add(cb);
+        out.addAll((Vector<Choice>) orEmpty(gd.getChoices()));
+        out.addAll((Vector<TextField>) orEmpty(gd.getNumericFields()));
+        out.addAll((Vector<TextField>) orEmpty(gd.getStringFields()));
         return out;
+    }
+
+    /**
+     * The field each parameter key answers, keyed as IJ1 keys its macro options: {@code Macro.trimKey} of the label the
+     * dialog was built with. The dialog shows that label with underscores turned into spaces ("Area_fraction" is shown
+     * as "Area fraction"), so a shown label stands for any of its word prefixes joined by underscores; keys with the
+     * fewest possible fields are placed first ("area_fraction" takes "Area fraction", then "area" takes "Area").
+     */
+    static Map<String, Component> fieldsByKey(GenericDialog gd, List<String> keys) {
+        List<Component> fields = fields(gd);
+        List<List<String>> cands = new ArrayList<>();
+        for (Component c : fields) cands.add(candidateKeys(c instanceof Checkbox cb ? cb.getLabel() : labelOf(gd, c)));
+        List<String> order = new ArrayList<>(keys);
+        order.sort(java.util.Comparator.comparingInt(k -> {
+            int n = 0;
+            for (List<String> l : cands) if (l.contains(k)) n++;
+            return n;
+        }));
+        Map<String, Component> out = new java.util.LinkedHashMap<>();
+        for (String k : order) {
+            int best = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                if (!cands.get(i).contains(k) || out.containsValue(fields.get(i))) continue;
+                if (best < 0 || cands.get(i).size() < cands.get(best).size()) best = i;
+            }
+            if (best >= 0) out.put(k, fields.get(best));
+        }
+        return out;
+    }
+
+    /** Word prefixes of a shown label joined by underscores, each trimmed as {@code Macro.trimKey} does. */
+    static List<String> candidateKeys(String shown) {
+        List<String> out = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        for (String w : shown.trim().split("\\s+")) {
+            if (w.isEmpty()) continue;
+            if (sb.length() > 0) sb.append('_');
+            sb.append(w);
+            String k = Macro.trimKey(sb.toString());
+            if (!k.isEmpty() && !out.contains(k)) out.add(k);
+            if (w.contains(":")) break;
+        }
+        return out;
+    }
+
+    /** The Label GenericDialog adds right before a numeric, string or choice field (or the panel holding it). */
+    static String labelOf(GenericDialog gd, Component field) {
+        List<Component> order = new ArrayList<>();
+        walk(gd, order::add);
+        int at = order.indexOf(field);
+        for (int i = at - 1; i >= 0; i--) if (order.get(i) instanceof java.awt.Label l) return l.getText();
+        return "?";
     }
 
     private static Vector<?> orEmpty(Vector<?> v) {
         return v == null ? new Vector<>() : v;
-    }
-
-    /** All components of the dialog in layout order (GenericDialog adds the Label right before each field). */
-    private static List<String> labelsInOrder(GenericDialog gd) {
-        List<String> out = new ArrayList<>();
-        walk(gd, c -> out.add(c instanceof java.awt.Label l ? "L:" + l.getText() : "C:" + System.identityHashCode(c)));
-        return out;
-    }
-
-    private static String keyOfPreceding(GenericDialog gd, Component field, List<String> order) {
-        int at = order.indexOf("C:" + System.identityHashCode(field));
-        for (int i = at - 1; i >= 0; i--) {
-            if (order.get(i).startsWith("L:")) return Macro.trimKey(order.get(i).substring(2));
-        }
-        return "?";
     }
 
     private static void walk(Container c, java.util.function.Consumer<Component> f) {
@@ -237,7 +313,7 @@ class InteractiveJourneyTest {
     /** Run a menu command that shows no dialog and wait for its thread to end. */
     void menu(String label) throws Exception {
         click(label);
-        waitFor(label + " to finish", () -> !commandRunning(label), 120);
+        finish(label, null);
         for (Window w : Window.getWindows()) {
             if (w instanceof Dialog d && d.isShowing()) throw new AssertionError(label + " left a dialog showing: " + d.getTitle());
         }
@@ -275,8 +351,10 @@ class InteractiveJourneyTest {
 
     private void step(String tag, Path baseline, DocumentId doc, List<DocumentId> before, List<String> failures) throws Exception {
         settle();
+        int known = failures.size();
         J12Session.compare(tag, engine, baseline, doc, before, failures, true);
         System.out.println("[interactive] " + tag + ": " + (failures.isEmpty() ? "matches the GUI baseline" : failures.size() + " difference(s) so far"));
+        for (String f : failures.subList(known, failures.size())) System.out.println("[interactive]   " + f);
     }
 
     private HistoryRecord lastNative(String label) {

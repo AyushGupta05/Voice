@@ -91,9 +91,24 @@ final class Observers {
                 onUpdated(imp);
             }
         });
+        try {
+            java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(e -> {
+                try {
+                    if (e instanceof java.awt.event.WindowEvent we) onWindow(we);
+                } catch (Throwable t) {
+                    System.err.println("[fidelis-engine] dialog observer: " + t);
+                }
+            }, java.awt.AWTEvent.WINDOW_EVENT_MASK);
+        } catch (RuntimeException e) {
+            System.err.println("[fidelis-engine] native dialogs are not observed: " + e);
+        }
     }
 
     // ---- commands -------------------------------------------------------------------------------------
+
+    /** Tool windows IJ1's own Recorder writes as a comment: opening one changes nothing; its effect is observed separately. */
+    static final java.util.Set<String> TOOL_WINDOWS = java.util.Set.of("Threshold...", "Fonts...", "Brightness/Contrast...",
+            "Channels Tool...");
 
     private void onCommand(String label) {
         Op op = Op.CURRENT.get();
@@ -112,19 +127,163 @@ final class Observers {
                     OperationState.COMPLETED, null));
             return;
         }
+        Thread thread = Thread.currentThread();
+        NativeCall outer = active.get(thread);
+        if (outer != null && nestedCommand()) {
+            // a command the running native command calls itself (Analyze Particles opens "ROI Manager...", a plugin
+            // runs IJ.run): part of that step, like a macro's commands are part of its CODE step; IJ1's Recorder
+            // skips them the same way. Its rows, images and ROIs belong to the outer command.
+            eng.results.noteChildCommand(label, options);
+            Map<String, Object> params = new java.util.LinkedHashMap<>();
+            params.put("parentActionId", outer.record.actionId());
+            if (options != null) params.put("options", options.strip());
+            eng.recordObserved(History.record(eng.history.nextId(), Origin.OBSERVED, Provenance.NATIVE, commandId(label), label,
+                    params, doc == null ? null : TargetScope.of(doc.id), List.of(), false, Globals.capture(), Map.of(),
+                    OperationState.COMPLETED, null));
+            return;
+        }
         Map<String, Object> params = new java.util.LinkedHashMap<>();
         if (options != null) params.put("options", options.strip());
-        List<String> lines = List.of(options != null ? Options.runLine(label, options.strip()) : Options.runLine(label, null));
+        boolean tool = TOOL_WINDOWS.contains(label) && options == null;
+        List<String> lines = List.of(tool ? "//" + Options.runLine(label, null)
+                : options != null ? Options.runLine(label, options.strip()) : Options.runLine(label, null));
         HistoryRecord rec = History.record(eng.history.nextId(), Origin.OBSERVED, Provenance.NATIVE, commandId(label), label, params,
-                doc == null ? null : TargetScope.of(doc.id), lines, options != null, Globals.capture(), Map.of(),
+                doc == null ? null : TargetScope.of(doc.id), lines, options != null || tool, Globals.capture(), Map.of(),
                 OperationState.COMPLETED, null);
         eng.recordObserved(rec);
         // rows of the previous native command are captured now; a table restart by this command is noted (#5)
         eng.results.beforeNative(label, options, doc == null ? null : doc.id, rec.actionId());
         ij.plugin.frame.RoiManager rm = ij.plugin.frame.RoiManager.getRawInstance();
         int managerBefore = rm == null ? -1 : rm.getCount();
-        // results rows, new images, ROI Manager entries and so on appear after the command finishes
-        timer.schedule(() -> eng.afterNative(rec.actionId(), doc, managerBefore), 600, TimeUnit.MILLISECONDS);
+        NativeCall call = new NativeCall(rec, label, thread, doc);
+        latest = call;
+        active.put(thread, call);
+        // results rows, new images, ROI Manager entries and so on appear after the command finishes. A command IJ1 runs
+        // on its own thread (a menu click, a shortcut: an Executer thread named after the command) is followed up when
+        // that thread ends, however long its dialog stays open; one run on the caller's thread 600 ms after it started.
+        Runnable follow = () -> {
+            active.remove(thread, call);
+            eng.afterNative(rec.actionId(), doc, managerBefore);
+        };
+        if (thread.getName().equals(label) || thread.getName().equals("Run$_" + label)) whenFinished(thread, follow);
+        else timer.schedule(follow, 600, TimeUnit.MILLISECONDS);
+    }
+
+    private void whenFinished(Thread thread, Runnable then) {
+        timer.schedule(new Runnable() {
+            @Override
+            public void run() {
+                if (thread.isAlive()) timer.schedule(this, 100, TimeUnit.MILLISECONDS);
+                else then.run();
+            }
+        }, 100, TimeUnit.MILLISECONDS);
+    }
+
+    // ---- dialogs of native commands -------------------------------------------------------------------
+
+    /** A native command whose dialog answers are still being observed. */
+    private static final class NativeCall {
+        final String label;
+        final Thread thread;
+        final Doc doc;
+        final List<NativeDialogs.Field> fields = new ArrayList<>();
+        Boolean stack;
+        boolean cancelled;
+        HistoryRecord record;
+
+        NativeCall(HistoryRecord record, String label, Thread thread, Doc doc) {
+            this.record = record;
+            this.label = label;
+            this.thread = thread;
+            this.doc = doc;
+        }
+    }
+
+    private volatile NativeCall latest;
+    /** The top-level native command each thread is running (until its follow-up), to recognise nested commands. */
+    private final Map<Thread, NativeCall> active = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** True when an IJ1 command is already executing further up this thread's stack (Executer.run re-entered). */
+    private static boolean nestedCommand() {
+        long runs = StackWalker.getInstance().walk(frames -> frames
+                .filter(f -> f.getClassName().equals("ij.Executer") && f.getMethodName().equals("run")).count());
+        return runs > 1;
+    }
+
+    /** Dialogs shown while a native command ran, until they close. */
+    private final Map<java.awt.Window, NativeCall> dialogOwners = java.util.Collections.synchronizedMap(new IdentityHashMap<>());
+
+    /** True while {@code t} is still inside an IJ1 command (the dialog it shows belongs to that command). */
+    private static boolean inCommand(Thread t) {
+        if (!t.isAlive()) return false;
+        for (StackTraceElement e : t.getStackTrace()) if (e.getClassName().equals("ij.Executer")) return true;
+        return false;
+    }
+
+    /**
+     * A GenericDialog (or IJ1's "Process all N images?" question) shown while a native command runs belongs to it:
+     * when it closes, the answers become the command's recorded options (OK) or the command is recorded as cancelled.
+     * Dialogs of typed commands are never shown (macro mode), except a legacy command's, which the worker owns.
+     */
+    private void onWindow(java.awt.event.WindowEvent we) {
+        java.awt.Window w = we.getWindow();
+        if (!(w instanceof ij.gui.GenericDialog) && !(w instanceof ij.gui.YesNoCancelDialog)) return;
+        if (we.getID() == java.awt.event.WindowEvent.WINDOW_OPENED) {
+            NativeCall c = latest;
+            if (c == null || eng.busy() || !inCommand(c.thread)) return;
+            dialogOwners.put(w, c);
+        } else if (we.getID() == java.awt.event.WindowEvent.WINDOW_CLOSED) {
+            NativeCall c = dialogOwners.remove(w);
+            if (c != null) answered(c, w);
+        }
+    }
+
+    private void answered(NativeCall c, java.awt.Window w) {
+        synchronized (c) {
+            if (w instanceof ij.gui.GenericDialog gd) {
+                if (gd.wasOKed()) c.fields.addAll(NativeDialogs.read(gd));
+                else if (gd.wasCanceled()) c.cancelled = true;
+                else return; // answered "No" (a yes/no/cancel GenericDialog): not an option of the command
+            } else if (w instanceof ij.gui.YesNoCancelDialog yn) {
+                // Cancel aborts the command (IJ1 returns without running it); "Process all N images?" answers the
+                // `stack` option; other questions ("Save 3 measurements?") are not options of the command
+                if (yn.cancelPressed()) c.cancelled = true;
+                else if ("Process Stack?".equals(yn.getTitle())) c.stack = yn.yesPressed();
+                else return;
+            }
+            HistoryRecord old = c.record;
+            Map<String, Object> params = new java.util.LinkedHashMap<>();
+            List<String> lines;
+            boolean exact;
+            OperationState outcome = OperationState.COMPLETED;
+            String note = null;
+            if (c.cancelled) {
+                params.putAll(old.params());
+                lines = old.macroLines();
+                exact = old.macroExact();
+                outcome = OperationState.CANCELLED;
+                note = c.label + " was cancelled in its dialog";
+            } else {
+                Catalogue.Entry en = entry(c.label);
+                NativeDialogs.Recorded r = NativeDialogs.record(en, c.fields, c.stack, c.doc == null ? null : c.doc.imp, eng.registry);
+                params.putAll(r.params());
+                params.put("options", r.options());
+                if (!r.unmatched().isEmpty()) params.put("unmatchedDialogFields", List.copyOf(r.unmatched()));
+                lines = List.of(Options.runLine(c.label, r.options()));
+                exact = r.exact();
+                if (Results.restartsTable(c.label, r.options())) eng.results.noteRestart(old.actionId());
+            }
+            HistoryRecord upd = new HistoryRecord(old.actionId(), old.time(), old.origin(), old.provenance(), old.commandId(),
+                    old.label(), java.util.Collections.unmodifiableMap(params), old.target(), List.copyOf(lines), exact,
+                    old.globalsBefore(), old.globalsDelta(), outcome, note, old.transcriptRef());
+            c.record = upd;
+            eng.replaceObserved(upd);
+        }
+    }
+
+    private Catalogue.Entry entry(String label) {
+        for (Catalogue.Entry e : eng.cat().entries()) if (e.label().equals(label)) return e;
+        return null;
     }
 
     private String commandId(String label) {

@@ -26,6 +26,17 @@ final class History {
         records.add(r);
     }
 
+    /** Replace the record with the same action id (a native command's dialog answers arrive after it was recorded). */
+    synchronized boolean replace(HistoryRecord r) {
+        for (int i = records.size() - 1; i >= 0; i--) {
+            if (records.get(i).actionId().equals(r.actionId())) {
+                records.set(i, r);
+                return true;
+            }
+        }
+        return false;
+    }
+
     synchronized List<HistoryRecord> list() {
         return List.copyOf(records);
     }

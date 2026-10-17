@@ -354,6 +354,19 @@ public final class DefaultEngine implements Engine {
     }
 
     /**
+     * Replace an observed record in place (same action id) once more is known about it, e.g. the options a person
+     * chose in a native command's dialog. Listeners get the updated record as a HistoryAppended event for the same id.
+     */
+    void replaceObserved(HistoryRecord rec) {
+        if (history.replace(rec)) events.emit(seq -> new EngineEvent.HistoryAppended(seq, rec));
+    }
+
+    /** True while the worker runs a typed action's IJ1 call (a dialog shown now is that action's). */
+    boolean busy() {
+        return running != null;
+    }
+
+    /**
      * Follow-up of a native command: adopt new images, capture rows it added to the Results table, and take over
      * ROI Manager entries it added or removed ({@code managerBefore} is the count before the command, -1 for no
      * manager) into the target document's ROI list, so Analyze Particles run from Fiji's menu fills the same list
