@@ -110,7 +110,7 @@ final class Guard {
             System.err.println("[fidelis-engine] dialog watch: " + t);
         }
         Frame ex = WindowManager.getFrame("Exception");
-        if (ex instanceof TextWindow tw && !seen.contains(tw)) capture(tw);
+        if (ex instanceof TextWindow tw && tw.isShowing() && !seen.contains(tw)) capture(tw);
         String ijError = IJ.getErrorMessage();
         IJ.redirectErrorMessages(false);
         if (ijError != null && !ijError.isBlank()) errors.add(ijError);
@@ -174,7 +174,7 @@ final class Guard {
             text = "(exception text unavailable: " + t + ")";
         }
         errors.add("Exception: " + text.strip());
-        dispose(tw);
+        SwingUtilities.invokeLater(tw::close); // close() also unregisters it from WindowManager (dispose alone leaves it listed)
     }
 
     private static void dispose(Window w) {

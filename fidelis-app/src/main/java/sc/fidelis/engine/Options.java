@@ -26,6 +26,13 @@ import sc.fidelis.engine.api.Enums.ParameterType;
 final class Options {
     private Options() {}
 
+    /**
+     * Metadata keys any request may carry in {@code params}: {@code transcriptRef} (speech transcript id,
+     * copied into HistoryRecord.transcriptRef) and {@code parentActionId} (nesting under a CODE action,
+     * copied into the record params). They are accepted for every kind and never reach the options string.
+     */
+    static final java.util.Set<String> RESERVED = java.util.Set.of("transcriptRef", "parentActionId");
+
     /** Raised for a request that fails validation; {@code key} names the offending parameter (may be null). */
     static final class Invalid extends Exception {
         final String key;
@@ -46,6 +53,7 @@ final class Options {
     static Validated validate(Catalogue.Entry en, Map<String, Object> params, ImagePlus imp, Registry registry) throws Invalid {
         CommandSchema schema = en.schema;
         for (String key : params.keySet()) {
+            if (RESERVED.contains(key)) continue;
             if (schema.parameter(key).isEmpty()) {
                 throw new Invalid(key, "unknown parameter '" + key + "' for " + schema.label()
                         + (schema.parameters().isEmpty() ? " (this command takes no parameters)"

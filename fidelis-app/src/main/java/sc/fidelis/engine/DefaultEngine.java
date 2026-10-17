@@ -68,6 +68,8 @@ public final class DefaultEngine implements Engine {
     final CommandRunner runner = new CommandRunner(this);
     final DirectOps direct = new DirectOps(this);
     final CodeRunner code = new CodeRunner(this);
+    final Observers observers = new Observers(this);
+    private final String sessionId = "session-" + java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(java.time.LocalDateTime.now());
     private volatile Op running;
     private volatile Guard guard;
     private volatile Interpreter interpreter;
@@ -95,6 +97,7 @@ public final class DefaultEngine implements Engine {
 
     private void start() {
         setState(EngineState.INITIALISING, "created");
+        observers.install();
         Thread t = new Thread(() -> {
             try {
                 setState(EngineState.BUILDING_CATALOGUE, "building command catalogue");
@@ -233,6 +236,46 @@ public final class DefaultEngine implements Engine {
         interpreter = i;
     }
 
+    /** Reconcile with IJ1 window list; releases snapshots of closed documents and fixes focus. */
+    Registry.Change reconcile() {
+        Registry.Change ch = registry.reconcile();
+        for (Doc d : ch.removed()) {
+            snapshots.releaseAll(d);
+            if (d.id.equals(focused)) focused = null;
+        }
+        return ch;
+    }
+
+    /** Append a record created by an observer and tell listeners. */
+    void recordObserved(HistoryRecord rec) {
+        history.add(rec);
+        events.emit(seq -> new EngineEvent.HistoryAppended(seq, rec));
+    }
+
+    /** Follow-up of a native command: adopt new images and capture rows it added to the Results table. */
+    void afterNative(String actionId, Doc doc) {
+        try {
+            worker.execute(() -> {
+                try {
+                    Registry.Change ch = reconcile();
+                    results.captureNative(doc == null ? null : doc.id, actionId);
+                    if (!ch.isEmpty()) {
+                        List<DocumentId> added = new ArrayList<>();
+                        for (Doc d : ch.added()) added.add(d.id);
+                        List<DocumentId> removed = new ArrayList<>();
+                        for (Doc d : ch.removed()) removed.add(d.id);
+                        StateDigest digest = new StateDigest(added, removed, List.of(), 0, Map.of(), List.of(), List.of(), List.of());
+                        events.emit(seq -> new EngineEvent.StateDigestEvent(seq, null, digest));
+                    }
+                } catch (Throwable t) {
+                    System.err.println("[fidelis-engine] after native command: " + t);
+                }
+            });
+        } catch (RuntimeException ignored) {
+            // worker stopped
+        }
+    }
+
     /** Make the document IJ1 current image (EXP-02: a focus click on a re-hosted canvas does not do it). */
     void makeCurrent(Doc d) {
         Edt.run(() -> {
@@ -329,7 +372,7 @@ public final class DefaultEngine implements Engine {
         events.emit(EngineEvent.DocumentsChanged::new);
         String actionId = history.nextId();
         HistoryRecord rec = History.record(actionId, r.origin(), Provenance.TYPED, ActionRequest.Operations.OPEN,
-                "Open", Map.of("path", file.toString().replace('\\', '/'), "document", d.id.value()), null,
+                "Open", openParams(file, d), null,
                 List.of("open(\"" + Options.macroString(file.toString().replace('\\', '/')) + "\");"), true, gBefore, Map.of(),
                 OperationState.COMPLETED, null);
         history.add(rec);
@@ -350,10 +393,10 @@ public final class DefaultEngine implements Engine {
         Map<String, String> gBefore = Globals.capture();
         emitState(op, OperationState.RUNNING, null);
         Edt.run(() -> closeDoc(d, discard));
-        Registry.Change ch = registry.reconcile();
+        reconcile();
         String actionId = history.nextId();
         HistoryRecord rec = History.record(actionId, r.origin(), Provenance.TYPED, ActionRequest.Operations.CLOSE,
-                "Close", Map.of("discard", discard, "document", d.id.value()), t, List.of(), true, gBefore, Map.of(),
+                "Close", Map.of("discard", discard, "document", d.id.value()), t, List.of("close();"), true, gBefore, Map.of(),
                 OperationState.COMPLETED, null);
         history.add(rec);
         registry.remove(d);
@@ -400,6 +443,14 @@ public final class DefaultEngine implements Engine {
     public void focus(DocumentId id) {
         Doc d = registry.get(id);
         if (d != null) focusDoc(d);
+    }
+
+    private static Map<String, Object> openParams(Path file, Doc d) {
+        Map<String, Object> p = new java.util.LinkedHashMap<>();
+        p.put("path", file.toString().replace('\\', '/'));
+        p.put("document", d.id.value());
+        if (d.sourceSha256 != null) p.put("sha256", d.sourceSha256);
+        return p;
     }
 
     void focusDoc(Doc d) {
@@ -476,7 +527,7 @@ public final class DefaultEngine implements Engine {
 
     @Override
     public String exportMacro() {
-        return "";
+        return MacroExport.generate(history.list(), sessionId, "Fiji runtime ImageJ " + IJ.getFullVersion());
     }
 
     @Override
@@ -499,7 +550,7 @@ public final class DefaultEngine implements Engine {
             worker.execute(() -> {
                 reconcileQueued = false;
                 try {
-                    registry.reconcile();
+                    reconcile();
                 } catch (Throwable t) {
                     System.err.println("[fidelis-engine] reconcile failed: " + t);
                 }

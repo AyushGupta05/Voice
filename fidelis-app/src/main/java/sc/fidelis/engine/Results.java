@@ -15,6 +15,7 @@ import sc.fidelis.engine.api.MeasurementRow;
 final class Results {
     private final Events events;
     private final List<MeasurementRow> rows = new ArrayList<>();
+    private int lastSeen;
 
     Results(Events events) {
         this.events = events;
@@ -48,9 +49,28 @@ final class Results {
         synchronized (this) {
             rows.addAll(fresh);
             total = rows.size();
+            lastSeen = n;
         }
         events.emit(seq -> new EngineEvent.ResultsChanged(seq, total));
         return fresh.size();
+    }
+
+    /** Note the current table size as already accounted for (after typed actions, including Clear Results). */
+    synchronized void markSeen() {
+        lastSeen = tableSize();
+    }
+
+    /** After a native command: capture rows it added to the system table. */
+    int captureNative(DocumentId doc, String actionId) {
+        int from;
+        synchronized (this) {
+            from = lastSeen;
+            if (tableSize() < from) {
+                lastSeen = tableSize();
+                return 0;
+            }
+        }
+        return capture(from, doc, actionId);
     }
 
     synchronized List<MeasurementRow> all() {

@@ -142,7 +142,7 @@ final class CodeRunner {
         }
         Guard.Report rep = guard.end();
         showBatchImages();
-        Registry.Change change = eng.registry.reconcile();
+        Registry.Change change = eng.reconcile();
         eng.rehideWindows();
         boolean cancelled = op.cancelRequested;
         boolean macroError = interp.wasError() || (ret != null && ret.equals("[aborted]"));
@@ -159,6 +159,11 @@ final class CodeRunner {
         params.put("text", text);
         params.put("sha256", hash);
         params.put("capabilities", caps);
+        if (!change.added().isEmpty()) {
+            List<String> ids = new ArrayList<>();
+            for (Doc d : change.added()) ids.add(d.id.value());
+            params.put("createdDocuments", ids);
+        }
         boolean pure = isPure(text);
         List<String> lines = pure ? pureLines(text) : List.of();
         Provenance prov = pure ? Provenance.TYPED : Provenance.UNRECORDABLE;
@@ -179,6 +184,7 @@ final class CodeRunner {
         eng.history.add(rec);
         int rows = Results.tableSize() - resultsBefore;
         if (rows > 0) eng.results.capture(resultsBefore, null, actionId);
+        else eng.results.markSeen();
         List<DocumentId> added = new ArrayList<>();
         for (Doc d : change.added()) added.add(d.id);
         List<DocumentId> removed = new ArrayList<>();

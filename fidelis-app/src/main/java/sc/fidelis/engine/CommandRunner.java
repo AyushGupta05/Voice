@@ -78,15 +78,31 @@ final class CommandRunner {
             return Outcome.failed(ErrorCode.PRECONDITION_FAILED, en.label() + " needs a target document (TargetScope)");
         if (!en.schema.schemaComplete()) return runLegacy(op, en, doc);
 
+        // Convert to Mask / Make Binary on a single image: IJ1 has no black key there, it is the global
+        // Prefs.blackBackground, so the request becomes an explicit AC5 global change (never silent)
+        Map<String, Object> reqParams = r.params();
+        Boolean singleBlack = null;
+        if ((en.label().equals("Convert to Mask") || en.label().equals("Make Binary")) && doc != null
+                && doc.imp.getStackSize() == 1 && reqParams.get("black") != null) {
+            Object b = reqParams.get("black");
+            if (b instanceof Boolean bb) singleBlack = bb;
+            else if (b instanceof String bs && (bs.equalsIgnoreCase("true") || bs.equalsIgnoreCase("false"))) singleBlack = Boolean.parseBoolean(bs);
+            else return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, "parameter 'black' must be true or false, got " + b,
+                    null, Map.of("key", "black"), true, List.of()));
+            reqParams = new LinkedHashMap<>(reqParams);
+            reqParams.remove("black");
+        }
+
         // 4. parameter completeness and domains
         Options.Validated v;
         try {
-            v = Options.validate(en, r.params(), doc == null ? null : doc.imp, eng.registry);
+            v = Options.validate(en, reqParams, doc == null ? null : doc.imp, eng.registry);
         } catch (Options.Invalid e) {
             return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, e.getMessage(), null,
                     e.key == null ? Map.of() : Map.of("key", e.key), true, List.of()));
         }
         Map<String, Object> typed = v.typed();
+        if (singleBlack != null) typed.put("black", singleBlack);
 
         // File>Open... is a session operation
         if (en.label().equals("Open...")) {
@@ -159,6 +175,7 @@ final class CommandRunner {
             if (active == null) lines.add("run(\"Select None\");");
             else lines.addAll(RoiCodec.macroLines(RoiCodec.toGeometry(active)));
         }
+        if (singleBlack != null) lines.add("setOption(\"BlackBackground\", " + singleBlack + ");");
         lines.add(Options.runLine(label, v.options()));
 
         String family = effectiveFamily(en, typed);
@@ -174,6 +191,8 @@ final class CommandRunner {
                 || (label.equals("Scale...") && !Boolean.TRUE.equals(typed.get("create")));
         if (reversible && checkDoc != null) snap = eng.snapshots.take(checkDoc, actionId, r, !fromRedo);
         Map<String, String> gBefore = Globals.capture();
+        boolean oldBlack = ij.Prefs.blackBackground;
+        if (singleBlack != null) ij.Prefs.blackBackground = singleBlack;
         State before = checkDoc == null ? null : State.of(checkDoc.imp, hashAll);
         State beforeTarget = doc == null ? null : (doc == checkDoc ? before : State.of(doc.imp, false));
         int resultsBefore = Results.tableSize();
@@ -184,7 +203,7 @@ final class CommandRunner {
         Execution ex = execute(op, label, imp, v.options());
 
         // 9. after
-        Registry.Change change = eng.registry.reconcile();
+        Registry.Change change = eng.reconcile();
         int roiCountAfter = roiCountBefore;
         if (usesManager) roiCountAfter = eng.roiLists.syncBack(doc);
         Map<String, String> gAfter = Globals.capture();
@@ -200,8 +219,10 @@ final class CommandRunner {
                     roiCountBefore, roiCountAfter, outPath, ex.report);
         }
 
-        return conclude(op, en, actionId, ts, checkDoc, doc, typed, lines, gBefore, gAfter, before, after, beforeTarget, change,
+        Outcome result = conclude(op, en, actionId, ts, checkDoc, doc, typed, lines, gBefore, gAfter, before, after, beforeTarget, change,
                 resultsBefore, resultsAfter, ex, failure, snap, outPath, idsBefore);
+        if (singleBlack != null && result.state() != OperationState.COMPLETED) ij.Prefs.blackBackground = oldBlack;
+        return result;
     }
 
     // ---- execution -----------------------------------------------------------------------------------
@@ -257,7 +278,7 @@ final class CommandRunner {
         State before = doc == null ? null : State.of(doc.imp, doc.imp.getStackSize() > 1);
         int resultsBefore = Results.tableSize();
         Execution ex = execute(op, en.label(), imp, null);
-        Registry.Change change = eng.registry.reconcile();
+        Registry.Change change = eng.reconcile();
         Map<String, String> gAfter = Globals.capture();
         State after = doc == null || !eng.registry.all().contains(doc) ? null : State.of(doc.imp, doc.imp.getStackSize() > 1);
         int resultsAfter = Results.tableSize();
@@ -453,12 +474,19 @@ final class CommandRunner {
             }
         }
         if (op.parentActionId != null) params.put("parentActionId", op.parentActionId);
+        if (!change.added().isEmpty()) {
+            List<String> ids = new ArrayList<>();
+            for (Doc d : change.added()) ids.add(d.id.value());
+            params.put("createdDocuments", ids);
+        }
         List<String> macroLines = state == OperationState.COMPLETED || legacy ? lines : lines;
         HistoryRecord rec = History.record(actionId, r.origin(), prov, en.schema.commandId(), en.label(), params, ts, macroLines,
                 exact, gBefore, gDelta, state, error == null ? null : error.message());
         eng.history.add(rec);
+        if (doc != null) eng.observers.noteRoi(doc);
 
         if (state != OperationState.COMPLETED) {
+            eng.results.markSeen();
             if (snap != null && state != OperationState.ROLLED_BACK) { /* kept: image changed, snapshot still valid */ }
             return new Outcome(state, error, digest(en, doc, before, after, change, resultsBefore, resultsAfter, gDelta, ex, false),
                     rec, null);
@@ -469,6 +497,7 @@ final class CommandRunner {
         if ("RESULTS_ROWS".equals(en.family()) && resultsAfter > resultsBefore) {
             captured = eng.results.capture(resultsBefore, doc == null ? null : doc.id, actionId);
         }
+        eng.results.markSeen();
         if (snap != null && before != null && after != null && before.hash().equals(after.hash())
                 && before.width() == after.width() && before.type() == after.type()) {
             eng.snapshots.release(snap); // a no-op leaves nothing to undo
