@@ -351,12 +351,12 @@ export const fiji: AppProfile = {
     const dialog = await settleOpenDialog(runtime, signal);
     if (!dialog) return undefined;
     // The worker-thread import shows its image after the last dialog closes; wait for it so the reply can name it.
-    for (let attempt = 0; attempt < 30; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       if (signal?.aborted) break;
       let image: Ctx['image'];
       try { image = ((await runtime.adapter.execute('context')) as Ctx)?.image; } catch { break; }
       if (image && image.id !== before && typeof image.title === 'string') return { dialog, image: { id: image.id, title: image.title, width: image.width, height: image.height } };
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     return { dialog };
   },
