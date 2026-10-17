@@ -40,7 +40,9 @@ export class TextConversation {
     active.controller.signal.throwIfAborted();
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||('status' in result&&result.status!=='completed');
-    const reply=failed?`That did not work; check ${profile.displayName}.`:route.reply;
+    // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
+    const detail=failed?'':(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
+    const reply=failed?`That did not work; check ${profile.displayName}.`:(detail?`${route.reply} ${detail}`:route.reply);
     active.answered=true;this.append('assistant',`${reply} (${route.tool} ${JSON.stringify(route.arguments)})`);
     this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});
     return;
