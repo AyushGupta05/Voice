@@ -63,8 +63,9 @@ The envelope comes from two async-local stores in `packages/gateway/src/tool-req
 A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never reported as done:
 
 - The spoken answer is local and immediate: "Ready to run N steps; say yes to go ahead." (N = `steps.length`).
-- The request stops there. Even "invert it with a macro and then measure" does not continue to the measurement; the
-  model gets no further round for that request.
+- The request stops there, spoken or typed. Even "invert it with a macro and then measure" does not continue to the
+  measurement: later calls in the same model response are cancelled before dispatch and the model gets no further
+  round for that request (the profile's `pausesRequest` hook).
 - With `context.pending` set, a whole-utterance "yes", "yes please", "go ahead", "do it", "run it" or "confirm" runs
   `fidelis_confirm {planId}` at once, and "no", "cancel", "stop that", "don't run it", "never mind" runs
   `fidelis_cancel_plan`. Without a pending plan these words go to the model. A bare "okay" never confirms.

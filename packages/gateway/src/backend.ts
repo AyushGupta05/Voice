@@ -302,6 +302,12 @@ export class ResponsesBackend implements DelegationBackend {
           history.push({ type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(result ?? null) });
         }
         this.trimMemory();
+        // A plan that waits for the researcher's confirmation ends the request here: nothing later in it may run first.
+        const paused = profile.pausesRequest?.(call.name as string, result);
+        if (paused) {
+          for (const remaining of functions.slice(index + 1)) history.push({ type: 'function_call_output', call_id: remaining.call_id, output: JSON.stringify({ status: 'cancelled_before_execution', reason: 'An earlier step waits for the researcher\'s confirmation.' }) });
+          finish(paused, true); return;
+        }
       }
       // Spoken requests finish from the real results when every call succeeded and needs no model phrasing,
       // saving the final model round. Failures, approvals, snapshots and open-ended reads go back to the model.

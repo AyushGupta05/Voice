@@ -65,6 +65,9 @@ export type AppProfile = {
   /** Whether the request still needs the model after this call; `result` is the call's outcome when known (a plan that
    * waits for confirmation is the whole answer, whatever else the request asked for). */
   requestContinuesAfter(name: string, utterance: string, result?: unknown): boolean;
+  /** A completed call whose plan now waits for the researcher (Fidelis `awaiting_confirmation`), as the sentence that
+   * ends the request; nothing later in the request runs. Undefined for every other result. */
+  pausesRequest?(name: string, result: unknown): string | undefined;
   /** A completed call that achieved nothing (e.g. an undo with no checkpoint), as a short spoken reason; undefined when it worked. */
   unsuccessful?(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
   /** Tools whose spoken outcome is the acknowledgment already playing, so a local finish stays silent. */

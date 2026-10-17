@@ -369,3 +369,26 @@ test('confirm binds to the observed plan, and a reviewed action decided later ke
     assert.doesNotMatch(audit, /blur it a little/, 'the utterance is sent to the bridge, not written to the audit journal');
   } finally { await bridge.close(); await rm(root, { recursive: true, force: true }); }
 });
+
+test('a waiting plan ends a typed request too, and later calls in the same model batch never run', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-batch-'));
+  const bridge = await fakeBridge(root, (request, state) => request.operation === 'measure' ? { rows: 1, lastRow: { Mean: 5 } } : engine()(request, state));
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  let rounds = 0;
+  const client: BackendClient = { complete: async () => {
+    rounds++;
+    return { output: [
+      { type: 'function_call', call_id: 'c1', name: 'fidelis_run_macro', arguments: JSON.stringify({ code: 'run("Invert");' }) },
+      { type: 'function_call', call_id: 'c2', name: 'fidelis_measure', arguments: JSON.stringify({ scope: 'all', measurements: ['mean'] }) },
+    ] };
+  } };
+  const { conversation: talk, result } = conversation(runtime, client);
+  try {
+    await talk.submit('invert it with a macro, then measure the mean', false);
+    assert.equal(rounds, 1);
+    assert.equal(result()!.text, 'Ready to run 1 step; say yes to go ahead.');
+    assert.ok(bridge.requests.some(request => request.operation === 'run_macro'));
+    assert.ok(!bridge.requests.some(request => request.operation === 'measure'), 'the measurement waits for the confirmed macro');
+    assert.equal(bridge.requests.find(request => request.operation === 'run_macro')!.spoken, false, 'typed requests say so');
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});

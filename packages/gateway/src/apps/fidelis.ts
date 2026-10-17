@@ -292,6 +292,7 @@ export const fidelis: AppProfile = {
   doctorArtifacts: [['fidelis-app/build/fidelis-app.jar', 'Fidelis build'], ['.local/fiji/Fiji.app/jars', 'Fiji runtime for Fidelis']],
   bridgeIdentity: 'operations', conversationEnvelope: true,
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
+  pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),
   prepareAction, modelArguments,
 };
