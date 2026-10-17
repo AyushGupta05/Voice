@@ -13,6 +13,7 @@ import { BEDROCK_MODEL } from './aws-credit-proof.js';
 import type { BackendClient } from './backend.js';
 import { tools, type Arguments } from './tools.js';
 import { fundingStatus } from './funding.js';
+import { approvalPolicy } from './runtime.js';
 import {AWSSpeechProvider,type SpeechProvider} from './aws-speech.js';
 import {SpeechSession} from './speech-session.js';
 
@@ -35,7 +36,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
   const knowledge=new Knowledge();await knowledge.load(root);
-  const runtime=options.runtime??new Runtime(new QuPathAdapter(root),knowledge,state);
+  const runtime=options.runtime??new Runtime(new QuPathAdapter(root),knowledge,state,{autoApprove:approvalPolicy()==='auto'});
   const textClient=options.textClient??new BedrockBackendClient(state);
   const conversations=new Map<WebSocket,TextConversation>();
   const peers=new Set<WebSocket>();
@@ -51,7 +52,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
       const companion=equal(req.headers.authorization,companionToken);
       if(!companion&&!equal(req.headers.authorization,gatewayToken)){json(res,401,{error:'Unauthorized'});return;}
       const url=new URL(req.url??'/','http://127.0.0.1');
-      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}let text;try{await loadTextConfig(state);text={configured:true,model:BEDROCK_MODEL,reason:'AWS-credit text configured; credit eligibility is rechecked before every request.'};}catch{text={configured:false,reason:'Text needs verified AWS credits. See docs/AWS-TEXT.md.'};}json(res,200,{application:'Luma',tools:tools.length,voice:await fundingStatus(root),text,context,bridgeError,actions:await runtime.recentActions()});return;}
+      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}let text;try{await loadTextConfig(state);text={configured:true,model:BEDROCK_MODEL,reason:'AWS-credit text configured; credit eligibility is rechecked before every request.'};}catch{text={configured:false,reason:'Text needs verified AWS credits. See docs/AWS-TEXT.md.'};}json(res,200,{application:'Luma',tools:tools.length,approvals:runtime.autoApprove?'auto':'review',voice:await fundingStatus(root),text,context,bridgeError,actions:await runtime.recentActions()});return;}
       if(req.method==='GET'&&url.pathname==='/tools'){json(res,200,{tools});return;}
       if(req.method==='POST'&&url.pathname==='/tools/call'){const request=await body(req);if(typeof request.name!=='string'||!request.arguments||typeof request.arguments!=='object'||Array.isArray(request.arguments))throw new Error('Expected name and arguments object.');json(res,200,{result:await runtime.call(request.name,request.arguments as Arguments)});return;}
       if(req.method==='POST'&&/^\/approvals\/[a-f0-9-]+$/.test(url.pathname)){

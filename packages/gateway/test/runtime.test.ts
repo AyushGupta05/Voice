@@ -326,3 +326,18 @@ test('deadline sweeps never revoke an already claimed approval or denial',async(
     await runtime.expirePending();assert.equal(runtime.actions.get(declined.actionId)!.status,'denied');assert.equal(mutations,1);
   }finally{release();await rm(directory,{recursive:true,force:true});}
 });
+
+test('auto-approval policy executes data actions immediately through the recorded decision path',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-test-'));
+  const adapter=new FakeAdapter();const runtime=new Runtime(adapter,new Knowledge(),directory,{autoApprove:true});
+  const pendingEvents:string[]=[];runtime.on('action',(action:Action)=>pendingEvents.push(action.status));
+  try {
+    const result=await runtime.call('qupath_annotate',annotation) as {status:string;autoApproved:boolean;result:{created:string}};
+    assert.equal(result.status,'completed');assert.equal(result.autoApproved,true);assert.equal(result.result.created,'Test ROI');assert.equal(adapter.mutations,1);
+    assert(!pendingEvents.includes('pending'));assert.deepEqual(pendingEvents,['running','completed']);
+    const journal=(await readFile(join(directory,'actions.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line));
+    assert.equal(journal.at(-1).decidedBy,'policy');assert.equal(journal.at(-1).status,'completed');
+    const review=new Runtime(new FakeAdapter(),new Knowledge(),directory);
+    assert.equal(((await review.call('qupath_annotate',annotation)) as {status:string}).status,'approval_required');
+  } finally { await rm(directory,{recursive:true,force:true}); }
+});

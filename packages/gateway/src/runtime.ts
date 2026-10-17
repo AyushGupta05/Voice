@@ -8,13 +8,22 @@ import type { Knowledge } from './knowledge.js';
 
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
-  createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string;
+  createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string; decidedBy?: 'human' | 'policy';
+};
+/** Approval policy. The researcher asked for a fully agentic companion, so the default executes data/code actions
+ * immediately; hierarchy checkpoints, the audit journal and Stop remain. LUMA_APPROVALS=review restores human review cards. */
+export type RuntimeOptions = { autoApprove?: boolean };
+export const approvalPolicy = (setting = process.env.LUMA_APPROVALS): 'auto' | 'review' => {
+  if (setting === undefined || setting === '' || setting === 'auto') return 'auto';
+  if (setting === 'review') return 'review';
+  throw new Error('LUMA_APPROVALS must be "auto" or "review".');
 };
 export class Runtime extends EventEmitter {
   readonly actions = new Map<string, Action>();
+  readonly autoApprove: boolean;
   private operationQueue: Promise<unknown> = Promise.resolve();
   private readonly expirations = new Map<string, Promise<void>>();
-  constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string) { super(); }
+  constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string, options: RuntimeOptions = {}) { super(); this.autoApprove = options.autoApprove === true; }
   async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
     signal?.throwIfAborted(); beforeDispatch?.();
     const spec = validateTool(name, args);
@@ -86,6 +95,12 @@ export class Runtime extends EventEmitter {
       }
       this.actions.set(action.id,action);
       this.prune();
+      if (this.autoApprove) {
+        // Same recorded decision path as a human click, taken by policy; no pending card is shown.
+        const settled = await this.decide(action.id, true, 'policy');
+        return { status: settled.status, actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
+          recovery: 'Hierarchy changes can be restored from the checkpoint; files, image settings and script effects cannot.' };
+      }
       this.emit('action', action);
       return { status: 'approval_required', actionId: action.id, tool: name, arguments: args, image: context.image, target: context.reviewTarget, expiresAt: action.expiresAt, message: 'The researcher must review and approve this exact action in Luma. No execution has occurred.' };
     }
@@ -101,14 +116,14 @@ export class Runtime extends EventEmitter {
       return result;
     });
   }
-  async decide(id: string, approved: boolean) {
+  async decide(id: string, approved: boolean, decidedBy: 'human' | 'policy' = 'human') {
     const action = this.actions.get(id);
     if (!action || action.status !== 'pending') throw new Error('Action is no longer awaiting approval.');
     if (Date.now() >= Date.parse(action.expiresAt)) {
       await this.expirePending(); throw new Error('Approval expired. Request a new action.');
     }
     // Claim before the first await: two clicks cannot execute an approved action twice.
-    action.status = approved ? 'running' : 'denied';
+    action.status = approved ? 'running' : 'denied'; action.decidedBy = decidedBy;
     if (!approved) { await this.terminal(action); return action; }
     this.emit('action',action);
     try { await this.audit(action); }

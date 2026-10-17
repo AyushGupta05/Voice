@@ -436,5 +436,6 @@ test('acknowledgment phrases follow the requested view change',()=>{
   assert.equal(acknowledgmentFor('qupath_focus',{downsample:40},{viewer:{downsample:10}}),'Zooming out.');
   assert.equal(acknowledgmentFor('qupath_focus',{downsample:2},{viewer:{downsample:10}}),'Zooming in.');
   assert.equal(acknowledgmentFor('qupath_highlight',{label:'49 positive cells'},{}),'Here: 49 positive cells.');
-  assert.equal(acknowledgmentFor('qupath_annotate',{},{}),undefined);
+  assert.equal(acknowledgmentFor('qupath_annotate',{},{}),'Drawing the region.');
+  assert.equal(acknowledgmentFor('qupath_knowledge',{},{}),undefined);
 });

@@ -20,6 +20,16 @@ export function acknowledgmentFor(name: string, args: Record<string, unknown>, c
     return label && Array.from(label).length <= 60 ? `Here: ${label}.` : 'Right here.';
   }
   if (name === 'qupath_overlays') return 'Updating the view.';
+  if (name === 'qupath_detect_cells') return 'Detecting cells.';
+  if (name === 'qupath_classify') return 'Classifying.';
+  if (name === 'qupath_annotate') return 'Drawing the region.';
+  if (name === 'qupath_delete_selected') return 'Deleting them.';
+  if (name === 'qupath_restore') return 'Restoring.';
+  if (name === 'qupath_open_path' || name === 'qupath_open_project_image') return 'Opening it.';
+  if (name === 'qupath_run_command' || name === 'qupath_ui_action') return 'On it.';
+  if (name === 'qupath_run_script') return 'Running the script.';
+  if (name === 'qupath_image_type') return 'Setting the image type.';
+  if (name === 'qupath_import_annotations') return 'Importing.';
   if (name === 'qupath_select') return 'Selecting them.';
   if (name === 'qupath_measurement_summary' || name === 'qupath_measurements' || name === 'qupath_objects') return 'Checking.';
   return undefined;
@@ -188,7 +198,7 @@ export class ResponsesBackend implements DelegationBackend {
       calls += functions.length;
       // Preserve reasoning/output items needed by stateless Responses continuation, without speaking them.
       history.push(observations, ...structuredClone(response.output));
-      if (functions.length && task.spoken && task.acknowledge && !acknowledged && functions.every(call => instantTools.has(call.name as string))) {
+      if (functions.length && task.spoken && task.acknowledge && !acknowledged && functions.every(call => instantTools.has(call.name as string) || this.runtime.autoApprove)) {
         let args: Record<string, unknown> = {};
         try { args = JSON.parse(functions[0].arguments as string) ?? {}; } catch { /* invalid arguments fail at dispatch */ }
         const ack = acknowledgmentFor(functions[0].name as string, args, context);
