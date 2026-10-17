@@ -1,12 +1,13 @@
 {
  "fixture": "FX-031",
+ "key": "FX-031",
  "lock16": "9403b6197ac4bf75",
  "modes": {
   "gui": {
    "reference_mode_rationale": "authoritative: GUI because Open.../Threshold.../Watershed are not headless_probe=pass and Analyze Particles... add fails headless",
    "run": {
     "exit_code": 0,
-    "seconds": 5.88,
+    "seconds": 6.43,
     "timed_out": false,
     "complete": true,
     "fixture_sha256": "79b859feae4a22471f9a486b44b233c51279dd162dbadee3487b1822da519746",
@@ -393,7 +394,7 @@
    "reference_mode_rationale": "cross-check: headless-safe prefix; Analyze Particles without `add`",
    "run": {
     "exit_code": 0,
-    "seconds": 5.5,
+    "seconds": 5.7,
     "timed_out": false,
     "complete": true,
     "fixture_sha256": "79b859feae4a22471f9a486b44b233c51279dd162dbadee3487b1822da519746",

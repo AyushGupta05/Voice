@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare  # noqa: E402
+import gui_smoke  # noqa: E402
 import reference_runner as rr  # noqa: E402
 
 ROOT = rr.ROOT
@@ -106,6 +107,37 @@ class ComparatorTests(unittest.TestCase):
         def mutate(d):
             d["roiManager"] = None
         self.assertEqual(self.run_compare(mutate)["steps"]["s01"]["E4"]["status"], "pass-partial")
+
+
+class GuiSmokeCheckerTests(unittest.TestCase):
+    """The blank-screenshot detector must reject blank images and accept a rendered-looking one."""
+
+    def make(self, tmp: Path, name: str, draw) -> Path:
+        from PIL import Image, ImageDraw
+
+        image = Image.new("RGB", (800, 600), (255, 255, 255))
+        draw(ImageDraw.Draw(image))
+        path = tmp / name
+        image.save(path)
+        return path
+
+    def test_blank_white_png_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = gui_smoke.analyse_png(self.make(Path(tmp), "blank.png", lambda d: None))
+            self.assertTrue(report["problems"], report)
+
+    def test_rendered_window_like_png_passes(self):
+        def draw(d):
+            for i in range(0, 600, 24):
+                d.rectangle([0, i, 800, i + 12], fill=(30 + i % 200, 60, 120))
+            d.rectangle([50, 50, 400, 300], fill=(10, 10, 10))
+            d.text((60, 60), "Fidelis", fill=(255, 255, 255))
+        with tempfile.TemporaryDirectory() as tmp:
+            report = gui_smoke.analyse_png(self.make(Path(tmp), "ui.png", draw))
+            self.assertEqual(report["problems"], [], report)
+
+    def test_missing_file_fails(self):
+        self.assertTrue(gui_smoke.analyse_png(Path("does-not-exist.png"))["problems"])
 
 
 class StoredBaselineTests(unittest.TestCase):

@@ -42,7 +42,7 @@ def q(path: str | Path) -> str:
     return f'"{s}"'
 
 
-def steps(fixture_path: Path, saved_tiff: Path, with_add: bool = True) -> list[Step]:
+def steps(fixture_path: Path, saved_tiff: Path, with_add: bool = True, threshold: str = THRESHOLD) -> list[Step]:
     particles = PARTICLES if with_add else PARTICLES_NO_ADD
     return [
         Step("s01_open", "open", "ij1:File>Open...", f"open({q(fixture_path)}); id1 = getImageID();"),
@@ -52,8 +52,8 @@ def steps(fixture_path: Path, saved_tiff: Path, with_add: bool = True) -> list[S
         Step("s03_gaussian_blur", 'run("Gaussian Blur...", "sigma=2")',
              "ij1:Process>Filters>Gaussian Blur...",
              'selectImage(id1); run("Gaussian Blur...", "sigma=2");'),
-        Step("s04_threshold", f'setAutoThreshold("{THRESHOLD}")', "ij1:Image>Adjust>Threshold...",
-             f'selectImage(id1); setAutoThreshold("{THRESHOLD}");'),
+        Step("s04_threshold", f'setAutoThreshold("{threshold}")', "ij1:Image>Adjust>Threshold...",
+             f'selectImage(id1); setAutoThreshold("{threshold}");'),
         Step("s05_convert_to_mask", 'run("Convert to Mask")', "ij1:Process>Binary>Convert to Mask",
              'selectImage(id1); run("Convert to Mask");'),
         Step("s06_watershed", 'run("Watershed")', "ij1:Process>Binary>Watershed",
@@ -77,10 +77,11 @@ def build_macro(
     with_add: bool = True,
     last_step: str | None = None,
     exit_with: str = "script",
+    threshold: str = THRESHOLD,
 ) -> tuple[str, list[Step]]:
     """Return (macro text, steps). `out_dir` receives dumps, done.json and the saved Tiff."""
     saved = out_dir / "saved" / f"{fixture_path.stem}-mask.tif"
-    chosen = steps(fixture_path, saved, with_add)
+    chosen = steps(fixture_path, saved, with_add, threshold)
     if last_step:
         chosen = chosen[: [s.tag for s in chosen].index(last_step) + 1]
     out = str(out_dir).replace("\\", "/")

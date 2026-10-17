@@ -61,16 +61,17 @@ def lock16() -> str:
     return hashlib.sha256(rr.LOCK_PATH.read_bytes()).hexdigest()[:16]
 
 
-def run_mode(fixture_id: str, mode: str, timeout: float) -> dict:
+def run_mode(fixture_id: str, mode: str, timeout: float, threshold: str = j12.THRESHOLD, key: str | None = None) -> dict:
     path = fixture_path(fixture_id)
-    run_dir = RUNS / fixture_id / mode
+    key = key or fixture_id
+    run_dir = RUNS / key / mode
     if run_dir.exists():
         shutil.rmtree(run_dir)
     out_dir = run_dir / "out"
     out_dir.mkdir(parents=True)
     with_add = mode == "gui"  # `add` fails headless (A08 op 11)
     macro, chosen = j12.build_macro(path, out_dir, with_add=with_add,
-                                    exit_with="halt" if mode == "gui" else "script")
+                                    exit_with="halt" if mode == "gui" else "script", threshold=threshold)
     result = rr.run_macro(macro, run_dir, mode=mode, timeout=timeout, done_name="out/done.json")
     complete = (out_dir / "done.json").exists()
     dumped = sorted(p.stem for p in out_dir.glob("s*.json"))
@@ -89,12 +90,13 @@ def run_mode(fixture_id: str, mode: str, timeout: float) -> dict:
         "notes": result.notes,
         "steps": [s.__dict__ for s in chosen],
         "with_add": with_add,
+        "threshold": threshold,
     }
     saved = list((out_dir / "saved").glob("*.tif"))
     if saved:
         meta["saved_tiff_sha256"] = rr.sha256(saved[0])
         meta["saved_tiff_bytes"] = saved[0].stat().st_size
-    dest = BASELINES / fixture_id / lock16() / mode
+    dest = BASELINES / key / lock16() / mode
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
@@ -115,10 +117,10 @@ def column(table: dict | None, name: str) -> list[str] | None:
     return next((c["values"] for c in table["columns"] if c["name"] == name), None)
 
 
-def write_summary(fixture_id: str) -> Path:
+def write_summary(fixture_id: str, key: str | None = None) -> Path:
     """Compact, reviewable summary of the stored modes for one fixture (hashes and numbers only)."""
-    base = BASELINES / fixture_id / lock16()
-    summary: dict = {"fixture": fixture_id, "lock16": lock16(), "modes": {}}
+    base = BASELINES / (key or fixture_id) / lock16()
+    summary: dict = {"fixture": fixture_id, "key": key or fixture_id, "lock16": lock16(), "modes": {}}
     for mode in ("gui", "headless"):
         folder = base / mode
         if not (folder / "run.json").exists():
@@ -162,17 +164,19 @@ def main() -> int:
     ap.add_argument("--fixture", action="append", default=[])
     ap.add_argument("--modes", nargs="+", default=["gui", "headless"])
     ap.add_argument("--timeout", type=float, default=240)
+    ap.add_argument("--threshold", default=j12.THRESHOLD, help='setAutoThreshold method string (default "Otsu dark")')
+    ap.add_argument("--key", help="baseline folder name when a variant is stored (default: the fixture id)")
     args = ap.parse_args()
     status = 0
     for fixture_id in args.fixture or ["FX-003", "FX-001"]:
         for mode in args.modes:
             t = time.monotonic()
-            meta = run_mode(fixture_id, mode, args.timeout)
+            meta = run_mode(fixture_id, mode, args.timeout, args.threshold, args.key)
             ok = meta["complete"] and not meta["missing_steps"] and not meta["timed_out"]
             print(f"{fixture_id} {mode}: {'OK' if ok else 'FAILED'} in {time.monotonic() - t:.1f}s "
                   f"missing={meta['missing_steps']} notes={meta['notes']}")
             status |= 0 if ok else 1
-        write_summary(fixture_id)
+        write_summary(fixture_id, args.key)
     return status
 
 

@@ -4,7 +4,7 @@
  "mode": "headless",
  "lock_sha256": "9403b6197ac4bf751e46921d2af6f12624809b0d2ee553d811491791f04c84a5",
  "exit_code": 0,
- "seconds": 5.41,
+ "seconds": 5.92,
  "timed_out": false,
  "complete": true,
  "dumped_steps": [
@@ -85,6 +85,7 @@
   }
  ],
  "with_add": false,
+ "threshold": "Otsu dark",
  "saved_tiff_sha256": "a0f8c24a9906a39ca691fe9f0db12923708b1055a7719704998e70a33b289412",
  "saved_tiff_bytes": 4256
 }
