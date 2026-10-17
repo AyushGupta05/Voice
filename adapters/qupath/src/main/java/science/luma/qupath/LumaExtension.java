@@ -1003,6 +1003,9 @@ public final class LumaExtension implements QuPathExtension {
             return fx(() -> {
                 var hierarchy = plan.image().getHierarchy();
                 if (!hierarchy.getFlattenedObjectList(null).containsAll(plan.parents())) throw new IllegalStateException("An approved target region was removed during detection. Inspect the saved checkpoint and results before retrying.");
+                // Keep the analysed region selected so "classify the cells here" and "how many here" keep working.
+                hierarchy.getSelectionModel().setSelectedObjects(plan.parents(), plan.parents().getFirst());
+                fitViewToObjects(plan.parents());
                 return Map.of("result",Map.of("executionFinished",true,"completionVerified",false,"counts",counts(hierarchy),"activeImageChanged",qupath.getImageData()!=plan.image(),"verification","QuPath can log per-tile failures without propagating them. Inspect segmentation and QuPath logs before accepting the analysis.","highlight",plan.highlight()),"checkpoint",plan.checkpoint(),"contextKey",contextKey());
             });
         } finally { analysisRunning.set(false); }

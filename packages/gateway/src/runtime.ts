@@ -115,7 +115,9 @@ export class Runtime extends EventEmitter {
         const current = await this.adapter.execute('context') as Context;
         signal?.throwIfAborted(); beforeDispatch(current); expectedContext = current.contextKey;
       }
-      const result = await this.adapter.execute(spec.operation!,args,expectedContext ? { expectedContext } : undefined);
+      let result: unknown;
+      try { result = await this.adapter.execute(spec.operation!,args,expectedContext ? { expectedContext } : undefined); }
+      catch (error) { console.error(`[tool ${new Date().toISOString()}] ${name} failed: ${error instanceof Error ? error.message : String(error)}`); throw error; }
       this.emit('tool', { name, arguments: args, result });
       return result;
     });
@@ -169,7 +171,7 @@ export class Runtime extends EventEmitter {
         action.result = await this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget });
         action.status = 'completed';
         this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
-      } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); }
+      } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); console.error(`[tool ${new Date().toISOString()}] ${action.tool} failed: ${action.error}`); }
       await this.terminal(action);
       return action;
     });
