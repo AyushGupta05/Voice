@@ -6,6 +6,7 @@ Usage:  python fidelis-app/tools/run.py [--smoke] [--heap 4g] [--isolated-home] 
   --heap SIZE      JVM max heap (default 4g; Fiji's own default is 75% of RAM)
   --isolated-home  redirect user.home so ImageJ preferences do not touch the real profile
   --timeout SEC    kill the JVM after SEC seconds (default: none; smoke mode defaults to 180)
+  -Dkey=value      extra JVM system property (repeatable), e.g. -Dfidelis.penny.port=49558 -Dfidelis.penny.confirm=always
 
 The JVM flags mirror Fiji's launcher (see tools/fijienv.py). The app jar must be built first.
 """
@@ -41,6 +42,10 @@ def main() -> None:
     props = {"fidelis.repo.dir": str(env.REPO_DIR)}
     if smoke:
         props["fidelis.smoke"] = "true"
+    for a in argv:
+        if a.startswith("-D") and "=" in a:
+            key, value = a[2:].split("=", 1)
+            props[key] = value
     args = env.jvm_flags(heap=heap, user_home=home, extra_props=props)
     args += ["-cp", env.CLASSPATH_SEPARATOR.join(cp), "sc.fidelis.Main"] + app_args
     argfile = env.write_argfile(env.BUILD / "run.args", args)
