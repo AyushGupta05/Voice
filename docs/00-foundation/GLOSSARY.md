@@ -42,4 +42,78 @@ This is the single authoritative glossary. Other documents link here rather than
 | **Evidence class** | VERIFIED / INFERRED / PROPOSED / UNKNOWN. | F04 §1 |
 | **Pin / runtime lock** | `external/fiji.lock.json`: the SHA-256 inventory of the external Fiji installation. | F03 |
 
-Terms proposed by research agents are merged here during the Phase 8 review.
+## Additional Fiji/ImageJ internals (merged from research agents, Phase 8)
+
+| Term | Definition | Source / detail |
+|---|---|---|
+| **Command table** | The IJ1 map from command label to `class("arg")` (or a `command:`/`script:` identifier in Fiji), returned by `Menus.getCommands()`. Labels are matched exactly, including whitespace. | A08; `ij/Menus.java` |
+| **IJ_Props.txt** | Properties file inside `ij.jar` that defines the IJ1 menus as `<prefix>NN="Label[shortcut]",class("arg")`. | A08 |
+| **plugins.config** | Per-jar file (`menu, "Label", class("arg")`) that installs IJ1 plugins in the menus. | A08, A13 |
+| **SciJava plugin index** | `META-INF/json/org.scijava.plugin.Plugin` in each jar, generated from `@Plugin` annotations. | A08, A13 |
+| **Legacy command** | An IJ1 command wrapped as a SciJava module (`LegacyCommandInfo`). Running it through `ModuleService` bypasses `Executer`. | A08, P80 |
+| **no-legacy** | A `@Plugin` attribute that removes an ImageJ2 command from the module index when running with the legacy UI. | A08 |
+| **Macro key** | The option key for a dialog field: the first word of its label, lower-cased (`Macro.trimKey`). | A12 |
+| **Temporary current image** | A per-thread override of the current image, set by `IJ.run(imp, …)` (`WindowManager.setTempCurrentImage`). | A09, A15 |
+| **Undo slot** | IJ1's single static undo buffer. It is reset on window switch and does not cover whole-stack filters. | A09, A19 |
+| **Sub-pixel ROI** | A `Roi` with float coordinates. Preserved in `.roi` files; rounded by the Recorder. | A10 |
+| **.roi / RoiSet.zip** | IJ1 binary ROI format (`RoiEncoder`/`RoiDecoder`) and a zip archive of such files. | A10 |
+| **ExtendedPlugInFilter** | A `PlugInFilter` with its own dialog and live-preview support. | A11 |
+| **Measurement flags** | The bitmask chosen in Set Measurements. It is JVM-global and persisted as a preference. | A11 |
+| **Redirect image** | Set Measurements option that measures another image using the current image's selection. | A11 |
+| **Black background** | `Prefs.blackBackground`: defines the binary foreground and changes the results of binary operations. | A11, A05 UP-04 |
+| **CommandListener** | IJ1 hook called before every `Executer` command. It can veto or substitute the command, and it sees the macro options. | A12, A18, P31/P80 |
+| **Script parameter (`#@`)** | SciJava declaration of script inputs and outputs. Processed only through `ScriptService`. | A12, P36 |
+| **IJ1MacroEngine** | The imagej-legacy JSR-223 engine that runs `.ijm` files through SciJava, with parameter injection. | A12 |
+| **AutoRun** | Macros or scripts run automatically when Fiji starts. | A12, A25 |
+| **LegacyHooks** | The call-out object held in `ij.IJ._hooks`. Patched IJ1 code calls it for status, progress, log and other events. | A07, A20 |
+| **Legacy mode** | True when an `ij.ImageJ` main frame instance exists. It gates whether patched windows actually show. | A15 §4.4 |
+| **HeadlessGenericDialog** | The superclass that ij1-patcher injects into `GenericDialog` in headless JVMs. It reads values from macro options only. | A15 §4.2 |
+| **Pre-/postprocessor** | SciJava plugins run before or after a module to fill inputs (active image, macro options, harvesting) or to handle outputs. | A07 |
+| **UserInterface plugin** | SciJava plugin type implementing an application UI. Selected by priority or by `-Dscijava.ui`. | A07, P49 |
+| **Input harvester** | Preprocessor that asks the user for unresolved module inputs. It runs only for its own UI when that UI is visible. | A15 §5 |
+| **Smart recording** | `GenericDialog` option that omits unchanged values from recorded macros. | A04 |
+| **Macro shortcut** | A single-key binding installed by a macro's `[x]` suffix. It takes precedence over menu shortcuts. | A04 |
+| **Subtitle line** | The information text above each IJ1 image (position, size, type, memory). | A04 |
+| **Fiji search bar** | The SciJava search field in the Fiji main window. In Fiji, `l` focuses it. | A04 |
+| **Virtual stack** | A disk-resident stack that loads one plane at a time. Edits to it cannot be undone by snapshot. | A09, A19 |
+| **Jaunch** | Fiji's launcher (`fiji-windows-x64.exe` plus `config/jaunch/*.toml`). | A22 |
+
+## Speech and language terms
+
+| Term | Definition | Source / detail |
+|---|---|---|
+| **CTranslate2** | C++ inference engine used by faster-whisper. | A16 |
+| **ggml / GBNF** | The tensor library and model format under whisper.cpp / the grammar notation it uses to penalise decoding tokens that the grammar rejects. | A16 |
+| **VAD** | Voice activity detection (Silero). It prevents transcription of silence. | A16, P61 |
+| **initial_prompt / hotwords** | Text prepended to Whisper's decoding context to bias its vocabulary. In faster-whisper 1.2.1 both use the same mechanism. | A16, P61 |
+| **ASR hallucination** | Transcript text that is not in the audio, for example "You" on silence. | A16; Radford et al. 2022 |
+| **Command plan** | Ordered steps, each a catalogue command with typed slots and an explicit target. The only artefact an NL front end may produce. | A17, D08 |
+| **Grounding** | Resolving an instruction to an existing catalogue command and its real macro option keys. | A17 |
+| **Consequential parameter** | A parameter whose value changes scientific results. It must never be filled silently. | A17, FR-NL-003 |
+| **Deixis** | A context-dependent reference, such as "this image" or "channel 2". | A17, D08 |
+| **Unsafe-execution rate** | The share of evaluation cases executed with an unstated consequential parameter or outside the catalogue. The release gate is 0. | A17, NFR-USE-003 |
+
+## Project design vocabulary
+
+| Term | Definition | Source / detail |
+|---|---|---|
+| **Execution modes M1–M5** | M1 headless; M2 GUI-capable JVM with the main window hidden; M3 visible Fiji; M4/M5 PyImageJ headless/interactive. | A15 §3 |
+| **Routes R1–R4** | Execution routes: R1 `IJ.run(imp, label, options)`; R2 SciJava module with resolved inputs; R3 direct API; R4 macro/script engine. | A18, D04 |
+| **Action consequence class (AC0–AC7)** | Classes from read-only (AC0) to code execution (AC7). They drive the confirmation policy. | A19 §3, D06 §4 |
+| **Engine service** | The product's UI-agnostic SciJava service inside the Fiji JVM. It is the only writer of scientific state. | D01 CMP-20…31 |
+| **ActionRequest** | The single typed request structure produced by every input modality. | D06 §2 |
+| **State digest** | The post-action summary of state changes that drives UI refresh and postconditions. | A18, D09 §3 |
+| **Observed action** | A command or change in the Fiji JVM that the product did not initiate (for example, from a legacy plugin window). | A18, FR-HIST-008 |
+| **Window policy (P-A/P-B/P-C)** | Show-then-hide, batch mode, or visible legacy window, for images under product control. | D04 §3 |
+| **Reference-execution oracle** | Expected results produced by running the pinned Fiji itself on an independently generated macro. | A30 |
+| **Persona (PER-n), problem (UP-nn), workflow (W-nn)** | Identifiers defined in A02, A05 and A03 respectively. | A02, A03, A05 |
+
+## Security and licensing terms
+
+| Term | Definition | Source / detail |
+|---|---|---|
+| **Classpath Exception** | The GPLv2 linking exception in OpenJDK, which lets independent code linked to the JDK carry its own licence. | A24 |
+| **Corresponding Source** | GPL-3 term for the complete source needed to build and run distributed object code. | A24 |
+| **DNS rebinding / CSWSH** | Attacks that let a web page reach a local server: by re-resolving a domain to 127.0.0.1, or by opening a cross-site WebSocket. They are mitigated by Host and Origin checks and a token. | A25, NFR-SEC-002 |
+| **Prompt injection** | Instructions embedded in data, such as metadata or file names, that an LLM treats as commands. | A25, FR-NL-010 |
+| **CC BY-NC-SA 3.0** | The non-commercial share-alike licence of BBBC001/004. These images are not to be committed to the repository. | A29 |

@@ -31,4 +31,6 @@ Status vocabulary:
 | DEC-026 | Distribute through a Fiji update site; verify against a pinned reference install | 02 | Proposed — awaiting approval | A21, A22, A24 | ADR-010, D19 |
 | DEC-027 | Observation through `CommandListener`, SciJava module events, IJ1 listeners and a chained legacy hook (conditional on a probe) | 02 | Proposed — awaiting approval | P80, A20 | ADR-011, D04, D09 |
 
+| DEC-028 | Product launch through a Jaunch `extra-*.toml` launch option that adds UI selection (`-Dscijava.ui=…`) and `-Dimagej.updater.disableAutocheck=true`, with a launcher script as fallback. Classic Fiji launches stay unchanged. | 02 | Proposed — awaiting approval (validation V-07) | `fiji.toml#L14` includes `extra*.toml`; P49 | D03 §2, D04 §10 |
+
 Further design decisions raised by D11–D19 are added below as they are reviewed.

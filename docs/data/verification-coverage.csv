@@ -1,0 +1,148 @@
+coverage_id,requirement_id,parity_id,test_level,dimension,fixtures,reference_mode,tolerance,journey,status,check
+VC-0001,FR-SYS-001,n/a,L2,T,FX-001,n/a,n/a,J-12,planned,"Start-up self-test: isHeadless()==false, LegacyService.isActive(), Fiji frame not visible; 20 consecutive commands in one JVM"
+VC-0002,FR-SYS-001,n/a,L3,D,FX-003,n/a,n/a,J-12,planned,Journey completes in one persistent session
+VC-0003,FR-SYS-002,n/a,L2,T,none,n/a,n/a,n/a,planned,Fault-injected class-load order makes the self-test abort start-up with the explanatory message
+VC-0004,FR-SYS-003,n/a,L1,T,none,n/a,n/a,n/a,planned,Every ActionRequest/event/StateDigest type round-trips through JSON
+VC-0005,FR-SYS-003,n/a,L0,I,none,n/a,n/a,n/a,planned,D09 API documented for every IF-01..IF-03 operation
+VC-0006,FR-SYS-004,n/a,L2,T,FX-001,n/a,n/a,J-07;J-08,planned,"100 queued actions from menu, NL and macro execute in submission order on one named non-EDT worker"
+VC-0007,FR-SYS-005,n/a,L2,T,FX-001,n/a,quit bound per D03 §6,n/a,planned,Bounded quit: no orphan java/fiji/speech process; prefs saved only when chosen
+VC-0008,FR-SYS-006,PAR-035,L2,T,none,n/a,n/a,n/a,planned,Actions before READY rejected with ENGINE_NOT_READY
+VC-0009,FR-SYS-006,PAR-035,L3,D,none,n/a,n/a,J-01,planned,UI-19 shows STARTING/INITIALISING_FIJI/BUILDING_CATALOGUE/READY/FAILED
+VC-0010,FR-SYS-007,PAR-050,L3,E1;E2;E3;E4;E5;E6,FX-003;FX-001,gui,exact,J-13,planned,"PARITY row: kill engine, recovery prompt, replay reproduces final state"
+VC-0011,FR-SYS-008,PAR-041,L0,T,none,n/a,n/a,n/a,planned,Launch arguments contain -Dimagej.updater.disableAutocheck=true
+VC-0012,FR-SYS-008,PAR-041,L2,T,FX-001,n/a,lock hash identical,J-12,planned,verify_runtime before and after a session returns the same lock hash
+VC-0013,FR-CMD-001,PAR-033,L1,T,none,n/a,n/a,J-04,planned,Every core-set command found by its menu path and by label search
+VC-0014,FR-CMD-001,PAR-033,L3,D,FX-003,n/a,n/a,J-12,planned,Tutorial menu path followed in the workspace
+VC-0015,FR-CMD-002,PAR-033,L2,T,none,n/a,n/a,n/a,planned,Runtime catalogue diff against commands.csv reports only explained differences; a test plugin jar appears without code change
+VC-0016,FR-CMD-003,PAR-033,L2,T,FX-001,n/a,n/a,n/a,planned,'Rotate... ' and 'Rotate...' reach different classes; unknown label -> UNKNOWN_COMMAND
+VC-0017,FR-CMD-005,n/a,L0,T,none,n/a,n/a,n/a,planned,Every core-set command has a C1-C6/S category with evidence and an AC0-AC7 class
+VC-0018,FR-CMD-006,PAR-033,L0,I,none,n/a,n/a,n/a,planned,Decision on scijava-search reuse recorded in D04/D14
+VC-0019,FR-CMD-006,PAR-033,L2,T,none,n/a,n/a,J-04,planned,Search returns the Fiji command for its label and menu path
+VC-0020,FR-PROC-001,n/a,L2,E1;E2;E3;E5;E6,FX-001;FX-003;FX-030;FX-070;FX-071;FX-072,headless,exact; E2 4 ULP only if flagged thread-order sensitive,J-12,planned,"MVP-set commands that are headless pass in A08: open(path), Subtract Background, Gaussian Blur, setAutoThreshold, Convert to Mask, Set Measurements, Measure, Save As Tiff"
+VC-0021,FR-PROC-001,n/a,L2,E1;E3;E4;E5;E6,FX-003;FX-030,gui,exact,J-12,planned,MVP-set commands needing GUI reference: Analyze Particles with add (A08 op 11); Watershed (headless untested)
+VC-0022,FR-PROC-001,n/a,L0,I,none,n/a,n/a,n/a,planned,Code review: no reimplemented algorithm
+VC-0023,FR-PROC-002,PAR-015,L2,T,FX-001,n/a,n/a,n/a,planned,Execution log shows worker thread Run$_... and the explicit target docId for every IJ1 command
+VC-0024,FR-PROC-003,PAR-015;PAR-017;PAR-018;PAR-025;PAR-036,L1,T,none,n/a,n/a,n/a,planned,"Generated option string contains every schema key (value keys present; booleans present iff true) - MVP set, then core set"
+VC-0025,FR-PROC-003,PAR-015;PAR-017;PAR-018;PAR-025;PAR-036,L2,E1;E5,FX-001;FX-003,headless,exact,J-12,planned,"Poisoned-statics test: interactive run with other remembered values, then product run equals reference"
+VC-0026,FR-PROC-004,PAR-050,L2,T,FX-079;FX-001,n/a,n/a,n/a,planned,Each core-set command with preconditions returns PRECONDITION_FAILED on a violating state; no JVM exit
+VC-0027,FR-PROC-005,n/a,L2,T,none,n/a,n/a,n/a,planned,Test plugin throwing inside run() reported EXECUTION_FAILED with the log excerpt
+VC-0028,FR-PROC-006,PAR-017,L2,E1;T,FX-001,headless,exact,n/a,planned,IJ.setKeyDown(VK_ALT) left set: Duplicate... still takes the option path; output equals reference
+VC-0029,FR-PROC-007,PAR-036,L2,T,FX-001,n/a,detection within D17 bound,J-10,planned,Dialog command with empty options -> WAITING_FOR_DIALOG within bound; user OK resumes; action recorded
+VC-0030,FR-PROC-008,PAR-019,L2,E1;E3,FX-004;FX-075,headless,exact,n/a,planned,"Image Calculator and Merge Channels via R4 equal reference (A08 ops 20, 32 pass in macro-cli)"
+VC-0031,FR-PROC-009,n/a,L0,I,none,n/a,n/a,n/a,planned,Catalogue marks non-pass headless commands
+VC-0032,FR-PROC-009,n/a,L2,T,FX-001,n/a,n/a,J-14,planned,M1 batch runner rejects them with UNSUPPORTED_IN_MODE
+VC-0033,FR-PROC-010,PAR-015,L2,T,FX-003;FX-005,n/a,n/a,J-12;J-02,planned,"Image hash unchanged while previewing Gaussian, Median, Subtract Background, Threshold"
+VC-0034,FR-PROC-010,PAR-015,L2,E1,FX-003;FX-005,headless,exact,J-12,planned,Confirmed result equals reference with the same parameters
+VC-0035,FR-PROC-012,PAR-040,L0,I,none,n/a,n/a,n/a,planned,Design lists no Op substitution without an A30 test reference
+VC-0036,FR-PROC-013,PAR-032,L2,T,FX-006,n/a,n/a,J-09,planned,"Cancel during a 129-slice Gaussian stops it, triggers rollback/partial flag; UI text matches family metadata"
+VC-0037,FR-PROC-014,PAR-013,L2,T,FX-005;FX-013,n/a,n/a,J-02,planned,B&C moves leave the pixel hash unchanged
+VC-0038,FR-PROC-014,PAR-013,L2,E1;E3,FX-005;FX-013,headless,exact,J-02,planned,"Apply records run(""Apply LUT"") and equals reference after setMinAndMax"
+VC-0039,FR-PROC-015,PAR-014,L2,T,FX-003,n/a,n/a,J-12,planned,"Threshold preview leaves pixels unchanged; history line has method, dark flag, limits, BlackBackground"
+VC-0040,FR-PROC-015,PAR-014,L2,E1;E6,FX-003;FX-030,headless,exact,J-12,planned,Committed mask equals reference
+VC-0041,FR-PROC-016,PAR-014;PAR-020,L3,T,FX-003,n/a,n/a,J-12,planned,Convert to Mask on an unthresholded image shows the warning before execution
+VC-0042,FR-IMG-001,PAR-006,L0,I,none,n/a,n/a,n/a,planned,D05 owner table per state object
+VC-0043,FR-IMG-001,PAR-006,L2,T,FX-001,n/a,n/a,J-10,planned,Engine-side change by a plugin reflected in the UI after the digest
+VC-0044,FR-IMG-002,PAR-006,L2,T,FX-001;FX-003,n/a,n/a,J-03,planned,Two documents; command with B focused modifies only B although IJ1 current image is A
+VC-0045,FR-IMG-003,PAR-001;PAR-002,L2,E1;E3,FX-001;FX-003;FX-005;FX-014;FX-070;FX-072;FX-075,headless,exact,J-01;J-12,planned,MVP: product open equals open(path) in reference (TIFF/PNG/GIF)
+VC-0046,FR-IMG-003,PAR-001;PAR-002,L2,E1;E3,FX-040;FX-041;FX-044;FX-045,headless,exact,J-01,planned,"HACK: Bio-Formats importer with explicit options equals reference run(""Bio-Formats Importer"", ...)"
+VC-0047,FR-IMG-004,PAR-001;PAR-002,L2,T,FX-001;FX-040,n/a,n/a,J-01,planned,"Open history entry has path/URI, SHA-256, reader (+ Bio-Formats jar variant), dims, type, calibration, units, frame interval"
+VC-0048,FR-IMG-005,PAR-003;PAR-023,L2,E1;E3;E4,FX-005;FX-018;FX-075,headless,exact,J-11;J-12,planned,Save TIFF then re-open round trip equals the P43 reference
+VC-0049,FR-IMG-006,PAR-004,L3,T,FX-005,n/a,n/a,J-11,planned,Saving a 16-bit calibrated composite as PNG shows the loss list before writing
+VC-0050,FR-IMG-009,PAR-003,L2,T,FX-001,n/a,n/a,J-11;J-12,planned,"Save over an input refused by default (CONFIRMATION_REQUIRED, reason OVERWRITE_INPUT); explicit per-document override; input hashes before/after in provenance"
+VC-0051,FR-IMG-011,n/a,L2,T,FX-076,n/a,n/a,J-09,planned,Virtual stack and global calibration indicated in document status
+VC-0052,FR-VIEW-001,PAR-007;PAR-012,L2,T,FX-001;FX-070;FX-071;FX-074;FX-004,n/a,pixel-identical ARGB,J-01;J-02,planned,"Rendered plane equals ImagePlus.getBufferedImage() (UI fidelity, not scientific evidence: NFR-FID-003)"
+VC-0053,FR-VIEW-002,PAR-010,L2,T,FX-075;FX-008,n/a,exact,J-01,planned,Status text matches ImageWindow.createSubtitle() content (FX-008 scheduled tier)
+VC-0054,FR-VIEW-003,PAR-009,L2,T,FX-070;FX-071;FX-072;FX-077,n/a,string-identical,J-03,planned,Readout equals getLocationAsString/getValueAsString at sampled points
+VC-0055,FR-VIEW-004,PAR-008;PAR-011,L3,T,FX-075,n/a,n/a,J-01;J-09,planned,"Zoom, pan and C/Z/T slider key-event tests (HACK subset of A04 §5.6/§5.13)"
+VC-0056,FR-VIEW-005,PAR-007,L2,T,FX-021,n/a,n/a,J-01,planned,Zoom/pan without data change produce no getBufferedImage call (instrumented)
+VC-0057,FR-VIEW-006,PAR-013;PAR-016,L3,D;T,FX-070,n/a,n/a,J-02,planned,16-bit -> 8-bit conversion shows and records the scaling state
+VC-0058,FR-ROI-001,PAR-021,L2,E4,FX-077;FX-003,headless,exact float vertices,J-03,planned,"Sub-pixel rectangle/polygon (MVP), oval/freehand/line/point (HACK) round-trip with identical float coordinates"
+VC-0059,FR-ROI-002,PAR-021,L2,E4,FX-077;FX-070,headless,exact mask,J-03,planned,UI-predicted mask equals Roi.getMask()
+VC-0060,FR-ROI-003,PAR-021,L3,E4;T,FX-077,gui,exact,J-03,planned,Scripted pointer sequences with Shift/Alt produce ROIs equal to IJ1 gestures on a visible ImageCanvas
+VC-0061,FR-ROI-004,PAR-022;PAR-025,L2,T,FX-003,gui,exact,J-03;J-12,planned,"UI-added ROIs: roiManager(""count"") equal; roiManager(""select"", i) selects same ROI; order preserved (V-03)"
+VC-0062,FR-ROI-005,PAR-022;PAR-023;PAR-046,L2,E4,FX-018;FX-077,headless,exact,J-03;J-11,planned,"RoiEncoder/RoiDecoder .roi/.zip round trip for every HACK ROI type, positions, names, groups, properties"
+VC-0063,FR-ROI-007,n/a,L0,T,none,n/a,n/a,n/a,planned,Static check (grep/ArchUnit) finds no Roi.containsPoint call
+VC-0064,FR-MEAS-001,PAR-014;PAR-016;PAR-020;PAR-024,L2,T,FX-003,n/a,n/a,J-04;J-12,planned,MVP: history entry contains every result-affecting global
+VC-0065,FR-MEAS-001,PAR-014;PAR-016;PAR-020;PAR-024,L2,E5;E6,FX-003;FX-077,headless,exact,J-06,planned,HACK: replay after changing globals restores them and reproduces E5
+VC-0066,FR-MEAS-002,PAR-024;PAR-042,L3,D;T,FX-003,n/a,n/a,J-04;J-12,planned,"Parameter panel for Measure, Convert to Mask and 8-bit lists globals with current values"
+VC-0067,FR-MEAS-003,PAR-024;PAR-046,L2,E5,FX-003;FX-072,headless,exact (Double.toString round trip),J-04;J-11,planned,Exported CSV values equal API doubles
+VC-0068,FR-MEAS-004,PAR-024,L2,E5,FX-001;FX-077,gui,exact,J-04,planned,20 sequential Measure calls give 20 rows equal to reference (GUI reference: P39 headless truncation)
+VC-0069,FR-MEAS-005,PAR-024,L2,T,FX-003,n/a,exact,J-04;J-05,planned,"nResults and getResult(""Mean"", i) in a macro equal the UI values"
+VC-0070,FR-HIST-001,PAR-028,L2,T,FX-001;FX-003,n/a,n/a,J-06;J-07;J-08,planned,Scripted multi-modal session: every action has all HistoryRecord fields
+VC-0071,FR-HIST-002,PAR-028,L3,E7,FX-003;FX-030,gui,as E1-E6,J-06;J-12,planned,Exported macro run in classic Fiji on original inputs reproduces E1-E6 (every MVP/HACK journey)
+VC-0072,FR-HIST-002,PAR-028,L1,T,none,n/a,n/a,J-06,planned,"Generated macro sets globals first, uses exact labels and complete keys, no focus reliance"
+VC-0073,FR-HIST-003,n/a,L2,T,FX-077,n/a,n/a,J-03,planned,Polygon edit emits float makeSelection; composite ROI op marked not macro-expressible
+VC-0074,FR-HIST-004,PAR-031,L2,T,FX-001;FX-003,n/a,hash equality,J-03;J-09,planned,"5 actions on A, switch to B and back, 5 undos restore original hash; redo re-executes"
+VC-0075,FR-HIST-005,PAR-031,L2,T,FX-005,n/a,n/a,J-09,planned,Budget 1 MB with a 2 MB image triggers SNAPSHOT_BUDGET_EXCEEDED confirmation
+VC-0076,FR-HIST-006,PAR-031;PAR-032,L2,T,FX-006,n/a,hash equality,J-09,planned,"Cancel mid-stack restores original hash, or PARTIAL flag with slice range when snapshot disabled"
+VC-0077,FR-HIST-007,PAR-042,L2,T,FX-003,n/a,n/a,J-10,planned,Black background changed in legacy Process>Binary>Options dialog produces a history entry with old/new values
+VC-0078,FR-HIST-008,PAR-028,L2,T,FX-003,n/a,n/a,J-10,planned,Command from a legacy plugin window produces an observed entry with options; direct pixel mutation produces observed change
+VC-0079,FR-HIST-009,PAR-028,L0,I,none,n/a,n/a,n/a,planned,D07 records the Recorder decision
+VC-0080,FR-HIST-009,PAR-028,L2,T,FX-003,n/a,n/a,J-06,planned,"Cross-check flags a deliberately lossy Recorder line (Gaussian preview dialog, P81)"
+VC-0081,FR-HIST-010,n/a,L2,T,FX-001;FX-003,n/a,n/a,J-06;J-14,planned,Saved workflow re-opened in a new session resolves inputs by SHA-256
+VC-0082,FR-MACRO-001,PAR-027;PAR-051,L2,E1;E3;E5,FX-051;FX-052;FX-003,gui,exact,J-05,planned,Reviewed macro corpus subset run through the product equals classic Fiji (FX-050 parse-only)
+VC-0083,FR-MACRO-001,PAR-027;PAR-051,L1,T,FX-050,n/a,n/a,J-05,planned,Tokenizer/capability scan over FX-050 without execution
+VC-0084,FR-MACRO-002,PAR-027,L2,T,FX-081,n/a,n/a,J-05,planned,"Macro containing exec(""cmd"") triggers named CAPABILITY_CONFIRMATION_REQUIRED; cancel prevents execution"
+VC-0085,FR-MACRO-003,PAR-027,L2,T,FX-081,n/a,n/a,J-05,planned,Opening and previewing a sentinel macro creates no sentinel file
+VC-0086,FR-MACRO-005,n/a,L2,T,FX-001,n/a,n/a,J-05,planned,UI command submitted during a macro is QUEUED until the macro completes
+VC-0087,FR-MACRO-006,n/a,L1,T,FX-081,n/a,no token-boundary change,J-06,planned,Fuzz titles/paths through the escaping function and ij.macro.Tokenizer
+VC-0088,FR-MACRO-007,PAR-030,L3,E1;E3;E5;E7,FX-001;FX-003;FX-077,headless,exact,J-14,planned,PARITY row: folder of 3 fixtures equals 3 reference runs; plan screen lists outputs
+VC-0089,FR-PLUG-001,PAR-029;PAR-037;PAR-038;PAR-039;PAR-049,L3,D;E3;E6,FX-075;FX-003,gui,exact,J-10,planned,"TrackMate (C4) and Cell Counter (C5) launch, work and appear in UI-16; E3/E6 unchanged around the legacy session"
+VC-0090,FR-PLUG-002,PAR-006;PAR-026;PAR-045,L2,T,FX-003,n/a,n/a,J-10,planned,"Histogram, Results, ROI Manager and a C4 plugin produce tracker entries; no untracked visible Fiji window"
+VC-0091,FR-NL-001,PAR-043,L5,E8,FX-060;FX-081,n/a,100 % executed steps in catalogue,J-07,planned,Labelled NL set: every executed step references a runtime-catalogue command
+VC-0092,FR-NL-002,PAR-043,L1,T,none,n/a,n/a,J-07,planned,"Out-of-range, placeholder and stale-target plans rejected; state change between preview and execute re-validates"
+VC-0093,FR-NL-003,PAR-043,L1,T,none,n/a,n/a,J-07,planned,'threshold the image' yields clarification listing methods; no silent default
+VC-0094,FR-NL-004,PAR-043,L3,D;T,FX-003,n/a,n/a,J-07;J-08,planned,"Preview shows target, scope, ROI, params+units, menu path, macro text; no AC2+ execution without confirm event"
+VC-0095,FR-NL-005,PAR-043,L5,E8,FX-060,n/a,accuracy reported,J-07,planned,Labelled deictic cases: ambiguous -> clarify; unambiguous resolve correctly
+VC-0096,FR-NL-006,PAR-043,L1,T,none,n/a,n/a,J-07,planned,Policy unit tests cover every validator outcome
+VC-0097,FR-NL-006,PAR-043,L0,I,none,n/a,n/a,n/a,planned,Code review: no model call in the decision path
+VC-0098,FR-NL-007,PAR-043,L5,E8,FX-060;FX-081,n/a,unsafe executions = 0,J-07,planned,Adversarial and injection prompts: zero unsafe executions; no code generated
+VC-0099,FR-NL-008,PAR-043,L2,E1;T,FX-077,headless,exact,J-07,planned,'blur 1 micron' on 0.25 um/px gives sigma=1 scaled (D08 rule) shown in preview; output equals reference
+VC-0100,FR-NL-009,PAR-043,L3,T,FX-003;FX-030,n/a,n/a,J-07;J-12,planned,All MVP journeys pass with no LLM configured
+VC-0101,FR-NL-010,PAR-043,L2,T,FX-081,n/a,n/a,J-07,planned,Outbound payload capture has no image bytes; preview equals payload; injection text delimited (LLM enabled)
+VC-0102,FR-NL-011,PAR-043,L2,T,FX-003,n/a,n/a,J-07,planned,"LLM plan log has model id/digest, template version, raw output, user edits, final command"
+VC-0103,FR-NL-013,PAR-043,L3,D,FX-003;FX-030,n/a,n/a,J-03;J-04;J-05;J-06;J-12,planned,"All MVP journeys completed through menus, shortcuts and macros only"
+VC-0104,FR-SPEECH-001,PAR-044,L2,T,FX-002,n/a,n/a,J-08,planned,No egress during transcription; worker separate PID persisting across requests; model hash mismatch refused
+VC-0105,FR-SPEECH-002,PAR-044,L3,T;D,FX-002,n/a,auto-stop at 30 s,J-08,planned,Indicator visible for whole capture; auto-stop 30 s; no audio file remains
+VC-0106,FR-SPEECH-003,PAR-044,L1,T,FX-062,n/a,empty transcript,J-08,planned,5 s silence/noise-only clip produces an empty transcript with VAD on
+VC-0107,FR-SPEECH-004,PAR-044,L3,T,FX-002,n/a,n/a,J-08,planned,No action executes until the NL preview is confirmed
+VC-0108,FR-SPEECH-005,PAR-044,L5,E8,FX-060,n/a,accuracy reported,J-08,planned,Transcript record contains the prompt; labelled-set comparison with and without prompt
+VC-0109,FR-SPEECH-006,PAR-044,L1,T,FX-060,n/a,exact,J-08,planned,"'two point five', '2.5', 'two and a half' -> 2.5"
+VC-0110,FR-SPEECH-007,PAR-044,L2,T,FX-002,n/a,n/a,J-08,planned,Speech suite passes with CUDA unavailable
+VC-0111,FR-WS-001,PAR-045,L3,D,FX-003;FX-030,n/a,n/a,J-01;J-03;J-04;J-05;J-06;J-07;J-12,planned,"MVP journeys completed inside one window (HACK adds ROI list, tools)"
+VC-0112,NFR-PERF-002,n/a,L2,T,FX-002;FX-060,n/a,median of 20 <= 0.5 s,J-08,planned,Warm worker latency on reference CPU
+VC-0113,NFR-PERF-003,n/a,L2,T,FX-005,n/a,n/a,J-09,planned,Budget accounting equals snapshot sizes; remaining budget shown
+VC-0114,NFR-PERF-004,n/a,L1,T,FX-001,n/a,n/a,n/a,planned,Query API returns copies/renderings; mutation of returned data leaves engine data unchanged
+VC-0115,NFR-PERF-005,n/a,L2,T,FX-006,n/a,<= 5 ms per event on EDT,J-09,planned,Listener execution time instrumentation
+VC-0116,NFR-PERF-006,n/a,L3,T,FX-006;FX-008,n/a,EDT stall <= 100 ms,J-09,planned,"UI pans, zooms and opens menus during a long stack filter (FX-008 scheduled)"
+VC-0117,NFR-REL-001,n/a,L2,T,FX-079;FX-001,n/a,n/a,n/a,planned,"10 failing actions (exception, postcondition, cancelled dialog) then a successful action in one session"
+VC-0118,NFR-REL-002,n/a,L3,T,FX-003,n/a,n/a,J-08;J-12,planned,Kill speech worker mid-session: other journeys pass; voice reports unavailable
+VC-0119,NFR-REL-003,n/a,L2,T,none,headless,timeout per D17,n/a,planned,Hanging macro terminated at timeout; no orphan process
+VC-0120,NFR-REL-004,PAR-035,L2,T,FX-006,n/a,n/a,J-09,planned,Chained hook probe: progress events arrive; legacy behaviour unchanged (V-06)
+VC-0121,NFR-REL-005,PAR-035,L2,T,FX-001;FX-003,n/a,n/a,J-12,planned,Event sequence test per route R1-R4; digest fields present
+VC-0122,NFR-USE-001,n/a,L1,T,none,n/a,n/a,J-03;J-04,planned,"AC0-AC3 from menu, keyboard or canvas execute without a confirm event"
+VC-0123,NFR-USE-002,n/a,L0,I,none,n/a,n/a,J-09,planned,UI review checklist: no simulated progress
+VC-0124,NFR-USE-002,n/a,L1,T,none,n/a,n/a,J-09,planned,Progress component rejects determinate updates without a counter source
+VC-0125,NFR-USE-004,n/a,L0,I,none,n/a,n/a,n/a,planned,Terminology review of UI strings against commands.csv labels and keys
+VC-0126,NFR-PRIV-001,PAR-047,L3,T,FX-003,n/a,0 outbound connections,J-12;J-08,planned,Packet capture during scripted session with networking disabled
+VC-0127,NFR-PRIV-002,n/a,L3,T,FX-003,n/a,0 absolute paths,J-12,planned,"Log, manifest and crash-report scan after scripted session"
+VC-0128,NFR-SEC-001,n/a,L0,I,none,n/a,n/a,n/a,planned,A25 control review record
+VC-0129,NFR-SEC-002,n/a,L2,T,none,n/a,0 listening ports,n/a,planned,Port scan of the product JVM and speech worker by default
+VC-0130,NFR-MAINT-001,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Dependency review; class scan finds no redefined ij.* or net.imagej.* class in product jars
+VC-0131,NFR-MAINT-002,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: every fixture path used by tests has a datasets.csv row
+VC-0132,NFR-MAINT-003,n/a,L0,T,FX-070;FX-071;FX-072;FX-073;FX-074;FX-075;FX-076;FX-077;FX-078;FX-079;FX-080;FX-081,n/a,SHA-256 identical,n/a,planned,Two generator runs give equal SHA-256
+VC-0133,NFR-MAINT-004,n/a,L0,T,none,n/a,no prefs difference,n/a,planned,Reference-runner compares IJ_Prefs.txt and JavaSoft\Prefs registry export before/after every run
+VC-0134,NFR-MAINT-005,n/a,L0,I,none,n/a,n/a,n/a,planned,CI configuration: per-commit tier uses only fixtures < 5 MB
+VC-0135,NFR-MAINT-006,n/a,L0,T,none,n/a,n/a,n/a,planned,Documentation checker: no dangling IDs in traceability.csv and this file
+VC-0136,NFR-FID-001,n/a,L2,E1;E2;E3;E4;E5;E6,FX-001;FX-003;FX-030;FX-070;FX-071;FX-072;FX-077,headless,per FID-002 report,J-12,planned,MVP: one L2 equivalence test per MVP-set command with independent reference macro
+VC-0137,NFR-FID-001,n/a,L3,E1;E2;E3;E4;E5;E6;E7,FX-003;FX-030,gui,per FID-002 report,J-01;J-03;J-04;J-06;J-12,planned,HACK: journey-level equivalence
+VC-0138,NFR-FID-002,n/a,L0,I,none,n/a,n/a,n/a,planned,Verification report lists tolerance and reference mode per command
+VC-0139,NFR-FID-003,n/a,L0,I;T,none,n/a,n/a,n/a,planned,Test review; lint rejects screenshot/PNG comparators registered as E1-E7 evidence; seeded or excluded nondeterministic commands
+VC-0140,NFR-FID-004,n/a,L0,T,none,n/a,lock hash equals baseline key,n/a,planned,CI: lock check before/after; staged update/ content fails; baselines keyed by lock hash
+VC-0141,NFR-FID-005,n/a,L0,I,none,n/a,n/a,n/a,planned,Policy review: no training or fine-tuning on any fixture
+VC-0142,NFR-PKG-001,n/a,L0,T,none,n/a,n/a,n/a,planned,"Inventory completeness against build output (jars, speech bundle, model files)"
+VC-0143,NFR-PKG-003,n/a,L0,T,none,n/a,n/a,n/a,planned,jdeps import scan of product jars against the P70 GPL/AGPL list
+VC-0144,NFR-PKG-007,n/a,L0,T,none,n/a,n/a,n/a,planned,CI: committed fixtures are marked redistributable in datasets.csv
+VC-0145,NFR-PLAT-001,n/a,L0,I,none,n/a,n/a,n/a,planned,Release notes state Windows 11 x64 supported; others untested
+VC-0146,NFR-PLAT-002,PAR-052,L3,D;T,FX-003,n/a,no clipping; image pixels mapped 1:1 at 100 % zoom,J-01,planned,Rendering at 100/150/200 % OS scaling
+VC-0147,NFR-PLAT-003,n/a,L2,T,none,n/a,n/a,n/a,planned,Engine runs with --java-home set to the bundled Zulu 21 only
