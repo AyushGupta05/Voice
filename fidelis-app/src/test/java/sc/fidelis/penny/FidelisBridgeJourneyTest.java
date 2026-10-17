@@ -195,6 +195,25 @@ class FidelisBridgeJourneyTest {
     }
 
     @Test
+    void undoWithTheReportedUndoStepsRestoresTheOriginalPixels() throws Exception {
+        Path blobs = Fixtures.require("FX-003", "blobs.gif");
+        JsonObject opened = http.change("open_path", args("path", blobs.toString())).result();
+        DocumentId doc = new DocumentId(opened.getAsJsonObject("document").get("id").getAsString());
+        String original = PixelHash.sha256(engine.imagePlus(doc));
+        JsonObject seg = http.change("segment_cells", args()).result();
+        int steps = seg.get("undoSteps").getAsInt();
+        assertTrue(steps >= 2 && steps <= 4, seg.toString());
+        assertNotEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
+        JsonObject undone = http.change("undo", args("steps", steps)).result();
+        System.out.println("[penny-journey] undo steps=" + steps + " undid " + undone.get("undoneActionIds"));
+        assertEquals(steps, undone.getAsJsonArray("undoneActionIds").size());
+        assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)), "segment_cells fully reverted");
+        BridgeHttp.Resp more = http.change("undo", args());
+        assertEquals(409, more.status(), "nothing left to undo: " + more.body());
+        assertTrue(more.error().contains("nothing to undo"), more.error());
+    }
+
+    @Test
     void analyzeParticlesAgainReplacesOrExtendsTheRoiListHonestly() throws Exception {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         JsonObject opened = http.change("open_path", args("path", blobs.toString())).result();

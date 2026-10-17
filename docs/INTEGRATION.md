@@ -1,0 +1,72 @@
+---
+id: INT-02
+title: Penny × Fidelis integration
+stage: 03-development
+status: Implemented on integration/fidelis-penny
+priority: P0
+source_revisions: [integration/fidelis-penny]
+related_requirements: [FR-NL-001, FR-SPEECH-004]
+related_decisions: [DEC-048]
+last_reviewed: 2026-10-17
+approval: Integration record; review by Arnav and Alex pending
+---
+
+# Penny × Fidelis integration
+
+How the three integration parts implement [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL.md): the Java bridge inside Fidelis
+(`sc.fidelis.penny`), Penny's gateway profile (`LUMA_APP=fidelis`) and the workspace voice surface
+(`sc.fidelis.penny.ui`). Each part keeps its own section.
+
+## Java bridge in Fidelis (`sc.fidelis.penny`)
+
+`sc.fidelis.penny.FidelisBridge` serves the contract inside the Fidelis JVM; `PennyOps` turns each operation into a plan
+of complete engine requests submitted through `Engine.submit` (origin `NL_SPOKEN`/`NL_TYPED`, `transcriptRef` = the
+gateway's `taskId`) and assesses it with Fidelis's `ConfirmationPolicy`. `Params` fills COMMAND parameters from the
+catalogue schema, `Highlight` builds the screen payload through `PennyUi`, `PennyCommands` lists the catalogue ids, and
+`PennyPlans` is what the workspace's Confirm and Cancel buttons call. `Bootstrap` starts the bridge after the engine is
+registered and `Bootstrap.exit` stops it. The decisions taken while implementing it (Set Measurements only when a column
+is missing, the value-aware `black` rule, `undo {steps}`, `undoSteps`, `/health` behind the token) are recorded in
+[FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL.md).
+
+### Starting Fidelis with the bridge on macOS
+
+1. Once per checkout: Fiji at `.local/fiji/Fiji.app` (`python3 script/setup-fiji.py`; a git worktree under
+   `.local/worktrees/` uses the main checkout's), and Penny's bridge token at `.local/state/bridge-token` (Penny's setup
+   or `./script/run-fidelis.sh` creates it). For the tests: `python3 -I fidelis-app/tools/fetch_junit.py`.
+2. Build: `python3 -I fidelis-app/tools/build.py` (`--no-tests` for the app only).
+3. Run: `python3 -I fidelis-app/tools/run.py --isolated-home`. The bridge starts by itself when the token is found
+   (walking up from the jar, `-Dfidelis.repo.dir` and the working directory, so a worktree finds the main checkout's
+   token) and logs `[fidelis-penny] bridge listening on 127.0.0.1:49558 (confirm=auto)`. Penny's launcher
+   `./script/run-fidelis.sh` does the same with `--prop luma.root=<checkout> --prop fidelis.penny=true` and points the
+   gateway at it.
+4. Check it: `curl -s -H "Authorization: Bearer $(cat .local/state/bridge-token)" http://127.0.0.1:49558/health`
+   (requests without the token get 401, requests with an `Origin` header 403).
+5. Smoke with the bridge, without a window: `python3 -I fidelis-app/tools/run.py --smoke --isolated-home --prop
+   fidelis.penny=true --prop fidelis.penny.port=49568` prints `[fidelis] penny smoke: … self-check OK`.
+
+| Setting (`run.py --prop KEY=VALUE`) | Effect |
+|---|---|
+| `fidelis.penny=true` / `false` | `true`: log why when no token is found (the bridge starts whenever a token is found); `false`: never start |
+| `fidelis.penny.port=N` | listen on `127.0.0.1:N` (default 49558; the stand-alone Fiji bridge uses 49557, QuPath 49556, the gateway 49555) |
+| `fidelis.penny.confirm=always` | every plan waits for confirmation (default `auto`: only explicit plans wait) |
+| `luma.root=<dir>` (or `LUMA_ROOT`) | where `.local/state/bridge-token` is read; `LUMA_BRIDGE_TOKEN` (32+ characters) overrides the file |
+
+Only one Fidelis JVM per checkout (and per port) at a time.
+
+### Verification status (bridge, 17 Oct 2026, macOS arm64)
+
+- Implemented: all 28 operations of the contract.
+- Protocol-tested (`python3 -I fidelis-app/tools/test.py --select-class …`, JUnit in a live Fiji JVM with the product
+  engine): `sc.fidelis.penny.FidelisBridgeTest` (9: token, Origin, approval, context binding, contextKey, plans and
+  workspace hooks, failures, macro confirmation, discarded plans, `confirm=always`, highlight geometry),
+  `PennyCatalogueTest` (4: every hard-coded catalogue id with its schema, recipe provenance, the value-aware `black` rule,
+  operation names), `FidelisBridgeJourneyTest` (4: the Blobs voice journey over HTTP; the exported macro replayed in plain
+  ImageJ gives the same 67 objects and 21886 px²; `undo {steps: undoSteps}` restores the original pixels; a second
+  Analyze Particles replaces the ROI list). The three classes together: 17 tests, 0 failed. With the NL, UI-confirmation and speech-to-execution classes in the same run:
+  297 tests, 0 failed (4 skipped: the Whisper interpreter is not installed on this Mac).
+- Real-app-tested: the full workspace started with `run.py` and the bridge on a spare port, driven over HTTP the way the
+  gateway does (context, then the approved change bound to it): open Blobs, `segment_cells` 67 objects (mean 326.657 px²,
+  0.19 s), whole-image measure, `run_macro` waiting then confirmed, `undo`, history showing `NL_SPOKEN` steps with the
+  task id. Smoke with and without `fidelis.penny=true` through `Bootstrap`.
+- Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
+  the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.

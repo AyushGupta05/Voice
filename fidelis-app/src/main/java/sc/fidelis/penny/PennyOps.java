@@ -333,6 +333,14 @@ final class PennyOps {
             List<Map<String, Object>> steps = new ArrayList<>();
             for (int i = 0; i < results.size(); i++) steps.add(step(p.steps.get(i), results.get(i)));
             out.put("steps", steps);
+            int undoable = 0;
+            for (ActionResult r : results) {
+                if (r.digest() == null || r.record() == null || "UNDO".equals(r.record().commandId())) continue;
+                boolean px = false;
+                for (var ch : r.digest().changed()) px |= ch.pixelsChanged() || ch.typeChanged();
+                if (px) undoable++;
+            }
+            out.put("undoSteps", undoable);
             out.put("contextKey", contextKey());
             String summary = out.containsKey("count") ? out.get("count") + " found" : "done";
             ui(() -> PennyUi.current().planFinished(p.id, true, summary));
@@ -389,6 +397,9 @@ final class PennyOps {
             if (pending.compareAndSet(p, null)) discard(p, "the image, selection, results or history changed");
             throw new Failure(409, "The image, selection, results or history changed since the plan was made; it was discarded. Ask again.");
         }
+        Plan busy = running.get();
+        if (busy != null) throw new Failure(409, "Penny is still running " + busy.call.operation() + " (" + busy.id + "); confirm again when it finishes.",
+                Map.of("planId", busy.id));
         if (!pending.compareAndSet(p, null)) throw new Failure(409, "The plan was already confirmed or cancelled.");
         return start(p, true);
     }
@@ -541,7 +552,10 @@ final class PennyOps {
         m.put("path", d.sourcePath() == null ? null : d.sourcePath().toString());
         m.put("changed", d.changed());
         ImagePlus imp = imp(d.id());
-        if (imp != null) m.put("position", map("channel", imp.getC(), "slice", imp.getZ(), "frame", imp.getT()));
+        if (imp != null) {
+            m.put("position", map("channel", imp.getC(), "slice", imp.getZ(), "frame", imp.getT()));
+            m.put("displayRange", List.of(imp.getDisplayRangeMin(), imp.getDisplayRangeMax()));
+        }
         return m;
     }
 
@@ -759,9 +773,23 @@ final class PennyOps {
     }
 
     private Map<String, Object> objectStats() {
-        List<MeasurementRow> rows = engine.results();
+        List<MeasurementRow> all = engine.results();
+        String source = "all Results rows";
+        List<MeasurementRow> rows = all;
+        List<HistoryRecord> h = engine.history();
+        for (int i = h.size() - 1; i >= 0; i--) {
+            HistoryRecord r = h.get(i);
+            if (PennyCommands.ANALYZE_PARTICLES.equals(r.commandId()) && r.outcome() == OperationState.COMPLETED) {
+                List<MeasurementRow> mine = all.stream().filter(x -> r.actionId().equals(x.actionId())).toList();
+                if (!mine.isEmpty()) {
+                    rows = mine;
+                    source = "Analyze Particles " + r.actionId();
+                }
+                break;
+            }
+        }
         String unit = engine.focused().flatMap(engine::document).map(DocumentInfo::unit).orElse("pixel");
-        Map<String, Object> out = map("n", rows.size(), "unit", unit);
+        Map<String, Object> out = map("n", rows.size(), "unit", unit, "source", source);
         for (String[] col : new String[][] {{"Area", "area"}, {"Mean", "mean"}, {"Circ.", "circularity"}, {"Perim.", "perimeter"},
                 {"IntDen", "integratedDensity"}}) {
             List<Double> v = new ArrayList<>();
@@ -1472,13 +1500,22 @@ final class PennyOps {
         DocumentInfo d = requireDoc();
         Plan p = new Plan(c, d.id());
         boolean undo = op.equals(Operations.UNDO);
-        p.steps.add(directStep(p, undo ? "undo" : "redo", op, undo ? "Undo" : "Redo", undo ? "Edit>Undo" : "Edit>Redo", Map.of(), Map.of(),
-                undo ? "run(\"Undo\");" : "// redo", TargetScope.of(d.id())));
+        int n = PennyJson.integer(c.args(), "steps", 1, 1, 20);
+        for (int i = 0; i < n; i++) {
+            String label = (undo ? "Undo" : "Redo") + (n == 1 ? "" : " " + (i + 1) + " of " + n);
+            p.steps.add(directStep(p, undo ? "undo" : "redo", op, label, undo ? "Edit>Undo" : "Edit>Redo", Map.of(), Map.of(),
+                    undo ? "run(\"Undo\");" : "// redo", TargetScope.of(d.id())));
+        }
         p.finish = (plan, res) -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("step", step(plan.steps.get(0), res.get(0)));
-            HistoryRecord r = res.get(0).record();
-            if (r != null && r.params().get("undoneActionId") != null) m.put("undoneActionId", r.params().get("undoneActionId"));
+            m.put("step", step(plan.steps.get(res.size() - 1), res.get(res.size() - 1)));
+            List<Object> undone = new ArrayList<>();
+            for (ActionResult x : res) {
+                HistoryRecord r = x.record();
+                if (r != null && r.params().get("undoneActionId") != null) undone.add(r.params().get("undoneActionId"));
+            }
+            if (!undone.isEmpty()) m.put("undoneActionId", undone.get(0));
+            if (!undone.isEmpty()) m.put("undoneActionIds", undone);
             m.put("document", engine.document(d.id()).map(this::documentJson).orElse(null));
             m.put("highlight", Highlight.canvas(d.id(), undo ? "Undone" : "Redone"));
             return m;
@@ -1511,9 +1548,8 @@ final class PennyOps {
             throw new Failure(409, msg, map("code", first.error() == null ? null : String.valueOf(first.error().code())));
         }
         p.codeToken = first.confirmationToken();
-        String caps = first.error() == null ? "" : first.error().context().getOrDefault("capabilities", "");
+        // the engine's own wording (it names the capabilities its scan found)
         p.engineReasons.add(first.error() == null ? "macro code runs with full privileges" : first.error().message());
-        if (!caps.isBlank()) p.engineReasons.add("capabilities used: " + caps);
         p.finish = (plan, res) -> {
             ActionResult x = res.get(0);
             Map<String, Object> m = new LinkedHashMap<>();

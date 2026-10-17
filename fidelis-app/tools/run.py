@@ -1,12 +1,13 @@
 """Launch Fidelis inside the pinned Fiji runtime.
 
-Usage:  python fidelis-app/tools/run.py [--smoke] [--heap 4g] [--isolated-home] [-- <app args>]
+Usage:  python fidelis-app/tools/run.py [--smoke] [--heap 4g] [--isolated-home] [--prop KEY=VALUE ...] [-- <app args>]
 
   --smoke          start the engine without a window, run one real Fiji command, verify it, exit
   --heap SIZE      JVM max heap (default 4g; Fiji's own default is 75% of RAM)
   --isolated-home  redirect user.home so ImageJ preferences do not touch the real profile
   --timeout SEC    kill the JVM after SEC seconds (default: none; smoke mode defaults to 180)
-  -Dkey=value      extra JVM system property (repeatable), e.g. -Dfidelis.penny.port=49558 -Dfidelis.penny.confirm=always
+  --prop KEY=VALUE extra JVM system property -DKEY=VALUE (repeatable), e.g. --prop luma.root=<checkout> for the Penny
+                   bridge (docs/FIDELIS-PROTOCOL.md); same on Windows and macOS
 
 The JVM flags mirror Fiji's launcher (see tools/fijienv.py). The app jar must be built first.
 """
@@ -42,10 +43,13 @@ def main() -> None:
     props = {"fidelis.repo.dir": str(env.REPO_DIR)}
     if smoke:
         props["fidelis.smoke"] = "true"
-    for a in argv:
-        if a.startswith("-D") and "=" in a:
-            key, value = a[2:].split("=", 1)
-            props[key] = value
+    for i, arg in enumerate(argv):
+        if arg != "--prop":
+            continue
+        key, sep, value = (argv[i + 1] if i + 1 < len(argv) else "").partition("=")
+        if not sep or not key.strip() or any(c.isspace() for c in key):
+            sys.exit("[run] --prop takes KEY=VALUE (no spaces in KEY)")
+        props[key] = value
     args = env.jvm_flags(heap=heap, user_home=home, extra_props=props)
     args += ["-cp", env.CLASSPATH_SEPARATOR.join(cp), "sc.fidelis.Main"] + app_args
     argfile = env.write_argfile(env.BUILD / "run.args", args)
