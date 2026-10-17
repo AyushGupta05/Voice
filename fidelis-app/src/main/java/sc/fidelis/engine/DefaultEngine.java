@@ -287,6 +287,7 @@ public final class DefaultEngine implements Engine {
             Registry.Change ch = registry.reconcile();
             for (Doc d : ch.removed()) {
                 snapshots.releaseAll(d);
+                observers.forget(d.imp);
                 if (d.id.equals(focused)) focused = null;
             }
             return ch;
