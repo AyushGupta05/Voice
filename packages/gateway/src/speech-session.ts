@@ -32,15 +32,42 @@ export function isAddressedToLuma(text:string){
  // Single stray words ("OK.", "Bye.", "Really.") are chatter; two or more words are treated as a request.
  return wordCount(clean)>=2;
 }
+/** "Hey Luma", "Luma," or "…, Luma" anywhere in the sentence; the match is stripped from the request. */
+const WAKE_WORD=/(?:^|[\s,.;:!?-])(?:hey |ok |okay |hi )?(?:luma|looma|lumo|luna)\b[,.:!?]?\s*/i;
+/** How long after Luma last heard a request or spoke that follow-ups need no wake word. */
+export const ATTENTION_MS=30_000;
+export const wakeWordRequired=()=>process.env.LUMA_WAKE_WORD!=='off';
+/**
+ * Decide whether a final transcript is for Luma. With the wake word required (default, for rooms with other
+ * people talking), a sentence is accepted when it names Luma, is a short command, or arrives while Luma is
+ * attentive (within ATTENTION_MS of the last request or reply). Returns the request text with the wake word removed.
+ */
+export function addressed(text:string,options:{wakeWord:boolean;attentive:boolean}):{accept:boolean;request:string;reason:string}{
+ const trimmed=text.trim();
+ const named=WAKE_WORD.test(trimmed);
+ const request=named?trimmed.replace(WAKE_WORD,' ').replace(/\s+/g,' ').replace(/^[\s,;:]+|[\s,;:]+$/g,''):trimmed;
+ if(named){return request&&wordCount(request)>=1?{accept:true,request,reason:'wake word'}:{accept:true,request:'Yes?',reason:'wake word only'};}
+ if(!isAddressedToLuma(trimmed))return{accept:false,request,reason:'fragment'};
+ if(!options.wakeWord)return{accept:true,request,reason:'wake word disabled'};
+ const clean=trimmed.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
+ if(SHORT_COMMANDS.test(clean))return{accept:true,request,reason:'short command'};
+ if(options.attentive)return{accept:true,request,reason:'attentive'};
+ return{accept:false,request,reason:'not addressed to Luma (say "Luma, …")'};
+}
 export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
  private inputReady=false;private seen=new Set<string>();private hearing=false;private turns=0;private replies=0;private bytes=0;
  private started=Date.now();private timer?:ReturnType<typeof setTimeout>;private speech?:AbortController;private epoch=0;
  private running?:Promise<void>;private closed=false;private interrupts=0;private tail:Promise<void>=Promise.resolve();
  private droppedBeforeReady=0;private loggedBytes=0;
- constructor(private provider:SpeechProvider,private conversation:VoiceConversation,private emit:(event:Record<string,unknown>)=>void,private onClosed:()=>void,private maximumMs=1_800_000){
+ private attentiveUntil=0;private readonly wakeWord:boolean;
+ constructor(private provider:SpeechProvider,private conversation:VoiceConversation,private emit:(event:Record<string,unknown>)=>void,private onClosed:()=>void,private maximumMs=1_800_000,options:{wakeWord?:boolean}={}){
   if(!Number.isInteger(maximumMs)||maximumMs<1||maximumMs>1_800_000)throw new Error('Voice lifetime must not exceed 30 minutes.');
+  this.wakeWord=options.wakeWord??wakeWordRequired();
  }
+ /** Luma is attentive right after a request or its own reply, so natural follow-ups need no wake word. */
+ private attentive(){return Date.now()<this.attentiveUntil;}
+ private engage(){this.attentiveUntil=Date.now()+ATTENTION_MS;}
  private event(event:Record<string,unknown>){if(!this.closed)this.emit({...event,sessionId:this.id});}
  start(){
   if(this.running||this.closed)return;
@@ -68,20 +95,24 @@ export class SpeechSession{
   if(this.closed||this.seen.has(value.id))return;
   const text=value.text.trim();if(!text)return;if(text.length>4000){this.stop('Spoken request is too long.');return;}
   if(!value.partial)this.log(`heard: ${JSON.stringify(text)}`);
-  // Barge-in on real speech only: a one-word fragment while Luma talks is usually room chatter, not a correction.
-  if(!this.hearing&&(wordCount(text)>=2||!this.speech)){this.hearing=true;this.interrupt();}
-  this.event({type:'voice_transcript',text,partial:value.partial});
+  // Barge-in only on speech meant for Luma: room chatter while Luma talks must not cut it off.
+  const forLuma=!this.wakeWord||this.attentive()||WAKE_WORD.test(text);
+  if(!this.hearing&&forLuma&&(wordCount(text)>=2||!this.speech)){this.hearing=true;this.interrupt();}
+  this.event({type:'voice_transcript',text,partial:value.partial,addressed:forLuma});
   if(value.partial)return;
   this.hearing=false;this.seen.add(value.id);
-  if(!isAddressedToLuma(text)){this.log(`ignored (not a request): ${JSON.stringify(text)}`);this.event({type:'voice_ignored',text});return;}
+  const decision=addressed(text,{wakeWord:this.wakeWord,attentive:this.attentive()});
+  if(!decision.accept){this.log(`ignored (${decision.reason}): ${JSON.stringify(text)}`);this.event({type:'voice_ignored',text,reason:decision.reason});return;}
   if(++this.turns>200){this.stop('Voice turn limit reached.');return;}
+  this.engage();
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
-  void this.conversation.submit(text,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
+  void this.conversation.submit(decision.request,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }
  interrupt(){if(this.closed)return;this.interrupts++;this.epoch++;this.speech?.abort();this.speech=undefined;this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
  /** queued=true plays after the previous reply (an acknowledgment) instead of replacing it. Interruption cancels both. */
  async speak(text:string,queued=false){
   if(this.closed)return;if(++this.replies>400){this.stop('Spoken reply limit reached.');return;}
+  this.engage();
   if(!queued)this.speech?.abort();
   const speech=new AbortController();const interrupts=this.interrupts;const prior=queued?this.tail:Promise.resolve();
   const run=(async()=>{

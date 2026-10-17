@@ -27,7 +27,7 @@ Everything below ran end to end on this slide. Times are from the end of your se
 | "Save this procedure as a workflow so I can use it on other samples." | "Saving the workflow." QuPath's history (image type, stains, detection, classification) written as Groovy to `.local/workflows/` | voice ~3.8 s |
 | "Add a tumor annotation on the right." | One `qupath_annotate` with class Tumor, placed from the viewer's visible area | action 2.6 s |
 
-You can interrupt Luma at any time by speaking; it stops talking and stops the running task. Actions execute immediately by default (`LUMA_APPROVALS=auto`); every one is journaled and hierarchy changes get a checkpoint first. Set `LUMA_APPROVALS=review` before launching if you want approval cards for data changes.
+Start a request with "Luma" (or "Hey Luma"); once you are talking to it, follow-ups within 30 seconds need no name, and short commands ("zoom in", "undo that", "stop") always work. Overheard conversation is ignored. You can interrupt Luma at any time by speaking to it; it stops talking and stops the running task. Actions execute immediately by default (`LUMA_APPROVALS=auto`); every one is journaled and hierarchy changes get a checkpoint first. Set `LUMA_APPROVALS=review` before launching if you want approval cards for data changes.
 
 ## Taking audience requests
 

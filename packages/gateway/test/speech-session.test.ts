@@ -1,5 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {AudioQueue,SpeechSession,spokenReply,isAddressedToLuma} from '../src/speech-session.js';
+import {AudioQueue,SpeechSession,spokenReply,isAddressedToLuma,addressed} from '../src/speech-session.js';
+// Session-level tests exercise request handling without the wake word; the gate itself is tested directly below.
+process.env.LUMA_WAKE_WORD='off';
 import type {SpeechProvider,SpeechCallbacks} from '../src/aws-speech.js';
 const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
 function fixture(){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
@@ -45,4 +47,27 @@ test('a queued final reply plays after its acknowledgment even when its synthesi
 test('room chatter and one-word fragments are ignored while real requests and short commands pass',()=>{
  for(const chatter of ['OK.','Bye.','Really.','hello','Yeah','Hmm.'])assert.equal(isAddressedToLuma(chatter),false,chatter);
  for(const request of ['Zoom in a little.','Show me the positive cells','Focus here','undo that','Stop','zoom out','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
+});
+test('with the wake word required, Luma acts on its name, short commands and attentive follow-ups only',()=>{
+ const strict={wakeWord:true,attentive:false};
+ assert.deepEqual(addressed('Hey Luma, analyse the cells here.',strict),{accept:true,request:'analyse the cells here.',reason:'wake word'});
+ assert.deepEqual(addressed('Show me the positive cells, Luma',strict).request,'Show me the positive cells');
+ assert.equal(addressed('Luma.',strict).request,'Yes?');
+ assert.equal(addressed('What uh looking into the YouTube but we know he takes it.',strict).accept,false);
+ assert.equal(addressed('zoom in',strict).accept,true);
+ assert.equal(addressed('What percentage are positive?',{wakeWord:true,attentive:true}).accept,true);
+ assert.equal(addressed('What percentage are positive?',{wakeWord:false,attentive:false}).accept,true);
+ assert.equal(addressed('OK.',{wakeWord:false,attentive:true}).accept,false);
+});
+test('a session with the wake word required ignores overheard talk but engages after its name',async()=>{
+ const submitted:string[]=[];let callbacks!:SpeechCallbacks;const events:any[]=[];
+ const provider:SpeechProvider={transcribe:async(_a,s,c)=>{callbacks=c;c.inputReady();await new Promise(r=>s.addEventListener('abort',r as ()=>void,{once:true}));},speak:async()=>new Uint8Array([0,0])};
+ const session=new SpeechSession(provider,{submit:async text=>{submitted.push(text);},stop:()=>{}},e=>events.push(e),()=>{},1_800_000,{wakeWord:true});
+ session.start();await tick();
+ callbacks.transcript({id:'a',text:'you talk to a few people and it is',partial:false});
+ callbacks.transcript({id:'b',text:'Luma, zoom in a little',partial:false});
+ callbacks.transcript({id:'c',text:'now show me the positive cells',partial:false});
+ assert.deepEqual(submitted,['zoom in a little','now show me the positive cells']);
+ assert.equal(events.filter(e=>e.type==='voice_ignored').length,1);
+ session.stop();
 });
