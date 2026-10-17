@@ -528,6 +528,7 @@ final class Analysis {
             table.addRow(); table.addValue("Index", mine.index()[i]); table.addLabel(newName); table.addValue("Class", pos ? 1 : 0); table.addValue(measurementHeading(measurement), values[i]);
         }
         imp.setOverlay(overlay);
+        Pipeline.ownOverlayOnly(imp, manager);
         if (Operations.guiVisible()) table.show("Classification");
         int total = rois.length;
         var result = new LinkedHashMap<String, Object>();
@@ -856,6 +857,7 @@ final class Analysis {
             var copy = (Roi) roi.clone(); overlay.add(copy);
         }
         imp.setOverlay(overlay);
+        Pipeline.ownOverlayOnly(imp, manager);
     }
     private static Map<String, Object> entry(int index, Roi roi, double area, double mean) {
         var m = new LinkedHashMap<String, Object>(); m.put("index", index); m.put("name", roi.getName()); m.put("area", area); m.put("mean", mean);
