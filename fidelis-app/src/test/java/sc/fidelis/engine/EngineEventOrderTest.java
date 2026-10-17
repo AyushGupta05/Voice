@@ -122,15 +122,22 @@ class EngineEventOrderTest {
 
     @Test
     void codeEmitsQueuedRunningTerminalDigestHistoryOnceConfirmed() throws Exception {
-        ActionResult first = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "run(\"Invert\");", TargetScope.of(doc), null))
+        ij.ImagePlus cur = ij.WindowManager.getCurrentImage();
+        assertTrue(cur == engine.imagePlus(doc), "IJ1's current image must be the focused document, was "
+                + (cur == null ? "null" : cur.getTitle() + " type " + cur.getType() + " id " + cur.getID()));
+        assertEquals(ij.ImagePlus.GRAY8, cur.getType(), "two-squares.png opens as 8-bit grayscale");
+        String macro = "run(\"Invert\");";
+        ActionResult first = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", macro, TargetScope.of(doc), null))
                 .get(30, TimeUnit.SECONDS);
         assertEquals(OperationState.AWAITING_CONFIRMATION, first.state());
         List<String> t = trace(first.operationId());
         assertEquals(List.of("QUEUED", "VALIDATING", "AWAITING_CONFIRMATION"), t.stream().filter(s -> !s.equals("DIGEST")).toList(),
                 "an unconfirmed CODE request runs nothing: " + t);
-        ActionResult r = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "run(\"Invert\");", TargetScope.of(doc),
+        ActionResult r = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", macro, TargetScope.of(doc),
                 first.confirmationToken())).get(60, TimeUnit.SECONDS);
-        assertEquals(OperationState.COMPLETED, r.state(), String.valueOf(r.error()));
+        assertEquals(OperationState.COMPLETED, r.state(), () -> r.error() + " log=" + (r.digest() == null ? "-" : r.digest().newLogLines())
+                + " batchNow=" + ij.macro.Interpreter.isBatchMode() + " batchImages=" + ij.macro.Interpreter.getBatchModeImageCount()
+                + " current=" + ij.WindowManager.getCurrentImage());
         assertDocumentedOrder("CODE", r, true);
     }
 

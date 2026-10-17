@@ -106,6 +106,10 @@ final class CodeRunner {
         op.actionId = actionId;
         Map<String, String> gBefore = Globals.capture();
         int resultsBefore = Results.tableSize();
+        // a targeted macro runs on its document: typed actions never rely on IJ1's implicit current image
+        Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
+        ij.WindowManager.setTempCurrentImage(null);
+        if (target != null) eng.makeCurrent(target);
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
