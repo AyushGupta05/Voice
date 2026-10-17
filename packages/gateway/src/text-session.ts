@@ -102,7 +102,7 @@ export class TextConversation {
     const echoObjects=!/_(?:open_path|activate_image|context)$/.test(route.tool);
     const echo=(sentence:string)=>echoObjects&&(this.objectWord==='nuclei'||/\bnucle(?:i|us|ar)\b/i.test(text))?sentence.replace(/\b(?:cells|objects)\b/g,'nuclei').replace(/\b(?:cell|object)\b/g,'nucleus'):sentence;
     // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
-    const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
+    const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result,context)??'');
     // Long-running routes already spoke the action start; their final sentence carries only the real result.
     // Instant routes use the measured numeric outcome directly instead of repeating an action-start phrase.
     const detail=/\d/.test(phrased)?phrased:'';

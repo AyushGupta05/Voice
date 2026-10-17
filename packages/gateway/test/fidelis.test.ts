@@ -10,7 +10,7 @@ import { profiles, selectApp, profileForTool, appIds } from '../src/apps/index.j
 import { fidelisTools, FIDELIS_BUNDLE_ID } from '../src/apps/fidelis-tools.js';
 import { fidelisInstructions } from '../src/apps/fidelis-instructions.js';
 import { fijiInstructions } from '../src/apps/fiji-instructions.js';
-import { awaitingSentence, describeDocument } from '../src/apps/fidelis.js';
+import { awaitingSentence, describeDocument, maskLikely } from '../src/apps/fidelis.js';
 import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/bridge-readiness.js';
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
@@ -148,6 +148,11 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
   assert.equal(route('find the nuclei', segmented), undefined, 'the document is already a mask');
+  assert.equal(route('find the nuclei', { ...blobs, lastStep: { actionId: 'h4', label: 'Analyze Particles...', origin: 'NL_SPOKEN', outcome: 'COMPLETED' } }), undefined, 'a segmentation that found nothing is still a mask');
+  assert.equal(route('find the nuclei', { ...blobs, document: { ...blobs.document, binary: true } }), undefined, 'a bridge-reported mask');
+  assert.equal(maskLikely(blobs), false); assert.equal(maskLikely({ ...blobs, lastStep: { label: 'Gaussian Blur...' } }), false);
+  assert.equal(maskLikely({ ...blobs, lastStep: { label: 'Convert to Mask' } }), true);
+  assert.equal(maskLikely({ ...blobs, document: { ...blobs.document, binary: false }, lastStep: { label: 'Watershed' } }), false, 'the bridge flag wins');
   for (const other of ['what is the mean intensity of the nuclei', 'mean intensity of the nuclei in the top left', 'what is the median intensity of the nuclei'])
     assert.equal(route(other, segmented), undefined, `${other}: the ROI list would be measured on the mask`);
   // Brightness is display-only and needs the live display range; auto contrast does not.
@@ -191,6 +196,10 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 400, Mean: 87.5 }, summary: {} }), { scope: 'roi' }), 'Mean intensity 87.5 in this region.');
   assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), { scope: 'all', measurements: ['area'] }), 'Area 65024 square pixels in the image.');
   assert.equal(say('fidelis_measure', completed({ rows: 1 }), { scope: 'roi' }), undefined);
+  const onMask = { ...blobs, lastStep: { label: 'Analyze Particles...' } };
+  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), onMask), undefined, 'a mean measured on a segmentation mask is not spoken as an intensity');
+  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'all' }, completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), onMask), 'Area 65024 square pixels in the image.', 'areas stay valid on a mask');
+  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), blobs), 'Mean intensity 87.5 in this region.');
   assert.equal(say('fidelis_threshold', completed({ lower: 125, upper: 255, method: 'Otsu' })), 'Thresholded at 125–255 (Otsu).');
   assert.equal(say('fidelis_undo', completed({ step: { actionId: 'h9', label: 'Undo Gaussian Blur...', outcome: 'COMPLETED' } })), 'Undid Gaussian Blur.');
   assert.equal(say('fidelis_undo', completed({ step: { label: 'Undo' } })), 'Undone.');
@@ -201,6 +210,8 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_convert', completed({ step: {} }), { to: '8-bit' }), 'Converted to 8-bit.');
   assert.equal(say('fidelis_confirm', completed({ count: 64, averageSize: 351.42, unit: 'pixel' })), 'Found 64 cells, mean area 351 square pixels.');
   assert.equal(say('fidelis_confirm', completed({ step: { label: 'Run macro' } })), 'Ran the macro.');
+  assert.equal(say('fidelis_confirm', completed({ rows: 2, lastRow: { Mean: 90 }, summary: { Mean: { min: 10, max: 90, mean: 50 } } })), 'Mean intensity 50 over 2 regions.', 'a confirmed multi-ROI measurement reports its summary');
+  assert.equal(say('fidelis_confirm', completed({ rows: 1, lastRow: { Mean: 90 }, summary: { Mean: { min: 90, max: 90, mean: 90 } } })), 'Mean intensity 90 in this region.');
   assert.equal(say('fidelis_confirm', completed({ steps: [{}, {}] })), 'Ran 2 steps.');
   assert.equal(say('fidelis_cancel_plan', { cancelled: true }), 'Cancelled; nothing ran.');
   // Reads answer with the bridge result itself.

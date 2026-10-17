@@ -9,10 +9,21 @@ import { imageNameMatches, queryWords } from '../local-images.js';
 type FidelisDocument = { id?: unknown; title?: unknown; width?: unknown; height?: unknown; channels?: unknown; slices?: unknown; frames?: unknown; bitDepth?: unknown;
   unit?: unknown; pixelWidth?: unknown; pixelHeight?: unknown; path?: unknown;
   /** Not in the first contract table; used when the bridge reports them (brighter/darker, next/previous slice). */
-  displayRange?: unknown; display?: { min?: unknown; max?: unknown }; position?: { channel?: unknown; slice?: unknown; frame?: unknown } };
+  displayRange?: unknown; display?: { min?: unknown; max?: unknown }; position?: { channel?: unknown; slice?: unknown; frame?: unknown }; binary?: unknown };
 type FidelisContext = { document?: FidelisDocument | null; documents?: Array<{ id?: unknown; title?: unknown; focused?: unknown }>; roi?: unknown;
-  counts?: { rois?: unknown; resultsRows?: unknown; history?: unknown }; pending?: { planId?: unknown; reasons?: unknown } | null };
+  counts?: { rois?: unknown; resultsRows?: unknown; history?: unknown }; pending?: { planId?: unknown; reasons?: unknown } | null;
+  lastStep?: { actionId?: unknown; label?: unknown; origin?: unknown; outcome?: unknown } | null };
 
+/** Evidence that the focused document already holds a segmentation mask: segment_cells converts it in place
+ * (docs/FIDELIS-PROTOCOL.md), so its pixels are no longer intensities and segmenting again would threshold the mask.
+ * The bridge may report `document.binary`; otherwise the last History step names a segmentation stage. */
+export function maskLikely(context: unknown): boolean {
+  const c = context as FidelisContext | undefined;
+  if (c?.document?.binary === true) return true;
+  if (c?.document?.binary === false) return false;
+  const label = `${text(c?.lastStep?.label) ?? ''} ${text(c?.lastStep?.actionId) ?? ''}`;
+  return /\b(?:segment\w*|analy[sz]e particles|convert to mask|make binary|watershed|fill holes)\b/i.test(label);
+}
 /** Spoken at once when the model's first call is one of these. A plan may still wait for confirmation, so a macro is "prepared", never "running". */
 const acknowledgments: Record<string, string> = {
   fidelis_segment_cells: 'Segmenting cells.', fidelis_measure: 'Measuring.', fidelis_threshold: 'Thresholding.', fidelis_analyze_particles: 'Counting particles.',
@@ -82,6 +93,8 @@ function measureSentence(args: Record<string, unknown>, inner: Record<string, un
   const area = finite(column(last, 'Area'));
   return area === undefined ? undefined : `Area ${spokenArea(area, inner.unit)} ${where}.`;
 }
+/** Whether a measurement result carries a Mean (the intensity a sentence would speak). */
+const measuresIntensity = (inner: Record<string, unknown>) => column(inner.summary, 'Mean') !== undefined || column(inner.lastRow, 'Mean') !== undefined;
 function thresholdSentence(inner: Record<string, unknown>): string | undefined {
   const lower = finite(inner.lower), upper = finite(inner.upper);
   if (lower === undefined || upper === undefined) return undefined;
@@ -92,14 +105,18 @@ function thresholdSentence(inner: Record<string, unknown>): string | undefined {
 function confirmSentence(inner: Record<string, unknown>): string {
   const counted = countSentence(inner); if (counted) return counted;
   const threshold = thresholdSentence(inner); if (threshold) return threshold;
-  if (inner.lastRow || inner.summary) { const measured = measureSentence({ scope: inner.summary && !inner.lastRow ? 'rois' : 'roi' }, inner); if (measured) return measured; }
+  if (inner.lastRow || inner.summary) {
+    // The confirm call does not carry the plan's scope: more than one measured row is a multi-ROI measurement, reported from its summary.
+    const rows = finite(inner.rows) ?? finite((column(inner.summary, 'Mean') as { count?: unknown } | undefined)?.count);
+    const measured = measureSentence({ scope: !inner.lastRow || (rows !== undefined && rows > 1) ? 'rois' : 'roi' }, inner); if (measured) return measured;
+  }
   const name = stepName(inner.step, record(inner.step)?.commandId);
   if (name) return /macro/i.test(name) ? 'Ran the macro.' : `Ran ${name}.`;
   if (Array.isArray(inner.steps) && inner.steps.length) return `Ran ${plural(inner.steps.length, 'step')}.`;
   return 'Done.';
 }
 /** Spoken outcome built from the real result; '' stays silent, undefined asks the model to phrase or continue. */
-function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown): string | undefined {
+function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, context?: unknown): string | undefined {
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
   const plan = awaitingConfirmation(result); if (plan) return awaitingSentence(plan);
   if (silentFinishTools.has(name)) return '';
@@ -117,7 +134,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fidelis_cancel_plan') return 'Cancelled; nothing ran.';
   if (inner === undefined) return undefined;
   if (name === 'fidelis_segment_cells' || name === 'fidelis_analyze_particles') return countSentence(inner);
-  if (name === 'fidelis_measure') return measureSentence(args, inner);
+  // On a segmentation mask a mean is not an intensity: the model explains instead (any scope).
+  if (name === 'fidelis_measure') return maskLikely(context) && measuresIntensity(inner) ? undefined : measureSentence(args, inner);
   if (name === 'fidelis_threshold') return thresholdSentence(inner);
   if (name === 'fidelis_open_path') {
     const document = record(inner.document); const title = text(document?.title), width = finite(document?.width), height = finite(document?.height);
@@ -240,8 +258,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   }
   if (/^(?:(?:auto|fix|improve|boost|enhance|more) (?:the )?contrast|auto(?:matic)? (?:brightness|contrast)|make (?:it|this) (?:clearer|easier to see|pop))$/.test(said)) return { tool: 'fidelis_display', arguments: { auto: true }, reply: 'Auto contrast.' };
   // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document. Once the
-  // ROI list holds objects the document is already a mask, so a repeat goes to the model (undo first, or show them).
-  if (!objects && /^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
+  // ROI list holds objects, or the document already shows a segmentation (even one that found nothing), it is a mask,
+  // so a repeat goes to the model (undo first, or show them).
+  if (!objects && !maskLikely(context) && /^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {
     const slices = finite(doc.slices), current = finite(doc.position?.slice);

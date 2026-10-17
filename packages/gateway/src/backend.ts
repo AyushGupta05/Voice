@@ -11,7 +11,7 @@ export const spokenStyle = '\nThis request was spoken and your answers are read 
 export function acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.acknowledgmentFor(name, args, context); }
 /** The spoken sentence for a successful tool call, built from its real result with no model round.
  * '' means nothing more to say; undefined means the model must phrase (or continue) the answer. */
-export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile()): string | undefined { return profile.localSentenceFor(name, args, result); }
+export function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, profile: AppProfile = activeProfile(), context?: unknown): string | undefined { return profile.localSentenceFor(name, args, result, context); }
 /** A request whose wording asks for more than this call delivers must go back to the model. */
 export function requestContinuesAfter(name: string, utterance: string, profile: AppProfile = activeProfile(), result?: unknown): boolean { return profile.requestContinuesAfter(name, utterance, result); }
 /** Wording that already tells the researcher something did not work (or asks them), so it is not a false success. */
@@ -314,7 +314,7 @@ export class ResponsesBackend implements DelegationBackend {
       // saving the final model round. Failures, approvals, snapshots and open-ended reads go back to the model.
       if (task.spoken && roundComplete && !humanReviewed && executed.length === functions.length && executed.length) {
         const said = utterance();
-        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said, call.result) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
+        const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said, call.result) ? undefined : profile.localSentenceFor(call.name, call.args, call.result, context));
         if (sentences.every(sentence => sentence !== undefined)) {
           const text = sentences.filter(Boolean).join(' ');
           if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true, 'failed'); return; }

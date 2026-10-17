@@ -86,7 +86,7 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 | "no / cancel / stop that" with a pending plan | `fidelis_cancel_plan` |
 | "open the X image" | the focused or open document if it matches (`fidelis_context`, `fidelis_activate_image`), else `fidelis_find_images` then `fidelis_open_path {path}` |
 | "what am I looking at" | answered from `context.document` |
-| "find / segment / count the nuclei" (no ROIs yet) | `fidelis_segment_cells {}` |
+| "find / segment / count the nuclei" (no ROIs and no sign of an earlier segmentation) | `fidelis_segment_cells {}` |
 | "zoom in / out", "fit to window", "zoom to the selection" | `fidelis_zoom` |
 | "how many (nuclei) are there" | `fidelis_rois {limit: 1}` (or `fidelis_object_stats` when the context has no ROI count); an empty list is answered "0 objects in the ROI list." |
 | "show me the nuclei" (ROIs present) | `fidelis_highlight {rois: "all"}` |
@@ -145,7 +145,10 @@ The bridge should match these readings of [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL
    one undoable History step per plan, or segmenting from the pre-segmentation state, would be safer), and
    `measure {scope: "rois"}` right after segmenting reads the mask (0/255), not intensities (measure on the
    pre-segmentation pixels, for example by redirecting Set Measurements to a kept original). Until then the gateway has
-   no instant intensity route, never speaks a uniform 0/255 ROI mean as an intensity, and tells the model so.
+   no instant intensity route, never speaks a mean as an intensity locally when the document looks segmented (a
+   uniform 0/255 ROI mean, `document.binary: true`, or a last History step naming a segmentation stage such as Analyze
+   Particles, Convert to Mask, Watershed or Fill Holes), and does not repeat "find the nuclei" instantly on such a
+   document. Reporting `document.binary` in `context` would replace that heuristic.
 7. Results speak only what the bridge reports: `segment_cells`/`analyze_particles` `count`, `averageSize`, `unit`;
    `threshold` `lower`, `upper`, `method`; `undo`/`redo`/`command` `step.label`; `open_path` `document.{title,width,height}`;
    `rois` `total`; `object_stats` `n`, `area.{mean,median}`, `unit`.

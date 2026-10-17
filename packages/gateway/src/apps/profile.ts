@@ -61,7 +61,8 @@ export type AppProfile = {
   conversationEnvelope?: boolean;
   fastRoute(text: string, context: unknown): FastRoute | undefined;
   acknowledgmentFor(name: string, args: Record<string, unknown>, context: unknown): string | undefined;
-  localSentenceFor(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
+  /** `context` is the application observation the call was dispatched from, when the host has it. */
+  localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, context?: unknown): string | undefined;
   /** Whether the request still needs the model after this call; `result` is the call's outcome when known (a plan that
    * waits for confirmation is the whole answer, whatever else the request asked for). */
   requestContinuesAfter(name: string, utterance: string, result?: unknown): boolean;
