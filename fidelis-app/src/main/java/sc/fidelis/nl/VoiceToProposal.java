@@ -35,9 +35,11 @@ public final class VoiceToProposal {
     public static final String TRANSCRIPT_REF_KEY = "transcriptRef";
 
     private final NlService nl;
+    private final ConfirmationPolicy policy;
 
     public VoiceToProposal(NlService nl) {
         this.nl = Objects.requireNonNull(nl);
+        this.policy = nl instanceof DefaultNlService d ? d.confirmationPolicy() : ConfirmationPolicy.strict();
     }
 
     public Result apply(Transcript transcript, DocumentId focused) {
@@ -47,9 +49,10 @@ public final class VoiceToProposal {
         if (!transcript.speechDetected() || text.isEmpty()) {
             Proposal none = new Proposal(Proposal.Status.NEEDS_CLARIFICATION, "", List.of(), List.of(), List.of(), List.of(),
                     List.of("No speech was detected, so nothing will run. Try again, or type the instruction."), null);
-            return new Result(none, transcript.id(), text, true);
+            return new Result(none, transcript.id(), text, true, policy.assess(none));
         }
-        return new Result(nl.interpret(text, Origin.NL_SPOKEN, focused), transcript.id(), text, low);
+        Proposal proposal = nl.interpret(text, Origin.NL_SPOKEN, focused);
+        return new Result(proposal, transcript.id(), text, low, policy.assess(proposal));
     }
 
     static boolean lowConfidence(Transcript t) {
@@ -64,8 +67,18 @@ public final class VoiceToProposal {
      * @param transcriptRef  the transcript id (history reference)
      * @param transcriptText the recognised text exactly as transcribed (shown for review and editing)
      * @param lowConfidence  true when a segment's avgLogprob or noSpeechProb passes the thresholds above
+     * @param confirmation   what the user must confirm before the requests are submitted; for a spoken READY
+     *                       proposal {@code required()} is always true (FR-SPEECH-004), and {@code explicit()}
+     *                       marks AC4 and above, a global BlackBackground change, code, or an unfilled consequential slot
      */
-    public record Result(Proposal proposal, String transcriptRef, String transcriptText, boolean lowConfidence) {
+    public record Result(Proposal proposal, String transcriptRef, String transcriptText, boolean lowConfidence,
+                         ConfirmationPolicy.Decision confirmation) {
+
+        /** Nothing may be submitted until the user has confirmed. */
+        public boolean requiresConfirmation() { return confirmation.required(); }
+
+        /** The stronger, deliberate confirmation (see {@link ConfirmationPolicy}). */
+        public boolean requiresExplicitConfirmation() { return confirmation.explicit(); }
 
         /** The interpreter's normalised form of the transcript. */
         public String normalisedText() { return proposal.normalisedText(); }
