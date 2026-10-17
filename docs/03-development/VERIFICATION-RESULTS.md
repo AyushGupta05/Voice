@@ -1,3 +1,16 @@
+---
+id: DEV-03
+title: Verification results
+stage: 03-development
+status: Living record
+priority: P0
+source_revisions: [Fiji archive 20261013-1517 (lock f6695397 / 9403b619 LF), imagej/ImageJ@v1.54p, integration branch development/fidelis-workstation]
+related_requirements: [NFR-FID-001, NFR-FID-002, NFR-FID-003, NFR-FID-004, FR-MEAS-003, FR-MACRO-001]
+related_decisions: [DEC-010, ADR-010]
+last_reviewed: 2026-10-17
+approval: Development record (not a design approval)
+---
+
 # VERIFICATION RESULTS — Fidelis workstation (agent A4)
 
 Status as of 2026-10-17. Every number below was produced by a run in this worktree (`agent/verify`); the

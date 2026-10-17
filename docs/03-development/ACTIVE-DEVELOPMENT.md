@@ -1,3 +1,16 @@
+---
+id: DEV-01
+title: Active development record
+stage: 03-development
+status: Living record
+priority: P0
+source_revisions: [Fiji archive 20261013-1517 (lock f6695397 / 9403b619 LF), imagej/ImageJ@v1.54p, integration branch development/fidelis-workstation]
+related_requirements: [FR-SYS-001, FR-SYS-002, FR-PROC-001, FR-HIST-002, FR-MACRO-001, FR-NL-001, FR-SPEECH-004, NFR-FID-001]
+related_decisions: [DEC-010, ADR-002, DEC-048]
+last_reviewed: 2026-10-17
+approval: Development record (not a design approval)
+---
+
 # ACTIVE DEVELOPMENT — Fidelis workstation (persistent progress record)
 
 Read this first after any interruption or context reset. Then read `git log --oneline -20` on the
@@ -79,6 +92,10 @@ own branch only; the lead merges.
 | A3 Voice/NL | **merged** 13:05 (7f046e0, 2b42cdc, db9093b) | `agent/voice` | `speech/server.py` persistent worker + `WhisperSpeechService`; `DefaultNlService` (grammar + catalogue retrieval + deterministic validator/policy); eval set ≥30 cases; tests |
 | A4 Verify | **merged** 13:40 (395275b) and T6 follow-up 14:20 (ef9ba1e: GUI smoke, workspace journey, Results TSV round trip, E7 replay) | `agent/verify` | fixtures manifest + cache (blobs, OME-TIFF, BBBC metadata), independent reference runner + comparators, J-12 baselines, parity tests, GUI smoke harness, VERIFICATION-RESULTS.md |
 | Spike (prior session) | **finished** 12:50 | `spike/architecture-gate` (pushed) | EXP-01…05 PASS/INCONCLUSIVE per `spikes/arch-gate/README.md`; EXP-06 script only (NOT RUN) |
+| A2 U3 | running since 15:05 | `agent/ui` | `--scenario j12` on the real engine with asserted numbers and screenshot; `--instruction` proposal → confirm → execute screenshots; public `ResultsPanel.tsv()`; U2 scenarios re-inspected on the real engine; quit path exit code |
+| A4 T7 | running since 15:05 | `agent/verify` | BBBC001/BBBC004 J-12 through the real engine vs the reference runner (reported-only vs published counts); speech-to-execution E2E; GUI smoke on the real engine; suite run twice for order dependence; VERIFICATION-RESULTS section 10 rewritten |
+| A1 E8 | running since 15:05 | `agent/engine` | `SET_DISPLAY_RANGE channel`, `NEW_IMAGE channels/frames`; principled no-op rule; `quit` test; transient images; window count; stale-singleton review |
+| A3 V5 | running since 15:05 | `agent/voice` | eval 124 cases on the real catalogue; J-12 phrases executed on the real engine with asserted numbers; confirmation policy tests; vocabulary prompt |
 
 Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
 
