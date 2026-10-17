@@ -33,9 +33,25 @@ ID_PATTERNS = {
     "RISK": r"(?<![A-Za-z])R-\d{3}",
     "DOC": r"\b(?:F0[1-4]|A[0-3]\d|D[0-2]\d)\b",
 }
-FM_KEYS = ["id", "title", "stage", "status", "priority", "source_revisions",
-           "related_requirements", "related_decisions", "last_reviewed", "approval"]
-ACCEPTED_ALLOWED = {"DEC-001", "DEC-002", "DEC-003", "DEC-004", "DEC-048"}  # owner-approved (see DECISIONS.md basis column)
+FM_KEYS = [
+    "id",
+    "title",
+    "stage",
+    "status",
+    "priority",
+    "source_revisions",
+    "related_requirements",
+    "related_decisions",
+    "last_reviewed",
+    "approval",
+]
+ACCEPTED_ALLOWED = {
+    "DEC-001",
+    "DEC-002",
+    "DEC-003",
+    "DEC-004",
+    "DEC-048",
+}  # owner-approved (see DECISIONS.md basis column)
 
 
 def md_files():
@@ -57,7 +73,10 @@ def front_matter(text):
 def expand_ranges(text):
     """Expand 'FR-NL-001…013', 'FR-NL-001..013', 'FR-MEAS-001..005' into explicit IDs."""
     out = set()
-    for m in re.finditer(r"(?<![A-Za-z])((?:N?FR)-[A-Z0-9]+-)(\d{3})\s*(?:…|\.\.)\s*(?:(?:N?FR)-[A-Z0-9]+-)?(\d{3})", text):
+    for m in re.finditer(
+        r"(?<![A-Za-z])((?:N?FR)-[A-Z0-9]+-)(\d{3})\s*(?:…|\.\.)\s*(?:(?:N?FR)-[A-Z0-9]+-)?(\d{3})",
+        text,
+    ):
         prefix, a, b = m.group(1), int(m.group(2)), int(m.group(3))
         if a <= b <= a + 60:
             out.update(f"{prefix}{i:03d}" for i in range(a, b + 1))
@@ -70,7 +89,9 @@ def defined_ids():
     a27 = next(DOCS.rglob("A27-*.md"), None)
     for path, key in ((a26, "FR"), (a27, "NFR")):
         if path:
-            for m in re.finditer(r"^\|\s*(" + ID_PATTERNS[key] + r")\s*\|", path.read_text(encoding="utf-8"), re.M):
+            for m in re.finditer(
+                r"^\|\s*(" + ID_PATTERNS[key] + r")\s*\|", path.read_text(encoding="utf-8"), re.M
+            ):
                 d[key].add(m.group(1))
     for p in (DOCS / "01-analysis").rglob("A*.md"):
         for m in re.finditer(r"\*\*(" + ID_PATTERNS["CR"] + r")", p.read_text(encoding="utf-8")):
@@ -79,8 +100,11 @@ def defined_ids():
     d["DEC"].update(re.findall(r"^\|\s*(DEC-\d{3})\s*\|", dec, re.M))
     for p in (DOCS / "02-design").rglob("ADR-*.md"):
         d["ADR"].add(p.name[:7])
-    for name, key, col in (("parity-matrix.csv", "PAR", "parity_id"), ("datasets.csv", "FX", "fixture_id"),
-                           ("risks.csv", "RISK", "risk_id")):
+    for name, key, col in (
+        ("parity-matrix.csv", "PAR", "parity_id"),
+        ("datasets.csv", "FX", "fixture_id"),
+        ("risks.csv", "RISK", "risk_id"),
+    ):
         f = DOCS / "data" / name
         if f.exists():
             d[key].update(r[col] for r in csv.DictReader(f.open(encoding="utf-8")))
@@ -110,11 +134,27 @@ def check():
     for p in files:
         text = p.read_text(encoding="utf-8")
         rel = p.relative_to(ROOT).as_posix()
-        if p.suffix == ".md" and p.name not in ("INDEX.md", "README.md") and not p.name.startswith("README-") \
-                and p.parent.name not in ("screenshots", "probes") and p.name not in (
-                "architecture.md", "environment.md", "setup.md", "upstreams.md", "verification.md"):
+        if (
+            p.suffix == ".md"
+            and p.name not in ("INDEX.md", "README.md")
+            and not p.name.startswith("README-")
+            and p.parent.name not in ("screenshots", "probes")
+            and p.name
+            not in (
+                "architecture.md",
+                "environment.md",
+                "setup.md",
+                "upstreams.md",
+                "verification.md",
+            )
+        ):
             fm = front_matter(text)
-            if p.name in ("DECISIONS.md", "WORK-PROGRESS.md", "GLOSSARY.md", "BIBLIOGRAPHY.md") or p.name.startswith("phase8-"):
+            if p.name in (
+                "DECISIONS.md",
+                "WORK-PROGRESS.md",
+                "GLOSSARY.md",
+                "BIBLIOGRAPHY.md",
+            ) or p.name.startswith("phase8-"):
                 pass
             elif fm is None:
                 ERR.append(f"{rel}: missing front matter")
@@ -147,11 +187,14 @@ def check():
             lines = text.splitlines()
             for i, line in enumerate(lines[:-1]):
                 if re.match(r"^#{2,}\s", line):
-                    nxt = next((l for l in lines[i + 1:] if l.strip()), "")
+                    nxt = next((ln for ln in lines[i + 1 :] if ln.strip()), "")
                     if re.match(r"^#{1,%d}\s" % len(line.split()[0]), nxt):
-                        WARN.append(f"{rel}:{i+1}: empty heading '{line.strip()}'")
+                        WARN.append(f"{rel}:{i + 1}: empty heading '{line.strip()}'")
             unquoted = re.sub(r'"[^"\n]*"', "", text)  # ignore quoted upstream text
-            if re.search(r"\b(TODO|TBD|lorem ipsum|FIXME)\b", unquoted) and "check_docs" not in p.name:
+            if (
+                re.search(r"\b(TODO|TBD|lorem ipsum|FIXME)\b", unquoted)
+                and "check_docs" not in p.name
+            ):
                 WARN.append(f"{rel}: placeholder text found")
     # FR/NFR acceptance criteria present
     for key, name in (("FR", "A26-*.md"), ("NFR", "A27-*.md")):
@@ -180,8 +223,12 @@ def check():
         if "proposed" not in fm.get("status", "").lower():
             ERR.append(f"{p.name}: ADR status is not Proposed")
     # requirement coverage by design
-    design_text = "\n".join(p.read_text(encoding="utf-8") for p in (DOCS / "02-design").rglob("*.md"))
-    design_refs = set(re.findall(ID_PATTERNS["FR"] + "|" + ID_PATTERNS["NFR"], design_text)) | expand_ranges(design_text)
+    design_text = "\n".join(
+        p.read_text(encoding="utf-8") for p in (DOCS / "02-design").rglob("*.md")
+    )
+    design_refs = set(
+        re.findall(ID_PATTERNS["FR"] + "|" + ID_PATTERNS["NFR"], design_text)
+    ) | expand_ranges(design_text)
     trace = DOCS / "data" / "traceability.csv"
     if trace.exists():
         design_refs |= {r["requirement_id"] for r in csv.DictReader(trace.open(encoding="utf-8"))}
@@ -197,43 +244,83 @@ def write_index():
         if not fm or not re.match(r"^(F|A|D)\d{2}$|^ADR-\d{3}$", fm.get("id", "")):
             continue
         body = p.read_text(encoding="utf-8")
-        deps = sorted(set(re.findall(r"(?<![A-Za-z0-9-])(F0[1-4]|A[0-3]\d|D[0-2]\d)(?![0-9])", body)) - {fm["id"]},
-                      key=lambda x: ({"F": 0, "A": 1, "D": 2}[x[0]], x))
-        rows.append((fm["id"], fm.get("title", ""), fm.get("stage", ""), fm.get("status", ""),
-                     fm.get("approval", ""), fm.get("last_reviewed", ""), fm.get("related_decisions", ""),
-                     fm.get("related_requirements", ""), fm.get("source_revisions", ""), p.relative_to(DOCS).as_posix(), ", ".join(deps)))
+        deps = sorted(
+            set(re.findall(r"(?<![A-Za-z0-9-])(F0[1-4]|A[0-3]\d|D[0-2]\d)(?![0-9])", body))
+            - {fm["id"]},
+            key=lambda x: ({"F": 0, "A": 1, "D": 2}[x[0]], x),
+        )
+        rows.append(
+            (
+                fm["id"],
+                fm.get("title", ""),
+                fm.get("stage", ""),
+                fm.get("status", ""),
+                fm.get("approval", ""),
+                fm.get("last_reviewed", ""),
+                fm.get("related_decisions", ""),
+                fm.get("related_requirements", ""),
+                fm.get("source_revisions", ""),
+                p.relative_to(DOCS).as_posix(),
+                ", ".join(deps),
+            )
+        )
     order = {"F": 0, "A": 1, "D": 2}
     rows.sort(key=lambda r: (order.get(r[0][0], 3), r[0]))
-    out = ["# Documentation Index", "",
-           "Generated by `docs/tools/check_docs.py --index` from each document's front matter. Do not edit the tables by hand; edit the front matter instead.", "",
-           "Status vocabulary: F04 §5. **No document is approved.** Approval is the project owner's decision.", "",
-           "| ID | Title | Stage | Status | Approval | Reviewed | Depends on (cross-referenced docs) | Decisions | Requirements | Sources |", "|---|---|---|---|---|---|---|---|---|---|"]
+    out = [
+        "# Documentation Index",
+        "",
+        "Generated by `docs/tools/check_docs.py --index` from each document's front matter. Do not edit the tables by hand; edit the front matter instead.",
+        "",
+        "Status vocabulary: F04 §5. **No document is approved.** Approval is the project owner's decision.",
+        "",
+        "| ID | Title | Stage | Status | Approval | Reviewed | Depends on (cross-referenced docs) | Decisions | Requirements | Sources |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
     for r in rows:
         reqs = r[7] if len(r[7]) < 90 else r[7][:87] + "…]"
         src = r[8] if len(r[8]) < 70 else r[8][:67] + "…]"
-        out.append(f"| [{r[0]}]({r[9]}) | {r[1]} | {r[2]} | {r[3]} | {r[4]} | {r[5]} | {r[10]} | {r[6]} | {reqs} | {src} |")
-    out += ["", "## Prototype-era records (preserved unedited; DEC-006)", "",
-            "| ID | Document | Status |", "|---|---|---|",
-            "| P01 | [architecture.md](architecture.md) | Prototype record; superseded for product architecture by A21/D01 |",
-            "| P02 | [upstreams.md](upstreams.md) | Prototype record; superseded by F03 + `data/upstream-manifest.yaml` |",
-            "| P03 | [verification.md](verification.md) | Prototype record; re-verified in F02 §3 |",
-            "| P04 | [setup.md](setup.md) | Prototype setup (still valid for T0 demo) |",
-            "| P05 | [environment.md](environment.md) | Prototype environment record; updated facts in A22 |",
-            "", "## Registers, data and tooling", "",
-            "| Artefact | Content | Owner doc |", "|---|---|---|",
-            "| [DECISIONS.md](DECISIONS.md) | Decision register | F04 §7 |",
-            "| [WORK-PROGRESS.md](WORK-PROGRESS.md) | Recovery checkpoint | — |",
-            "| [02-design/06-handoff/phase8-review-record.md](02-design/06-handoff/phase8-review-record.md) | Phase 8 internal review findings and fix decisions | D20 |",
-            "| [00-foundation/GLOSSARY.md](00-foundation/GLOSSARY.md) | Glossary | F04 |",
-            "| [01-analysis/references/BIBLIOGRAPHY.md](01-analysis/references/BIBLIOGRAPHY.md) | Sources with versions and access dates | F04 §4 |",
-            "| [01-analysis/references/probes/](01-analysis/references/probes/) | Probe scripts and raw outputs (README-*.md per agent) | F04 §9 |",
-            "| [01-analysis/references/screenshots/](01-analysis/references/screenshots/) | Real screenshots of the pinned Fiji | A04 |"]
+        out.append(
+            f"| [{r[0]}]({r[9]}) | {r[1]} | {r[2]} | {r[3]} | {r[4]} | {r[5]} | {r[10]} | {r[6]} | {reqs} | {src} |"
+        )
+    out += [
+        "",
+        "## Prototype-era records (preserved unedited; DEC-006)",
+        "",
+        "| ID | Document | Status |",
+        "|---|---|---|",
+        "| P01 | [architecture.md](architecture.md) | Prototype record; superseded for product architecture by A21/D01 |",
+        "| P02 | [upstreams.md](upstreams.md) | Prototype record; superseded by F03 + `data/upstream-manifest.yaml` |",
+        "| P03 | [verification.md](verification.md) | Prototype record; re-verified in F02 §3 |",
+        "| P04 | [setup.md](setup.md) | Prototype setup (still valid for T0 demo) |",
+        "| P05 | [environment.md](environment.md) | Prototype environment record; updated facts in A22 |",
+        "",
+        "## Registers, data and tooling",
+        "",
+        "| Artefact | Content | Owner doc |",
+        "|---|---|---|",
+        "| [DECISIONS.md](DECISIONS.md) | Decision register | F04 §7 |",
+        "| [WORK-PROGRESS.md](WORK-PROGRESS.md) | Recovery checkpoint | — |",
+        "| [02-design/06-handoff/phase8-review-record.md](02-design/06-handoff/phase8-review-record.md) | Phase 8 internal review findings and fix decisions | D20 |",
+        "| [00-foundation/GLOSSARY.md](00-foundation/GLOSSARY.md) | Glossary | F04 |",
+        "| [01-analysis/references/BIBLIOGRAPHY.md](01-analysis/references/BIBLIOGRAPHY.md) | Sources with versions and access dates | F04 §4 |",
+        "| [01-analysis/references/probes/](01-analysis/references/probes/) | Probe scripts and raw outputs (README-*.md per agent) | F04 §9 |",
+        "| [01-analysis/references/screenshots/](01-analysis/references/screenshots/) | Real screenshots of the pinned Fiji | A04 |",
+    ]
     for f in sorted((DOCS / "data").glob("*")):
-        owner = {"upstream-manifest.yaml": "F03", "commands.csv": "A08", "commands-core-parameters.csv": "A08",
-                 "datasets.csv": "A29", "parity-matrix.csv": "A28", "risks.csv": "A31",
-                 "traceability.csv": "D20", "verification-coverage.csv": "D18"}.get(f.name, "—")
+        owner = {
+            "upstream-manifest.yaml": "F03",
+            "commands.csv": "A08",
+            "commands-core-parameters.csv": "A08",
+            "datasets.csv": "A29",
+            "parity-matrix.csv": "A28",
+            "risks.csv": "A31",
+            "traceability.csv": "D20",
+            "verification-coverage.csv": "D18",
+        }.get(f.name, "—")
         out.append(f"| [data/{f.name}](data/{f.name}) | Machine-readable catalogue | {owner} |")
-    out.append("| [tools/check_docs.py](tools/check_docs.py) | Consistency checker and index generator | F04 §10 |")
+    out.append(
+        "| [tools/check_docs.py](tools/check_docs.py) | Consistency checker and index generator | F04 §10 |"
+    )
     (DOCS / "INDEX.md").write_text("\n".join(out) + "\n", encoding="utf-8")
     print(f"INDEX.md written: {len(rows)} documents")
 

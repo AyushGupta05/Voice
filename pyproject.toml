@@ -24,6 +24,12 @@ markers = ["integration: invokes real external Fiji or speech runtime"]
 target-version = "py311"
 line-length = 100
 src = ["backend/src"]
+# Archived probe scripts are research evidence (docs F04 §9), kept verbatim; they are not product code.
+extend-exclude = ["docs/01-analysis/references/probes"]
+
+[tool.ruff.lint.per-file-ignores]
+# The index generator embeds whole Markdown table rows as string literals.
+"docs/tools/check_docs.py" = ["E501"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

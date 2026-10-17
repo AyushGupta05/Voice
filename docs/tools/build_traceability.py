@@ -19,7 +19,10 @@ FR = r"(?<![A-Za-z])N?FR-[A-Z0-9]+-\d{3}"
 
 def expand(text):
     ids = set(re.findall(FR, text))
-    for m in re.finditer(r"(?<![A-Za-z])((?:N?FR)-[A-Z0-9]+-)(\d{3})\s*(?:…|\.\.)\s*(?:(?:N?FR)-[A-Z0-9]+-)?(\d{3})", text):
+    for m in re.finditer(
+        r"(?<![A-Za-z])((?:N?FR)-[A-Z0-9]+-)(\d{3})\s*(?:…|\.\.)\s*(?:(?:N?FR)-[A-Z0-9]+-)?(\d{3})",
+        text,
+    ):
         a, b = int(m.group(2)), int(m.group(3))
         if a <= b <= a + 60:
             ids.update(f"{m.group(1)}{i:03d}" for i in range(a, b + 1))
@@ -37,7 +40,11 @@ def requirements():
             cells = [c.strip() for c in m.group(2).split("|")]
             # FR columns: Requirement | Rationale | Pri | Acceptance | Sources | Deps
             # NFR columns: Requirement | Rationale | Pri | Acceptance | Sources
-            reqs[m.group(1)] = {"statement": cells[0], "priority": cells[2], "sources": cells[4] if len(cells) > 4 else ""}
+            reqs[m.group(1)] = {
+                "statement": cells[0],
+                "priority": cells[2],
+                "sources": cells[4] if len(cells) > 4 else "",
+            }
     return reqs
 
 
@@ -69,18 +76,46 @@ def main():
     gaps = []
     with out.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["requirement_id", "priority", "source_crs_or_docs", "design_docs", "components",
-                    "parity_ids", "verification_ids", "journeys", "trace_status"])
+        w.writerow(
+            [
+                "requirement_id",
+                "priority",
+                "source_crs_or_docs",
+                "design_docs",
+                "components",
+                "parity_ids",
+                "verification_ids",
+                "journeys",
+                "trace_status",
+            ]
+        )
         for rid in sorted(reqs, key=lambda x: (x.startswith("NFR"), x)):
             r = reqs[rid]
             dd = sorted(design_docs.get(rid, set()))
             vv = sorted(cov.get(rid, set()))
-            status = "complete" if dd and (vv or not re.search(r"\b(MVP|HACK)\b", r["priority"])) else "gap"
+            status = (
+                "complete"
+                if dd and (vv or not re.search(r"\b(MVP|HACK)\b", r["priority"]))
+                else "gap"
+            )
             if status == "gap":
                 gaps.append(rid)
-            w.writerow([rid, r["priority"], "; ".join(re.findall(r"CR-A\d{2}-\d{2}|D\d{2}[^;,)]*\(gap\)|D\d{2}", r["sources"])) or r["sources"],
-                        ";".join(dd), ";".join(sorted(cmps.get(rid, set()))), ";".join(sorted(parity.get(rid, set()))),
-                        ";".join(vv), ";".join(sorted(journeys.get(rid, set()))), status])
+            w.writerow(
+                [
+                    rid,
+                    r["priority"],
+                    "; ".join(
+                        re.findall(r"CR-A\d{2}-\d{2}|D\d{2}[^;,)]*\(gap\)|D\d{2}", r["sources"])
+                    )
+                    or r["sources"],
+                    ";".join(dd),
+                    ";".join(sorted(cmps.get(rid, set()))),
+                    ";".join(sorted(parity.get(rid, set()))),
+                    ";".join(vv),
+                    ";".join(sorted(journeys.get(rid, set()))),
+                    status,
+                ]
+            )
     print(f"{len(reqs)} requirements -> {out.name}; gaps: {gaps}")
 
 
