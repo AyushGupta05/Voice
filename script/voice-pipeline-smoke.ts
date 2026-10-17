@@ -15,9 +15,11 @@ const pcm=resampleSpeech(await new AWSSpeechProvider(state).speak(phrase,AbortSi
 const token=(await readFile(join(state,'companion-token'),'utf8')).trim();
 const ws=new WebSocket('ws://127.0.0.1:49555/events',{headers:{Authorization:`Bearer ${token}`}});
 const requestId=randomUUID();const timeline:Record<string,number>={};const t0=Date.now();const mark=(k:string)=>{timeline[k]??=Date.now()-t0;};
-let sessionId:string|undefined;let transcript='';let reply='';let audioBytes=0;const tools:string[]=[];
+let sessionId:string|undefined;let transcript='';let reply='';let ack='';let finals=0;let audioBytes=0;const tools:string[]=[];
 const done=new Promise<void>((resolveDone,reject)=>{
  const timer=setTimeout(()=>reject(new Error('Voice pipeline timed out.')),60000);
+ // Done once the answer arrived and no further (queued) reply audio follows for 2.5 s.
+ let quiet:ReturnType<typeof setTimeout>|undefined;const settle=()=>{if(!reply||!finals)return;clearTimeout(quiet);quiet=setTimeout(()=>{clearTimeout(timer);resolveDone();},2500);};
  ws.on('message',raw=>{const event=JSON.parse(raw.toString());
   if(event.type==='connected')ws.send(JSON.stringify({type:'start_voice',requestId}));
   else if(event.type==='voice_state'&&event.requestId===requestId){
@@ -27,11 +29,12 @@ const done=new Promise<void>((resolveDone,reject)=>{
   }
   else if(event.type==='voice_transcript'&&!event.partial){transcript=event.text;mark('finalTranscript');}
   else if(event.type==='voice_transcript')mark('firstPartial');
-  else if(event.type==='tool'&&event.name)tools.push(event.name);
-  else if(event.type==='action'&&event.action?.status==='pending'){clearTimeout(timer);reject(new Error('Unexpected approval request; this check never approves.'));}
-  else if(event.type==='text_result'){reply=event.text;mark('agentReply');}
-  else if(event.type==='voice_speaking')mark('speaking');
-  else if(event.type==='audio'&&event.requestId===requestId){audioBytes+=Buffer.from(event.audio,'base64').length;if(event.final){mark('replyAudioComplete');clearTimeout(timer);resolveDone();}}
+  else if(event.type==='tool'&&event.name){tools.push(event.name);if(event.name!=='qupath_context')mark('firstAction');}
+  else if(event.type==='action'&&event.action?.status==='pending'&&Date.parse(event.action.createdAt)>=t0){clearTimeout(timer);reject(new Error('Unexpected approval request; this check never approves.'));}
+  else if(event.type==='text_ack'){ack=event.text;mark('acknowledged');}
+  else if(event.type==='text_result'){reply=event.text;mark('agentReply');settle();}
+  else if(event.type==='voice_speaking'){mark('speaking');if(event.queued)mark('queuedSpeaking');}
+  else if(event.type==='audio'&&event.requestId===requestId){audioBytes+=Buffer.from(event.audio,'base64').length;if(event.final){finals++;mark('firstAudioComplete');settle();}}
   else if(event.type==='voice_error'||event.type==='error'||event.type==='text_error'){clearTimeout(timer);reject(new Error(event.message));}
  });
  ws.on('error',reject);
@@ -45,7 +48,7 @@ async function stream(){
  while(!reply&&ws.readyState===WebSocket.OPEN&&Date.now()-t0<55000){send(silence);await pace();}
 }
 try{await done;}finally{if(ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:'stop_voice',requestId}));await new Promise(r=>setTimeout(r,300));ws.close();}}
-const result={phrase,transcript,reply,tools,replyAudioSeconds:+(audioBytes/48000).toFixed(2),timelineMs:timeline,
+const result={phrase,transcript,acknowledgment:ack,reply,tools,replyAudioSeconds:+(audioBytes/48000).toFixed(2),timelineMs:timeline,
  speechEndToReplyAudioMs:timeline.speaking!==undefined&&timeline.speechSent!==undefined?timeline.speaking-timeline.speechSent:undefined};
 console.log(JSON.stringify(result,null,1));
 assert(transcript,'No final transcript.');assert(reply,'No agent reply.');assert(audioBytes>0,'No spoken reply audio.');

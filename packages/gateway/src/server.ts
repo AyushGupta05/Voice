@@ -70,8 +70,13 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   wss.on('connection',ws=>{
     peers.add(ws);
     const send=(event:Record<string,unknown>)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));};
+    const acknowledged=new Set<string>();
     const conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{
-      send(event);if(event.type==='text_result'&&typeof event.text==='string')void voiceSessions.get(ws)?.speak(event.text);
+      send(event);
+      const voice=voiceSessions.get(ws);if(!voice||typeof event.text!=='string'||typeof event.taskId!=='string')return;
+      // An acknowledgment is spoken at once; the final answer queues behind it, and a bare "Done." after one stays silent.
+      if(event.type==='text_ack'){acknowledged.add(event.taskId);void voice.speak(event.text);}
+      else if(event.type==='text_result'){const acked=acknowledged.delete(event.taskId);if(!(acked&&/^done\.?$/i.test(event.text.trim())))void voice.speak(event.text,acked);}
     });
     conversations.set(ws,conversation);
     ws.on('message',raw=>{

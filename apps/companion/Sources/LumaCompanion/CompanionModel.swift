@@ -246,7 +246,9 @@ final class CompanionModel: ObservableObject {
             playbackSuppressed = false; voiceSpeaking = false; audio.interruptPlayback()
         case "voice_speaking":
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID, let epoch = event["epoch"] as? Int, epoch >= playbackEpoch else { return }
-            playbackEpoch = epoch; playbackSuppressed = false; audio.interruptPlayback(); voiceSpeaking = true
+            playbackEpoch = epoch; playbackSuppressed = false; voiceSpeaking = true
+            // A queued final answer follows its acknowledgment; anything else replaces current speech.
+            if event["queued"] as? Bool != true { audio.interruptPlayback() }
         case "voice_transcript":
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
             if event["partial"] as? Bool == false, let text = event["text"] as? String {

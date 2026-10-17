@@ -15,6 +15,8 @@ export type DelegatedTask = {
   update: (update: LiveUpdate) => void;
   /** The request arrived as transcribed speech; its result will be read aloud. */
   spoken?: boolean;
+  /** Speak a short acknowledgment immediately while view/read tools run (spoken tasks only). */
+  acknowledge?: (text: string) => void;
 };
 export interface DelegationBackend { run(task: DelegatedTask): Promise<void> }
 export type LiveCloseReport = { finalUsageReceived: boolean; usage?: unknown; reason: string };

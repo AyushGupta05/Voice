@@ -5,6 +5,9 @@ import type { BackendClient, BackendRequest, BackendResponse } from './backend.j
 import { BEDROCK_MODEL, BEDROCK_REGION, observeAWSCredits, type AWSProof } from './aws-credit-proof.js';
 import { sharedObservation, CreditBudget, type UsageReceipt } from './credit-budget.js';
 import { bedrockSigV4Only } from './aws-auth.js';
+import { reusableClient } from './aws-clients.js';
+const runtimeClient = reusableClient(credentials => new BedrockRuntimeClient({ region: BEDROCK_REGION, credentials, maxAttempts: 1, ...bedrockSigV4Only(),
+  endpoint: 'https://bedrock-runtime.us-east-1.amazonaws.com' }));
 
 type ChatMessage = { role: string; content?: string | null; tool_call_id?: string; tool_calls?: Array<Record<string, unknown>> };
 export type TextConfig = { version: 1; accountHash: string; expiresAt: string; model: typeof BEDROCK_MODEL; maximumReservedUSD: 200 };
@@ -88,14 +91,13 @@ export type BedrockDependencies = {
 const productionDependencies: BedrockDependencies = {
   observe: sharedObservation(observeAWSCredits),
   invoke: async (proof, body, signal) => {
-    const client = new BedrockRuntimeClient({ region: BEDROCK_REGION, credentials: proof.credentials, maxAttempts: 1, ...bedrockSigV4Only(),
-      endpoint: 'https://bedrock-runtime.us-east-1.amazonaws.com' });
-    try {
+    const client = runtimeClient(proof.credentials);
+    {
       const result = await client.send(new InvokeModelCommand({ modelId: BEDROCK_MODEL, body, contentType: 'application/json', accept: 'application/json',
         trace: 'DISABLED', performanceConfigLatency: 'standard', serviceTier: 'default' }), { abortSignal: signal });
       if (!result.body) throw new Error('Model returned no body.');
       return result.body;
-    } finally { client.destroy(); }
+    }
   },
 };
 

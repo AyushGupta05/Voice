@@ -30,7 +30,8 @@ export class TextConversation {
   try{
    const context=await this.runtime.call('qupath_context',{},active.controller.signal) as Context;
    active.controller.signal.throwIfAborted();
-   await this.backend.run({id:active.id,spoken,offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
+   await this.backend.run({id:active.id,spoken,
+    acknowledge:text=>{if(this.active===active&&!active.controller.signal.aborted)this.emit({type:'text_ack',taskId:active.id,text});},offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
     conversation:()=>({fragments:structuredClone(this.fragments),truncated:this.truncated}),
     update:update=>{if(this.active===active&&!active.controller.signal.aborted&&!active.answered)this.emit({type:'text_progress',taskId:active.id,text:update.content});},
    });

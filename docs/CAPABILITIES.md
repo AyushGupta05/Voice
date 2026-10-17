@@ -11,6 +11,7 @@ There are 32 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, an
 | Project/image opening | Exact local paths or project entry IDs/source fingerprints through native QuPath opening | Yes | Unsaved changes refused; native dialogs/dispatch require real-app verification; no URL or .qpdata endpoint |
 | GeoJSON annotations | Inspect/hash/validate then add leaf annotations with a checkpoint | Import: yes | Isolated actual QuPathGUI → MCP test passes: exact imported fields/scores, changed-file/duplicate rejection and empty baseline restoration; normal file dialogs still unverified |
 | Focus and pointer | Center image/ROI, zoom, return real screen target | No | Corrected mouse-anchored zoom behavior; actual center verified at (51100, 27100) |
+| Highlight (Clicky-style cursor) | Screen outlines for objects, image regions or visible controls; cursor flies along an arc with a label and follows the pointer while listening | No | Display only; outlines only objects visible in the viewer; real QuPath check below |
 | Overlays | Detections, annotations, fills, opacity and exact class filter | No | Display-only; does not change counts |
 | Annotation creation | Rectangle/ellipse on active z/t plane | Yes | Tested on disposable H&E slide through native approval |
 | Cell detection | QuPath watershed plugin, explicit calibrated/pixel parameters | Yes | Real OS-2 fixture detected 899 cells with explicit Hematoxylin OD parameters |

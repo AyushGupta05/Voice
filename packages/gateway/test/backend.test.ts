@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ResponsesBackend, spokenStyle, type BackendClient, type BackendRequest } from '../src/backend.js';
+import { ResponsesBackend, spokenStyle, acknowledgmentFor, type BackendClient, type BackendRequest } from '../src/backend.js';
 import { Runtime, type Action } from '../src/runtime.js';
 import { Knowledge } from '../src/knowledge.js';
 import type { Adapter } from '../src/bridge.js';
@@ -33,7 +33,7 @@ async function runtimeFixture(adapter?:Adapter){
 test('backend waits for the real human decision and continues with actual tool results',async()=>{
   const f=await runtimeFixture();const t=task();let modelCalls=0;const shown:string[]=[];
   const client:BackendClient={complete:async request=>{
-    modelCalls++;assert.equal(request.store,false);assert.deepEqual(request.tools.map(tool=>tool.name),toolDefinitions.map(tool=>tool.name));assert.equal(request.parallel_tool_calls,false);
+    modelCalls++;assert.equal(request.store,false);assert.deepEqual(request.tools.map(tool=>tool.name),toolDefinitions.map(tool=>tool.name).filter(name=>name!=='qupath_context'));assert.equal(request.parallel_tool_calls,false);
     if(modelCalls===1)return {output:[annotate]};
     const result=request.input.find(item=>item.type==='function_call_output')!;
     assert.equal(JSON.parse(String(result.output)).status,'completed');assert.deepEqual(JSON.parse(String(result.output)).result,{created:true});
@@ -413,4 +413,28 @@ test('only spoken requests ask for a short read-aloud answer',async()=>{
     await backend.run(task().value);await backend.run({...task().value,id:'spoken-task',spoken:true});
     assert(!seen[0].includes(spokenStyle));assert(seen[1].endsWith(spokenStyle));
   }finally{await f.clean();}
+});
+
+test('spoken acknowledgments come from instant view calls only, once per task',async()=>{
+  const f=await runtimeFixture();const acks:string[]=[];let round=0;
+  const view=(id:string)=>({type:'function_call',call_id:id,name:'qupath_focus',arguments:JSON.stringify({x:1,y:1,downsample:40})});
+  const client:BackendClient={complete:async()=>{round++;
+    if(round<=2)return {output:[view('v'+round)]};
+    if(round===4)return {output:[annotate]};
+    return {output:[],output_text:'Done.'};}};
+  try{
+    const backend=new ResponsesBackend(f.runtime,client,'fixture-model',()=>{});
+    await backend.run({...task().value,id:'spoken-view',spoken:true,acknowledge:text=>acks.push(text)});
+    const controller=new AbortController();
+    const pending=backend.run({...task(controller.signal).value,id:'spoken-data',spoken:true,acknowledge:text=>acks.push(text)}).catch(()=>undefined);
+    await new Promise(r=>setTimeout(r,50));controller.abort();await pending;
+    assert.equal(acks.length,1);
+  }finally{await f.clean();}
+});
+
+test('acknowledgment phrases follow the requested view change',()=>{
+  assert.equal(acknowledgmentFor('qupath_focus',{downsample:40},{viewer:{downsample:10}}),'Zooming out.');
+  assert.equal(acknowledgmentFor('qupath_focus',{downsample:2},{viewer:{downsample:10}}),'Zooming in.');
+  assert.equal(acknowledgmentFor('qupath_highlight',{label:'49 positive cells'},{}),'Here: 49 positive cells.');
+  assert.equal(acknowledgmentFor('qupath_annotate',{},{}),undefined);
 });

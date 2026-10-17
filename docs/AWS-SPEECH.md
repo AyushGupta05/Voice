@@ -14,7 +14,26 @@ mic (AVAudioEngine, voice processing / echo cancellation)
 
 - **Barge-in:** the first partial transcript of a new utterance interrupts current playback and stops the running agent task. Pending human approvals stay pending.
 - **Spoken style:** spoken requests add `spokenStyle` (`backend.ts`) to the instructions, asking for one short sentence without coordinates or IDs. Full details still appear in the companion. `spokenReply()` trims anything longer than 240 characters to its first sentence.
-- **Bounds:** sessions last at most 180 s, 16 turns and 8 spoken replies. Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
+- **Bounds:** sessions last at most 180 s, 16 turns and 24 spoken replies (acknowledgments included). Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
+
+## Latency design
+
+Measured with `smoke:voice-pipeline` on the public OS-2 slide (individual runs, not a benchmark):
+
+| Stage | Typical |
+|---|---|
+| End of speech → final transcript | 0.6–0.7 s (Transcribe endpointing) |
+| One Bedrock `gpt-oss-120b` round (us-east-1, from Europe) | ~1.1 s; `gpt-oss-20b` was not faster |
+| Transcript → visible QuPath action | 1.3–2.3 s (one model round) |
+| End of speech → first spoken audio | 1.7 s with a cached acknowledgment; previously 4.2–10.5 s |
+
+What makes it feel live:
+
+1. **Acknowledgments without a model round.** `acknowledgmentFor()` turns the agent's first instant view call into a phrase ("Zooming in.", "Here: 49 positive cells.") that is spoken while QuPath moves. The final answer queues behind it, and a bare "Done." stays silent.
+2. **Pre-synthesized phrases.** Common acknowledgments are synthesized once per gateway when listening starts, then served from memory.
+3. **Warm connections.** Bedrock and Polly clients are reused per credential identity, saving about 0.3 s of TLS per request.
+4. **Shared credit proofs.** A proof is reused for 20 s or less, and the speech proof is warmed while the agent works.
+5. **No wasted rounds.** The agent is not offered `qupath_context`, because fresh context is injected every round. It is told never to claim an action no tool result shows. An earlier run said "Zoomed out" without acting; that is now prevented.
 
 ## Funding guards
 

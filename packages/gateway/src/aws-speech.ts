@@ -4,6 +4,7 @@ import {TranscribeStreamingClient,StartStreamTranscriptionCommand} from '@aws-sd
 import {PollyClient,SynthesizeSpeechCommand} from '@aws-sdk/client-polly';
 import {CreditBudget,sharedObservation} from './credit-budget.js';
 import {loadSpeechConfig} from './speech-config.js';
+import {reusableClient} from './aws-clients.js';
 import {observeSpeechCredits,SPEECH_REGION,MAX_VOICE_SECONDS,MAX_SPOKEN_CHARACTERS,type SpeechProof} from './aws-speech-proof.js';
 
 export type SpeechTranscript={id:string;text:string;partial:boolean};
@@ -13,10 +14,13 @@ export interface SpeechProvider{
  speak(text:string,signal:AbortSignal):Promise<Uint8Array>;
  /** Optional read-only warm-up while the agent works; never sends speech or reserves credit. */
  prepare?(signal:AbortSignal):Promise<void>;
+ /** Optional: pre-synthesize short acknowledgment phrases. */
+ warmPhrases?(signal:AbortSignal):Promise<void>;
 }
 export type SpeechDependencies={observe:(signal:AbortSignal)=>Promise<SpeechProof>;
  transcribe:(proof:SpeechProof,audio:AsyncIterable<Uint8Array>,signal:AbortSignal,onReady:()=>void,onTranscript:(value:SpeechTranscript)=>void)=>Promise<void>;
  synthesize:(proof:SpeechProof,text:string,signal:AbortSignal)=>Promise<Uint8Array>};
+const pollyClient=reusableClient(credentials=>new PollyClient({region:SPEECH_REGION,credentials,maxAttempts:1,endpoint:'https://polly.us-east-1.amazonaws.com'}));
 const production:SpeechDependencies={observe:sharedObservation(observeSpeechCredits),
  transcribe:async(proof,audio,signal,onReady,onTranscript)=>{
   const client=new TranscribeStreamingClient({region:SPEECH_REGION,credentials:proof.credentials,maxAttempts:1,endpoint:'https://transcribestreaming.us-east-1.amazonaws.com'});
@@ -32,15 +36,18 @@ const production:SpeechDependencies={observe:sharedObservation(observeSpeechCred
   }finally{client.destroy();}
  },
  synthesize:async(proof,text,signal)=>{
-  const client=new PollyClient({region:SPEECH_REGION,credentials:proof.credentials,maxAttempts:1,endpoint:'https://polly.us-east-1.amazonaws.com'});
-  try{const result=await client.send(new SynthesizeSpeechCommand({Engine:'neural',VoiceId:'Amy',LanguageCode:'en-GB',OutputFormat:'pcm',SampleRate:'16000',TextType:'text',Text:text}),{abortSignal:signal});
+  const client=pollyClient(proof.credentials);
+  {const result=await client.send(new SynthesizeSpeechCommand({Engine:'neural',VoiceId:'Amy',LanguageCode:'en-GB',OutputFormat:'pcm',SampleRate:'16000',TextType:'text',Text:text}),{abortSignal:signal});
    if(!result.AudioStream||result.ContentType!=='audio/pcm')throw new Error('AWS returned no supported speech audio.');
    const chunks:Uint8Array[]=[];let bytes=0;
    for await(const chunk of result.AudioStream as AsyncIterable<Uint8Array>){signal.throwIfAborted();bytes+=chunk.length;if(bytes>2_000_000)throw new Error('Speech audio exceeded its bounded size.');chunks.push(chunk);}
    const data=Buffer.concat(chunks);if(!data.length||data.length%2)throw new Error('AWS returned incomplete PCM samples.');return data;
-  }finally{client.destroy();}
+  }
  }
 };
+/** Process-wide cache of short spoken phrases (acknowledgments), so repeats play with no synthesis delay. */
+const phraseAudio=new Map<string,Uint8Array>();
+export const ACKNOWLEDGMENT_PHRASES=['Zooming in.','Zooming out.','Moving there.','Taking you there.','Right here.','Checking.','Updating the view.','Selecting them.'];
 /** Separate speech receipts; all attempts still reserve on the unchanged shared $200 ledger. */
 export class AWSSpeechProvider implements SpeechProvider{
  private budget:CreditBudget;
@@ -60,6 +67,14 @@ export class AWSSpeechProvider implements SpeechProvider{
  }
  async prepare(signal:AbortSignal){await this.dependencies.observe(signal);}
  async speak(text:string,external:AbortSignal){
+  const cached=phraseAudio.get(text);if(cached){external.throwIfAborted();return cached;}
+  const audio=await this.synthesizeFresh(text,external);
+  if(Array.from(text).length<=40&&phraseAudio.size<64)phraseAudio.set(text,audio);
+  return audio;
+ }
+ /** Pre-synthesize acknowledgment phrases once per gateway; each is a small credit-guarded Polly request. */
+ async warmPhrases(signal:AbortSignal){for(const phrase of ACKNOWLEDGMENT_PHRASES){if(signal.aborted)return;if(!phraseAudio.has(phrase))await this.speak(phrase,signal).catch(()=>undefined);}}
+ private async synthesizeFresh(text:string,external:AbortSignal){
   const characters=Array.from(text).length;if(!characters||characters>MAX_SPOKEN_CHARACTERS)throw new Error('Spoken reply exceeds the approved character bound.');
   const signal=AbortSignal.any([external,AbortSignal.timeout(20000)]);const proof=await this.proof(signal);
   const reservation=await this.budget.reserve({...proof,maximumRequestUSD:characters*proof.rates.pollyPerCharacterUSD},signal);let complete=false;

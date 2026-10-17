@@ -27,3 +27,16 @@ test('PCM output is explicitly24kHz, bounded and tied to one playback epoch/sess
  f.session.stop();await f.session.settled();assert.throws(()=>new SpeechSession(f.provider,{submit:async()=>{},stop:()=>{}},()=>{},()=>{},180001));
  assert.equal(spokenReply('x'.repeat(2000)),'The result is ready on screen.');
 });
+test('a queued final reply plays after its acknowledgment even when its synthesis finishes first; interruption cancels both',async()=>{
+ const releases:Array<()=>void>=[];const events:any[]=[];
+ const provider:SpeechProvider={transcribe:async(_a,s,c)=>{c.inputReady();await new Promise(r=>s.addEventListener('abort',r as ()=>void,{once:true}));},
+  speak:async text=>{await new Promise<void>(r=>releases.push(r));return new Uint8Array(text.startsWith('Zoom')?[1,0]:[2,0]);}};
+ const session=new SpeechSession(provider,{submit:async()=>{},stop:()=>{}},e=>events.push(e),()=>{});session.start();await tick();
+ const ack=session.speak('Zooming in.');const final=session.speak('Now at ten times.',true);await tick();
+ releases[1]();await tick();assert.equal(events.filter(e=>e.type==='audio').length,0);
+ releases[0]();await ack;await final;
+ const spoken=events.filter(e=>e.type==='voice_speaking');assert.deepEqual(spoken.map(e=>e.queued),[false,true]);
+ const audio=events.filter(e=>e.type==='audio');assert.equal(audio.length,2);assert(audio[0].epoch<audio[1].epoch);
+ const a=session.speak('Zooming out.');const b=session.speak('Done zooming.',true);await tick();session.interrupt();releases[2]();releases[3]();await a;await b;
+ assert.equal(events.filter(e=>e.type==='audio').length,2);session.stop();
+});

@@ -19,7 +19,7 @@ export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
  private inputReady=false;private seen=new Set<string>();private hearing=false;private turns=0;private replies=0;private bytes=0;
  private started=Date.now();private timer?:ReturnType<typeof setTimeout>;private speech?:AbortController;private epoch=0;
- private running?:Promise<void>;private closed=false;
+ private running?:Promise<void>;private closed=false;private interrupts=0;private tail:Promise<void>=Promise.resolve();
  constructor(private provider:SpeechProvider,private conversation:VoiceConversation,private emit:(event:Record<string,unknown>)=>void,private onClosed:()=>void,private maximumMs=180000){
   if(!Number.isInteger(maximumMs)||maximumMs<1||maximumMs>180000)throw new Error('Voice lifetime must not exceed180seconds.');
  }
@@ -30,7 +30,7 @@ export class SpeechSession{
   this.timer=setTimeout(()=>this.stop('Voice session reached its time limit.'),this.maximumMs);this.timer.unref();
   this.running=Promise.resolve().then(()=>this.provider.transcribe(this.input.stream(),this.controller.signal,{
    inputReady:()=>{if(!this.closed){this.inputReady=true;this.event({type:'voice_state',state:'ready_for_audio'});}},
-   listening:()=>this.event({type:'voice_state',state:'listening'}),
+   listening:()=>{this.event({type:'voice_state',state:'listening'});void this.provider.warmPhrases?.(this.controller.signal);},
    transcript:value=>this.transcript(value),
   })).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'AWS speech stopped.'});})
    .finally(()=>this.stop('Speech stream closed.'));
@@ -53,16 +53,25 @@ export class SpeechSession{
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
   void this.conversation.submit(text,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }
- interrupt(){if(this.closed)return;this.epoch++;this.speech?.abort();this.speech=undefined;this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
- async speak(text:string){
-  if(this.closed)return;if(++this.replies>8){this.stop('Spoken reply limit reached.');return;}
-  this.speech?.abort();const speech=new AbortController();this.speech=speech;const epoch=++this.epoch;
-  try{
-   const pcm=await this.provider.speak(spokenReply(text),AbortSignal.any([this.controller.signal,speech.signal]));
-   if(this.closed||speech.signal.aborted||this.speech!==speech)return;
-   const output=resampleSpeech(pcm);this.event({type:'voice_speaking',epoch});
-   for(let offset=0;offset<output.length;offset+=48000){this.event({type:'audio',audio:output.subarray(offset,offset+48000).toString('base64'),sampleRate:24000,epoch,final:offset+48000>=output.length});}
-  }catch(error){if(!this.closed&&!speech.signal.aborted)this.event({type:'voice_error',message:error instanceof Error?error.message:'Spoken response unavailable.'});}
+ interrupt(){if(this.closed)return;this.interrupts++;this.epoch++;this.speech?.abort();this.speech=undefined;this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
+ /** queued=true plays after the previous reply (an acknowledgment) instead of replacing it. Interruption cancels both. */
+ async speak(text:string,queued=false){
+  if(this.closed)return;if(++this.replies>24){this.stop('Spoken reply limit reached.');return;}
+  if(!queued)this.speech?.abort();
+  const speech=new AbortController();const interrupts=this.interrupts;const prior=queued?this.tail:Promise.resolve();
+  const run=(async()=>{
+   // Synthesis starts at once; only playback waits for the previous reply to finish sending.
+   const pending=this.provider.speak(spokenReply(text),AbortSignal.any([this.controller.signal,speech.signal]));
+   if(!queued)this.speech=speech;
+   try{
+    const pcm=await pending;await prior.catch(()=>undefined);
+    if(this.closed||speech.signal.aborted||this.interrupts!==interrupts)return;
+    this.speech=speech;
+    const output=resampleSpeech(pcm);const epoch=++this.epoch;this.event({type:'voice_speaking',epoch,queued});
+    for(let offset=0;offset<output.length;offset+=48000){this.event({type:'audio',audio:output.subarray(offset,offset+48000).toString('base64'),sampleRate:24000,epoch,final:offset+48000>=output.length});}
+   }catch(error){if(!this.closed&&!speech.signal.aborted&&this.interrupts===interrupts)this.event({type:'voice_error',message:error instanceof Error?error.message:'Spoken response unavailable.'});}
+  })();
+  this.tail=run;return run;
  }
  stop(reason='Voice stopped.'){
   if(this.closed)return;this.closed=true;clearTimeout(this.timer);this.controller.abort();this.speech?.abort();this.input.close();this.conversation.stop();

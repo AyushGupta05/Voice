@@ -16,6 +16,16 @@ Use `qupath_context` first. Read actual image type, calibration, channel names, 
 5. Read context or measurements again to verify the outcome. A menu command's `dispatched` is not scientific completion.
 6. Keep explanations short. Let visible actions carry the demonstration.
 
+## Show, don't tell
+
+`qupath_highlight` is display only. It flies Luma's cursor to what you mean and outlines it on screen, so call it whenever you name something specific:
+
+- Objects: pass `ids`, `classification`, `kind` or `scope`, e.g. `{classification:"Positive", label:"49 positive cells"}`.
+- Image-pixel region: pass `x`, `y`, `width`, `height`.
+- Visible control: pass a `nodeId` from `qupath_ui`, e.g. the button the researcher should press.
+
+Only objects visible in the current viewer are outlined (`shown` vs `total`). Use `qupath_focus` first when targets are off screen. Labels are 2–6 words. `select:true` also selects the matches in QuPath.
+
 ## Import and analysis
 
 Use `qupath_analysis_catalog` before unfamiliar parameter or measurement requests, then `qupath_measurement_summary` for full-scope distributions rather than a truncated row preview. Use project entry discovery/fingerprints for navigation. Import local annotations through inspect_import → reviewed import_annotations with the exact SHA256 and confirmed full-resolution pixel coordinates. Read the [import/exploration guide](references/import-and-explore.md) first.
