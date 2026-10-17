@@ -164,6 +164,14 @@ public final class PipelineContractTest {
         var captionRun = call("apply_analysis", captionApply, true, null).getAsJsonObject("run");
         for (var image : captionRun.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == 5, "caption replay keeps 5: " + image);
         System.out.println("PASS white caption letters excluded live and in replay: 5 nuclei");
+        // "Mean intensity of the nuclei" measures the channel they were found on (C3, 200), not the displayed channel (C1, 60).
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(captioned));
+        call("segment_cells", new JsonObject(), true, null);
+        var scope = new JsonObject(); scope.addProperty("scope", "manager");
+        var intensity = call("measure", scope, true, null);
+        double mean = intensity.getAsJsonObject("summary").getAsJsonObject("mean").get("mean").getAsDouble();
+        expect(intensity.get("channel").getAsInt() == 3 && Math.abs(mean - 200) < 5 && captioned.getC() == 1, "nuclear channel measured (C3 ≈ 200): channel " + intensity.get("channel") + " mean " + mean + ", display stays on C" + captioned.getC());
+        System.out.println("PASS measure without a channel uses the segmentation channel: C3 mean " + Math.round(mean));
         // The real sample: FluorescentCells.tif has six nuclei and a burned-in "Press 'I' (Image>Show Info)…" caption.
         String repo = System.getenv().getOrDefault("LUMA_REPO", System.getProperty("user.dir"));
         Path real = Path.of(repo, ".local", "data", "samples", "fluorescent-cells", "FluorescentCells.tif");

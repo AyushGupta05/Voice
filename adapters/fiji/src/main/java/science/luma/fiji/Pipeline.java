@@ -36,6 +36,8 @@ public final class Pipeline {
     private final List<String> notReplayed = new ArrayList<>();
 
     boolean ready() { return image != null; }
+    /** The channel the cells were segmented on, or null before any segmentation. */
+    Integer channel() { return channel; }
 
     /** Private checkpoint copy: a later correction must not mutate the analysis restored by undo. */
     synchronized Pipeline copy() {

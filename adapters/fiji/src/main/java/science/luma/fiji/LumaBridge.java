@@ -265,6 +265,14 @@ public final class LumaBridge implements PlugIn {
         return out;
     }
     @SuppressWarnings("unchecked") private static List<String> castList(Object value) { return value instanceof List<?> list ? (List<String>) list : List.of(); }
+    /** "Mean intensity of the nuclei" means the channel they were found on: a measure without a channel on a multichannel image uses it. */
+    private JsonObject withSegmentationChannel(JsonObject args) {
+        var imp = WindowManager.getCurrentImage();
+        if (args.has("channel") || imp == null || imp.getNChannels() < 2) return args;
+        Integer channel = pipeline(imp).channel();
+        if (channel == null || channel < 1 || channel > imp.getNChannels()) return args;
+        var copy = args.deepCopy(); copy.addProperty("channel", channel); return copy;
+    }
     private Object checkpointIfPossible(String label) {
         var imp = WindowManager.getCurrentImage();
         if (imp == null) return Map.of("skipped", true, "reason", "No image open; nothing to checkpoint.", "scope", Checkpoints.SCOPE);
@@ -282,7 +290,7 @@ public final class LumaBridge implements PlugIn {
             case "select_roi" -> ops.selectRoi(args);
             case "roi_manager" -> ops.roiManager(args);
             case "add_to_manager" -> ops.addToManager(args);
-            case "measure" -> ops.measure(args);
+            case "measure" -> ops.measure(withSegmentationChannel(args));
             case "results" -> ops.resultsRows(args);
             case "clear_results" -> ops.clearResults();
             case "threshold" -> ops.threshold(args);
