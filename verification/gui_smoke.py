@@ -81,6 +81,31 @@ def analyse_png(path: Path) -> dict:
     return info
 
 
+def ocr_lines(png: Path) -> list[str] | None:
+    """Text recognised in the PNG by Windows.Media.Ocr (verification/ocr.ps1), or None when OCR is unavailable."""
+    if os.name != "nt":
+        return None
+    done = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
+                           str(ROOT / "verification" / "ocr.ps1"), str(png)], capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        return None
+    return [line for line in done.stdout.splitlines() if line.strip()]
+
+
+def check_engine_status(report: dict) -> None:
+    """The status bar must read 'Engine: ready' and never 'development stub' (the real engine is registered)."""
+    lines = ocr_lines(Path(report["path"]))
+    if lines is None:
+        report["status_bar_ocr"] = "unavailable (not asserted)"
+        return
+    text = chr(10).join(lines)
+    report["status_bar_ocr"] = [ln for ln in lines if "Engine" in ln or "stub" in ln.lower()]
+    if "stub" in text.lower():
+        report["problems"].append("status bar mentions the development stub")
+    if "Engine: ready" not in text:
+        report["problems"].append("status bar does not read 'Engine: ready' (OCR lines: " + "; ".join(lines[-3:]) + ")")
+
+
 def kill_tree(pid: int) -> None:
     if os.name == "nt":
         subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, check=False)
@@ -134,6 +159,8 @@ def main() -> int:
     report = analyse_png(out)
     report["opened"] = str(open_file)
     report.update({"exit_code": code, "timed_out": timed_out, "seconds": round(seconds, 1)})
+    if not report["problems"]:
+        check_engine_status(report)
     if timed_out:
         report["problems"].append(f"application did not exit within {args.timeout:.0f} s")
     elif code not in (0, None):

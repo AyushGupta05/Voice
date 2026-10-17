@@ -51,11 +51,20 @@ class EngineParityTest {
     }
 
     @ParameterizedTest(name = "J-12 on {0}: engine output equals the pinned-Fiji baseline at every step")
-    @ValueSource(strings = {"FX-001", "FX-003"})
+    @ValueSource(strings = {"FX-001", "FX-003", "FX-030", "FX-031"})
     void j12Parity(String fixtureId, @TempDir Path tmp) throws Exception {
         System.out.println("[parity] " + fixtureId + " via " + engineKind);
         J12Session.Run run = J12Session.run(engine, fixtureId, tmp, true, null);
         run.notes().forEach(n -> System.out.println("[parity] note: " + n));
+        // reported-only figures (E9): published counts are not pass/fail criteria
+        String published = switch (fixtureId) {
+            case "FX-030" -> "BBBC001 manual counts 350/362 for this image set";
+            case "FX-031" -> "BBBC004 ground truth 300";
+            default -> "none";
+        };
+        System.out.println("[parity] REPORTED " + fixtureId + " particles (Analyze Particles rows) = "
+                + engine.results().size() + "; ROI list = " + engine.rois(run.document()).size()
+                + "; published: " + published);
         assertEquals(List.of(), run.failures(),
                 () -> "engine differs from the pinned-Fiji reference:\n" + String.join("\n", run.failures()));
         IjState.reset();

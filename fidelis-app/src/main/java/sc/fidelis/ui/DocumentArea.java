@@ -266,6 +266,7 @@ public final class DocumentArea extends JPanel {
         if (dup == null) return new Snapshot(id, null, label);
         if (!imp.isComposite() && imp.getBitDepth() != 24) dup.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
         dup.setTitle("[before] " + imp.getTitle());
+        dup.setProperty(sc.fidelis.engine.api.HostCanvas.TRANSIENT_PROPERTY, Boolean.TRUE); // the engine must not adopt it
         return new Snapshot(id, dup, label);
     }
 

@@ -118,6 +118,10 @@ final class Registry {
         }
         for (ImagePlus imp : live) {
             if (byImp(imp) != null || ignored.contains(imp)) continue;
+            if (imp.getProperty(HostCanvas.TRANSIENT_PROPERTY) != null) {
+                ignored.add(imp); // a host's helper image (before/after copy), never a document
+                continue;
+            }
             ImageWindow w = imp.getWindow();
             Class<?> c = w == null ? null : w.getClass();
             if (c != ImageWindow.class && c != StackWindow.class) {

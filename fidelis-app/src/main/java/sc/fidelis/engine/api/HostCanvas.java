@@ -18,6 +18,13 @@ import ij.gui.ImageCanvas;
  * <p>Lives in the contract package because the engine creates it (per document) and the UI hosts it.
  */
 public class HostCanvas extends ImageCanvas {
+    /**
+     * {@link ImagePlus#setProperty ImagePlus property} a host sets on helper images it registers with IJ1
+     * (a before/after copy in its own hidden window, for example): the engine never adopts such an image
+     * as a document.
+     */
+    public static final String TRANSIENT_PROPERTY = "fidelis.transient";
+
     public HostCanvas(ImagePlus imp) {
         super(imp);
     }

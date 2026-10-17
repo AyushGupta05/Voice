@@ -2,9 +2,28 @@
 
 **Fidelis is a faithful modernisation of Fiji/ImageJ.** It aims to give scientists a modern, coherent desktop workspace, with typed and spoken commands, that runs **the real Fiji**: the same scientific algorithms, macro language and plugins. It is not an AI image-analysis application that approximates Fiji. Every result is meant to come from original Fiji code, and every step can be expressed as a standard ImageJ macro.
 
-> **Status (17 October 2026):** an early **integration prototype** plus a detailed **analysis and design proposal**. The modern Fiji workspace described below is **designed, not built**. The proposed architecture (decision DEC-010) is awaiting approval.
+> **Status (17 October 2026):** the **Fidelis workstation** (`fidelis-app/`) runs the real Fiji in one persistent process with a modern single-window workspace, typed and spoken commands, structured history and macro export. The J-12 cell-counting journey is verified end to end against the pinned Fiji's own output (211 automated tests on the integration branch `development/fidelis-workstation`). The analysis and design documentation in [`docs/`](docs/INDEX.md) is the basis; the earlier Python/React prototype is kept below as evidence.
 
-## What works today: the prototype
+## The Fidelis workstation (current development)
+
+One real scientific engine, several ways to interact with it:
+
+- **Engine.** Fiji runs unchanged in one non-headless JVM whose main window is hidden. `sc.fidelis.engine.DefaultEngine` executes every typed action as the real `IJ.run` with complete option strings, judges success by postconditions (pixel hashes, Results rows, files written), captures Fiji's error dialogs, rolls back from snapshots, and observes what the native tools do. Result-affecting globals (`BlackBackground`, measurements, precision, conversions) are shown and never changed silently.
+- **Workspace.** A FlatLaf Swing window with Fiji's own menu bar and tools, tabbed documents that host the **real IJ1 image canvases** (native ROI tools, zoom, stacks and channels), parameter forms generated from the command catalogue with the exact macro line, Threshold and Brightness/Contrast panels, ROI list, Results at full precision, before/after comparison, history with undo/redo and the live generated macro.
+- **Typed and spoken instructions.** A local speech worker (faster-whisper, hash-pinned `tiny.en`, audio never leaves the machine) and a deterministic natural-language layer resolve instructions to catalogued Fiji commands with explicit parameters; a proposal is shown and confirmed before anything runs. No code is generated from language.
+- **Reproducibility.** The structured history generates a standard ImageJ macro; the verification suite replays it in the pinned Fiji (separate process) and compares pixels, Results doubles and ROI vertices exactly.
+
+Run it (Windows; the pinned Fiji installed outside the repository, see [docs/setup.md](docs/setup.md)):
+
+```powershell
+python -I fidelis-app/tools/build.py          # javac/jar with Fiji's bundled JDK; no Maven needed
+python -I fidelis-app/tools/run.py --isolated-home
+python -I fidelis-app/tools/test.py           # JUnit 5 inside a live Fiji JVM (~5 min)
+```
+
+Demo script: [docs/03-development/DEMO-RUNBOOK.md](docs/03-development/DEMO-RUNBOOK.md). Development record: [docs/03-development/ACTIVE-DEVELOPMENT.md](docs/03-development/ACTIVE-DEVELOPMENT.md). Verification evidence: [docs/03-development/VERIFICATION-RESULTS.md](docs/03-development/VERIFICATION-RESULTS.md).
+
+## The earlier prototype (kept as evidence)
 
 A small, tested end-to-end integration with a real, pinned Fiji installation:
 
@@ -80,6 +99,9 @@ $env:FIDELIS_INTEGRATION = "1"; ./.venv/Scripts/python.exe -m pytest   # real Fi
 ## Repository layout
 
 ```text
+fidelis-app/           The Fidelis workstation: src/main/java/sc/fidelis/{engine,ui,nl,speech}, tests, tools/ (build, run, test)
+verification/          Reference runner, J-12 baselines from the pinned Fiji, comparators, replay and GUI smoke
+fixtures/              Fixture manifest (ImageJ samples, BBBC images; downloads are git-ignored)
 backend/src/fidelis/   Prototype API, typed command grammar, Fiji and speech adapters
 frontend/              Prototype React / TypeScript / Vite workbench
 speech/                Isolated speech worker and hash-locked requirements
