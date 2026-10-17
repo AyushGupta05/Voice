@@ -22,6 +22,9 @@ final class CompanionModel: ObservableObject {
     @Published var context: [String: Any] = [:]
     @Published var voiceReason = "Checking voice connection…"
     @Published var voiceActive = false
+    @Published var voiceReady = false
+    @Published var voiceStarting = false
+    @Published var voiceSpeaking = false
     @Published var textReady = false
     @Published var textBusy = false
     @Published var eventsReady = false
@@ -47,6 +50,15 @@ final class CompanionModel: ObservableObject {
     private var reconnect: Task<Void, Never>?
     private var lastDispatchFailure = ""
     private var stopping = false
+    private var voiceSessionID: String?
+    private var voiceRequestID: String?
+    private var providerListening = false
+    private var capturing = false
+    private var playbackEpoch = 0
+    private var playbackSuppressed = false
+    private var audioPending: [Data] = []
+    private var audioPendingBytes = 0
+    private var audioSending: Task<Void, Never>?
     private let session = URLSession(configuration: .ephemeral)
     let pointer = PointerOverlay()
     let audio = AudioIO()
@@ -76,6 +88,7 @@ final class CompanionModel: ObservableObject {
         polling?.cancel(); receiving?.cancel(); reconnect?.cancel()
         socket?.cancel(with: .goingAway, reason: nil)
         audio.stop()
+        resetVoice()
         gateway?.stop()
     }
     private func loadToken() throws {
@@ -102,6 +115,7 @@ final class CompanionModel: ObservableObject {
             connected = true
             bridgeConnected = health["bridgeError"] == nil
             voiceReason = (health["voice"] as? [String: Any])?["reason"] as? String ?? "Voice funding has not been verified."
+            voiceReady = (health["voice"] as? [String: Any])?["enabled"] as? Bool ?? false
             let text = health["text"] as? [String: Any] ?? [:]
             textReady = text["configured"] as? Bool ?? false
             textReason = text["reason"] as? String ?? "Text needs verified AWS credits."
@@ -154,7 +168,7 @@ final class CompanionModel: ObservableObject {
                     }
                 } catch {
                     guard let self, self.socket === connection else { return }
-                    self.eventsReady = false; self.textBusy = false; self.scheduleReconnect()
+                    self.eventsReady = false; self.textBusy = false; self.resetVoice(); self.scheduleReconnect()
                 }
             }
         } catch { scheduleReconnect() }
@@ -198,8 +212,9 @@ final class CompanionModel: ObservableObject {
             }
             Task { await refresh() }
         case "error":
+            if let requestID = event["requestId"] as? String, requestID != voiceRequestID { return }
             activities.insert(Activity(title: "Needs attention", detail: event["message"] as? String ?? "Unknown error", isError: true), at: 0)
-            voiceActive = false; audio.stop()
+            resetVoice()
         case "text_result":
             if let text = event["text"] as? String {
                 activities.insert(Activity(title: "Luma", detail: text, icon: "sparkle"), at: 0)
@@ -215,11 +230,38 @@ final class CompanionModel: ObservableObject {
             activities.insert(Activity(title: "Text task stopped", detail: event["message"] as? String ?? "Inspect the application before retrying.", isError: true), at: 0)
         case "task_state": textBusy = event["state"] as? String == "working"
         case "audio":
-            if let base64 = event["audio"] as? String, let data = Data(base64Encoded: base64) { audio.play(pcm: data) }
-        case "interrupted": audio.interruptPlayback()
+            guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID, voiceSessionID != nil,
+                  let epoch = event["epoch"] as? Int, epoch == playbackEpoch, !playbackSuppressed,
+                  event["sampleRate"] as? Int == 24000, let base64 = event["audio"] as? String,
+                  let data = Data(base64Encoded: base64) else { return }
+            let final = event["final"] as? Bool == true
+            audio.play(pcm: data, completion: final ? { [weak self] in Task { @MainActor in
+                guard let self, self.voiceSessionID == event["sessionId"] as? String, self.playbackEpoch == epoch else { return }
+                self.voiceSpeaking = false
+            }} : nil)
+        case "interrupted":
+            guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
+            playbackEpoch = event["epoch"] as? Int ?? playbackEpoch
+            playbackSuppressed = false; voiceSpeaking = false; audio.interruptPlayback()
+        case "voice_speaking":
+            guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID, let epoch = event["epoch"] as? Int, epoch >= playbackEpoch else { return }
+            playbackEpoch = epoch; playbackSuppressed = false; audio.interruptPlayback(); voiceSpeaking = true
+        case "voice_transcript":
+            guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
+            if event["partial"] as? Bool == false, let text = event["text"] as? String {
+                activities.insert(Activity(title: "You", detail: text, icon: "mic"), at: 0)
+                activities = Array(activities.prefix(40))
+            }
+        case "voice_error":
+            guard event["requestId"] as? String == voiceRequestID else { return }
+            activities.insert(Activity(title: "Voice needs attention", detail: event["message"] as? String ?? "Speech is unavailable.", isError: true), at: 0)
         case "voice_state":
-            voiceActive = event["state"] as? String == "listening"
-            if !voiceActive { audio.stop() }
+            guard let requestID = event["requestId"] as? String, requestID == voiceRequestID else { return }
+            let state = event["state"] as? String
+            if state == "connecting", let id = event["sessionId"] as? String { resetVoice(keepingRequest: true); voiceSessionID = id; voiceStarting = true }
+            else if state == "ready_for_audio", let id = event["sessionId"] as? String, id == voiceSessionID { startMicrophone(sessionID: id) }
+            else if state == "listening", event["sessionId"] as? String == voiceSessionID { providerListening = true; voiceActive = capturing; voiceStarting = !capturing }
+            else if state == "idle", event["sessionId"] == nil || event["sessionId"] as? String == voiceSessionID { resetVoice() }
         default: break
         }
     }
@@ -280,6 +322,7 @@ final class CompanionModel: ObservableObject {
     }
     func stopTextTask() {
         send(["type": "stop_task"])
+        playbackSuppressed = true; voiceSpeaking = false; audio.interruptPlayback()
         textBusy = false
     }
     func reviewImportSource(_ path: String) {
@@ -292,8 +335,60 @@ final class CompanionModel: ObservableObject {
         }
     }
     func toggleVoice() {
-        if voiceActive { send(["type": "stop_voice"]); audio.stop(); voiceActive = false }
-        else { send(["type": "start_voice"]) }
+        if voiceActive || voiceStarting || voiceSessionID != nil { stopVoice() }
+        else if voiceReady && eventsReady { let id = UUID().uuidString; voiceRequestID = id; voiceStarting = true; send(["type": "start_voice", "requestId": id]) }
+    }
+    private func stopVoice() {
+        if let id = voiceRequestID { send(["type": "stop_voice", "requestId": id]) }
+        resetVoice()
+    }
+    private func resetVoice(keepingRequest: Bool = false) {
+        if !keepingRequest { voiceRequestID = nil }
+        voiceSessionID = nil; capturing = false; providerListening = false
+        voiceActive = false; voiceStarting = false; voiceSpeaking = false; microphoneLevel = 0
+        audioSending?.cancel(); audioSending = nil; audioPending.removeAll(); audioPendingBytes = 0
+        audio.stop(); playbackEpoch = 0; playbackSuppressed = false
+    }
+    private func startMicrophone(sessionID: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.audio.start { [weak self] data, level in Task { @MainActor in
+                    guard let self, self.voiceSessionID == sessionID else { return }
+                    self.microphoneLevel = level; self.enqueueAudio(data, sessionID: sessionID)
+                }}
+                guard self.voiceSessionID == sessionID else { return }
+                self.capturing = true; self.voiceActive = self.providerListening; self.voiceStarting = !self.providerListening
+            } catch {
+                guard self.voiceSessionID == sessionID else { return }
+                self.stopVoice()
+                self.activities.insert(Activity(title: "Microphone unavailable", detail: error.localizedDescription, isError: true), at: 0)
+                self.expanded = true
+            }
+        }
+    }
+    private func enqueueAudio(_ data: Data, sessionID: String) {
+        guard audioPendingBytes + data.count <= 48000 else {
+            stopVoice()
+            activities.insert(Activity(title: "Voice stopped", detail: "Audio could not be sent in time. Try another session.", isError: true), at: 0)
+            return
+        }
+        audioPending.append(data); audioPendingBytes += data.count
+        guard audioSending == nil, let connection = socket else { return }
+        audioSending = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.voiceSessionID == sessionID { self.audioSending = nil } }
+            while !Task.isCancelled && self.voiceSessionID == sessionID && !self.audioPending.isEmpty {
+                let chunk = self.audioPending.removeFirst(); self.audioPendingBytes -= chunk.count
+                do {
+                    let payload = try JSONSerialization.data(withJSONObject: ["type": "audio", "sessionId": sessionID, "audio": chunk.base64EncodedString()])
+                    try await connection.send(.string(String(decoding: payload, as: UTF8.self)))
+                } catch {
+                    if self.voiceSessionID == sessionID { self.stopVoice() }
+                    return
+                }
+            }
+        }
     }
     func toggleDetails() {
         if !approvals.isEmpty { selectedTab = 1; expanded = true }

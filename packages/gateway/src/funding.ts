@@ -1,8 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-export type Funding = { enabled: false; reason: string };
-/** Fail closed: no current AWS-native OpenAI realtime endpoint has been verified for this account. */
+import {loadSpeechConfig} from './speech-config.js';
+export type Funding = { enabled: boolean; reason: string; route?:'aws-transcribe-polly-openai' };
+/** Only the explicitly authorized AWS speech route may activate; GPT-Live remains separate. */
 export async function fundingStatus(root: string): Promise<Funding> {
+  try{await loadSpeechConfig(join(root,'.local/state'));return{enabled:true,route:'aws-transcribe-polly-openai',reason:'AWS speech with the OpenAI Bedrock agent. Credits/prices are checked before each speech request; sessions stop after3minutes.'};}catch{}
   // An AWS credit balance is not proof that an external API charge is covered.
   // Deliberately no boolean environment variable that can turn a direct cash-billed fallback on.
   try {

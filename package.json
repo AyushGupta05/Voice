@@ -22,14 +22,19 @@
     "smoke:companion-text": "tsx script/companion-text-smoke.ts",
     "smoke:api": "tsx script/smoke-api.ts",
     "smoke:api-model": "tsx script/api-model-smoke.ts",
-    "smoke:classification": "tsx script/classification-preview-smoke.ts"
+    "smoke:classification": "tsx script/classification-preview-smoke.ts",
+    "enable:speech": "tsx script/enable-speech.ts",
+    "smoke:speech": "tsx script/speech-loopback.ts",
+    "smoke:voice-pipeline": "tsx script/voice-pipeline-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1152.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
     "@aws-sdk/client-billing": "^3.1152.0",
+    "@aws-sdk/client-polly": "^3.1152.0",
     "@aws-sdk/client-pricing": "^3.1152.0",
     "@aws-sdk/client-sts": "^3.1152.0",
+    "@aws-sdk/client-transcribe-streaming": "^3.1152.0",
     "@aws-sdk/core": "^3.978.3",
     "@aws-sdk/credential-providers": "^3.1152.0",
     "@aws-sdk/types": "^3.974.6",

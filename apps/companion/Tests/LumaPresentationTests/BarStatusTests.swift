@@ -27,4 +27,10 @@ final class BarStatusTests: XCTestCase {
                               working: false, voiceActive: false, pendingApprovals: 0, runningActions: 1)
         XCTAssertEqual(value.title, "Working in QuPath")
     }
+    func testVoiceConnectionAndPlaybackAreExplicitWithoutPretendingCapture() {
+        let starting = BarStatus(connected: true, bridgeConnected: true, eventsReady: true, working: false, voiceActive: false, pendingApprovals: 0, voiceStarting: true)
+        XCTAssertEqual(starting.title, "Starting voice")
+        let speaking = BarStatus(connected: true, bridgeConnected: true, eventsReady: true, working: false, voiceActive: true, pendingApprovals: 0, voiceSpeaking: true)
+        XCTAssertEqual(speaking.title, "Speaking")
+    }
 }

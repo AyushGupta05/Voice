@@ -13,6 +13,8 @@ import { BEDROCK_MODEL } from './aws-credit-proof.js';
 import type { BackendClient } from './backend.js';
 import { tools, type Arguments } from './tools.js';
 import { fundingStatus } from './funding.js';
+import {AWSSpeechProvider,type SpeechProvider} from './aws-speech.js';
+import {SpeechSession} from './speech-session.js';
 
 async function tokenFile(path:string) {
   try {return (await readFile(path,'utf8')).trim();}
@@ -28,7 +30,7 @@ async function body(req:IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string,unknown>;
 }
 function json(res:ServerResponse,status:number,value:unknown) {res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
-export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string };
+export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string; speechProvider?:SpeechProvider };
 export async function startServer(root:string,port=49555,options:ServerOptions={}) {
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
@@ -37,6 +39,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   const textClient=options.textClient??new BedrockBackendClient(state);
   const conversations=new Map<WebSocket,TextConversation>();
   const peers=new Set<WebSocket>();
+  const voiceSessions=new Map<WebSocket,SpeechSession>();let voiceOwner:{peer:WebSocket;requestId:string}|undefined;
   const emit=(event:Record<string,unknown>)=>{for(const peer of peers) if(peer.readyState===WebSocket.OPEN)peer.send(JSON.stringify(event));};
   runtime.on('action',action=>emit({type:'action',action}));
   runtime.on('tool',event=>emit({type:'tool',...event}));
@@ -66,23 +69,43 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   });
   wss.on('connection',ws=>{
     peers.add(ws);
-    const conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));});
+    const send=(event:Record<string,unknown>)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));};
+    const conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{
+      send(event);if(event.type==='text_result'&&typeof event.text==='string')void voiceSessions.get(ws)?.speak(event.text);
+    });
     conversations.set(ws,conversation);
     ws.on('message',raw=>{
+      let requestId:unknown;
       void (async()=>{
         const event=JSON.parse(raw.toString());
-        if(event.type==='start_voice') ws.send(JSON.stringify({type:'error',message:(await fundingStatus(root)).reason}));
-        else if(event.type==='text')await conversation.submit(event.text);
-        else if(event.type==='stop_task')conversation.stop();
-        else if(event.type==='stop_voice')ws.send(JSON.stringify({type:'voice_state',state:'idle'}));
-      })().catch(error=>ws.send(JSON.stringify({type:'error',message:error.message})));
+        requestId=event.requestId;
+        if(event.type==='start_voice') {
+          if(typeof event.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(event.requestId))throw new Error('A voice request identity is required.');
+          if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',message:'Voice is already active in another companion.'});return;}
+          // Claim before any funding await; simultaneous starts cannot open two streams.
+          const owner={peer:ws,requestId:event.requestId};voiceOwner=owner;
+          try{
+            const funding=await fundingStatus(root);if(!funding.enabled)throw new Error(funding.reason);
+            if(voiceOwner!==owner||ws.readyState!==WebSocket.OPEN){if(voiceOwner===owner)voiceOwner=undefined;return;}
+            const voice=new SpeechSession(options.speechProvider??new AWSSpeechProvider(state),conversation,event=>send({...event,requestId:owner.requestId}),()=>{
+              if(voiceSessions.get(ws)===voice){voiceSessions.delete(ws);if(voiceOwner===owner)voiceOwner=undefined;}
+            });voiceSessions.set(ws,voice);voice.start();
+          }catch(error){if(voiceOwner===owner)voiceOwner=undefined;throw error;}
+        }
+        else if(event.type==='audio'){const voice=voiceSessions.get(ws);if(voice&&event.sessionId===voice.id){try{voice.acceptAudio(event.audio);}catch(error){voice.stop('Invalid microphone stream.');throw error;}}}
+        else if(event.type==='text'){voiceSessions.get(ws)?.interrupt();await conversation.submit(event.text);}
+        else if(event.type==='stop_task'){conversation.stop();voiceSessions.get(ws)?.interrupt();}
+        else if(event.type==='stop_voice'){
+          if(voiceOwner?.peer===ws&&voiceOwner.requestId===event.requestId){voiceSessions.get(ws)?.stop();if(!voiceSessions.has(ws))voiceOwner=undefined;send({type:'voice_state',state:'idle',requestId:event.requestId});}
+        }
+      })().catch(error=>send({type:'error',message:error.message,...(typeof requestId==='string'?{requestId}:{})}));
     });
-    const disconnected=()=>{conversation.stop();conversations.delete(ws);peers.delete(ws);};
+    const disconnected=()=>{voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;conversation.stop();conversations.delete(ws);peers.delete(ws);};
     ws.on('error',disconnected);ws.on('close',disconnected);
     ws.send(JSON.stringify({type:'connected',tools:tools.length}));
   });
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve());});
-  return {server,runtime,close:async()=>{for(const conversation of conversations.values())conversation.stop();for(const peer of peers)peer.close();wss.close();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
+  return {server,runtime,close:async()=>{const voices=[...voiceSessions.values()];for(const voice of voices)voice.stop('Gateway closing.');for(const conversation of conversations.values())conversation.stop();for(const peer of peers)peer.close();wss.close();await Promise.all(voices.map(v=>v.settled()));await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
   const root=resolve(process.env.LUMA_ROOT??process.cwd());

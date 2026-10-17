@@ -13,6 +13,8 @@ export type DelegatedTask = {
   conversation: () => { fragments: TranscriptFragment[]; truncated: boolean };
   signal: AbortSignal;
   update: (update: LiveUpdate) => void;
+  /** The request arrived as transcribed speech; its result will be read aloud. */
+  spoken?: boolean;
 };
 export interface DelegationBackend { run(task: DelegatedTask): Promise<void> }
 export type LiveCloseReport = { finalUsageReceived: boolean; usage?: unknown; reason: string };

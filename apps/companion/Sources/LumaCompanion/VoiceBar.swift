@@ -24,12 +24,12 @@ private struct VoiceBar: View {
     private var status: BarStatus {
         BarStatus(connected: model.connected, bridgeConnected: model.bridgeConnected,
                   eventsReady: model.eventsReady, working: working,
-                  voiceActive: model.voiceActive, pendingApprovals: model.approvals.count, runningActions: model.runningActionIDs.count)
+                  voiceActive: model.voiceActive, pendingApprovals: model.approvals.count, runningActions: model.runningActionIDs.count, voiceStarting: model.voiceStarting, voiceSpeaking: model.voiceSpeaking)
     }
     var body: some View {
         HStack(spacing: 12) {
             Button {
-                if model.voiceActive { model.toggleVoice() }
+                if model.voiceActive || model.voiceStarting || model.voiceReady { model.toggleVoice() }
                 else { showingVoiceSetup = true }
             } label: {
                 Image(systemName: model.voiceActive ? "waveform" : "mic.slash")
@@ -38,8 +38,8 @@ private struct VoiceBar: View {
                     .frame(width: 34, height: 34)
                     .background(.white.opacity(0.06), in: Circle())
             }.buttonStyle(.plain)
-                .accessibilityLabel(model.voiceActive ? "Stop voice" : "Voice setup")
-                .help(model.voiceActive ? "Stop microphone" : model.voiceReason)
+                .accessibilityLabel(model.voiceActive || model.voiceStarting ? "Stop voice" : model.voiceReady ? "Start voice" : "Voice setup")
+                .help(model.voiceActive || model.voiceStarting ? "Stop microphone" : model.voiceReason)
             Button { model.toggleDetails() } label: {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -47,7 +47,7 @@ private struct VoiceBar: View {
                         else { Image(systemName: status.symbol).font(.system(size: 10)).foregroundStyle(status.needsAttention ? .orange : mint) }
                         Text(status.title).font(.system(size: 12, weight: .semibold))
                     }
-                    Text(model.voiceActive ? "Voice on" : "Voice off · Type to ask")
+                    Text(model.voiceActive ? "Voice on" : model.voiceStarting ? "Connecting speech" : "Voice off · Type to ask")
                         .font(.system(size: 10)).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityLabel("Open Luma conversation")

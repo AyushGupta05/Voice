@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import type { BackendClient, BackendRequest, BackendResponse } from './backend.js';
 import { BEDROCK_MODEL, BEDROCK_REGION, observeAWSCredits, type AWSProof } from './aws-credit-proof.js';
-import { CreditBudget, type UsageReceipt } from './credit-budget.js';
+import { sharedObservation, CreditBudget, type UsageReceipt } from './credit-budget.js';
 import { bedrockSigV4Only } from './aws-auth.js';
 
 type ChatMessage = { role: string; content?: string | null; tool_call_id?: string; tool_calls?: Array<Record<string, unknown>> };
@@ -86,7 +86,7 @@ export type BedrockDependencies = {
   invoke: (proof: AWSProof, body: Uint8Array, signal: AbortSignal) => Promise<Uint8Array>;
 };
 const productionDependencies: BedrockDependencies = {
-  observe: observeAWSCredits,
+  observe: sharedObservation(observeAWSCredits),
   invoke: async (proof, body, signal) => {
     const client = new BedrockRuntimeClient({ region: BEDROCK_REGION, credentials: proof.credentials, maxAttempts: 1, ...bedrockSigV4Only(),
       endpoint: 'https://bedrock-runtime.us-east-1.amazonaws.com' });

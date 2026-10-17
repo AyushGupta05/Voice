@@ -1,0 +1,29 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {AudioQueue,SpeechSession,spokenReply} from '../src/speech-session.js';
+import type {SpeechProvider,SpeechCallbacks} from '../src/aws-speech.js';
+const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
+function fixture(){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
+ const provider:SpeechProvider={transcribe:async(_audio,s,c)=>{callbacks=c;signal=s;c.inputReady();await new Promise<void>(resolve=>{finish=resolve;s.addEventListener('abort',resolve as ()=>void,{once:true});});},speak:async()=>new Uint8Array([0,0,100,0])};
+ const session=new SpeechSession(provider,{submit:async (text,spoken)=>{assert.equal(spoken,true);submitted.push(text);},stop:()=>{stops++;}},e=>events.push(e),()=>closed++);
+ return{session,events,submitted,get callbacks(){return callbacks;},get signal(){return signal;},get stops(){return stops;},get closed(){return closed;},finish:()=>finish(),provider};}
+test('bounded audio queue preserves order and close wakes a blocked consumer',async()=>{
+ const queue=new AudioQueue();const reader=queue.stream();const waiting=reader.next();queue.push(new Uint8Array([1,2]));assert.deepEqual((await waiting).value,new Uint8Array([1,2]));
+ assert.throws(()=>queue.push(new Uint8Array(48002)));assert.throws(()=>queue.push(new Uint8Array([1])));const end=reader.next();queue.close();assert.equal((await end).done,true);
+});
+test('only ready audio is accepted; duplicate final transcripts cannot replay a task',async()=>{
+ const f=fixture();f.session.acceptAudio('not audio');f.session.start();await tick();assert(f.events.some(e=>e.state==='ready_for_audio'));assert(!f.events.some(e=>e.state==='listening'));
+ f.callbacks.listening();f.session.acceptAudio(Buffer.from([0,0]).toString('base64'));
+ f.callbacks.transcript({id:'one',text:'Focus',partial:true});assert.equal(f.submitted.length,0);
+ f.callbacks.transcript({id:'one',text:'Focus here',partial:false});f.callbacks.transcript({id:'one',text:'Focus here',partial:false});assert.deepEqual(f.submitted,['Focus here']);assert.equal(f.events.filter(e=>e.type==='interrupted').length,1);
+ f.session.stop();await f.session.settled();assert(f.signal.aborted);assert.equal(f.closed,1);
+ f.callbacks.transcript({id:'two',text:'Delete everything',partial:false});assert.equal(f.submitted.length,1);
+});
+test('late synthesized audio is suppressed after interruption and old sessions stay closed',async()=>{
+ const f=fixture();let finish!:(data:Uint8Array)=>void;f.provider.speak=()=>new Promise(resolve=>{finish=resolve;});f.session.start();await tick();const speaking=f.session.speak('Done');f.session.interrupt();finish(new Uint8Array([0,0]));await speaking;assert(!f.events.some(e=>e.type==='audio'));
+ f.session.stop();f.session.start();await f.session.settled();assert.equal(f.closed,1);
+});
+test('PCM output is explicitly24kHz, bounded and tied to one playback epoch/session',async()=>{
+ const f=fixture();f.session.start();await tick();await f.session.speak('Focused the view.');const audio=f.events.find(e=>e.type==='audio');assert.equal(audio.sampleRate,24000);assert.equal(audio.sessionId,f.session.id);assert.equal(audio.final,true);assert.equal(Buffer.from(audio.audio,'base64').length,6);
+ f.session.stop();await f.session.settled();assert.throws(()=>new SpeechSession(f.provider,{submit:async()=>{},stop:()=>{}},()=>{},()=>{},180001));
+ assert.equal(spokenReply('x'.repeat(2000)),'The result is ready on screen.');
+});

@@ -205,8 +205,8 @@ struct CompanionView: View {
                 Button { showingFunding = true } label: { HStack(spacing: 5) { Circle().fill(Color.orange).frame(width: 4, height: 4); Text(model.textReady ? "Text ready · Voice setup" : "Voice setup needed").font(.system(size: 10)) }.foregroundStyle(secondaryText) }.buttonStyle(.plain).help(model.voiceReason)
                 Spacer()
                 Button { model.toggleVoice() } label: {
-                    HStack(spacing: 7) { Image(systemName: model.voiceActive ? "stop.fill" : "waveform"); Text(model.voiceActive ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(mint, in: Capsule()).foregroundStyle(Color.black.opacity(0.85))
-                }.buttonStyle(HoverButtonStyle()).disabled(!model.connected)
+                    HStack(spacing: 7) { Image(systemName: model.voiceActive || model.voiceStarting ? "stop.fill" : "waveform"); Text(model.voiceActive || model.voiceStarting ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(mint, in: Capsule()).foregroundStyle(Color.black.opacity(0.85))
+                }.buttonStyle(HoverButtonStyle()).disabled(!model.connected || !model.eventsReady || !model.voiceReady)
             }
         }.padding(.horizontal, 22).padding(.bottom, 20).padding(.top, 12)
     }

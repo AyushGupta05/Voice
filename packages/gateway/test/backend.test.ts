@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ResponsesBackend, type BackendClient, type BackendRequest } from '../src/backend.js';
+import { ResponsesBackend, spokenStyle, type BackendClient, type BackendRequest } from '../src/backend.js';
 import { Runtime, type Action } from '../src/runtime.js';
 import { Knowledge } from '../src/knowledge.js';
 import type { Adapter } from '../src/bridge.js';
@@ -403,4 +403,14 @@ test('an idle human wait returns an expired action with identity and audit outco
     await running;
     assert.equal(f.runtime.actions.get(id)!.status,'expired');assert.equal(f.mutations(),0);assert.equal(requests,2);assert.equal(f.runtime.listenerCount('action'),0);
   }finally{cancellation.abort();await f.clean();}
+});
+
+test('only spoken requests ask for a short read-aloud answer',async()=>{
+  const f=await runtimeFixture();const seen:string[]=[];
+  const client:BackendClient={complete:async request=>{seen.push(request.instructions);return {output:[],output_text:'Done.'};}};
+  try{
+    const backend=new ResponsesBackend(f.runtime,client,'fixture-model',()=>{});
+    await backend.run(task().value);await backend.run({...task().value,id:'spoken-task',spoken:true});
+    assert(!seen[0].includes(spokenStyle));assert(seen[1].endsWith(spokenStyle));
+  }finally{await f.clean();}
 });

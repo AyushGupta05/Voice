@@ -22,7 +22,7 @@ test('loopback gateway separates model tools from human approval and blocks brow
     const denied=await fetch(base+'/approvals/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',{method:'POST',headers:{Authorization:`Bearer ${model}`,'Content-Type':'application/json'},body:'{"approved":true}'});assert.equal(denied.status,403);
     const ws=new WebSocket(`ws://127.0.0.1:${address.port}/events`,{headers:{Authorization:`Bearer ${human}`}});
     await once(ws,'open');
-    const result=once(ws,'message');ws.send(JSON.stringify({type:'start_voice'}));
+    const result=once(ws,'message');ws.send(JSON.stringify({type:'start_voice',requestId:'11111111-1111-4111-8111-111111111111'}));
     const [raw]=await result;const event=JSON.parse(raw.toString());
     // The connection greeting may race with the start request; wait for the funding response explicitly.
     const message=event.type==='error'?event:JSON.parse((await once(ws,'message'))[0].toString());

@@ -22,7 +22,7 @@ export class TextConversation {
   const offset=Date.now()-this.startedAt;this.fragments.push({role,text,startMs:offset,endMs:offset});
   while(this.fragments.length>128||this.fragments.reduce((sum,item)=>sum+item.text.length,0)>24_000){this.fragments.shift();this.truncated=true;}
  }
- async submit(text:unknown){
+ async submit(text:unknown,spoken=false){
   if(typeof text!=='string'||!text.trim()||text.length>4000)throw new Error('Enter a message of 1–4000 characters.');
   this.active?.controller.abort();
   const active:Active={id:randomUUID(),controller:new AbortController(),answered:false};this.active=active;
@@ -30,7 +30,7 @@ export class TextConversation {
   try{
    const context=await this.runtime.call('qupath_context',{},active.controller.signal) as Context;
    active.controller.signal.throwIfAborted();
-   await this.backend.run({id:active.id,offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
+   await this.backend.run({id:active.id,spoken,offsetMs:Date.now()-this.startedAt,context,signal:active.controller.signal,
     conversation:()=>({fragments:structuredClone(this.fragments),truncated:this.truncated}),
     update:update=>{if(this.active===active&&!active.controller.signal.aborted&&!active.answered)this.emit({type:'text_progress',taskId:active.id,text:update.content});},
    });

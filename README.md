@@ -19,7 +19,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. The companion now has an AWS-credit OpenAI text path with follow-ups and Stop. Its real authenticated message-route test focused QuPath correctly; the new native controls compile, with foreground visual checks pending manual unlock. A separate real-model check verified exact pinned API search/read and type assignments without application actions. A focused follow-up completed the same exact viewer request in two model calls / 4665 ms, versus three / 6079 ms in the earlier single run; this is not a voice or general latency benchmark. Cumulative token estimates total $0.02179905 across 26 completed requests and $26 is conservatively reserved; AWS billing settlement remains unreconciled. No direct cash-billed OpenAI route or cloud infrastructure was used. [Funding decision](docs/FUNDING.md)
+**Voice works through AWS speech, paid from credits only.** Amazon Transcribe hears you, the same credit-checked OpenAI agent on Bedrock acts in QuPath, and Amazon Polly speaks one short reply. You can interrupt at any time. In a real end-to-end run with synthesized microphone audio, "Zoom in on the centre of this slide" moved the actual QuPath viewer and the spoken reply started 4.3 s after speech ended. A real microphone/speaker session in the foreground is the next check. This route is not GPT-Live; no credit-covered OpenAI realtime endpoint exists. Every request reserves its priced worst case against a $200 lifetime cap. [AWS speech](docs/AWS-SPEECH.md) · [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 
@@ -51,6 +51,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 | [Architecture](docs/ARCHITECTURE.md) | Process ownership and trust boundaries |
 | [AWS text adapter](docs/AWS-TEXT.md) | Credit/access checks, conservative reserves and explicit model test |
 | [API lookup](docs/API-LOOKUP.md) | Read-only pinned source retrieval for unfamiliar scripts |
+| [AWS speech voice](docs/AWS-SPEECH.md) | Live route, guards, enable and verify commands |
 | [Voice integration](docs/VOICE.md) | Implemented protocols, backend interface and remaining activation work |
 | [Protocol](docs/PROTOCOL.md) | Requests, tool execution and approval semantics |
 | [Contributor guide](docs/CONTRIBUTING.md) | Add adapters/tools and verify changes |

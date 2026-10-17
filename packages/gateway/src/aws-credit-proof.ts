@@ -14,11 +14,11 @@ export type PriceRates = { inputPerTokenUSD: number; outputPerTokenUSD: number }
 export type AWSProof = CreditObservation & { credentials: AwsCredentialIdentity; rates: PriceRates };
 export const accountHash = (account: string) => createHash('sha256').update(account).digest('hex');
 
-export function eligibleCreditUSD(records: CreditData[], account: string, now = Date.now()) {
+export function eligibleCreditUSD(records: CreditData[], account: string, now = Date.now(), requiredProducts = ['AmazonBedrockFoundationModels']) {
   let total = 0;
   const seen = new Set<string>();
   for (const record of records) {
-    if (record.accountId !== account || record.creditStatus !== 'ENABLED' || !record.applicableProductNames?.includes('AmazonBedrockFoundationModels')) continue;
+    if (record.accountId !== account || record.creditStatus !== 'ENABLED' || !requiredProducts.length || !requiredProducts.every(name=>record.applicableProductNames?.includes(name))) continue;
     const start = record.startDate?.getTime(); const end = record.endDate?.getTime();
     if (start === undefined || end === undefined || !Number.isFinite(start) || !Number.isFinite(end) || start > now || end < now + 60 * 60_000) continue;
     if (!['DEFAULT', 'DISABLED'].includes(record.creditSharingType ?? '') || record.purchaseTypeApplications != null) continue;

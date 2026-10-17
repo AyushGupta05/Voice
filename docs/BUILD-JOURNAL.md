@@ -266,3 +266,19 @@ Added a420×56 top bar, with expandable existing details and automatic noncollap
 Used the actual native text field to request opening the public OS-2 path. The real credit-checked OpenAI agent prepared the exact operation, Luma expanded its approval card, and the user approved it in Luma. Real image name/dimensions appeared. QuPath's native image-type prompt is still awaiting a human choice; lastDispatch remains queued, so complete opening/native-dialog execution is not yet claimed. No automated ordinary approval was used.
 
 Fresh read-only AWS account/credit/access/price checks succeeded. Current OpenAI Bedrock catalog has text/image inputs and text outputs in this region, with no audio model listed. Billing verifies credits for Transcribe and Polly; exact regional speech rates were read without inference or resource/agreement changes. The user explicitly approved AWS speech plus the OpenAI agent. Speech dependencies are staged separately for the next implementation; provider/native wiring and hardware verification are not yet done. Original $200 durable lifetime guard and all old reserves remain intact. The overnight heartbeat stays disabled; this is the user's direct resumed task.
+
+## 17 October 2026, 10:45 BST — AWS speech voice live end to end
+
+Took over the staged AWS speech work after the previous agent stopped. Fixed a credit-proof test fixture that lacked `creditSharingType`. Confirmed that the account's six enabled grants each cover Transcribe, Polly and Bedrock. Ran `enable-speech` (read-only), which wrote `speech-funding.json`. Restarted only the companion and its owned gateway, after confirming no pending or running actions; QuPath stayed open on OS-2.
+
+Real checks:
+- `smoke:speech` (Polly → Transcribe): exact 8/8 transcript, about $0.0013 estimated.
+- `smoke:voice-pipeline` (synthesized mic audio over /events → Transcribe → Bedrock agent → real `qupath_focus` → Polly): first run took 10.5 s from end of speech to reply audio, with a coordinate-heavy reply.
+
+Changes:
+1. `sharedObservation()` reuses a read-only credit proof for 20 s or less, within the ledger's 30 s rule. Failures are never cached and each request still reserves separately.
+2. Speech proof is warmed while the agent runs.
+3. Spoken requests add `spokenStyle` (one short sentence, no coordinates or IDs).
+4. The ledger now reserves twice each request's priced worst case, rounded to a cent ($0.01–$1). Previously it reserved a flat $1, which would have exhausted the 200-entry cap after about 40 voice turns. The $200 total cap, no-refund rule and legacy $1 entries are unchanged (36 entries / $36 when changed).
+
+Rerun: exact transcript, spoken reply "Zoomed in on the slide centre at downsample 5.", 4.3 s from end of speech to reply audio. All 114 gateway tests and 15 native tests pass. No approval was simulated. Real microphone/speaker foreground use is still unverified.
