@@ -441,7 +441,8 @@ public final class LumaExtension implements QuPathExtension {
         boolean focused = false;
         if (!all.isEmpty()) {
             long visible = matches.stream().limit(400).filter(o -> screenRect(o.getROI().getBoundsX(), o.getROI().getBoundsY(), o.getROI().getBoundsX() + o.getROI().getBoundsWidth(), o.getROI().getBoundsY() + o.getROI().getBoundsHeight(), viewerBounds()) != null).count();
-            boolean focus = args.has("focus") ? args.get("focus").getAsBoolean() : visible * 2 < Math.min(400, matches.size()) || matches.isEmpty();
+            var union = unionBounds(matches.isEmpty() ? all : matches);
+            boolean focus = args.has("focus") ? args.get("focus").getAsBoolean() : visible * 2 < Math.min(400, matches.size()) || matches.isEmpty() || (union != null && isTinyOrOffscreen(union[0], union[1], union[2], union[3]));
             if (focus) {
                 var target = matches.isEmpty() ? all : matches;
                 var first = target.getFirst().getROI();
@@ -465,6 +466,31 @@ public final class LumaExtension implements QuPathExtension {
         double downsample = Math.max(padW / Math.max(1, view.getWidth()), padH / Math.max(1, view.getHeight()));
         viewer.setDownsampleFactor(Math.max(0.05, Math.min(256, downsample)), -1, -1);
         viewer.setCenterPixelLocation(x + w / 2, y + h / 2);
+    }
+    /** True when an image-pixel rectangle is too small to see at the current zoom (under 12% of the view) or lies outside it. */
+    private boolean isTinyOrOffscreen(double x, double y, double w, double h) {
+        var viewer = qupath.getViewer(); var view = viewer.getView(); double downsample = viewer.getDownsampleFactor();
+        double viewW = Math.max(1, view.getWidth()) * downsample, viewH = Math.max(1, view.getHeight()) * downsample;
+        double cx = viewer.getCenterPixelX(), cy = viewer.getCenterPixelY();
+        boolean tiny = w < viewW * 0.12 && h < viewH * 0.12;
+        boolean offscreen = x + w < cx - viewW / 2 || x > cx + viewW / 2 || y + h < cy - viewH / 2 || y > cy + viewH / 2;
+        return tiny || offscreen;
+    }
+    /** The view follows the work: zoom to what Luma is acting on whenever the researcher could not otherwise see it. */
+    private boolean fitViewIfNeeded(double x, double y, double w, double h) {
+        if (!isTinyOrOffscreen(x, y, w, h)) return false;
+        fitView(x, y, w, h, qupath.getViewer().getImagePlane());
+        return true;
+    }
+    private boolean fitViewToObjects(Collection<? extends PathObject> objects) {
+        var bounds = unionBounds(objects);
+        return bounds != null && fitViewIfNeeded(bounds[0], bounds[1], bounds[2], bounds[3]);
+    }
+    /** {x, y, width, height} of the ROIs' union on the current plane, or null without ROIs. */
+    private static double[] unionBounds(Collection<? extends PathObject> objects) {
+        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE; boolean any = false;
+        for (var object : objects) { var roi = object.getROI(); if (roi == null) continue; any = true; minX = Math.min(minX, roi.getBoundsX()); minY = Math.min(minY, roi.getBoundsY()); maxX = Math.max(maxX, roi.getBoundsX() + roi.getBoundsWidth()); maxY = Math.max(maxY, roi.getBoundsY() + roi.getBoundsHeight()); }
+        return any ? new double[] { minX, minY, maxX - minX, maxY - minY } : null;
     }
     private javafx.geometry.Bounds viewerBounds() { var view = qupath.getViewer().getView(); return view.localToScreen(view.getBoundsInLocal()); }
     /** Highlight payload for a visible JavaFX control; null when it is not on screen. */
@@ -965,6 +991,8 @@ public final class LumaExtension implements QuPathExtension {
                 var parameters = args.has("parameters") ? args.getAsJsonObject("parameters").deepCopy() : new JsonObject();
                 var plugin = new ApprovedCellDetection(parents);
                 plugin.validateParameters(image,parameters);
+                // Zoom to the regions being analysed so the detections appear in view as they are created.
+                fitViewToObjects(parents);
                 return new DetectionPlan(image,List.copyOf(parents),parameters,plugin,checkpoint("Before detect"),actionHighlight(parents,"Detecting cells here"));
             });
             // Capture the approved parent set: a later primary/selection change cannot retarget the plugin.
@@ -1236,7 +1264,9 @@ public final class LumaExtension implements QuPathExtension {
                 String classification = string(args,"classification","").trim();
                 if (!classification.isEmpty()) object.setPathClass(PathClass.fromString(classification));
                 hierarchy.addObject(object); qupath.getViewer().setSelectedObject(object);
+                boolean focused = fitViewIfNeeded(x, y, w, h);
                 var described = describe(object); described.put("highlight", actionHighlight(List.of(object), classification.isEmpty() ? object.getName() : classification + " region"));
+                described.put("focused", focused);
                 result = described;
             }
             case "classify" -> {
@@ -1258,6 +1288,7 @@ public final class LumaExtension implements QuPathExtension {
                 int positive = 0;
                 for (var object : matches) { boolean above = object.getMeasurementList().get(measurement) >= threshold; object.setPathClass(PathClass.fromString(above ? "Positive" : "Negative")); if (above) positive++; }
                 hierarchy.fireObjectClassificationsChangedEvent(this,matches);
+                fitViewToObjects(matches);
                 // Record the threshold as a replayable Groovy step so "save this as a workflow" includes the classification.
                 String escaped = measurement.replace("\\","\\\\").replace("'","\\'");
                 String scopeExpression = string(args,"scope","all").equals("all") ? "getDetectionObjects()" : "getSelectedObjects().findAll { it.isAnnotation() }.collectMany { a -> getCurrentHierarchy().getObjectsForROI(null, a.getROI()).findAll { it.isDetection() } } + getSelectedObjects().findAll { it.isDetection() }";
