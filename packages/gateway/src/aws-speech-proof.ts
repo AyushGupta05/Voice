@@ -8,7 +8,8 @@ import {accountHash,eligibleCreditUSD} from './aws-credit-proof.js';
 import type {CreditObservation} from './credit-budget.js';
 
 export const SPEECH_REGION='us-east-1';
-export const MAX_VOICE_SECONDS=180;
+/** 30 minutes per Transcribe session (owner's request, 17 Oct 2026): 1800 s × ~$0.000167/s ≈ $0.30, reserved twice over (≤ $1). */
+export const MAX_VOICE_SECONDS=1800;
 export const MAX_SPOKEN_CHARACTERS=500;
 export type VoiceEngine='neural'|'generative';
 export type Voice={id:string;language:string;engine:VoiceEngine};

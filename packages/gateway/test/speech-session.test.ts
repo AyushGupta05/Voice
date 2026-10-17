@@ -25,7 +25,8 @@ test('late synthesized audio is suppressed after interruption and old sessions s
 });
 test('PCM output is explicitly24kHz, bounded and tied to one playback epoch/session',async()=>{
  const f=fixture();f.session.start();await tick();await f.session.speak('Focused the view.');const audio=f.events.find(e=>e.type==='audio');assert.equal(audio.sampleRate,24000);assert.equal(audio.sessionId,f.session.id);assert.equal(audio.final,true);assert.equal(Buffer.from(audio.audio,'base64').length,6);
- f.session.stop();await f.session.settled();assert.throws(()=>new SpeechSession(f.provider,{submit:async()=>{},stop:()=>{}},()=>{},()=>{},180001));
+ f.session.stop();await f.session.settled();assert.throws(()=>new SpeechSession(f.provider,{submit:async()=>{},stop:()=>{}},()=>{},()=>{},1_800_001));
+ assert.doesNotThrow(()=>new SpeechSession(f.provider,{submit:async()=>{},stop:()=>{}},()=>{},()=>{},1_800_000).stop());
  assert.equal(spokenReply('x'.repeat(2000)),'The result is ready on screen.');
 });
 test('a queued final reply plays after its acknowledgment even when its synthesis finishes first; interruption cancels both',async()=>{

@@ -27,8 +27,8 @@ export class SpeechSession{
  private started=Date.now();private timer?:ReturnType<typeof setTimeout>;private speech?:AbortController;private epoch=0;
  private running?:Promise<void>;private closed=false;private interrupts=0;private tail:Promise<void>=Promise.resolve();
  private droppedBeforeReady=0;private loggedBytes=0;
- constructor(private provider:SpeechProvider,private conversation:VoiceConversation,private emit:(event:Record<string,unknown>)=>void,private onClosed:()=>void,private maximumMs=180000){
-  if(!Number.isInteger(maximumMs)||maximumMs<1||maximumMs>180000)throw new Error('Voice lifetime must not exceed180seconds.');
+ constructor(private provider:SpeechProvider,private conversation:VoiceConversation,private emit:(event:Record<string,unknown>)=>void,private onClosed:()=>void,private maximumMs=1_800_000){
+  if(!Number.isInteger(maximumMs)||maximumMs<1||maximumMs>1_800_000)throw new Error('Voice lifetime must not exceed 30 minutes.');
  }
  private event(event:Record<string,unknown>){if(!this.closed)this.emit({...event,sessionId:this.id});}
  start(){
@@ -60,14 +60,14 @@ export class SpeechSession{
   if(!this.hearing){this.hearing=true;this.interrupt();}
   this.event({type:'voice_transcript',text,partial:value.partial});
   if(value.partial)return;
-  this.hearing=false;this.seen.add(value.id);if(++this.turns>16){this.stop('Voice turn limit reached.');return;}
+  this.hearing=false;this.seen.add(value.id);if(++this.turns>200){this.stop('Voice turn limit reached.');return;}
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
   void this.conversation.submit(text,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }
  interrupt(){if(this.closed)return;this.interrupts++;this.epoch++;this.speech?.abort();this.speech=undefined;this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
  /** queued=true plays after the previous reply (an acknowledgment) instead of replacing it. Interruption cancels both. */
  async speak(text:string,queued=false){
-  if(this.closed)return;if(++this.replies>24){this.stop('Spoken reply limit reached.');return;}
+  if(this.closed)return;if(++this.replies>400){this.stop('Spoken reply limit reached.');return;}
   if(!queued)this.speech?.abort();
   const speech=new AbortController();const interrupts=this.interrupts;const prior=queued?this.tail:Promise.resolve();
   const run=(async()=>{

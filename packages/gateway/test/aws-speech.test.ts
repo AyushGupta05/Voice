@@ -51,3 +51,9 @@ test('voice selection defaults to a natural generative voice and rejects unknown
  assert.throws(()=>selectVoice('Nobody'));assert.throws(()=>selectVoice('Amy:standard'));
  assert.throws(()=>speechRates([stt()],[tts()],'generative'));
 });
+
+test('a 30-minute Transcribe session still reserves at most one dollar at the observed rate',async()=>{
+ const {MAX_VOICE_SECONDS}=await import('../src/aws-speech-proof.js');const {reserveUSD}=await import('../src/credit-budget.js');
+ assert.equal(MAX_VOICE_SECONDS,1800);
+ const worst=MAX_VOICE_SECONDS*0.0001667;assert(worst<=0.5,'worst case must pass the credit-budget request bound');assert.equal(reserveUSD(worst),0.61);
+});

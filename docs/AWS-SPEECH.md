@@ -14,7 +14,7 @@ mic (AVAudioEngine, voice processing / echo cancellation)
 
 - **Barge-in:** the first partial transcript of a new utterance interrupts current playback and stops the running agent task. An action already executing in QuPath is not rolled back; say "undo that" to restore the checkpoint.
 - **Spoken style:** spoken requests add `spokenStyle` (`backend.ts`) to the instructions, asking for one short sentence without coordinates or IDs. Full details still appear in the companion. `spokenReply()` trims anything longer than 240 characters to its first sentence.
-- **Bounds:** sessions last at most 180 s, 16 turns and 24 spoken replies (acknowledgments included). Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
+- **Bounds:** sessions last at most 30 minutes, 200 turns and 400 spoken replies (acknowledgments included); each Transcribe session reserves twice its worst case (1800 s at the observed rate is about $0.30, so $0.60, still under the $1 per-request cap). Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
 
 ## Latency design
 
@@ -27,6 +27,7 @@ Measured with `smoke:voice-pipeline` on the public OS-2 slide (individual runs, 
 | Transcript → visible QuPath action | 1.3–2.3 s (one model round) |
 | End of speech → first spoken audio | 0.4 s on the instant route; 1.7 s with a cached acknowledgment; previously 4.2–10.5 s |
 | End of speech → data action starts (auto policy) | ~2.4 s, spoken "Detecting cells." / "Classifying." as it starts; in review mode the card appears instead with "Ready for your approval." |
+| Data action result → spoken outcome (local finish) | ~0 s; the sentence comes from the tool result, no model round (was +1.2–1.6 s) |
 
 What makes it feel live:
 
@@ -68,14 +69,18 @@ This makes read-only AWS calls and writes `.local/state/speech-funding.json` (it
 
 Both commands need `-- --authorized-aws-speech`.
 
-Measured on 17 October 2026 (public OS-2 slide, "Zoom in on the centre of this slide."):
+Measured on 17 October 2026 (public OS-2 slide, one run each, `smoke:voice-pipeline`, auto approval policy). "Before" is the same pipeline earlier that day, when every spoken action needed a second model round for the closing sentence (ack ≈ 2.3 s, final +1.2–1.6 s); "after" is with local finishing:
 
-- Exact transcript.
-- Agent called `qupath_focus`.
-- Spoken reply: "Zoomed in on the slide centre at downsample 5."
-- End of speech to final transcript: about 0.7 s.
-- End of speech to start of reply audio: **4.3 s**, down from 10.5 s before proof sharing and short spoken answers. About 2.9 s of that is two Bedrock model rounds.
+| Utterance | Route | End of speech → first audio | End of speech → final audio | Model rounds |
+|---|---|---|---|---|
+| "Zoom in a little." | instant route | 0.5 s ("Zooming in.") | same | 0 (unchanged) |
+| "Highlight the middle of this slide." | one model round → `qupath_highlight` | 9.0 s ("Here: center."); that Bedrock round took 5.6 s and the uncached Polly phrase 1.7 s | same, "Done." stays silent (before: +1.2–1.6 s for the model's "Done.") | 1 (before: 2) |
+| "Add a tumor annotation on the right." | one model round → `qupath_annotate` | 1.8 s ("Drawing the region.") | 2.9 s ("Added a Tumor region.", 3 ms after the action) | 1 (before: 2) |
 
-This is one run, not a latency benchmark.
+The final sentence now arrives within milliseconds of the tool result, so a spoken action costs one Bedrock round plus speech. The highlight run shows the remaining variance: a single `gpt-oss-120b` round took 5.6 s instead of the usual 1.1–1.5 s (the annotate run's round took 1.4 s), and a first-time acknowledgment phrase waits for Polly. Two further highlight runs could not be measured because the AWS login session expired (`Your session has expired. Please reauthenticate.`); the first of them stalled inside the credential refresh before any model request.
+
+Earlier that day, before local finishing: "Zoom in on the centre of this slide." took 4.3 s from end of speech to reply audio, 2.9 s of it two Bedrock rounds; before proof sharing and short spoken answers it was 10.5 s.
+
+These are single runs, not a latency benchmark.
 
 **Not yet proven:** a real microphone and speakers, echo cancellation under room conditions, and a long multi-turn session in the foreground app. Run the companion, press the mic in the top bar and speak.

@@ -30,20 +30,41 @@ async function body(req:IncomingMessage) {
   for await (const chunk of req) {length+=chunk.length;if(length>256*1024) throw new Error('Request exceeds 256 KiB.');chunks.push(chunk);}
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string,unknown>;
 }
+/** Result fields the companion renders; anything else is dropped once a tool event would exceed the broadcast bound. */
+const RENDERED_RESULT_FIELDS=['status','error','highlight','pointer','summary','workflow','counts','positive','negative','total','label','imported','dispatched','completionVerified','classification','shown','truncated'];
+export const MAX_TOOL_EVENT_BYTES=64*1024;
+function pickRendered(value:unknown):unknown{
+  if(!value||typeof value!=='object'||Array.isArray(value))return value;
+  const source=value as Record<string,unknown>;const kept:Record<string,unknown>={};
+  for(const key of RENDERED_RESULT_FIELDS)if(source[key]!==undefined)kept[key]=source[key];
+  // Data actions arrive as a Runtime envelope whose adapter payload is nested one level down.
+  if(source.result&&typeof source.result==='object')kept.result=pickRendered(source.result);
+  return kept;
+}
+/** Keep every broadcast tool event under the companion's socket limit; large results stay in the conversation, not the bar. */
+export function compactToolEvent(event:Record<string,unknown>):Record<string,unknown>{
+  const size=(value:unknown)=>Buffer.byteLength(JSON.stringify(value)??'','utf8');
+  if(size(event)<=MAX_TOOL_EVENT_BYTES)return event;
+  const compact={...event,result:pickRendered(event.result),truncated:true};
+  if(size(compact)<=MAX_TOOL_EVENT_BYTES)return compact;
+  const minimal={...compact,result:{...(compact.result&&typeof compact.result==='object'&&!Array.isArray(compact.result)?{status:(compact.result as {status?:unknown}).status}:{}),omitted:'Result exceeded the companion event bound; see the conversation.'}};
+  return size(minimal)<=MAX_TOOL_EVENT_BYTES?minimal:{type:event.type,name:event.name,truncated:true,result:{omitted:'Result and arguments exceeded the companion event bound.'}};
+}
 function json(res:ServerResponse,status:number,value:unknown) {res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
-export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string; speechProvider?:SpeechProvider };
+export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string; speechProvider?:SpeechProvider; /** How long a client-identified conversation survives a dropped socket. */ detachedGraceMs?: number };
+/** Conversation events buffered for a detached companion, newest kept. */
+export const DETACHED_EVENT_LIMIT=200;
 export async function startServer(root:string,port=49555,options:ServerOptions={}) {
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
   const knowledge=new Knowledge();await knowledge.load(root);
   const runtime=options.runtime??new Runtime(new QuPathAdapter(root),knowledge,state,{autoApprove:approvalPolicy()==='auto'});
   const textClient=options.textClient??new BedrockBackendClient(state);
-  const conversations=new Map<WebSocket,TextConversation>();
-  const peers=new Set<WebSocket>();
+    const peers=new Set<WebSocket>();
   const voiceSessions=new Map<WebSocket,SpeechSession>();let voiceOwner:{peer:WebSocket;requestId:string}|undefined;
   const emit=(event:Record<string,unknown>)=>{for(const peer of peers) if(peer.readyState===WebSocket.OPEN)peer.send(JSON.stringify(event));};
   runtime.on('action',action=>emit({type:'action',action}));
-  runtime.on('tool',event=>emit({type:'tool',...event}));
+  runtime.on('tool',event=>emit(compactToolEvent({type:'tool',...event})));
   const server=createServer(async(req,res)=>{
     try {
       if(req.headers.origin){json(res,403,{error:'Browser-origin requests are not permitted.'});return;}
@@ -68,24 +89,49 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
     if(req.headers.origin || req.url!=='/events' || !equal(req.headers.authorization,companionToken)) {socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');socket.destroy();return;}
     wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws,req));
   });
+  /** A conversation outlives its socket once the companion has identified itself with a stable clientId:
+   * a dropped socket detaches it for a grace period, buffering events, and a new socket with the same
+   * clientId reattaches and replays them. An unidentified socket still owns a throwaway conversation. */
+  type Session={conversation:TextConversation;acknowledged:Set<string>;ws?:WebSocket;clientId?:string;buffer:Record<string,unknown>[];expiry?:ReturnType<typeof setTimeout>};
+  const sessions=new Map<WebSocket,Session>();const detached=new Map<string,Session>();
+  const graceMs=options.detachedGraceMs??90_000;
+  const discard=(session:Session)=>{clearTimeout(session.expiry);session.conversation.stop();if(session.clientId&&detached.get(session.clientId)===session)detached.delete(session.clientId);};
+  const createSession=():Session=>{
+    const session:Session={conversation:undefined as unknown as TextConversation,acknowledged:new Set<string>(),buffer:[]};
+    session.conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{
+      const ws=session.ws;
+      if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));
+      else if(session.clientId){session.buffer.push(event);if(session.buffer.length>DETACHED_EVENT_LIMIT)session.buffer.shift();}
+      const voice=ws?voiceSessions.get(ws):undefined;if(!voice||typeof event.text!=='string'||typeof event.taskId!=='string')return;
+      // An acknowledgment is spoken at once; the final answer queues behind it, and a bare "Done." after one stays silent.
+      if(event.type==='text_ack'){session.acknowledged.add(event.taskId);void voice.speak(event.text);}
+      else if(event.type==='text_result'){const acked=session.acknowledged.delete(event.taskId);if(!(acked&&/^done\.?$/i.test(event.text.trim())))void voice.speak(event.text,acked);}
+    });
+    return session;
+  };
   wss.on('connection',ws=>{
     peers.add(ws);
     const send=(event:Record<string,unknown>)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));};
-    const acknowledged=new Set<string>();
-    const conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{
-      send(event);
-      const voice=voiceSessions.get(ws);if(!voice||typeof event.text!=='string'||typeof event.taskId!=='string')return;
-      // An acknowledgment is spoken at once; the final answer queues behind it, and a bare "Done." after one stays silent.
-      if(event.type==='text_ack'){acknowledged.add(event.taskId);void voice.speak(event.text);}
-      else if(event.type==='text_result'){const acked=acknowledged.delete(event.taskId);if(!(acked&&/^done\.?$/i.test(event.text.trim())))void voice.speak(event.text,acked);}
-    });
-    conversations.set(ws,conversation);
+    let session=createSession();session.ws=ws;sessions.set(ws,session);
     ws.on('message',raw=>{
       let requestId:unknown;
       void (async()=>{
         const event=JSON.parse(raw.toString());
         requestId=event.requestId;
-        if(event.type==='start_voice') {
+        const conversation=session.conversation;
+        if(event.type==='hello'){
+          if(typeof event.clientId!=='string'||!/^[A-Za-z0-9-]{8,64}$/.test(event.clientId))throw new Error('A hello needs a stable clientId of 8-64 letters, digits or dashes.');
+          if(session.clientId)return;
+          const previous=detached.get(event.clientId);
+          if(previous&&ws.readyState===WebSocket.OPEN){
+            // Reattach: the throwaway conversation of this socket is dropped; the surviving one replays what was missed.
+            detached.delete(event.clientId);clearTimeout(previous.expiry);previous.expiry=undefined;
+            discard(session);session=previous;session.ws=ws;sessions.set(ws,session);
+            const missed=session.buffer.splice(0);send({type:'reattached',clientId:event.clientId,replayed:missed.length});
+            for(const item of missed)send(item);
+          }else session.clientId=event.clientId;
+        }
+        else if(event.type==='start_voice') {
           if(typeof event.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(event.requestId))throw new Error('A voice request identity is required.');
           if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',message:'Voice is already active in another companion.'});return;}
           // Claim before any funding await; simultaneous starts cannot open two streams.
@@ -106,12 +152,21 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
         }
       })().catch(error=>send({type:'error',message:error.message,...(typeof requestId==='string'?{requestId}:{})}));
     });
-    const disconnected=()=>{voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;conversation.stop();conversations.delete(ws);peers.delete(ws);};
+    const disconnected=()=>{
+      voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;peers.delete(ws);
+      const current=sessions.get(ws);if(!current)return;sessions.delete(ws);
+      if(current.ws!==ws)return;
+      current.ws=undefined;
+      if(!current.clientId){current.conversation.stop();return;}
+      // Keep the running task and its history for a reconnecting companion.
+      detached.set(current.clientId,current);
+      current.expiry=setTimeout(()=>{if(detached.get(current.clientId!)===current)discard(current);},graceMs);current.expiry.unref?.();
+    };
     ws.on('error',disconnected);ws.on('close',disconnected);
     ws.send(JSON.stringify({type:'connected',tools:tools.length}));
   });
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve());});
-  return {server,runtime,close:async()=>{const voices=[...voiceSessions.values()];for(const voice of voices)voice.stop('Gateway closing.');for(const conversation of conversations.values())conversation.stop();for(const peer of peers)peer.close();wss.close();await Promise.all(voices.map(v=>v.settled()));await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
+  return {server,runtime,close:async()=>{const voices=[...voiceSessions.values()];for(const voice of voices)voice.stop('Gateway closing.');for(const session of sessions.values())discard(session);for(const session of detached.values())discard(session);for(const peer of peers)peer.close();wss.close();await Promise.all(voices.map(v=>v.settled()));await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
   const root=resolve(process.env.LUMA_ROOT??process.cwd());
