@@ -58,6 +58,12 @@ export function awaitingConfirmation(result: unknown): Record<string, unknown> |
 }
 /** The bridge payload when a legacy command's original Fiji dialog is waiting (`status: "dialog"`): the model fills it. */
 export function dialogWaiting(result: unknown): boolean { return (completedPayload(result) ?? record(result))?.status === 'dialog'; }
+/** A command ended at its dialog's Cancel or No (`status: "cancelled"`, HTTP 200): nothing more ran, and it never reads as done. */
+export function cancelledAtDialog(result: unknown): Record<string, unknown> | undefined { const inner = completedPayload(result) ?? record(result); return inner?.status === 'cancelled' ? inner : undefined; }
+/** What a completed bridge call achieved short of running: a plan that waits, a dialog that waits, or a cancelled command. */
+export function fidelisOutcome(result: unknown): 'awaiting_confirmation' | 'dialog' | 'cancelled' | undefined {
+  return awaitingConfirmation(result) ? 'awaiting_confirmation' : dialogWaiting(result) ? 'dialog' : cancelledAtDialog(result) ? 'cancelled' : undefined;
+}
 /** "Ready to run 3 steps; say yes to go ahead." — nothing has run. */
 export function awaitingSentence(plan: Record<string, unknown>): string {
   const steps = Array.isArray(plan.steps) ? plan.steps.length : finite(plan.steps);
@@ -122,6 +128,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   const plan = awaitingConfirmation(result); if (plan) return awaitingSentence(plan);
   // A waiting dialog is not an outcome: the model continues and fills it with fidelis_dialog_action.
   if (dialogWaiting(result) || name === 'fidelis_dialog') return undefined;
+  const cancelled = cancelledAtDialog(result);
+  if (cancelled) { const title = text(record(cancelled.dialog)?.title)?.replace(/(?:\.{3}|…)$/, ''); return title ? `Cancelled at the ${title} dialog; nothing more ran.` : 'Cancelled; nothing more ran.'; }
   if (silentFinishTools.has(name)) return '';
   const inner = completedPayload(result);
   // Read and view operations return the bridge result itself, without a decision envelope.
@@ -134,7 +142,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const area = record(raw.area), mean = finite(area?.mean), median = finite(area?.median);
     return `${plural(n, 'object')}${mean !== undefined ? `, mean area ${spokenArea(mean, raw.unit)}` : ''}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}.`;
   }
-  if (name === 'fidelis_cancel_plan') return 'Cancelled; nothing ran.';
+  if (name === 'fidelis_cancel_plan') return raw.dialogCancelled === true ? 'Cancelled the waiting dialog.' : 'Cancelled; nothing ran.';
   if (inner === undefined) return undefined;
   if (name === 'fidelis_segment_cells' || name === 'fidelis_analyze_particles') return countSentence(inner);
   // A mean is spoken as an intensity only on a document the bridge reports as not binary (segment_cells leaves the mask
@@ -346,6 +354,7 @@ export const fidelis: AppProfile = {
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
   // A waiting dialog, or a confirmed plan whose result has no local sentence (a measured mean on a possible mask), is
   // finished by the model with the real result instead of a bare "Done.".
+  outcomeOf: (_name, result) => fidelisOutcome(result),
   needsModel: (name, result, context) => dialogWaiting(result) || name === 'fidelis_confirm' && localSentenceFor(name, {}, result, context) === undefined,
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),
   prepareAction, modelArguments,

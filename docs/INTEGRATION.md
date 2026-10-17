@@ -69,8 +69,8 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
   measurement: later calls in the same model response are cancelled before dispatch and the model gets no further
   round for that request (the profile's `pausesRequest` hook).
 - The gateway's decision record keeps `status: "completed"` (the request itself completed) and adds
-  `outcome: "awaiting_confirmation"` to the audit journal, `fidelis_action_status` and the tool envelope, so no reader
-  reports the plan as run. Under `LUMA_APPROVALS=review` the "Running it now." after approval is skipped when the plan
+  `outcome: "awaiting_confirmation"` (or `"dialog"`, `"cancelled"`) to the audit journal, `fidelis_action_status` and
+  the tool envelope, so no reader reports the plan as run. Under `LUMA_APPROVALS=review` the "Running it now." after approval is skipped when the plan
   waits. Acknowledgments never claim a waiting plan ran (`fidelis_run_macro` says "Preparing the macro.").
 - A waiting plan is an answer, not a failure, on the instant path too (a view plan under `fidelis.penny.confirm=always`
   answers without a decision envelope).
@@ -98,10 +98,14 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 
 ### Original Fiji dialogs
 
-A legacy command whose original dialog opens answers `{status: "dialog", dialog: {title, fields, buttons}}`. That is
-not an outcome: no local sentence is spoken, the request goes back to the model, which fills the fields by key and
-presses a button with `fidelis_dialog_action {fields, press}` (default "OK"; `fidelis_dialog` reads a waiting dialog),
-and the request finishes from the command's result ("Ran Gaussian Blur."). The same holds when a confirmed plan or
+A legacy command whose original dialog opens answers `{status: "dialog", dialogId, dialog: {title, kind, fields,
+buttons}}`. That is not an outcome: no local sentence is spoken, the action is recorded with `outcome: "dialog"`, and
+the request goes back to the model, which fills the fields from the researcher's words (keeping the shown values
+otherwise) and presses a button with `fidelis_dialog_action {dialogId, fields, press}` (`dialogId` required, bound to
+that dialog; `press` defaults to "OK"; `fidelis_dialog` reads a waiting dialog). The request finishes from the
+command's result ("Ran Gaussian Blur."), or, when Cancel or No ends it (`status: "cancelled"`, HTTP 200), with
+"Cancelled at the Variance dialog; nothing more ran." and `outcome: "cancelled"`, never as done. File choosers are
+refused by the bridge (`FILE_CHOOSER`); the instructions send the model to `fidelis_open_path`. The same holds when a confirmed plan or
 another instant route opens a dialog: the profile's `needsModel` hook sends the request on to the model with what the
 step returned, instead of finishing as "Done.". The instructions say any Fiji menu command
 or plugin is available through `fidelis_commands` (by name or menu path) and `fidelis_command`, never to leave a dialog
@@ -171,7 +175,6 @@ stop it there first." (or "in the Fidelis workspace").
    model phrases the answer and is told never to report a mask's Mean as an intensity.
 2. Measuring object intensities on the original pixels after segmenting (for example Set Measurements redirected to a
    kept original), so "mean intensity of the nuclei" can become an instant route again.
-3. `dialog` and `dialog_action` rows in the contract table, with `{status: "dialog", dialog}` documented on `command`.
 
 ### Verification status
 

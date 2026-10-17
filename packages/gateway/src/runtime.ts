@@ -12,9 +12,10 @@ import { conversationEnvelope, withConversation, type ConversationEnvelope } fro
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
   createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string; decidedBy?: 'human' | 'policy';
-  /** The bridge accepted the request but ran nothing yet: its plan waits for the researcher (Fidelis `awaiting_confirmation`).
-   * `status` stays `completed` (the request itself completed); readers must not report the action as run. */
-  outcome?: 'awaiting_confirmation';
+  /** The bridge accepted the request but did not run it to the end: its plan waits for the researcher
+   * (`awaiting_confirmation`), its command's original dialog waits (`dialog`) or was cancelled (`cancelled`). `status`
+   * stays `completed` (the request itself completed); readers must not report the action as run. */
+  outcome?: 'awaiting_confirmation' | 'dialog' | 'cancelled';
 };
 /** Approval policy. The researcher asked for a fully agentic companion, so the default executes data/code actions
  * immediately; hierarchy checkpoints, the audit journal and Stop remain. LUMA_APPROVALS=review restores human review cards. */
@@ -130,7 +131,8 @@ export class Runtime extends EventEmitter {
         action.result = await withConversation(this.origins.get(action.id), () => this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget }));
         action.status = 'completed';
         // A plan that waits for confirmation is recorded (audit, action status, envelope) as not run.
-        if (this.profile.pausesRequest?.(action.tool, action.result)) action.outcome = 'awaiting_confirmation';
+        const outcome = this.profile.outcomeOf?.(action.tool, action.result) ?? (this.profile.pausesRequest?.(action.tool, action.result) ? 'awaiting_confirmation' : undefined);
+        if (outcome) action.outcome = outcome;
         // A decision taken outside the task (a review click) still attributes its tool event to that task.
         withConversation(this.origins.get(action.id), () => this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result}));
       } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); console.error(`[tool ${new Date().toISOString()}] ${action.tool} failed: ${action.error}`); }

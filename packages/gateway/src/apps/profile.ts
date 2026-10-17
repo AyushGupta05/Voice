@@ -75,6 +75,9 @@ export type AppProfile = {
   /** A completed instant-route result that still needs the model (a Fidelis command whose original dialog waits): the
    * request continues with the backend instead of finishing. */
   needsModel?(name: string, result: unknown, context?: unknown): boolean;
+  /** What a completed bridge call achieved short of running (Fidelis: a waiting plan or dialog, a command cancelled at its
+   * dialog), recorded as the action's `outcome` so the audit and action status never read it as run. */
+  outcomeOf?(name: string, result: unknown): 'awaiting_confirmation' | 'dialog' | 'cancelled' | undefined;
   /** A completed call whose plan now waits for the researcher (Fidelis `awaiting_confirmation`), as the sentence that
    * ends the request; nothing later in the request runs. Undefined for every other result. */
   pausesRequest?(name: string, result: unknown): string | undefined;

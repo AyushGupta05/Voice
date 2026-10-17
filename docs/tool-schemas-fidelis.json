@@ -103,7 +103,7 @@
     },
     {
       "name": "fidelis_command",
-      "description": "Run one catalogue command or plugin on the focused document by its exact commandId from fidelis_commands, with only the params you change (missing keys come from the schema defaults). One History step. A command whose original dialog opens returns status \"dialog\": fill and press it with fidelis_dialog_action.",
+      "description": "Run one catalogue command or plugin on the focused document by its exact commandId from fidelis_commands, with only the params you change (missing keys come from the schema defaults). One History step. A command whose original dialog opens returns status \"dialog\" with a dialogId: answer it with fidelis_dialog_action. File choosers are refused: use fidelis_open_path.",
       "operation": "command",
       "risk": "data",
       "inputSchema": {
@@ -144,7 +144,7 @@
     },
     {
       "name": "fidelis_dialog",
-      "description": "Read the original Fiji dialog waiting in Fidelis, if any: title, fields (key, label, type, value, choices) and buttons; dialog null when none is open.",
+      "description": "Read the original Fiji dialog Penny’s running plan waits on: dialogId, title, fields (id, key, label, type, value, choices) and buttons; pending false when none waits.",
       "operation": "dialog",
       "risk": "read",
       "inputSchema": {
@@ -156,12 +156,18 @@
     },
     {
       "name": "fidelis_dialog_action",
-      "description": "Fill the waiting Fiji dialog’s fields by key and press a button (default \"OK\"). Returns the command’s result, or the next dialog. Never leave a dialog open.",
+      "description": "Answer the waiting Fiji dialog by its dialogId: set fields by key (or id/label) and press a button (default \"OK\"; \"Cancel\" cancels the command). Returns the command’s result, the next dialog (new dialogId) or status cancelled. Never leave a dialog open.",
       "operation": "dialog_action",
       "risk": "data",
       "inputSchema": {
         "type": "object",
         "properties": {
+          "dialogId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The dialogId of the waiting dialog, from the command or fidelis_dialog result."
+          },
           "fields": {
             "type": "object",
             "maxProperties": 60,
@@ -182,11 +188,12 @@
           },
           "press": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 60
           }
         },
-        "required": [],
+        "required": [
+          "dialogId"
+        ],
         "additionalProperties": false
       }
     },

@@ -93,7 +93,7 @@ Search every Fiji/ImageJ menu command and plugin in the Fidelis catalogue by nam
 
 ## fidelis_command
 
-Run one catalogue command or plugin on the focused document by its exact commandId from fidelis_commands, with only the params you change (missing keys come from the schema defaults). One History step. A command whose original dialog opens returns status "dialog": fill and press it with fidelis_dialog_action.
+Run one catalogue command or plugin on the focused document by its exact commandId from fidelis_commands, with only the params you change (missing keys come from the schema defaults). One History step. A command whose original dialog opens returns status "dialog" with a dialogId: answer it with fidelis_dialog_action. File choosers are refused: use fidelis_open_path.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
@@ -104,7 +104,7 @@ Run one catalogue command or plugin on the focused document by its exact command
 
 ## fidelis_dialog
 
-Read the original Fiji dialog waiting in Fidelis, if any: title, fields (key, label, type, value, choices) and buttons; dialog null when none is open.
+Read the original Fiji dialog Penny’s running plan waits on: dialogId, title, fields (id, key, label, type, value, choices) and buttons; pending false when none waits.
 
 Input: `{}`.
 
@@ -112,12 +112,13 @@ Input: `{}`.
 
 ## fidelis_dialog_action
 
-Fill the waiting Fiji dialog’s fields by key and press a button (default "OK"). Returns the command’s result, or the next dialog. Never leave a dialog open.
+Answer the waiting Fiji dialog by its dialogId: set fields by key (or id/label) and press a button (default "OK"; "Cancel" cancels the command). Returns the command’s result, the next dialog (new dialogId) or status cancelled. Never leave a dialog open.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `fields` | No | object |
-| `press` | No | string; min 1 characters; max 60 characters |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `dialogId` | Yes | string; min 1 characters; max 100 characters | The dialogId of the waiting dialog, from the command or fidelis_dialog result. |
+| `fields` | No | object |  |
+| `press` | No | string; max 60 characters |  |
 
 <a id="fidelis-segment-cells"></a>
 

@@ -98,7 +98,8 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_segment_cells', {}); ok('fidelis_segment_cells', { channel: 1, method: 'Otsu', dark: true, minSize: 0, maxSize: 900, pixel: true, exclude: false, watershed: true, gaussian: true, sigma: 1, replace: true });
   bad('fidelis_segment_cells', { channel: 0 }); bad('fidelis_segment_cells', { keepArtifacts: true });
   ok('fidelis_measure', { measurements: ['area', 'mean', 'min', 'max', 'integrated', 'feret'], scope: 'rois' }); ok('fidelis_measure', { scope: 'all' }); bad('fidelis_measure', { scope: 'manager' }); bad('fidelis_measure', { measurements: ['maximum'], scope: 'roi' });
-  ok('fidelis_dialog', {}); ok('fidelis_dialog_action', {}); ok('fidelis_dialog_action', { fields: { sigma: 2, scaled: true, stack: 'all' }, press: 'OK' }); bad('fidelis_dialog_action', { fields: { nested: { a: 1 } } }); bad('fidelis_dialog_action', { button: 'OK' });
+  ok('fidelis_dialog', {}); ok('fidelis_dialog_action', { dialogId: 'dlg-7' }); ok('fidelis_dialog_action', { dialogId: 'dlg-7', fields: { radius: 3, f1: false }, press: 'OK' }); ok('fidelis_dialog_action', { dialogId: 'dlg-7', press: '' });
+  bad('fidelis_dialog_action', {}); bad('fidelis_dialog_action', { fields: { radius: 3 }, press: 'OK' }); bad('fidelis_dialog_action', { dialogId: 'dlg-7', fields: { nested: { a: 1 } } }); bad('fidelis_dialog_action', { dialogId: 'dlg-7', button: 'OK' });
   ok('fidelis_undo', { steps: 9 }); bad('fidelis_undo', { steps: 21 }); ok('fidelis_cancel_plan', { planId: 'plan-7' }); ok('fidelis_highlight', { rois: 'active', limit: 10 });
   ok('fidelis_activate_image', { imageId: -3 }); ok('fidelis_rois', { limit: 5, offset: 10 }); ok('fidelis_display', { auto: true, channel: 2 });
   ok('fidelis_filter', { name: 'unsharp', radius: 1, mask: 0.6 }); ok('fidelis_filter', { name: 'enhance_contrast', saturated: 0.35, normalize: true, equalize: false, stack: true });
@@ -127,7 +128,7 @@ test('instructions are action-first, Fidelis-specific and within the Fiji budget
     'recorded in Fidelis History', 'undoable with fidelis_undo', 'steps n for "the last n"', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
     'Use fidelis_commands to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
     'never arithmetic on truncated rows', 'it replaces the previous segmentation', 'The segmented document is its mask', 'as an intensity; say the original pixels are needed',
-    'any Fiji menu command or plugin is available', 'by name or menu path', 'fill and press it with fidelis_dialog_action', 'never leave a dialog open', 'fidelis_run_macro for anything else; it always needs confirmation', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'any Fiji menu command or plugin is available', 'by name or menu path', 'press it with fidelis_dialog_action and that dialogId', 'Status "cancelled" ran nothing more', 'File choosers are refused: use fidelis_open_path', 'never leave a dialog open', 'fidelis_run_macro for anything else; it always needs confirmation', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -226,11 +227,18 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_redo', completed({ step: {} })), 'Redone.');
   assert.equal(say('fidelis_undo', completed({ step: { label: 'Undo' }, undoneActionId: 'h9', undoneActionIds: ['h9', 'h8', 'h7'] }), { steps: 3 }), 'Undid 3 steps.');
   // An original Fiji dialog waiting is not an outcome: the model fills it.
-  const dialog = { status: 'dialog', dialog: { title: 'Gaussian Blur...', fields: [{ key: 'sigma', label: 'Sigma', type: 'number', value: 2 }], buttons: ['OK', 'Cancel'] } };
+  const dialog = { status: 'dialog', dialogId: 'dlg-7', dialog: { title: 'Gaussian Blur...', kind: 'generic', fields: [{ id: 'f0', key: 'sigma', label: 'Sigma', type: 'number', value: '2.0' }], buttons: ['Cancel', 'OK'] } };
   assert.equal(dialogWaiting(completed(dialog)), true); assert.equal(say('fidelis_command', completed(dialog), { commandId: 'ij1:Process>Filters>Gaussian Blur...' }), undefined);
   assert.equal(fidelis.requestContinuesAfter('fidelis_command', 'blur it', completed(dialog)), true);
   assert.equal(say('fidelis_dialog', { dialog: dialog.dialog }), undefined); assert.equal(say('fidelis_dialog_action', completed(dialog)), undefined, 'a second dialog is still waiting');
   assert.equal(say('fidelis_dialog_action', completed({ status: 'completed', step: { label: 'Gaussian Blur...' }, steps: [{}] })), 'Ran Gaussian Blur.');
+  // Cancel (or No) on the dialog ends the command: never "Ran …".
+  const cancelled = { status: 'cancelled', dialog: { title: 'Variance...' }, state: 'FAILED', engineMessage: 'Macro canceled', step: { label: 'Variance...' }, completedSteps: [] };
+  assert.equal(say('fidelis_dialog_action', completed(cancelled), { dialogId: 'dlg-7', press: 'Cancel' }), 'Cancelled at the Variance dialog; nothing more ran.');
+  assert.equal(say('fidelis_confirm', completed(cancelled)), 'Cancelled at the Variance dialog; nothing more ran.');
+  assert.equal(fidelis.outcomeOf!('fidelis_command', completed(cancelled)), 'cancelled'); assert.equal(fidelis.outcomeOf!('fidelis_command', completed(dialog)), 'dialog');
+  assert.equal(fidelis.outcomeOf!('fidelis_run_macro', completed(plan)), 'awaiting_confirmation'); assert.equal(fidelis.outcomeOf!('fidelis_filter', completed({ step: {} })), undefined);
+  assert.equal(say('fidelis_cancel_plan', { cancelled: true, dialogCancelled: true }), 'Cancelled the waiting dialog.');
   assert.equal(say('fidelis_command', completed({ step: { label: 'Gaussian Blur...', commandId: 'ij1:Process>Filters>Gaussian Blur...', outcome: 'COMPLETED' } }), { commandId: 'ij1:Process>Filters>Gaussian Blur...' }), 'Ran Gaussian Blur.');
   assert.equal(say('fidelis_command', completed({ step: {} }), { commandId: 'ij1:Process>Binary>Fill Holes' }), 'Ran Fill Holes.');
   assert.equal(say('fidelis_open_path', completed({ document: { id: 'doc-4', title: 'hela-cells.tif', width: 672, height: 512 }, highlight: {} })), 'Opened hela cells, 672 by 512.');
@@ -511,11 +519,11 @@ test('a legacy command whose original dialog waits is filled and pressed, then f
   const bridge = await fakeBridge(root, (request, state) => {
     if (request.operation === 'command') {
       open = { title: 'Gaussian Blur...', fields: [{ key: 'sigma', label: 'Sigma (Radius)', type: 'number', value: 2, choices: null }, { key: 'scaled', label: 'Scaled units', type: 'checkbox', value: false }], buttons: ['OK', 'Cancel'] };
-      return { status: 'dialog', dialog: open };
+      return { status: 'dialog', dialogId: 'dlg-1', planId: 'plan-gauss', operation: 'command', dialog: open };
     }
-    if (request.operation === 'dialog') return { dialog: open };
+    if (request.operation === 'dialog') return open ? { pending: true, status: 'dialog', dialogId: 'dlg-1', dialog: open } : { pending: false, others: [] };
     if (request.operation === 'dialog_action') {
-      assert.ok(open, 'a dialog is waiting');
+      assert.ok(open, 'a dialog is waiting'); assert.equal(request.arguments.dialogId, 'dlg-1', 'the answer is bound to that dialog');
       open = null; state.context = { ...state.context, contextKey: 'k-blurred', counts: { rois: 0, resultsRows: 0, history: 3 } };
       return { status: 'completed', step: { actionId: 'h3', label: 'Gaussian Blur...', commandId: 'ij1:Process>Filters>Gaussian Blur...', outcome: 'COMPLETED' }, steps: [{}], contextKey: 'k-blurred' };
     }
@@ -528,14 +536,15 @@ test('a legacy command whose original dialog waits is filled and pressed, then f
     if (rounds.length === 1) return { output: [{ type: 'function_call', call_id: 'c1', name: 'fidelis_command', arguments: JSON.stringify({ commandId: 'ij1:Process>Filters>Gaussian Blur...' }) }] };
     const seen = JSON.stringify(request.input);
     assert.match(seen, /\\"status\\":\\"dialog\\"/, 'the model sees the waiting dialog');
-    return { output: [{ type: 'function_call', call_id: 'c2', name: 'fidelis_dialog_action', arguments: JSON.stringify({ fields: { sigma: 3 }, press: 'OK' }) }] };
+    return { output: [{ type: 'function_call', call_id: 'c2', name: 'fidelis_dialog_action', arguments: JSON.stringify({ dialogId: 'dlg-1', fields: { sigma: 3 }, press: 'OK' }) }] };
   } };
   const { conversation: talk, result } = conversation(runtime, client);
   try {
     await talk.submit('Blur it with a Gaussian of sigma 3', true);
     assert.equal(rounds.length, 2, 'the dialog sent the request back to the model, which filled it');
     assert.deepEqual(bridge.requests.filter(request => request.operation !== 'context').map(request => [request.operation, request.arguments]),
-      [['command', { commandId: 'ij1:Process>Filters>Gaussian Blur...' }], ['dialog_action', { fields: { sigma: 3 }, press: 'OK' }]]);
+      [['command', { commandId: 'ij1:Process>Filters>Gaussian Blur...' }], ['dialog_action', { dialogId: 'dlg-1', fields: { sigma: 3 }, press: 'OK' }]]);
+    assert.deepEqual([...runtime.actions.values()].map(action => [action.tool, action.outcome]), [['fidelis_command', 'dialog'], ['fidelis_dialog_action', undefined]], 'the command is recorded as waiting at its dialog');
     const pressed = bridge.requests.find(request => request.operation === 'dialog_action')!;
     assert.equal(pressed.approved, true); assert.equal(pressed.utterance, 'Blur it with a Gaussian of sigma 3');
     assert.equal(result()!.text, 'Ran Gaussian Blur.');
@@ -588,7 +597,7 @@ test('a spoken "cancel" consumed as barge-in still discards a waiting plan, and 
 test('a confirmed plan whose command opens its original dialog continues with the model instead of saying "Done."', async () => {
   const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-confirm-dialog-'));
   const bridge = await fakeBridge(root, (request, state) => {
-    if (request.operation === 'confirm') { state.context = { ...state.context, contextKey: 'k-dialog', pending: null }; return { status: 'dialog', planId: 'plan-legacy', dialog: { title: 'Bandpass Filter...', fields: [{ key: 'filter_large', label: 'Filter large structures down to', type: 'number', value: 40 }], buttons: ['OK', 'Cancel'] } }; }
+    if (request.operation === 'confirm') { state.context = { ...state.context, contextKey: 'k-dialog', pending: null }; return { status: 'dialog', dialogId: 'dlg-9', planId: 'plan-legacy', dialog: { title: 'Bandpass Filter...', fields: [{ key: 'filter_large', label: 'Filter large structures down to', type: 'number', value: 40 }], buttons: ['OK', 'Cancel'] } }; }
     if (request.operation === 'dialog_action') return { status: 'completed', step: { label: 'Bandpass Filter...', outcome: 'COMPLETED' }, steps: [{}] };
     throw new Error(`unexpected ${request.operation}`);
   });
@@ -598,7 +607,7 @@ test('a confirmed plan whose command opens its original dialog continues with th
   const client: BackendClient = { complete: async request => {
     rounds.push(request);
     assert.match(JSON.stringify(request.input), /fidelis_confirm .* returned .*Bandpass Filter/, 'the model sees what the instant step returned');
-    return { output: [{ type: 'function_call', call_id: 'd1', name: 'fidelis_dialog_action', arguments: JSON.stringify({ press: 'OK' }) }] };
+    return { output: [{ type: 'function_call', call_id: 'd1', name: 'fidelis_dialog_action', arguments: JSON.stringify({ dialogId: 'dlg-9', press: 'OK' }) }] };
   } };
   const { conversation: talk, events, result } = conversation(runtime, client);
   try {
