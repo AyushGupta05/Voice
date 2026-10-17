@@ -1258,6 +1258,14 @@ public final class LumaExtension implements QuPathExtension {
                 int positive = 0;
                 for (var object : matches) { boolean above = object.getMeasurementList().get(measurement) >= threshold; object.setPathClass(PathClass.fromString(above ? "Positive" : "Negative")); if (above) positive++; }
                 hierarchy.fireObjectClassificationsChangedEvent(this,matches);
+                // Record the threshold as a replayable Groovy step so "save this as a workflow" includes the classification.
+                String escaped = measurement.replace("\\","\\\\").replace("'","\\'");
+                String scopeExpression = string(args,"scope","all").equals("all") ? "getDetectionObjects()" : "getSelectedObjects().findAll { it.isAnnotation() }.collectMany { a -> getCurrentHierarchy().getObjectsForROI(null, a.getROI()).findAll { it.isDetection() } } + getSelectedObjects().findAll { it.isDetection() }";
+                String groovy = "// Luma threshold classification: " + measurement + " >= " + threshold + "\n"
+                    + "def positive = getPathClass('Positive'); def negative = getPathClass('Negative')\n"
+                    + "for (o in " + scopeExpression + ") { def v = o.getMeasurementList().get('" + escaped + "'); if (Double.isFinite(v)) o.setPathClass(v >= " + threshold + " ? positive : negative) }\n"
+                    + "fireHierarchyUpdate()";
+                image.getHistoryWorkflow().addStep(new DefaultScriptableWorkflowStep("Threshold classification: " + measurement + " >= " + threshold, groovy));
                 result = Map.of("positive",positive,"negative",matches.size()-positive,"measurement",measurement,"threshold",threshold,"highlight",scopeHighlight(args,matches,positive + " positive of " + matches.size()));
             }
             case "delete" -> {
