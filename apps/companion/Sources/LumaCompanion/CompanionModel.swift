@@ -2,6 +2,7 @@ import AppKit
 import os
 import SwiftUI
 import Foundation
+import LumaPresentation
 
 struct Activity: Identifiable {
     let id = UUID()
@@ -27,6 +28,7 @@ final class CompanionModel: ObservableObject {
     @Published var voiceReady = false
     /// Display name of the scientific application the gateway is driving (QuPath, Fiji, …), from /health.
     @Published var appName = "QuPath"
+    @Published var application = CompanionApplication.qupath
     @Published var voiceStarting = false
     @Published var voiceSpeaking = false
     @Published var textReady = false
@@ -50,6 +52,10 @@ final class CompanionModel: ObservableObject {
     @Published var executingText = ""
     /// Final sentence of the last task, shown briefly in the bar after it finishes.
     @Published var resultText = ""
+    @Published var resultIsError = false
+    var canStopTask: Bool { textBusy || voiceSpeaking }
+    var voiceOn: Bool { voiceActive || voiceStarting }
+    var canStartVoice: Bool { connected && eventsReady && voiceReady }
     private var resultClear: Task<Void, Never>?
     /// Pending (review-mode) action IDs already shown as an activity line; the bar never surfaces approvals.
     private var notedPendingActionIDs = Set<String>()
@@ -139,6 +145,7 @@ final class CompanionModel: ObservableObject {
             bridgeConnected = health["bridgeError"] == nil
             voiceReason = (health["voice"] as? [String: Any])?["reason"] as? String ?? "Voice funding has not been verified."
             voiceReady = (health["voice"] as? [String: Any])?["enabled"] as? Bool ?? false
+            application = CompanionApplication(id: (health["app"] as? [String: Any])?["id"] as? String)
             if let name = (health["app"] as? [String: Any])?["displayName"] as? String, !name.isEmpty { appName = name }
             armVoiceIfWanted()
             let text = health["text"] as? [String: Any] ?? [:]
@@ -150,12 +157,8 @@ final class CompanionModel: ObservableObject {
                 lastDispatchFailure = id
                 activities.insert(Activity(title: "\(appName) action stopped", detail: dispatch["error"] as? String ?? "Review the action again.", isError: true), at: 0)
             }
-            imageName = (context["image"] as? [String: Any])?["name"] as? String ?? "No image open"
-            let selected = context["selection"] as? [[String: Any]] ?? []
-            let selectionCount = context["selectionCount"] as? Int ?? selected.count
-            if selectionCount == 0 { selectionLabel = "Select a region" }
-            else if selectionCount == 1 && !selected.isEmpty { selectionLabel = selected[0]["name"] as? String ?? "1 \(selected[0]["kind"] as? String ?? "object") selected" }
-            else { selectionLabel = "\(selectionCount) objects selected" }
+            imageName = application.imageName(context: context)
+            selectionLabel = application.selectionLabel(context: context)
             let actions = health["actions"] as? [[String: Any]] ?? []
             runningActionIDs = Set(actions.filter { $0["status"] as? String == "running" }.compactMap { $0["id"] as? String })
             for action in actions where action["status"] as? String == "pending" { notePendingAction(action) }
@@ -232,16 +235,19 @@ final class CompanionModel: ObservableObject {
             }
         case "tool":
             let name = event["name"] as? String ?? "Action"
-            if name == "qupath_context" { Task { await refresh() }; return }
+            if name == "qupath_context" || name == "fiji_context" { Task { await refresh() }; return }
             let result = event["result"] as? [String: Any] ?? [:]
             let nested = result["result"] as? [String: Any] ?? result
             if name == "qupath_measurement_summary", let data = try? JSONSerialization.data(withJSONObject: nested),
                let report = try? JSONDecoder().decode(MeasurementReport.self, from: data) {
                 measurementReport = report
             }
-            activities.insert(Activity(title: friendly(name), detail: summary(nested, toolName: name), payload: richPayload(nested)), at: 0)
-            if let highlight = nested["highlight"] as? [String: Any] { self.pointer.highlight(highlight) }
-            else if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
+            let failure = ToolFeedback.failure(result)
+            activities.insert(Activity(title: failure == nil ? friendly(name) : "Couldn’t finish \(friendly(name).lowercased())", detail: failure ?? summary(nested, toolName: name), isError: failure != nil, payload: richPayload(nested)), at: 0)
+            if failure == nil {
+                if let highlight = nested["highlight"] as? [String: Any] { self.pointer.highlight(highlight) }
+                else if let pointer = nested["pointer"] as? [String: Any], let x = pointer["screenX"] as? Double, let y = pointer["screenY"] as? Double { self.pointer.show(x: x, y: y, label: "Right here") }
+            }
             activities = Array(activities.prefix(40))
             Task { await refresh() }
         case "action":
@@ -264,16 +270,19 @@ final class CompanionModel: ObservableObject {
             Task { await refresh() }
         case "error":
             if let requestID = event["requestId"] as? String, requestID != voiceRequestID { return }
-            activities.insert(Activity(title: "Needs attention", detail: event["message"] as? String ?? "Unknown error", isError: true), at: 0)
+            let message = event["message"] as? String ?? "Unknown error"
+            activities.insert(Activity(title: "Needs attention", detail: message, isError: true), at: 0)
+            showResult(message, isError: true)
             voiceWanted = false
             resetVoice()
         case "text_ack":
-            if let text = event["text"] as? String, !text.isEmpty { executingText = text; textBusy = true; resultText = "" }
+            if let text = event["text"] as? String, !text.isEmpty { executingText = text; textBusy = true; resultClear?.cancel(); resultText = ""; resultIsError = false }
         case "text_result":
             if let text = event["text"] as? String {
-                activities.insert(Activity(title: "Penny", detail: text, icon: "sparkle"), at: 0)
+                let failed = event["outcome"] as? String == "failed" || event["isError"] as? Bool == true
+                activities.insert(Activity(title: "Penny", detail: text, isError: failed, icon: "sparkle"), at: 0)
                 activities = Array(activities.prefix(40))
-                showResult(text)
+                showResult(text, isError: failed)
             }
         case "text_progress":
             if let text = event["text"] as? String {
@@ -282,7 +291,9 @@ final class CompanionModel: ObservableObject {
             }
         case "text_error":
             textBusy = false; executingText = ""
-            activities.insert(Activity(title: "Text task stopped", detail: event["message"] as? String ?? "Inspect the application before retrying.", isError: true), at: 0)
+            let message = event["message"] as? String ?? "Inspect the application before retrying."
+            activities.insert(Activity(title: "Task stopped", detail: message, isError: true), at: 0)
+            showResult(message, isError: true)
         case "task_state":
             textBusy = event["state"] as? String == "working"
             if !textBusy { executingText = ""; if !resultText.isEmpty { scheduleResultClear() } }
@@ -303,6 +314,8 @@ final class CompanionModel: ObservableObject {
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
             playbackEpoch = event["epoch"] as? Int ?? playbackEpoch
             playbackSuppressed = false; voiceSpeaking = false; audio.interruptPlayback()
+            // A spoken Stop is a transport event, so no later answer will replace an old success sentence.
+            resultClear?.cancel(); resultText = ""; resultIsError = false; executingText = ""
         case "voice_speaking":
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID, let epoch = event["epoch"] as? Int, epoch >= playbackEpoch else { return }
             playbackEpoch = epoch; playbackSuppressed = false; voiceSpeaking = true
@@ -310,6 +323,8 @@ final class CompanionModel: ObservableObject {
             if event["queued"] as? Bool != true { audio.interruptPlayback() }
         case "voice_transcript":
             guard event["requestId"] as? String == voiceRequestID, event["sessionId"] as? String == voiceSessionID else { return }
+            // The gateway also observes room speech rejected by its wake-word gate; that is not a new user request.
+            if event["addressed"] as? Bool == false { liveTranscript = ""; return }
             if event["partial"] as? Bool == false, let text = event["text"] as? String {
                 liveTranscript = ""
                 activities.insert(Activity(title: "You", detail: text, icon: "mic"), at: 0)
@@ -320,8 +335,12 @@ final class CompanionModel: ObservableObject {
         case "voice_error":
             guard event["requestId"] as? String == voiceRequestID else { return }
             Logger(subsystem: "science.luma.companion", category: "audio").error("Voice error from gateway: \(event["message"] as? String ?? "unknown")")
-            activities.insert(Activity(title: "Voice needs attention", detail: event["message"] as? String ?? "Speech is unavailable.", isError: true), at: 0)
+            let message = event["message"] as? String ?? "Speech is unavailable."
+            activities.insert(Activity(title: "Voice needs attention", detail: message, isError: true), at: 0)
             voiceWanted = false
+            // A refused Start has no session that could send an idle event; clear its connecting state here.
+            if voiceSessionID == nil { resetVoice() }
+            showResult(message, isError: true)
             expanded = true
         case "voice_state":
             guard let requestID = event["requestId"] as? String, requestID == voiceRequestID else { return }
@@ -358,7 +377,7 @@ final class CompanionModel: ObservableObject {
     func search() async {
         guard knowledgeQuery.count >= 2 else { return }
         do {
-            let response = try await request("/tools/call", body: ["name": "qupath_knowledge", "arguments": ["query": knowledgeQuery]])
+            let response = try await request("/tools/call", body: ["name": application.knowledgeTool, "arguments": ["query": knowledgeQuery]])
             knowledgeResults = (response["result"] as? [String: Any])?["results"] as? [[String: Any]] ?? []
         } catch { activities.insert(Activity(title: "Search unavailable", detail: error.localizedDescription, isError: true), at: 0) }
     }
@@ -398,11 +417,13 @@ final class CompanionModel: ObservableObject {
         send(["type": "stop_task"])
         playbackSuppressed = true; voiceSpeaking = false; audio.interruptPlayback()
         textBusy = false; executingText = ""
+        resultClear?.cancel(); resultText = ""; resultIsError = false
     }
     /// Keep the final sentence in the bar for a few seconds, then fall back to Listening or Idle.
-    private func showResult(_ text: String) {
+    private func showResult(_ text: String, isError: Bool = false) {
         executingText = ""
         resultText = text
+        resultIsError = isError
         scheduleResultClear()
     }
     private func scheduleResultClear() {
@@ -410,7 +431,7 @@ final class CompanionModel: ObservableObject {
         resultClear = Task { [weak self] in
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
-            self?.resultText = ""
+            self?.resultText = ""; self?.resultIsError = false
         }
     }
     /// Results worth rendering beyond one line: saved/generated workflow scripts and per-class counts.
@@ -522,7 +543,7 @@ final class CompanionModel: ObservableObject {
         let labels = ["qupath_project_images": "Project images", "qupath_analysis_catalog": "Analysis options", "qupath_measurement_summary": "Measured results", "qupath_open_path": "Open image or project", "qupath_open_project_image": "Open project image", "qupath_inspect_import": "Inspect annotation file", "qupath_import_annotations": "Import annotations",
                       "qupath_detect_cells": "Detected cells", "qupath_class_summary": "Counted classes", "qupath_workflow_steps": "Workflow steps", "qupath_save_workflow": "Saved workflow", "qupath_select": "Selected objects", "qupath_snapshot": "Captured the viewer", "qupath_delete_selected": "Deleted selected objects", "qupath_image_type": "Set image type", "qupath_run_script": "Ran a script", "qupath_run_command": "Ran a command", "qupath_compare": "Compared with checkpoint", "qupath_checkpoints": "Listed checkpoints", "qupath_ui_action": "Operated a control"]
         if let label = labels[name] { return label }
-        return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated overlays", "qupath_highlight": "Pointed it out", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
+        return ["qupath_context": "Read current selection", "qupath_focus": "Focused your view", "qupath_overlays": "Updated overlays", "qupath_highlight": "Pointed it out", "qupath_checkpoint": "Saved a checkpoint", "qupath_objects": "Found objects", "qupath_measurements": "Read measurements", "qupath_annotate": "Created a region", "qupath_classify": "Classified cells", "qupath_restore": "Restored earlier results"][name] ?? name.replacingOccurrences(of: "qupath_", with: "").replacingOccurrences(of: "fiji_", with: "").replacingOccurrences(of: "_", with: " ").capitalized
     }
     func summary(_ value: [String: Any], toolName: String? = nil) -> String {
         if toolName == "qupath_project_images" {
@@ -550,7 +571,7 @@ final class CompanionModel: ObservableObject {
         if let imported = value["imported"] { return "\(imported) annotations imported" }
         if value["alreadyActive"] as? Bool == true { return "That image is already active" }
         if value["dispatched"] as? Bool == true { return "Dispatched to \(appName). Inspect the application to confirm completion." }
-        if value["completionVerified"] as? Bool == false { return "Operation finished. Inspect the result and log in QuPath." }
+        if value["completionVerified"] as? Bool == false { return "Operation finished. Inspect the result and log in \(appName)." }
         if let total = value["total"] { return "\(total) objects in scope" }
         if let selected = value["selected"] { return "\(selected) objects selected" }
         if let counts = value["counts"] as? [String: Any] { return counts.keys.sorted().prefix(3).map { "\(counts[$0]!) \($0)" }.joined(separator: " · ") }

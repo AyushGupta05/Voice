@@ -1,12 +1,38 @@
 import { tools as toolDefinitions } from '../src/tools.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import WebSocket from 'ws';
 import { startServer } from '../src/server.js';
+
+test('a competing voice start reports its own request ID so the bar can leave Connecting', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-voice-owner-'));
+  const gateway = await startServer(root, 0, { speechProvider: {
+    transcribe: async (_audio, signal, callbacks) => { callbacks.inputReady(); await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true })); },
+    speak: async () => new Uint8Array([0, 0]),
+  } });
+  const state = join(root, '.local/state'), expiresAt = new Date(Date.now() + 60_000).toISOString(), accountHash = 'a'.repeat(64);
+  const { BEDROCK_MODEL } = await import('../src/aws-credit-proof.js');
+  await writeFile(join(state, 'text-funding.json'), JSON.stringify({ version: 1, accountHash, expiresAt, model: BEDROCK_MODEL, maximumReservedUSD: 200 }));
+  await writeFile(join(state, 'speech-funding.json'), JSON.stringify({ version: 1, route: 'aws-transcribe-polly-openai', accountHash, expiresAt, maximumReservedUSD: 200, maximumSessionSeconds: 180 }));
+  const address = gateway.server.address(); assert(address && typeof address === 'object');
+  const token = (await readFile(join(state, 'companion-token'), 'utf8')).trim();
+  const connect = () => { const ws = new WebSocket(`ws://127.0.0.1:${address.port}/events`, { headers: { Authorization: `Bearer ${token}` } }); const events: any[] = []; ws.on('message', raw => events.push(JSON.parse(raw.toString()))); return { ws, events }; };
+  const first = connect(), second = connect();
+  const until = async (events: any[], type: string) => { const deadline = Date.now() + 2000; while (!events.some(event => event.type === type)) { assert(Date.now() < deadline, `Expected ${type}`); await new Promise(resolve => setTimeout(resolve, 5)); } return events.find(event => event.type === type); };
+  try {
+    await Promise.all([once(first.ws, 'open'), once(second.ws, 'open')]);
+    first.ws.send(JSON.stringify({ type: 'start_voice', requestId: '11111111-1111-4111-8111-111111111111' }));
+    await until(first.events, 'voice_state');
+    const requestId = '22222222-2222-4222-8222-222222222222';
+    second.ws.send(JSON.stringify({ type: 'start_voice', requestId }));
+    const error = await until(second.events, 'voice_error');
+    assert.equal(error.requestId, requestId); assert.match(error.message, /already active/);
+  } finally { first.ws.terminate(); second.ws.terminate(); await gateway.close(); await rm(root, { recursive: true, force: true }); }
+});
 
 test('loopback gateway separates model tools from human approval and blocks browser origins',async()=>{
   const root=await mkdtemp(join(tmpdir(),'luma-server-'));const gateway=await startServer(root,0);

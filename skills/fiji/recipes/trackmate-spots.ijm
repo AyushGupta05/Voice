@@ -49,11 +49,11 @@ js = "var T = Packages.fiji.plugin.trackmate, imp = Packages.ij.WindowManager.ge
   + "var fm = model.getFeatureModel(), ids = model.getTrackModel().trackIDs(true).toArray(), speed = 0, length = 0;"
   + "for (var i = 0; i < ids.length; i++) { speed += fm.getTrackFeature(ids[i], 'TRACK_MEAN_SPEED'); length += fm.getTrackFeature(ids[i], 'NUMBER_SPOTS'); }"
   + "if (imp.getWindow() != null) { var V = T.visualization.hyperstack.HyperStackDisplayer; var view = new V(model, new T.SelectionModel(model), imp, T.gui.displaysettings.DisplaySettingsIO.readUserDefault()); view.render(); view.refresh(); }"
-  + "model.getSpots().getNSpots(true) + ' ' + ids.length + ' ' + (ids.length ? speed / ids.length : 0) + ' ' + (ids.length ? length / ids.length : 0) + ' ' + used; }";
+  + "model.getSpots().getNSpots(true) + ' ' + ids.length + ' ' + (ids.length ? speed / ids.length : NaN) + ' ' + (ids.length ? length / ids.length : NaN) + ' ' + used; }";
 answer = eval("js", js);
 if (startsWith(answer, "ERROR")) { print("RESULT error=trackmate_failed message=[" + answer + "]"); exit; }
 parts = split(answer, " ");
 spots = parseInt(parts[0]); tracks = parseInt(parts[1]);
-print("RESULT spots=" + spots + " tracks=" + tracks + " spotsPerFrame=" + d2s(spots / frames, 2) + " meanTrackSpots=" + d2s(parseFloat(parts[3]), 2) + " meanSpeed=" + d2s(parseFloat(parts[2]), 3) + " quality=" + d2s(parseFloat(parts[4]), 2) + " unit=" + replace(unit, " ", "_") + " timeUnit=" + replace(timeUnit, " ", "_") + " frames=" + frames + " channel=" + channel);
+print("RESULT spots=" + spots + " tracks=" + tracks + " spotsPerFrame=" + d2s(spots / frames, 2) + " meanTrackSpots=" + d2s(parseFloat(parts[3]), 2) + " meanSpeed=" + d2s(parseFloat(parts[2]), 3) + " quality=" + d2s(parseFloat(parts[4]), 2) + " unit=" + replace(unit, "\\s", "_") + " timeUnit=" + replace(timeUnit, "\\s", "_") + " frames=" + frames + " channel=" + channel);
 
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

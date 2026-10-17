@@ -4,19 +4,21 @@
 // @param channel = 1 | channel with the fibres, 1-based
 // @param method = Fourier components | "Fourier components" or "Local gradient orientation"
 // @param bins = 90 | histogram bins over −90…90°
-// @output Nothing new is opened. Reports the dominant direction from Directionality (0° = horizontal, counter-clockwise positive), its dispersion, the amount of structure in that peak and the goodness of the Gaussian fit.
+// @output Current plane only. Nothing new is opened. Reports the dominant direction from Directionality (0° = horizontal, counter-clockwise positive), its dispersion, the amount of structure in that peak and the goodness of the Gaussian fit.
 // @say Fibres run at {direction} degrees, spread {dispersion} degrees.
 channel = parseFloat(pennyParam("channel", "1"));
 method = pennyParam("method", "Fourier components");
 bins = parseFloat(pennyParam("bins", "90"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
 getDimensions(w, h, channels, slices, frames);
 if (channels > 1) Stack.setChannel(channel);
 run("Select None");
-run("Duplicate...", "title=penny-fibres");
+pennyPlane("penny-fibres-" + tag);
 if (bitDepth() == 24) run("8-bit");
 // The plugin's analysis table is not shown in batch mode, so its fit is read from the plugin object.
 kind = "FOURIER_COMPONENTS"; if (startsWith(toLowerCase(method), "local")) kind = "LOCAL_GRADIENT_ORIENTATION";
@@ -26,9 +28,14 @@ js = "var imp = Packages.ij.WindowManager.getCurrentImage(); var D = Packages.fi
   + "(f[0] * 180 / Math.PI) + ' ' + (f[1] * 180 / Math.PI) + ' ' + f[2] + ' ' + f[3];";
 parts = split(eval("js", js), " ");
 direction = parseFloat(parts[0]); dispersion = parseFloat(parts[1]); amount = parseFloat(parts[2]); goodness = parseFloat(parts[3]);
-close("penny-fibres");
+close("penny-fibres-" + tag);
 selectImage(orig);
 if (!wasBatch) setBatchMode("exit and display");
 print("RESULT direction=" + d2s(direction, 2) + " dispersion=" + d2s(dispersion, 2) + " amount=" + d2s(amount, 3) + " goodness=" + d2s(goodness, 3) + " channel=" + channel);
 
+/** Duplicates only the displayed plane (current channel, slice and frame); a plain Duplicate of a composite z-stack copies every channel. */
+function pennyPlane(name) {
+  if (Stack.isHyperstack || is("composite")) { Stack.getPosition(pc, pz, pt); run("Duplicate...", "title=[" + name + "] duplicate channels=" + pc + " slices=" + pz + " frames=" + pt); }
+  else run("Duplicate...", "title=[" + name + "]");
+}
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

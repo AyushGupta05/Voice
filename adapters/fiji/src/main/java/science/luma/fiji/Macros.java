@@ -12,6 +12,8 @@ import ij.gui.MultiLineLabel;
 import ij.macro.Interpreter;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
+import ij.plugin.frame.RoiManager;
+import ij.gui.Roi;
 import java.awt.Button;
 import java.awt.Component;
 import java.awt.Container;
@@ -335,6 +337,7 @@ final class Macros {
                 if (files.isEmpty()) throw new IllegalArgumentException("No files in " + folder + " match " + pattern + ".");
                 journal.record("run_workflow", "// run " + file.getFileName() + " on " + Math.min(limit, files.size()) + " images in " + folder + (argument.isEmpty() ? "" : " with \"" + Journal.escape(argument) + "\""));
                 boolean wasBatch = Interpreter.batchMode;
+                var nativeState = LumaBridge.edt(FolderState::capture);
                 try {
                     for (var image : files.subList(0, Math.min(limit, files.size()))) {
                         long remaining = deadline - System.currentTimeMillis();
@@ -349,7 +352,10 @@ final class Macros {
                         if (run.ok()) processed++;
                         if (timedOut) break;
                     }
-                } finally { if (!wasBatch) Interpreter.batchMode = false; }
+                } finally {
+                    if (!wasBatch) Interpreter.batchMode = false;
+                    LumaBridge.edt(() -> { nativeState.restore(); return null; });
+                }
             }
             default -> throw new IllegalArgumentException("target must be active, open or folder.");
         }
@@ -368,6 +374,43 @@ final class Macros {
         if (matched > limit) result.put("limited", "Processed the first " + limit + " of " + matched + " matching images (limit).");
         result.put("durationMs", System.currentTimeMillis() - started);
         return result;
+    }
+    /** Folder macros use ImageJ's global manager and Results table; leave the interactive analysis exactly as it was. */
+    private record FolderState(RoiManager manager, Roi[] rois, String[] labels, int[] selected, ResultsTable results,
+                               ImagePlus image, boolean imageHadWindow, int channel, int z, int t, int slice, Roi activeRoi) {
+        static FolderState capture() {
+            var manager = RoiManager.getRawInstance();
+            Roi[] rois = manager == null ? new Roi[0] : Arrays.stream(manager.getRoisAsArray()).map(roi -> (Roi) roi.clone()).toArray(Roi[]::new);
+            String[] labels = manager == null ? new String[0] : java.util.stream.IntStream.range(0, rois.length).mapToObj(manager::getName).toArray(String[]::new);
+            var table = Analyzer.getResultsTable();
+            var image = WindowManager.getCurrentImage();
+            return new FolderState(manager, rois, labels, manager == null ? new int[0] : manager.getSelectedIndexes(), table == null ? null : (ResultsTable) table.clone(),
+                image, image != null && image.getWindow() != null, image == null ? 1 : image.getC(), image == null ? 1 : image.getZ(), image == null ? 1 : image.getT(), image == null ? 1 : image.getCurrentSlice(),
+                image == null || image.getRoi() == null ? null : (Roi) image.getRoi().clone());
+        }
+        void restore() {
+            var current = RoiManager.getRawInstance();
+            if (current != null) current.reset();
+            if (manager != null) {
+                if (manager != current) manager.reset();
+                for (int i = 0; i < rois.length; i++) {
+                    // addRoi infers a missing plane from the current image; rename may infer one from a numeric label.
+                    // This insertion path keeps the list label separate, then restores the exact original ROI metadata.
+                    var insertion = (Roi) rois[i].clone(); insertion.setName(labels[i]);
+                    manager.add((ImagePlus) null, insertion, -1); manager.setRoi(rois[i], i);
+                }
+                manager.setSelectedIndexes(selected);
+            }
+            if (results != null) { Analyzer.setResultsTable((ResultsTable) results.clone()); if (IJ.isResultsWindow()) Analyzer.getResultsTable().show("Results"); }
+            // The visible manager's selection listener restores its selected ROI and saved plane into the current image.
+            // Put the researcher's actual image position and selection back after those callbacks have finished.
+            if (image != null && (!imageHadWindow || image.getWindow() != null)) {
+                if (image.getWindow() != null) WindowManager.setCurrentWindow(image.getWindow()); else WindowManager.setTempCurrentImage(image);
+                image.setPosition(channel, z, t);
+                if (image.getCurrentSlice() != slice) image.setSlice(slice);
+                if (activeRoi == null) image.deleteRoi(); else image.setRoi((Roi) activeRoi.clone());
+            }
+        }
     }
     private void collect(String label, Run run, int offset, List<Map<String, Object>> perImage, List<Map<String, Object>> failed, List<Map<String, String>> csvRows) {
         var row = new LinkedHashMap<String, Object>();
@@ -868,7 +911,7 @@ final class Macros {
         return value.getAsString();
     }
     private static String text(JsonPrimitive value) {
-        if (value.isNumber()) return Operations.plain(value.getAsDouble());
+        if (value.isNumber()) return value.getAsString();
         return value.getAsString();
     }
     private static JsonPrimitive parseValue(String literal) {
@@ -913,13 +956,15 @@ final class Macros {
                 if (value.isBoolean()) text.append(key).append(" = ").append(call).append("; if (").append(key).append(" == \"true\") ").append(key).append(" = true; else ").append(key).append(" = false;\n");
                 else text.append(key).append(" = ").append(value.isNumber() ? "parseFloat(" + call + ")" : call).append(";\n");
             }
-            text.append("function pennyParam(key, fallback) { a = \" \" + getArgument() + \" \"; i = indexOf(a, \" \" + key + \"=\"); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, \"[\")) return substring(v, 1, indexOf(v, \"]\")); return substring(v, 0, indexOf(v, \" \")); }\n");
+            // runBatchMacro has no argument-string overload. Embed the effective run_workflow values here as exact text;
+            // withParams rewrites this helper along with the variables, including calls in the body of a saved pipeline.
+            text.append("function pennyParam(key, fallback) { a = \" \" + getArgument() + \" \"; if (a == \"  \") a = \" ").append(Journal.escape(argument(values))).append(" \"; i = indexOf(a, \" \" + key + \"=\"); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, \"[\")) return substring(v, 1, indexOf(v, \"]\")); return substring(v, 0, indexOf(v, \" \")); }\n");
         } else {
             text.append(c).append(' ').append(BEGIN).append(": run_workflow params override these defaults ----\n");
             for (var key : declared.keySet()) {
                 var value = values.getOrDefault(key, declared.get(key));
                 String literal = value.isBoolean() ? (language.equals("py") ? (value.getAsBoolean() ? "True" : "False") : String.valueOf(value.getAsBoolean()))
-                    : value.isNumber() ? Operations.plain(value.getAsDouble()) : "\"" + Journal.escape(value.getAsString()) + "\"";
+                    : value.isNumber() ? value.getAsString() : "\"" + Journal.escape(value.getAsString()) + "\"";
                 text.append(key).append(" = ").append(literal).append('\n');
             }
         }

@@ -3,7 +3,7 @@
 // @when stitch, mosaic or register two overlapping fields of view / tiles into one image ("stitch these two images", "join the tiles", "how are these two fields offset")
 // @param second = auto | title of the second image (auto = the other open image when exactly two are open)
 // @param fusion = Linear Blending | fusion method: "Linear Blending", "Average", "Median", "Max. Intensity", "Min. Intensity" or "Overlay into composite image"
-// @output A new fused image "<first><-><second>". Reports the offset of the second image relative to the active (first) image in pixels and the cross-correlation R of the overlap from the Stitching plugin.
+// @output A new fused image "<first><-><second>" (titles are not echoed in the RESULT line). Reports the offset of the second image relative to the active (first) image in pixels and the cross-correlation R of the overlap from the Stitching plugin.
 // @say Stitched with the second image offset {dx}, {dy} pixels, correlation {r}.
 second = pennyParam("second", "auto");
 fusion = pennyParam("fusion", "Linear Blending");
@@ -13,14 +13,25 @@ fusions = newArray("Linear Blending", "Average", "Median", "Max. Intensity", "Mi
 known = false; for (k = 0; k < fusions.length; k++) if (fusion == fusions[k]) known = true;
 if (!known) { print("RESULT error=unknown_fusion_method"); exit; }
 first = getTitle(); firstId = getImageID();
-if (second == "auto") {
-  if (nImages != 2) { print("RESULT error=name_the_second_image"); exit; }
-  for (k = 1; k <= nImages; k++) { selectImage(k); if (getImageID() != firstId) second = getTitle(); }
-  selectImage(firstId);
+// The second tile is found by ID; a named one must be the only open image with that title.
+secondId = 0; found = 0;
+for (k = 1; k <= nImages; k++) {
+  selectImage(k);
+  if (getImageID() == firstId) continue;
+  if (second == "auto" || getTitle() == second) { secondId = getImageID(); found++; }
 }
-if (!isOpen(second)) { print("RESULT error=second_image_not_open"); exit; }
+selectImage(firstId);
+if (second == "auto" && nImages != 2) { print("RESULT error=name_the_second_image"); exit; }
+if (found == 0) { print("RESULT error=second_image_not_open"); exit; }
+if (found > 1) { print("RESULT error=ambiguous_second_image_title"); exit; }
+selectImage(secondId); second = getTitle();
+// The plugin picks images by title, so it gets uniquely named working copies (two tiles may share a file name).
+tag = "" + getTime() + "-" + floor(random * 100000);
+wasBatch = is("batch mode"); setBatchMode(true);
+selectImage(firstId); run("Select None"); run("Duplicate...", "title=[penny-stitch-a-" + tag + "] duplicate"); copyA = getImageID();
+selectImage(secondId); run("Select None"); run("Duplicate...", "title=[penny-stitch-b-" + tag + "] duplicate"); copyB = getImageID();
 fused = first + "<->" + second;
-options = "first_image=[" + first + "] second_image=[" + second + "] fusion_method=[" + fusion + "] fused_image=[" + fused + "] check_peaks=5 compute_overlap subpixel_accuracy x=0.0000 y=0.0000 registration_channel_image_1=[Average all channels] registration_channel_image_2=[Average all channels]";
+options = "first_image=[penny-stitch-a-" + tag + "] second_image=[penny-stitch-b-" + tag + "] fusion_method=[" + fusion + "] fused_image=[" + fused + "] check_peaks=5 compute_overlap subpixel_accuracy x=0.0000 y=0.0000 registration_channel_image_1=[Average all channels] registration_channel_image_2=[Average all channels]";
 // The plugin logs the shift; without a Log window (batch sessions) the log goes to the console, so both are read.
 logStart = lengthOf(getInfo("log"));
 // The options (with image titles) travel as a system property, never spliced into the script text.
@@ -40,7 +51,11 @@ for (k = 0; k < lines.length; k++) {
   j = indexOf(rest, "correlation (R)=");
   if (j >= 0) { tail = substring(rest, j + 16); r = parseFloat(substring(tail, 0, indexOf(tail + " ", " "))); }
 }
+fusedId = getImageID();
+selectImage(copyA); close(); selectImage(copyB); close();
+if (fusedId != copyA && fusedId != copyB) selectImage(fusedId);
+if (!wasBatch) setBatchMode("exit and display");
 if (isNaN(dx)) { print("RESULT error=stitching_failed"); exit; }
-print("RESULT dx=" + d2s(dx, 2) + " dy=" + d2s(dy, 2) + " r=" + d2s(r, 4) + " fused=[" + fused + "]");
+print("RESULT dx=" + d2s(dx, 2) + " dy=" + d2s(dy, 2) + " r=" + d2s(r, 4));
 
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

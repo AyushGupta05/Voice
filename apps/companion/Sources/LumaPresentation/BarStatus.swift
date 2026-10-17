@@ -10,7 +10,7 @@ public enum BarPhase: Equatable {
 
 /// Short, factual status for the floating bar, derived purely from model state.
 ///
-/// Precedence: executing (work or running actions) > result > speaking > listening/starting > idle.
+/// Precedence: live researcher speech > executing (work or running actions) > result > speaking > listening/starting > idle.
 /// Connection and voice-funding problems never get their own phase: they show as the idle pill's note.
 public struct BarStatus: Equatable {
     public let phase: BarPhase
@@ -24,6 +24,10 @@ public struct BarStatus: Equatable {
     public let showsResult: Bool
     /// Executing: Penny is talking; show subtle dots next to the title.
     public let speaking: Bool
+    /// Starting the microphone is independent of the current visual phase (for example, a recent result).
+    public private(set) var canStartVoice: Bool = false
+    /// A failed outcome is kept visible with an attention icon instead of a completion check mark.
+    public let showsError: Bool
     public static let idleInvitation = "Hey Penny"
     public static let workingTitle = "Working in QuPath"
     public static let speakingTitle = "Speaking"
@@ -32,14 +36,17 @@ public struct BarStatus: Equatable {
                 voiceActive: Bool, runningActions: Int = 0,
                 voiceStarting: Bool = false, voiceSpeaking: Bool = false,
                 executingText: String = "", resultText: String = "", liveTranscript: String = "",
-                voiceReady: Bool = true, voiceReason: String = "", appName: String = "QuPath") {
+                voiceReady: Bool = true, voiceReason: String = "", appName: String = "QuPath",
+                resultIsError: Bool = false) {
         let ack = executingText.trimmingCharacters(in: .whitespacesAndNewlines)
         let result = resultText.trimmingCharacters(in: .whitespacesAndNewlines)
         let transcript = liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-        if working || runningActions > 0 {
+        if voiceActive && !voiceStarting && !transcript.isEmpty {
+            self.init(.listening, transcript, ready: true)
+        } else if working || runningActions > 0 {
             self.init(.executing, ack.isEmpty ? "Working in \(appName)" : ack, speaking: voiceSpeaking)
         } else if !result.isEmpty {
-            self.init(.executing, result, showsResult: true, speaking: voiceSpeaking)
+            self.init(.executing, result, showsResult: true, speaking: voiceSpeaking, showsError: resultIsError)
         } else if voiceSpeaking {
             self.init(.executing, ack.isEmpty ? Self.speakingTitle : ack, speaking: true)
         } else if voiceActive || voiceStarting {
@@ -52,10 +59,12 @@ public struct BarStatus: Equatable {
                 : !bridgeConnected ? "Open \(appName)" : ""
             self.init(.idle, Self.idleInvitation, note: note, ready: connected && eventsReady && voiceReady)
         }
+        canStartVoice = connected && eventsReady && voiceReady
     }
     private init(_ phase: BarPhase, _ title: String, note: String = "", ready: Bool = true,
-                 showsResult: Bool = false, speaking: Bool = false) {
+                 showsResult: Bool = false, speaking: Bool = false, showsError: Bool = false) {
         self.phase = phase; self.title = title; self.note = note; self.ready = ready
         self.showsResult = showsResult; self.speaking = speaking
+        self.showsError = showsError
     }
 }

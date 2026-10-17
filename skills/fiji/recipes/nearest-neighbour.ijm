@@ -8,11 +8,18 @@ if (nImages == 0) { print("RESULT error=no_image"); exit; }
 getPixelSize(unit, pw, ph);
 if (selectionType() == 10) { getSelectionCoordinates(xs, ys); }
 else {
-  n = roiManager("count");
-  if (n < 2) { print("RESULT error=needs_points_or_roi_manager"); exit; }
-  xs = newArray(n); ys = newArray(n);
-  for (i = 0; i < n; i++) { roiManager("select", i); List.setMeasurements; xs[i] = List.getValue("X") / pw; ys[i] = List.getValue("Y") / ph; }
+  // Only this image's objects (tagged with its id, or untagged) take part; other images' objects stay out.
+  id = getImageID(); Stack.getPosition(oc, oz, ot);
+  xs = newArray(0); ys = newArray(0);
+  for (i = 0; i < roiManager("count"); i++) {
+    roiManager("select", i); owner = Roi.getProperty("luma.imageId");
+    if (owner != "" && owner != "" + id) continue;
+    Stack.setPosition(oc, oz, ot); List.setMeasurements;
+    px = List.getValue("X") / pw; py = List.getValue("Y") / ph;
+    xs = Array.concat(xs, px); ys = Array.concat(ys, py);
+  }
   roiManager("deselect"); run("Select None");
+  if (xs.length < 2) { print("RESULT error=needs_points_or_roi_manager"); exit; }
 }
 n = xs.length;
 if (n < 2) { print("RESULT error=needs_two_points"); exit; }
@@ -28,4 +35,4 @@ expected = 0.5 / sqrt(n / areaTotal);
 run("Clear Results");
 for (i = 0; i < n; i++) { setResult("X", i, xs[i] * pw); setResult("Y", i, ys[i] * ph); setResult("NND", i, nnd[i]); }
 updateResults();
-print("RESULT n=" + n + " meanNND=" + d2s(mean, 3) + " sdNND=" + d2s(std, 3) + " minNND=" + d2s(min, 3) + " clarkEvans=" + d2s(mean / expected, 3) + " unit=" + replace(unit, " ", "_"));
+print("RESULT n=" + n + " meanNND=" + d2s(mean, 3) + " sdNND=" + d2s(std, 3) + " minNND=" + d2s(min, 3) + " clarkEvans=" + d2s(mean / expected, 3) + " unit=" + replace(unit, "\\s", "_"));

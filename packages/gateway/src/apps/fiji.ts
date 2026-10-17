@@ -2,7 +2,8 @@ import type { AppProfile, FastRoute, PrepareInput } from './profile.js';
 import { bindUiControl, cleanUtterance, completedPayload, compoundRequest, continuesGenerally, finite, highlightAcknowledgment } from './profile.js';
 import { fijiTools, FIJI_BUNDLE_ID } from './fiji-tools.js';
 import { fijiInstructions } from './fiji-instructions.js';
-import { recipeTool } from './fiji-recipes.js';
+import { finalizeRecipeDecision, recipeTool } from './fiji-recipes.js';
+import { areaCorrection, imageObjectCount, regionCount } from './fiji-intents.js';
 import type { Runtime } from '../runtime.js';
 
 /** Spoken at once when the model's first call is one of these (docs/FIJI-PROTOCOL.md, "Voice specifics"). */
@@ -19,6 +20,7 @@ const acknowledgments: Record<string, string> = {
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
   if (name === 'fiji_highlight') return highlightAcknowledgment(args);
+  if (name === 'fiji_object_stats' && args.plot === false) return 'Counting.';
   if (name === 'fiji_run_recipe') return 'On it.';
   if (name === 'fiji_recipes') return 'Checking.';
   if (name === 'fiji_run_workflow' && args.target !== 'open' && args.target !== 'folder') return 'Running the workflow.';
@@ -85,7 +87,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fiji_undo') {
     // Say what came back, so "undo" after the wrong step is visible: the checkpoint's label and the objects now present.
     const why = unsuccessful(name, args, result); if (why) return why;
-    const label = text(inner?.label), objects = finite((inner?.counts as { roiManager?: unknown } | undefined)?.roiManager);
+    const counts = inner?.counts as { roiManager?: unknown; roiManagerForImage?: unknown } | undefined;
+    const label = text(inner?.label), objects = finite(counts?.roiManagerForImage) ?? finite(counts?.roiManager);
     return label ? `Restored "${label.replace(/["“”]/g, '')}"${objects !== undefined ? `; ${plural(objects, 'object')} now` : ''}.` : 'Undone.';
   }
   if (name === 'fiji_restore') return 'Went back to the earlier state.';
@@ -168,6 +171,9 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
   if (name === 'fiji_object_stats') {
     const n = finite(inner.n), area = inner.area as { mean?: unknown; median?: unknown } | undefined;
     const mean = finite(area?.mean), median = finite(area?.median);
+    if (n !== undefined && /^(?:selection|region)$/.test(String(inner.scopeUsed))) return `${plural(n, 'object')} in ${inner.scopeUsed === 'selection' ? 'the selected region' : 'that region'}.`;
+    if (n === 0) return '0 detected objects in this image.';
+    if (n !== undefined && args.plot === false) return `${plural(n, 'object')}.`;
     if (n === undefined || mean === undefined) return undefined;
     const range = inner.area as { min?: unknown; max?: unknown }, low = finite(range?.min), high = finite(range?.max);
     if (inner.plot && median !== undefined && low !== undefined && high !== undefined) return `Plotted ${plural(n, 'object')}: median ${spokenArea(median, unit)}, from ${round(low)} to ${spokenArea(high, unit)}.`;
@@ -176,7 +182,8 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
   if (name === 'fiji_filter_objects') {
     const removed = finite(inner.removed), kept = finite(inner.kept);
     if (removed === undefined || kept === undefined) return undefined;
-    return removed ? `Removed ${removed} tiny ${removed === 1 ? 'one' : 'ones'}; ${plural(kept, 'cell')} left.` : `Nothing that small; still ${plural(kept, 'cell')}.`;
+    const tiny = args.minArea === undefined && args.maxArea === undefined && args.at === undefined && !/^(?:huge|large|none)$/.test(String(args.remove ?? 'tiny'));
+    return removed ? `Removed ${removed}${tiny ? ` tiny ${removed === 1 ? 'one' : 'ones'}` : ` ${removed === 1 ? 'object' : 'objects'}`}; ${plural(kept, 'cell')} left.` : `${tiny ? 'Nothing that small' : 'No objects matched'}; still ${plural(kept, 'cell')}.`;
   }
   if (name === 'fiji_split_objects') {
     const split = finite(inner.split), before = finite(inner.before), after = finite(inner.after);
@@ -238,6 +245,9 @@ const analysisWords = /\b(?:measur\w*|count\w*|segment\w*|detect\w*|quantif\w*|c
 function requestContinuesAfter(name: string, utterance: string): boolean {
   const said = utterance.toLowerCase();
   if (continuesGenerally(said)) return true;
+  // A recipe's spoken sentence carries its headline numbers only; a request for another statistic, a per-object
+  // answer or a comparison goes back to the model, which reads them from the recipe's summary.
+  if (name === 'fiji_run_recipe') return /\b(spearman|kendall|icq|li'?s|costes|p[- ]?value|significan\w*|threshold\w*|dispersion|goodness|junctions?|end[- ]?points?|branch\w*|median|standard deviation|sd|variance|range|min\w*|max\w*|each|every|per (?:cell|nucleus|object|frame|slice|track)|which|compare|versus|vs|list|table|plot|graph|chart|histogram|why|explain)\b/.test(said);
   // Viewing, opening or selecting answers only a pure view command: "measure the intensity of these cells" after a
   // selection, or "open hela cells, do the channels colocalise?" after the open, still has its analysis to do.
   if ((silentFinishTools.has(name) || name === 'fiji_open_path') && (analysisWords.test(said) || compoundRequest(utterance))) return true;
@@ -254,17 +264,19 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
   if (name === 'fiji_intensity_over_time') return /\b(recover|half|mobile|immobile|fit|rate|constant)/.test(said);
   if (name === 'fiji_tumor_region') return /\b(intens|stain|perimeter|circular|solid|shape|cells?|nucle)/.test(said);
   if (name === 'fiji_colocalize') return /\b(icq|costes|overlap|significan|random)/.test(said);
-  if (name === 'fiji_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest)/.test(said);
+  if (name === 'fiji_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest|mean|median|average)/.test(said);
   // A macro written to answer a question reports what it found; only "write/save a macro" is answered locally.
   if (name === 'fiji_make_macro') return !/\b(macro|script)\b/.test(said) || /\b(how many|what|which|find|count|measure)\b/.test(said);
   return false;
 }
-const imageUnit = (context: unknown) => { const unit = (context as { image?: { calibration?: { unit?: unknown } } } | undefined)?.image?.calibration?.unit; return typeof unit === 'string' ? unit : 'pixel'; };
 /** Whole-utterance instant routes from the protocol: zoom, fit, overlay, slices and undo. */
 function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const said = cleanUtterance(text);
   const image = (context as { image?: { slices?: unknown; position?: { slice?: unknown } } } | undefined)?.image;
   if (!image) return undefined;
+  const area = areaCorrection(text, context); if (area) return area;
+  // A fast action is the whole request, never just the first half of a spoken chain.
+  if (continuesGenerally(said.replace(/^(?:and|also)\s+/, ''))) return undefined;
   const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?$/);
   if (zoom) return { tool: 'fiji_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
   if (/^(?:zoom to fit|fit (?:to|the) (?:window|screen|view)|fit to window)$/.test(said)) return { tool: 'fiji_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' };
@@ -275,9 +287,14 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     return { tool: 'fiji_segment_cells', arguments: { method: stricter ? 'Li' : 'Huang' }, reply: stricter ? 'Segmenting with a stricter threshold.' : 'Segmenting with a looser threshold.' };
   }
   // Corrections to a segmentation act on the ROI Manager directly, instantly, without re-segmenting.
-  const objects = finite((context as { counts?: { roiManager?: unknown } } | undefined)?.counts?.roiManager) ?? 0;
-  const pointer = (context as { pointer?: { overCanvas?: unknown; lastX?: unknown } } | undefined)?.pointer;
-  const pointing = pointer?.overCanvas === true || finite(pointer?.lastX) !== undefined;
+  const objects = imageObjectCount(context);
+  const region = regionCount(text, context); if (region) return region;
+  if (objects > 0 && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here| in this (?:area|region|selection)| in the selection)?$/.test(said)) return { tool: 'fiji_highlight', arguments: { rois: 'manager', label: `${objects} objects` }, reply: 'Here they are.' };
+  // An empty manager is still a real answer. Re-segmenting here would undo a deliberate removal of all detections.
+  if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' };
+  const pointer = (context as { pointer?: { overCanvas?: unknown; lastX?: unknown; lastAgeMs?: unknown } } | undefined)?.pointer;
+  const age = finite(pointer?.lastAgeMs);
+  const pointing = pointer?.overCanvas === true || finite(pointer?.lastX) !== undefined && age !== undefined && age >= 0 && age <= 30_000;
   const deictic = /\b(this|these|that|those|here|this one|that one)\b/.test(said);
   if (objects > 0 && pointing && /\bwhy\b/.test(said) && /\b(count|cell|detect|includ|this|that)\w*/.test(said)) return { tool: 'fiji_explain_object', arguments: { at: 'pointer' }, reply: 'Checking that one.' };
   if (objects > 0 && pointing && deictic && !/\b(and then|then|after that|channels?)\b/.test(said)) {
@@ -285,12 +302,6 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     if (/\b(one cell|same cell|single cell|merge|join|combine|together|shouldn'?t be (?:split|separate))\b/.test(said) && !/\bseparate\b(?!.*shouldn)/.test(said)) return { tool: 'fiji_merge_objects', arguments: { at: 'pointer' }, reply: 'Merging them.' };
     if (/\b(separate|split|divide|break up|pull apart|two cells|not one)\b/.test(said)) return { tool: 'fiji_split_objects', arguments: { at: 'pointer' }, reply: 'Separating them.' };
     if (/\b(remove|delete|drop|get rid of|not a cell|isn'?t a cell|ignore)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { at: 'pointer' }, reply: 'Removing it.' };
-  }
-  // Numbers matter here, and cleanUtterance drops digits: match the raw words.
-  const smaller = text.toLowerCase().replace(/[.!?,]/g, ' ').match(/\b(?:remove|drop|delete|exclude|get rid of|filter out)\b.*\b(?:smaller|less) than (\d+(?:\.\d+)?) ?(square microns?|square micrometres?|square micrometers?|µm²|um2|microns? squared|square pixels?|pixels?)\b/);
-  if (objects > 0 && smaller) {
-    const calibrated = !/pixel/.test(smaller[2]) || imageUnit(context) === 'pixel';
-    if (calibrated) return { tool: 'fiji_filter_objects', arguments: { minArea: Number(smaller[1]) }, reply: `Removing anything under ${smaller[1]}.` };
   }
   if (objects > 0 && /\b(apply|run|do)\b.*\b(this|that|it|same|analysis|workflow)\b.*\b(folder|all (?:the )?(?:other )?images|other \d+ images|every image|rest of the images|other images|whole dataset|dataset|everything)\b/.test(said)) {
     // "…in the bbbc folder" names a folder for the host to resolve; "the whole/this folder" is the active image's own.
@@ -338,7 +349,7 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
 const expertArguments: Record<string, string[]> = {
   fiji_tumor_region: ['channel', 'stain', 'sigma', 'method', 'minAreaFraction', 'keepLargest'],
   fiji_track_objects: ['channel', 'method', 'dark', 'minSize', 'maxSize', 'maxDistance', 'maxGap', 'minLength', 'sigma'],
-  fiji_segment_cells: ['channel', 'method', 'sigma', 'minSize', 'watershed', 'dark', 'gaussian'],
+  fiji_segment_cells: ['channel', 'method', 'sigma', 'minSize', 'watershed', 'dark', 'gaussian', 'keepArtifacts'],
   fiji_split_objects: ['factor'],
   fiji_filter_objects: ['fraction'],
   fiji_colocalize: ['method', 'thresholdA', 'thresholdB'],
@@ -350,7 +361,7 @@ function modelArguments(name: string, args: Record<string, unknown>, utterance: 
   const said = utterance.toLowerCase(), numbers = new Set((said.match(/\d+(?:\.\d+)?/g) ?? []).map(Number));
   const named: Record<string, RegExp> = { channel: /\b(channel|red|green|blue|dapi|hoechst|gfp|nuclear|c\d)\b/, minSize: /\b(size|smaller|bigger|larger|area|pixels?|microns?)\b/, maxSize: /\b(size|smaller|bigger|larger|area)\b/,
     sigma: /\b(sigma|blur|smooth)/, method: /\b(otsu|li|huang|triangle|default|yen|moments|maxentropy|isodata|mean|minimum|intermodes|renyi|shanbhag|percentile|strict\w*|loose\w*|sensitiv\w*|threshold)\b/,
-    watershed: /\bwatershed\b/, dark: /\b(dark|bright|light) background\b/, maxDistance: /\b(distance|jump|far)\b/, minLength: /\b(length|frames?|short)\b/, keepLargest: /\b(largest|regions?|biggest)\b/, stain: /\b(h&e|he|ihc|dab|fluorescen\w*)\b/ };
+    watershed: /\bwatershed\b/, keepArtifacts: /\b(?:keep|retain|include|exclude|remove|discard)\b.*\b(?:artifacts?|artefacts?|specks?|debris|labels?|text)\b/, dark: /\b(dark|bright|light) background\b/, maxDistance: /\b(distance|jump|far)\b/, minLength: /\b(length|frames?|short)\b/, keepLargest: /\b(largest|regions?|biggest)\b/, stain: /\b(h&e|he|ihc|dab|fluorescen\w*)\b/ };
   const kept: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
     if (!expert.includes(key)) { kept[key] = value; continue; }
@@ -404,7 +415,7 @@ export const fiji: AppProfile = {
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools, unsuccessful,
   longRunningTools: new Set(['fiji_run_recipe', 'fiji_apply_analysis', 'fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
-  localTool: recipeTool, modelArguments,
+  localTool: recipeTool, finalizeDecision: finalizeRecipeDecision, modelArguments,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.
     const importing = name === 'fiji_open_path' || (name === 'fiji_run_command' && /import|^open\b/i.test(String(args.name ?? '')));

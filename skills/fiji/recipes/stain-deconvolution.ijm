@@ -33,7 +33,7 @@ for (s = 1; s <= 3; s++) {
   getRawStatistics(pixels, mean, min, max, std, histogram);
   inside = 0; sumOD = 0;
   for (v = lower; v <= upper; v++) { inside += histogram[v]; sumOD += histogram[v] * -log(maxOf(v, 1) / 255) / log(10); }
-  fraction[s - 1] = inside / pixels; density[s - 1] = sumOD / maxOf(inside, 1);
+  fraction[s - 1] = inside / pixels; density[s - 1] = ratio(sumOD, inside);
   resetThreshold();
   run("Select None");
 }
@@ -43,4 +43,6 @@ basis = "image"; if (area) basis = "selection";
 if (!wasBatch) setBatchMode("exit and display");
 print("RESULT fraction1=" + d2s(fraction[0], 4) + " fraction2=" + d2s(fraction[1], 4) + " fraction3=" + d2s(fraction[2], 4) + " od1=" + d2s(density[0], 3) + " od2=" + d2s(density[1], 3) + " basis=" + basis + " vectors=[" + vectors + "] method=" + method);
 
+/** a / b, or NaN when nothing was measured (b = 0), so an empty result is never reported as a zero mean. */
+function ratio(a, b) { if (b == 0) return NaN; return a / b; }
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

@@ -23,7 +23,8 @@ export function spokenReply(text:string){
 export type VoiceConversation={submit:(text:string,spoken?:boolean)=>Promise<void>;stop:()=>void};
 const wordCount=(text:string)=>text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean).length;
 /** Short commands worth acting on even as one or two words; anything else that short is treated as room chatter. */
-const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|stop|cancel|undo(?: that)?|go back|redo|yes|no|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
+const SHORT_COMMANDS=/^(?:(?:hey |ok |okay )?(?:penny|luma)\b.*|(?:stop|cancel)(?: (?:that|it))?|undo(?: that)?|go back|redo|yes|no|stricter|tighter|looser|brighter|lighter|darker|zoom (?:in|out)|(?:show|hide) (?:cells|annotations|detections)|save(?: it)?|next|previous|close(?: it)?|apply|again|repeat(?: that)?)$/;
+const STOP_COMMAND=/^(?:please )?(?:stop|cancel)(?: (?:that|it))?(?: please)?[.!?]*$/i;
 /** The microphone stays open for 30 minutes, so fragments like "OK." or "Bye." must not become model requests. */
 export function isAddressedToLuma(text:string){
  const clean=text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -58,7 +59,7 @@ export function addressed(text:string,options:{wakeWord:boolean;attentive:boolea
 export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
  private inputReady=false;private seen=new Set<string>();private hearing=false;private turns=0;private replies=0;private bytes=0;
- private started=Date.now();private timer?:ReturnType<typeof setTimeout>;private speech?:AbortController;private epoch=0;
+ private started=Date.now();private timer?:ReturnType<typeof setTimeout>;private speeches=new Set<AbortController>();private epoch=0;
  private running?:Promise<void>;private closed=false;private interrupts=0;private tail:Promise<void>=Promise.resolve();
  private droppedBeforeReady=0;private loggedBytes=0;
  private attentiveUntil=0;private readonly wakeWord:boolean;
@@ -96,42 +97,49 @@ export class SpeechSession{
   if(this.closed||this.seen.has(value.id))return;
   const text=value.text.trim();if(!text)return;if(text.length>4000){this.stop('Spoken request is too long.');return;}
   if(!value.partial)this.log(`heard: ${JSON.stringify(text)}`);
-  // Barge-in only on speech meant for Penny: room chatter while Penny talks must not cut it off.
-  const forLuma=!this.wakeWord||this.attentive()||WAKE_WORD.test(text);
-  if(!this.hearing&&forLuma&&(wordCount(text)>=2||!this.speech)){this.hearing=true;this.interrupt();}
+  // Use the same gate for interruption and submission: an unaddressed fragment cannot stop a real task,
+  // while one-word controls such as "stop" must work even during Penny's reply or in wake-word mode.
+  const decision=addressed(text,{wakeWord:this.wakeWord,attentive:this.attentive()});
+  const forLuma=decision.accept;
+  if(!this.hearing&&forLuma){this.hearing=true;this.interrupt();}
   this.event({type:'voice_transcript',text,partial:value.partial,addressed:forLuma});
   if(value.partial)return;
   this.hearing=false;this.seen.add(value.id);
-  const decision=addressed(text,{wakeWord:this.wakeWord,attentive:this.attentive()});
   if(!decision.accept){this.log(`ignored (${decision.reason}): ${JSON.stringify(text)}`);this.event({type:'voice_ignored',text,reason:decision.reason});return;}
   if(++this.turns>200){this.stop('Voice turn limit reached.');return;}
   this.engage();
+  // Stop is a transport control, not a scientific request. Interruption above already stopped the task
+  // and playback; sending it to the model could start fresh work or synthesize an obsolete result.
+  if(STOP_COMMAND.test(decision.request))return;
   void this.provider.prepare?.(this.controller.signal).catch(()=>undefined);
   void this.conversation.submit(decision.request,true).catch(error=>{if(!this.closed)this.event({type:'voice_error',message:error instanceof Error?error.message:'Voice request failed.'});});
  }
- interrupt(){if(this.closed)return;this.interrupts++;this.epoch++;this.speech?.abort();this.speech=undefined;this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
+ private cancelSpeech(){for(const speech of this.speeches)speech.abort();this.speeches.clear();this.tail=Promise.resolve();}
+ interrupt(){if(this.closed)return;this.interrupts++;this.epoch++;this.cancelSpeech();this.conversation.stop();this.event({type:'interrupted',epoch:this.epoch});}
  /** queued=true plays after the previous reply (an acknowledgment) instead of replacing it. Interruption cancels both. */
  async speak(text:string,queued=false){
   if(this.closed)return;if(++this.replies>400){this.stop('Spoken reply limit reached.');return;}
   this.engage();
-  if(!queued)this.speech?.abort();
+  if(!queued)this.cancelSpeech();
   const speech=new AbortController();const interrupts=this.interrupts;const prior=queued?this.tail:Promise.resolve();
+  // Include queued synthesis in cancellation ownership before it starts. A new reply must cancel both
+  // the previous acknowledgment and its final answer, even if the provider finishes them out of order.
+  this.speeches.add(speech);
   const run=(async()=>{
    // Synthesis starts at once; only playback waits for the previous reply to finish sending.
    const pending=this.provider.speak(spokenReply(text),AbortSignal.any([this.controller.signal,speech.signal]));
-   if(!queued)this.speech=speech;
    try{
     const pcm=await pending;await prior.catch(()=>undefined);
     if(this.closed||speech.signal.aborted||this.interrupts!==interrupts)return;
-    this.speech=speech;
     const output=resampleSpeech(pcm);const epoch=++this.epoch;this.event({type:'voice_speaking',epoch,queued});
     for(let offset=0;offset<output.length;offset+=48000){this.event({type:'audio',audio:output.subarray(offset,offset+48000).toString('base64'),sampleRate:24000,epoch,final:offset+48000>=output.length});}
    }catch(error){if(!this.closed&&!speech.signal.aborted&&this.interrupts===interrupts)this.event({type:'voice_error',message:error instanceof Error?error.message:'Spoken response unavailable.'});}
+   finally{this.speeches.delete(speech);}
   })();
   this.tail=run;return run;
  }
  stop(reason='Voice stopped.'){
-  if(this.closed)return;this.log(`stopped: ${reason} after ${(this.bytes/48000).toFixed(1)} s of audio, ${this.turns} turns`);this.closed=true;clearTimeout(this.timer);this.controller.abort();this.speech?.abort();this.input.close();this.conversation.stop();
+  if(this.closed)return;this.log(`stopped: ${reason} after ${(this.bytes/48000).toFixed(1)} s of audio, ${this.turns} turns`);this.closed=true;clearTimeout(this.timer);this.controller.abort();this.cancelSpeech();this.input.close();this.conversation.stop();
   this.emit({type:'voice_state',state:'idle',sessionId:this.id,reason});this.onClosed();
  }
  async settled(){await this.running;}

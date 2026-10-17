@@ -210,7 +210,7 @@ Count and outline objects in the thresholded image (Analyze > Analyze Particles)
 
 ## fiji_segment_cells
 
-One-step cell/nucleus segmentation of the active image: duplicate → 8-bit → Gaussian 1 → auto threshold (method, default Otsu) → fill holes → watershed (default true) → Analyze Particles on the original, adding every cell to the ROI Manager. Pick channel and minSize yourself from the image. Returns count, the steps taken (macro-equivalent) and a highlight; follow with fiji_measure scope manager for areas and intensities.
+Segment nuclei on the active image or selected area using image-compatible nuclear-channel defaults (hematoxylin for RGB brightfield), threshold, fill holes and watershed. Returns actual count, original-source measurements and a highlight. Leave optional tuning at defaults unless requested. keepArtifacts true retains text/specks only when explicitly requested; default false excludes them. watershed false keeps touching components together.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
@@ -218,6 +218,7 @@ One-step cell/nucleus segmentation of the active image: duplicate → 8-bit → 
 | `method` | No | string; max 40 characters |
 | `minSize` | No | number; min 0 |
 | `watershed` | No | boolean |
+| `keepArtifacts` | No | boolean |
 
 <a id="fiji-track-objects"></a>
 
@@ -303,12 +304,23 @@ Score every ROI Manager object (usually cells from fiji_segment_cells) as positi
 
 ## fiji_object_stats
 
-Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Opens a “Size distribution” histogram plot window (plot, default true) — the answer to “show me the size distribution”. Read only.
+Summarise existing objects belonging to the active image, without re-segmenting: count, area/intensity/circularity statistics, histogram and largest/smallest with a highlight. scope selection counts only centroids inside the current area selection; region counts inside an image-pixel rectangle without changing selection. Returns scopeUsed and totalForImage. Opens a size histogram when plot is true (default true). Use plot false for counts.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `channel` | No | integer; min 1 |
 | `plot` | No | boolean |
+| `scope` | No | "image", "selection" |
+| `region` | No | object |
+
+Allowed `region` properties:
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `x` | Yes | number |
+| `y` | Yes | number |
+| `width` | Yes | number; greater than 0 |
+| `height` | Yes | number; greater than 0 |
 
 <a id="fiji-filter-objects"></a>
 

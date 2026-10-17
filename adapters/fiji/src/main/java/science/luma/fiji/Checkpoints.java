@@ -17,10 +17,10 @@ final class Checkpoints {
     static final long MAX_BYTES = 512L * 1024 * 1024;
     static final long MAX_TOTAL_BYTES = 1024L * 1024 * 1024;
     static final int MAX_COUNT = 6;
-    static final String SCOPE = "pixels, ROI, overlay, this image's ROI Manager entries and the Results table; not files, windows, display settings or other images";
+    static final String SCOPE = "pixels, ROI, overlay, this image's ROI Manager entries, analysis parameters and the Results table; not files, windows, display settings or other images";
 
     record Checkpoint(String id, String label, int imageId, String title, ImageStack stack, int channel, int slice, int frame,
-                      Roi roi, Overlay overlay, Roi[] managerRois, ResultsTable results, Map<String, Object> counts, long bytes, String at) {}
+                      Roi roi, Overlay overlay, Roi[] managerRois, ResultsTable results, Map<String, Object> counts, long bytes, String at, Pipeline pipeline) {}
 
     private final LinkedHashMap<String, Checkpoint> checkpoints = new LinkedHashMap<>();
 
@@ -31,6 +31,9 @@ final class Checkpoints {
 
     /** Best effort: an image too large to copy must never block the researcher's action; the result says so. */
     synchronized Map<String, Object> capture(ImagePlus imp, String label, RoiManager manager, ResultsTable results, Map<String, Object> counts) {
+        return capture(imp, label, manager, results, counts, null);
+    }
+    synchronized Map<String, Object> capture(ImagePlus imp, String label, RoiManager manager, ResultsTable results, Map<String, Object> counts, Pipeline pipeline) {
         long bytes = pixelBytes(imp);
         if (bytes > MAX_BYTES) return skipped(label, counts, "image pixels are " + (bytes >> 20) + " MiB, above the 512 MiB checkpoint cap");
         ImageStack stack; Roi roi; Overlay overlay; Roi[] rois; ResultsTable table;
@@ -47,7 +50,7 @@ final class Checkpoints {
             return skipped(label, counts, "copying failed: " + error.getClass().getSimpleName());
         }
         String id = UUID.randomUUID().toString();
-        var checkpoint = new Checkpoint(id, label, imp.getID(), imp.getTitle(), stack, imp.getC(), imp.getZ(), imp.getT(), roi, overlay, rois, table, counts, bytes, java.time.Instant.now().toString());
+        var checkpoint = new Checkpoint(id, label, imp.getID(), imp.getTitle(), stack, imp.getC(), imp.getZ(), imp.getT(), roi, overlay, rois, table, counts, bytes, java.time.Instant.now().toString(), pipeline == null ? null : pipeline.copy());
         checkpoints.put(id, checkpoint);
         while (checkpoints.size() > MAX_COUNT || totalBytes() > MAX_TOTAL_BYTES && checkpoints.size() > 1) checkpoints.remove(checkpoints.keySet().iterator().next());
         var result = new LinkedHashMap<String, Object>();

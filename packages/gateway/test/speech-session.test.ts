@@ -4,9 +4,9 @@ import {AudioQueue,SpeechSession,spokenReply,isAddressedToLuma,addressed} from '
 process.env.LUMA_WAKE_WORD='off';
 import type {SpeechProvider,SpeechCallbacks} from '../src/aws-speech.js';
 const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
-function fixture(){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
+function fixture(options:{wakeWord?:boolean}={}){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let stops=0;let closed=0;const submitted:string[]=[];const events:any[]=[];let finish!:()=>void;
  const provider:SpeechProvider={transcribe:async(_audio,s,c)=>{callbacks=c;signal=s;c.inputReady();await new Promise<void>(resolve=>{finish=resolve;s.addEventListener('abort',resolve as ()=>void,{once:true});});},speak:async()=>new Uint8Array([0,0,100,0])};
- const session=new SpeechSession(provider,{submit:async (text,spoken)=>{assert.equal(spoken,true);submitted.push(text);},stop:()=>{stops++;}},e=>events.push(e),()=>closed++);
+ const session=new SpeechSession(provider,{submit:async (text,spoken)=>{assert.equal(spoken,true);submitted.push(text);},stop:()=>{stops++;}},e=>events.push(e),()=>closed++,1_800_000,options);
  return{session,events,submitted,get callbacks(){return callbacks;},get signal(){return signal;},get stops(){return stops;},get closed(){return closed;},finish:()=>finish(),provider};}
 test('bounded audio queue preserves order and close wakes a blocked consumer',async()=>{
  const queue=new AudioQueue();const reader=queue.stream();const waiting=reader.next();queue.push(new Uint8Array([1,2]));assert.deepEqual((await waiting).value,new Uint8Array([1,2]));
@@ -44,9 +44,49 @@ test('a queued final reply plays after its acknowledgment even when its synthesi
  const a=session.speak('Zooming out.');const b=session.speak('Done zooming.',true);await tick();session.interrupt();releases[2]();releases[3]();await a;await b;
  assert.equal(events.filter(e=>e.type==='audio').length,2);session.stop();
 });
+test('a replacement reply cancels the old acknowledgment and queued synthesis without suppressing the new reply',async()=>{
+ const f=fixture();const pending:Array<{signal:AbortSignal;resolve:(audio:Uint8Array)=>void}>=[];
+ f.provider.speak=(_text,signal)=>new Promise(resolve=>pending.push({signal,resolve}));
+ f.session.start();await tick();
+ const ack=f.session.speak('Checking.');const stale=f.session.speak('Old result.',true);
+ const latest=f.session.speak('New result.');
+ assert(pending[0].signal.aborted);assert(pending[1].signal.aborted);assert(!pending[2].signal.aborted);
+ pending[2].resolve(new Uint8Array([3,0]));await latest;
+ pending[1].resolve(new Uint8Array([2,0]));pending[0].resolve(new Uint8Array([1,0]));await Promise.all([ack,stale]);
+ const audio=f.events.filter(e=>e.type==='audio');assert.equal(audio.length,1);assert.equal(Buffer.from(audio[0].audio,'base64').readInt16LE(),3);
+ f.session.stop();await f.session.settled();
+});
+test('an interruption cancels queued synthesis and does not make the next queued reply wait for the obsolete provider',async()=>{
+ const f=fixture();const pending:Array<{signal:AbortSignal;resolve:(audio:Uint8Array)=>void}>=[];
+ f.provider.speak=(_text,signal)=>new Promise(resolve=>pending.push({signal,resolve}));
+ f.session.start();await tick();
+ const ack=f.session.speak('Checking.');const stale=f.session.speak('Old result.',true);f.session.interrupt();
+ assert(pending[0].signal.aborted);assert(pending[1].signal.aborted);
+ const latest=f.session.speak('Current result.',true);pending[2].resolve(new Uint8Array([3,0]));await latest;
+ assert.equal(f.events.filter(e=>e.type==='audio').length,1);
+ pending[0].resolve(new Uint8Array([1,0]));pending[1].resolve(new Uint8Array([2,0]));await Promise.all([ack,stale]);
+ assert.equal(f.events.filter(e=>e.type==='audio').length,1);f.session.stop();await f.session.settled();
+});
+test('one-word stop cancels active speech and the task immediately without sending a new model request',async()=>{
+ for(const wakeWord of [false,true]){
+  const f=fixture({wakeWord});let release!:(audio:Uint8Array)=>void;let speakingSignal!:AbortSignal;
+  f.provider.speak=(_text,signal)=>{speakingSignal=signal;return new Promise(resolve=>{release=resolve;});};
+  f.session.start();await tick();const speech=f.session.speak('Working on the previous request.');
+  f.callbacks.transcript({id:'stop',text:'Stop.',partial:true});assert(speakingSignal.aborted);assert.equal(f.stops,1);
+  f.callbacks.transcript({id:'stop',text:'Stop.',partial:false});assert.equal(f.stops,1);assert.deepEqual(f.submitted,[]);
+  release(new Uint8Array([1,0]));await speech;assert(!f.events.some(event=>event.type==='audio'));
+  f.session.stop();await f.session.settled();
+ }
+});
+test('unaddressed fragments cannot interrupt work while strict-mode short commands can',async()=>{
+ const f=fixture({wakeWord:true});f.session.start();await tick();
+ f.callbacks.transcript({id:'chatter',text:'OK.',partial:true});f.callbacks.transcript({id:'chatter',text:'OK.',partial:false});assert.equal(f.stops,0);
+ f.callbacks.transcript({id:'zoom',text:'zoom in',partial:false});assert.equal(f.stops,1);assert.deepEqual(f.submitted,['zoom in']);
+ f.session.stop();await f.session.settled();
+});
 test('room chatter and one-word fragments are ignored while real requests and short commands pass',()=>{
  for(const chatter of ['OK.','Bye.','Really.','hello','Yeah','Hmm.'])assert.equal(isAddressedToLuma(chatter),false,chatter);
- for(const request of ['Zoom in a little.','Show me the positive cells','Focus here','undo that','Stop','zoom out','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
+ for(const request of ['Zoom in a little.','Show me the positive cells','Focus here','undo that','Stop','zoom out','stricter','looser','brighter','darker','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
 });
 test('with the wake word required, Luma acts on its name, short commands and attentive follow-ups only',()=>{
  const strict={wakeWord:true,attentive:false};
@@ -55,6 +95,7 @@ test('with the wake word required, Luma acts on its name, short commands and att
  assert.equal(addressed('Luma.',strict).request,'Yes?');
  assert.equal(addressed('What uh looking into the YouTube but we know he takes it.',strict).accept,false);
  assert.equal(addressed('zoom in',strict).accept,true);
+ for(const refinement of ['stricter','looser','brighter','darker'])assert.equal(addressed(refinement,strict).accept,true,refinement);
  assert.equal(addressed('What percentage are positive?',{wakeWord:true,attentive:true}).accept,true);
  assert.equal(addressed('What percentage are positive?',{wakeWord:false,attentive:false}).accept,true);
  assert.equal(addressed('OK.',{wakeWord:false,attentive:true}).accept,false);

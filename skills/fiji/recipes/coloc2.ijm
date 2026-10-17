@@ -12,6 +12,8 @@ channelB = parseFloat(pennyParam("channelB", "2"));
 randomisations = parseFloat(pennyParam("randomisations", "10"));
 psf = parseFloat(pennyParam("psf", "3"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
@@ -21,16 +23,16 @@ area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
 // Roi.copy/Roi.paste keep composite selections (holes, several pieces) exactly.
 if (area) Roi.copy();
 run("Select None");
-run("Duplicate...", "title=penny-coloc-a duplicate channels=" + channelA);
+run("Duplicate...", "title=[penny-coloc-a-" + tag + "] duplicate channels=" + channelA);
 if (area) Roi.paste();
 selectImage(orig); run("Select None");
-run("Duplicate...", "title=penny-coloc-b duplicate channels=" + channelB);
+run("Duplicate...", "title=[penny-coloc-b-" + tag + "] duplicate channels=" + channelB);
 mask = 0; if (area) mask = 1;
 costes = "false"; if (randomisations > 0) costes = "true";
 // Coloc 2 is driven through its own API: the menu command opens a separate result window and keeps the numbers there.
 // java.awt.headless reads true only while it runs so it adds no window; the JVM stays a normal session.
 js = "var C = Packages.sc.fiji.coloc.Coloc_2, W = Packages.ij.WindowManager, S = java.lang.System;"
-  + "var impA = W.getImage('penny-coloc-a'), impB = W.getImage('penny-coloc-b'), c = new C(), previous = S.getProperty('java.awt.headless'), out = '';"
+  + "var impA = W.getImage('penny-coloc-a-" + tag + "'), impB = W.getImage('penny-coloc-b-" + tag + "'), c = new C(), previous = S.getProperty('java.awt.headless'), out = '';"
   + "S.setProperty('java.awt.headless', 'true');"
   + "try { if (!c.initializeSettings(impA, impB, " + mask + ", 0, false, false, false, true, true, true, true, true, true, false, " + costes + ", " + psf + ", " + maxOf(randomisations, 1) + ")) throw 'Coloc 2 rejected the settings';"
   + "var field = function (o, name) { var f = o.getClass().getDeclaredField(name); f.setAccessible(true); return f.get(o); };"
@@ -50,7 +52,7 @@ icq = colocValue(report, "Li's ICQ value");
 costesP = colocValue(report, "Costes P-Value");
 thresholdA = colocValue(report, "Ch1 Max Threshold");
 thresholdB = colocValue(report, "Ch2 Max Threshold");
-close("penny-coloc-a"); close("penny-coloc-b");
+close("penny-coloc-a-" + tag); close("penny-coloc-b-" + tag);
 selectImage(orig);
 if (area) Roi.paste();
 if (!wasBatch) setBatchMode("exit and display");

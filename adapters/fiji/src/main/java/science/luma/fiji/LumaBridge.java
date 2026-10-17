@@ -54,7 +54,8 @@ public final class LumaBridge implements PlugIn {
     final Tracking tracking = new Tracking(ops, journal);
     final Analysis analysis = new Analysis(ops, journal);
     final Macros macros = new Macros(scripting, journal, analysisRunning);
-    final Pipeline pipeline = new Pipeline();
+    private final Map<ImagePlus, Pipeline> pipelines = new WeakHashMap<>();
+    private Pipeline pipeline(ImagePlus imp) { return pipelines.computeIfAbsent(Objects.requireNonNull(imp, "Open an image first."), ignored -> new Pipeline()); }
     private volatile Map<String, Object> lastDispatch = Map.of();
     private String lastUndoCheckpoint;
 
@@ -188,7 +189,7 @@ public final class LumaBridge implements PlugIn {
                 case "run_script" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before script")); yield withMeta(scripting.runScript(args, imp, COMMAND_TIMEOUT_MS), backup); }
                 case "make_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", true) ? edt(() -> checkpointIfPossible("Before make macro")) : null; yield withMeta(macros.makeMacro(args, imp), backup); }
                 case "run_workflow" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = "folder".equals(Operations.string(args, "target", "active")) ? null : edt(() -> checkpointIfPossible("Before workflow")); yield withMeta(macros.runWorkflow(args, imp), backup); }
-                case "apply_analysis" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var described = edt(pipeline::describe); yield withMeta(applyAnalysis(args, imp, described), null); }
+                case "apply_analysis" -> { var imp = edt(() -> { check(expected); return ops.active(); }); var described = edt(() -> pipeline(imp).describe()); yield withMeta(applyAnalysis(args, imp, described), null); }
                 case "capture_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", false) ? edt(() -> checkpointIfPossible("Before capture macro")) : null; yield withMeta(macros.macroFromRecorder(args, imp), backup); }
                 case "open_path" -> {
                     var path = edt(() -> { check(expected); return Operations.openablePath(Operations.string(args, "path", "")); });
@@ -265,7 +266,7 @@ public final class LumaBridge implements PlugIn {
     private Object checkpointIfPossible(String label) {
         var imp = WindowManager.getCurrentImage();
         if (imp == null) return Map.of("skipped", true, "reason", "No image open; nothing to checkpoint.", "scope", Checkpoints.SCOPE);
-        return checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), ops.counts(imp));
+        return checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), ops.counts(imp), pipeline(imp));
     }
 
     private Object execute(String operation, JsonObject args, JsonObject request) throws Exception {
@@ -301,7 +302,7 @@ public final class LumaBridge implements PlugIn {
             case "save_workflow" -> scripting.saveWorkflow(args);
             case "save_image" -> ops.saveImage(args);
             case "export_results" -> ops.exportResults(args);
-            case "checkpoint" -> { var imp = ops.active(); yield castMap(checkpoints.capture(imp, Operations.string(args, "label", "Researcher checkpoint"), ops.managerOrNull(), Operations.results(), ops.counts(imp))); }
+            case "checkpoint" -> { var imp = ops.active(); yield castMap(checkpoints.capture(imp, Operations.string(args, "label", "Researcher checkpoint"), ops.managerOrNull(), Operations.results(), ops.counts(imp), pipeline(imp))); }
             case "checkpoints" -> Map.of("checkpoints", checkpoints.list(WindowManager.getCurrentImage()));
             case "compare" -> compare(args);
             case "restore" -> restore(Operations.string(args, "checkpointId", ""), "Before restore");
@@ -318,12 +319,13 @@ public final class LumaBridge implements PlugIn {
             case "filter_objects" -> analysis.filterObjects(args);
             case "split_objects" -> analysis.splitObjects(args);
             case "merge_objects" -> analysis.mergeObjects(args);
-            case "analysis_workflow" -> pipeline.describe();
-            case "explain_object" -> analysis.explainObject(args, pipeline.ready() ? pipeline.describe() : null);
+            case "analysis_workflow" -> pipeline(ops.active()).describe();
+            case "explain_object" -> { var pipeline = pipeline(ops.active()); yield analysis.explainObject(args, pipeline.ready() ? pipeline.describe() : null); }
             case "workflows" -> macros.workflows(args);
             default -> throw new IllegalArgumentException("Unknown operation: " + operation);
         };
-        pipeline.observe(operation, args, result, WindowManager.getCurrentImage());
+        var observedImage = WindowManager.getCurrentImage();
+        if (observedImage != null) pipeline(observedImage).observe(operation, args, result, observedImage);
         var out = new LinkedHashMap<>(result);
         if (checkpoint != null) out.put("checkpoint", checkpoint);
         if (!operation.equals("context")) out.put("contextKey", contextKey());
@@ -349,14 +351,15 @@ public final class LumaBridge implements PlugIn {
         for (var candidate : ops.images()) if (candidate.getID() == target.imageId()) imp = candidate;
         if (imp == null) throw new IllegalStateException("The checkpoint's image (" + target.title() + ") is no longer open.");
         var before = ops.counts(imp);
-        var backup = checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), before);
+        var backup = checkpoints.capture(imp, label, ops.managerOrNull(), Operations.results(), before, pipeline(imp));
         Checkpoints.restore(target, imp, ops.managerOrNull());
+        pipelines.put(imp, target.pipeline() == null ? new Pipeline() : target.pipeline().copy());
         if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow()); else WindowManager.setTempCurrentImage(imp);
         journal.record("restore", "// restored Luma checkpoint \"" + target.label() + "\"");
         var result = new LinkedHashMap<String, Object>();
         result.put("restored", target.id()); result.put("label", target.label()); result.put("imageId", imp.getID()); result.put("title", imp.getTitle());
         result.put("before", before); result.put("counts", ops.counts(imp)); result.put("restoredCounts", ops.counts(imp)); result.put("image", Operations.describe(imp)); result.put("undoCheckpoint", backup);
-        result.put("scope", "this image only: its pixels, ROI, overlay, its ROI Manager entries and the Results table");
+        result.put("scope", "this image only: its pixels, ROI, overlay, its ROI Manager entries, analysis parameters and the Results table");
         result.put("highlight", Viewer.imageHighlight(imp, "Restored: " + target.label()));
         return result;
     }

@@ -85,6 +85,8 @@ test('a failed action is never followed by a success phrase', async () => {
 
 test('undo says what came back, and says so when there was no checkpoint to restore', async () => {
   assert.equal(fiji.localSentenceFor('fiji_undo', {}, completed({ mode: 'checkpoint', label: 'Before segment cells', counts: { roiManager: 30 } })), 'Restored "Before segment cells"; 30 objects now.');
+  assert.equal(fiji.localSentenceFor('fiji_undo', {}, completed({ mode: 'checkpoint', label: 'Before filter objects', counts: { roiManager: 20, roiManagerForImage: 10 } })), 'Restored "Before filter objects"; 10 objects now.');
+  assert.equal(fiji.localSentenceFor('fiji_undo', {}, completed({ mode: 'checkpoint', label: 'Before filter objects', counts: { roiManager: 10, roiManagerForImage: 0 } })), 'Restored "Before filter objects"; 0 objects now.');
   assert.match(String(fiji.localSentenceFor('fiji_undo', {}, completed({ mode: 'imagej-undo' }))), /^No checkpoint to go back to/);
   const f = await fijiRuntime({ undo: { mode: 'imagej-undo', note: 'ImageJ Undo' } });
   const events: Array<Record<string, unknown>> = [];
@@ -110,7 +112,8 @@ test('the instant folder route passes the folder the utterance names, else the d
     await conversation.submit('do the same for all the images in the bbbc folder', true);
     const action = [...f.runtime.actions.values()].find(entry => entry.tool === 'fiji_apply_analysis');
     assert.deepEqual(action?.arguments, { folder: join(root, '.local', 'data', 'bbbc008', 'images') });
-    assert.match(String(events.find(event => event.type === 'text_result')?.text), /^Running it on the images folder\. Ran the corrected analysis on 1 image/);
+    assert.equal(events.find(event => event.type === 'text_ack')?.text, 'Running it on the images folder.');
+    assert.match(String(events.find(event => event.type === 'text_result')?.text), /^Ran the corrected analysis on 1 image/);
   } finally { conversation.stop(); await f.clean(); }
 });
 

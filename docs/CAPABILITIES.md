@@ -1,5 +1,17 @@
 # Capability matrix
 
+## Fiji voice workflow
+
+The current Fiji profile has 68 tools and 57 bridge operations. An isolated copy of the installed Fiji, the actual gateway/Runtime and the credit-checked Bedrock model passed the corrected-analysis conversation on three disposable calibrated fields: 12 objects, split to 13, filter to 10, replay 3 × 10. This checks software behavior on a known fixture, not biological validity. [Workflow evidence](qa/PENNY-VOICE-WORKFLOW.md)
+
+- Existing-object counts can use the active area selection or a pixel rectangle without changing segmentation. Empty populations report zero. Objects and workflows belong to their image; pointer targets expire after 30 seconds or an image/plane change.
+- Segmentation summaries use the selected source channel's original pixels. Folder replay preserves the source channel/plane and generalisable corrections; hand edits and a source-only selection are explicitly reported as not replayed.
+- Checkpoints restore the active image's structured workflow parameters alongside pixels, ROIs and results. Files, closed images and arbitrary script effects remain outside recovery.
+- Spoken Stop cancels the current conversation and pending reply audio. Short refinements are accepted; long actions acknowledge before execution; failures carry explicit outcome metadata and appear as errors in the native bar.
+- Native builds and offline UI contracts pass. Foreground inspection and a fresh physical microphone/speaker check require an unlocked Mac; synthetic audio through actual Transcribe/Fiji/Polly is recorded separately.
+
+## QuPath capability matrix
+
 There are 52 MCP tools (46 adapter operations). The Approval column describes `LUMA_APPROVALS=review`; the default `auto` policy executes those actions immediately through the same recorded decision path (see [DEMO.md](DEMO.md)). See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
 
 | Surface | Behavior | Approval | Evidence / limit |

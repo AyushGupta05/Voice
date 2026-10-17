@@ -8,7 +8,7 @@
 // @param tophat = 0 | white top-hat radius, px, to remove uneven background around small spots (0 = none)
 // @param excludeEdges = false | ignore maxima on the image edge
 // @param light = false | dark spots on a light background
-// @output A point selection on the original image marking every spot (inside the active area selection when there is one); a Results row per spot with X, Y and the intensity of the original.
+// @output A point selection on the original image marking every spot (inside the active area selection when there is one); a Results row per spot with X, Y and the intensity of the original at that pixel (RGB: mean of R, G and B).
 // @say Found {count} spots.
 channel = parseFloat(pennyParam("channel", "1"));
 prominence = parseFloat(pennyParam("prominence", "20"));
@@ -18,6 +18,8 @@ tophat = parseFloat(pennyParam("tophat", "0"));
 excludeEdges = pennyParam("excludeEdges", "false"); excludeEdges = (excludeEdges == "true");
 light = pennyParam("light", "false"); light = (light == "true");
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
@@ -27,7 +29,7 @@ if (area) Roi.copy();
 getDimensions(w, h, channels, slices, frames);
 if (channels > 1) Stack.setChannel(channel);
 run("Select None");
-run("Duplicate...", "title=penny-spots");
+pennyPlane("penny-spots-" + tag);
 if (bitDepth() == 24) run("8-bit");
 if (is("Inverting LUT")) run("Invert LUT");
 if (light) run("Invert");
@@ -41,14 +43,23 @@ if (excludeEdges) options = options + " exclude";
 run("Find Maxima...", options);
 count = 0;
 if (selectionType() == 10) { getSelectionCoordinates(xs, ys); count = xs.length; }
-close("penny-spots");
+close("penny-spots-" + tag);
 selectImage(orig);
 run("Clear Results");
 sum = 0;
-for (i = 0; i < count; i++) { v = getPixel(xs[i], ys[i]); setResult("X", i, xs[i]); setResult("Y", i, ys[i]); setResult("Value", i, v); sum += v; }
+// RGB pixels come back packed; their value is reported as the mean of R, G and B (ImageJ's unweighted brightness).
+rgb = bitDepth() == 24;
+for (i = 0; i < count; i++) { v = getPixel(xs[i], ys[i]); if (rgb) v = (((v >> 16) & 255) + ((v >> 8) & 255) + (v & 255)) / 3; setResult("X", i, xs[i]); setResult("Y", i, ys[i]); setResult("Value", i, v); sum += v; }
 if (count > 0) makeSelection("point", xs, ys); else if (area) Roi.paste(); else run("Select None");
 updateResults();
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT count=" + count + " meanValue=" + d2s(sum / maxOf(count, 1), 2) + " prominence=" + prominence + " channel=" + channel);
+print("RESULT count=" + count + " meanValue=" + d2s(ratio(sum, count), 2) + " prominence=" + prominence + " channel=" + channel);
 
+/** a / b, or NaN when nothing was measured (b = 0), so an empty result is never reported as a zero mean. */
+function ratio(a, b) { if (b == 0) return NaN; return a / b; }
+/** Duplicates only the displayed plane (current channel, slice and frame); a plain Duplicate of a composite z-stack copies every channel. */
+function pennyPlane(name) {
+  if (Stack.isHyperstack || is("composite")) { Stack.getPosition(pc, pz, pt); run("Duplicate...", "title=[" + name + "] duplicate channels=" + pc + " slices=" + pz + " frames=" + pt); }
+  else run("Duplicate...", "title=[" + name + "]");
+}
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

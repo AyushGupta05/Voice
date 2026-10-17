@@ -80,7 +80,8 @@ export function recipeArgument(recipe: Recipe, params: Record<string, RecipeValu
     const text = String(value);
     // pennyParam() finds " key=" anywhere in the argument and ends a bracketed value at the first "]".
     if (/[\]=\n\r]/.test(text)) throw new Error(`Recipe ${recipe.id} parameter ${name} cannot contain "]", "=" or line breaks.`);
-    parts.push(`${name}=${text === '' || /\s/.test(text) ? `[${text}]` : text}`);
+    // Empty values, spaces and a leading "[" (which pennyParam would read as a bracket) are bracketed.
+    parts.push(`${name}=${text === '' || /\s/.test(text) || text.startsWith('[') ? `[${text}]` : text}`);
   }
   return parts.join(' ');
 }
@@ -93,6 +94,8 @@ export function parseResultLine(log: unknown): Record<string, string | number> |
   for (const match of line.slice(7).matchAll(/(\w+)=(\[[^\]]*\]|\S+)/g)) {
     const raw = match[2].startsWith('[') ? match[2].slice(1, -1) : match[2];
     const number = Number(raw);
+    // The first occurrence wins: measurements come first, and trailing text (an image title) cannot overwrite them.
+    if (match[1] in values) continue;
     values[match[1]] = raw !== '' && /^-?[\d.]+(?:e-?\d+)?$/i.test(raw) && Number.isFinite(number) ? number : raw;
   }
   return values;
@@ -118,7 +121,7 @@ export function recipeSentence(template: string | undefined, values: Record<stri
   const sentence = template.replace(/\{(\w+)(?::(%|area|len|volume))?\}/g, (_, key: string, kind: string | undefined) => {
     const value = values[key];
     if (typeof value === 'number' && Number.isFinite(value)) return spoken(value, kind, unit);
-    if (typeof value === 'string' && value && !/^nan$/i.test(value) && !kind) return value.replace(/_/g, ' ');
+    if (typeof value === 'string' && value && !/^[+-]?(?:nan|infinity)$/i.test(value) && !kind) return value.replace(/_/g, ' ');
     missing = true; return '';
   });
   return missing ? undefined : sentence;
@@ -134,12 +137,30 @@ export function recipeTool(input: LocalToolInput): Promise<unknown> | undefined 
     if (!recipe) throw new Error(`No recipe "${id}". List them with fiji_recipes.`);
     const argument = recipeArgument(recipe, (input.args.params ?? {}) as Record<string, RecipeValue>);
     const outcome = await input.runtime.call('fiji_run_macro', { code: recipe.code, argument }, input.signal, input.beforeDispatch) as Record<string, unknown>;
-    const payload = completedPayload(outcome);
-    const summary = parseResultLine(payload?.log);
-    const spoken = payload?.completed === true ? recipeSentence(recipe.say, summary) : undefined;
-    const note = payload?.running === true ? 'Still running; fiji_status shows when it finishes and fiji_log then holds the RESULT line.'
-      : payload && !summary ? 'No RESULT line came back; read the log for the macro error.' : summary?.error !== undefined ? `The recipe stopped: ${summary.error}.` : undefined;
-    // The macro text is the recipe file; the model gets its id and argument instead of 32 kB of code.
-    return { ...outcome, arguments: { recipe: recipe.id, argument }, recipe: recipe.id, title: recipe.title, ...(summary ? { summary } : {}), ...(spoken ? { spoken } : {}), ...(note ? { note } : {}) };
+    // Under LUMA_APPROVALS=review nothing ran yet; the backend finishes the result after the human decision
+    // (finalizeRecipeDecision) from the fields carried here.
+    if (outcome.status === 'approval_required') return { ...outcome, arguments: { recipe: recipe.id, argument }, recipe: recipe.id, title: recipe.title, sentenceTemplate: recipe.say ?? null };
+    return finishRecipe(recipe, argument, outcome);
   })();
+}
+/** The fiji_run_recipe result for a settled run_macro outcome: parsed RESULT values, the spoken sentence, a note,
+ * and `status: failed` when the macro ran but reported `RESULT error=…`. */
+export function finishRecipe(recipe: { id: string; title?: string; say?: string | null }, argument: string, outcome: Record<string, unknown>) {
+  const payload = completedPayload(outcome);
+  const summary = parseResultLine(payload?.log);
+  const spoken = payload?.completed === true ? recipeSentence(recipe.say ?? undefined, summary) : undefined;
+  const note = payload?.running === true ? 'Still running; fiji_status shows when it finishes and fiji_log then holds the RESULT line.'
+    : payload && !summary ? 'No RESULT line came back; read the log for the macro error.' : summary?.error !== undefined ? `The recipe stopped: ${summary.error}.` : undefined;
+  // A recipe that ran but reported `RESULT error=…` (wrong image type, no selection, …) failed as far as the request goes.
+  const failed = outcome.status === 'completed' && summary?.error !== undefined ? { status: 'failed', error: `Recipe ${recipe.id} stopped: ${summary.error}.` } : {};
+  // The macro text is the recipe file; the model gets its id and argument instead of the code.
+  return { ...outcome, ...failed, arguments: { recipe: recipe.id, argument }, recipe: recipe.id, ...(recipe.title ? { title: recipe.title } : {}), ...(summary ? { summary } : {}), ...(spoken ? { spoken } : {}), ...(note ? { note } : {}) };
+}
+/** After a human approved (or denied) a reviewed recipe, the decision gets the same finishing as an immediate run. */
+export function finalizeRecipeDecision(name: string, proposal: unknown, decision: unknown): unknown {
+  if (name !== 'fiji_run_recipe' || !proposal || typeof proposal !== 'object' || !decision || typeof decision !== 'object') return undefined;
+  const pending = proposal as { recipe?: unknown; title?: unknown; sentenceTemplate?: unknown; arguments?: { argument?: unknown } };
+  if (typeof pending.recipe !== 'string') return undefined;
+  return finishRecipe({ id: pending.recipe, title: typeof pending.title === 'string' ? pending.title : undefined, say: typeof pending.sentenceTemplate === 'string' ? pending.sentenceTemplate : undefined },
+    typeof pending.arguments?.argument === 'string' ? pending.arguments.argument : '', decision as Record<string, unknown>);
 }

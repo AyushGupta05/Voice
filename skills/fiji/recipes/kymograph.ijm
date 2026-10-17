@@ -8,6 +8,8 @@
 channel = parseFloat(pennyParam("channel", "1"));
 lineWidth = parseFloat(pennyParam("lineWidth", "3"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
@@ -18,9 +20,9 @@ type = selectionType();
 if (type >= 5 && type <= 7) { getSelectionCoordinates(lx, ly); }
 else { lx = newArray(0, w - 1); ly = newArray(floor(h / 2), floor(h / 2)); type = 5; }
 run("Select None");
-if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=penny-kymo duplicate channels=" + channel);
-else run("Duplicate...", "title=penny-kymo duplicate");
-if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-kymo"); rename("penny-kymo"); }
+if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=[penny-kymo-" + tag + "] duplicate channels=" + channel);
+else run("Duplicate...", "title=[penny-kymo-" + tag + "] duplicate");
+if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-kymo-" + tag); rename("penny-kymo-" + tag); }
 movie = getImageID();
 if (lx.length == 2) makeLine(lx[0], ly[0], lx[1], ly[1]); else makeSelection("polyline", lx, ly);
 run("Line Width...", "line=" + lineWidth);
@@ -38,6 +40,6 @@ selectImage(orig);
 if (lx.length == 2) makeLine(lx[0], ly[0], lx[1], ly[1]); else makeSelection("polyline", lx, ly);
 selectImage(kymo);
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT length=" + d2s(length, 2) + " unit=" + replace(unit, " ", "_") + " frames=" + kh + " width=" + kw + " channel=" + channel + " lineWidth=" + lineWidth);
+print("RESULT length=" + d2s(length, 2) + " unit=" + replace(unit, "\\s", "_") + " frames=" + kh + " width=" + kw + " channel=" + channel + " lineWidth=" + lineWidth);
 
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

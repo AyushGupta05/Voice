@@ -135,7 +135,8 @@ test('Fiji fast routes cover zoom, fit, overlay, slices and undo, and nothing el
   assert.deepEqual(fiji.fastRoute('show me the size distribution', segmented), { tool: 'fiji_object_stats', arguments: { plot: true }, reply: 'Plotting the sizes.' });
   assert.deepEqual(fiji.fastRoute('How many cells are left?', segmented), { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' });
   assert.deepEqual(fiji.fastRoute('so how many are there now', segmented)?.tool, 'fiji_object_stats');
-  for (const other of ['Remove the tiny ones.', 'separate them', 'how many cells are left']) assert.equal(fiji.fastRoute(other, context), undefined, `${other}: nothing segmented, no route`);
+  for (const other of ['Remove the tiny ones.', 'separate them']) assert.equal(fiji.fastRoute(other, context), undefined, `${other}: nothing segmented, no route`);
+  assert.equal(fiji.fastRoute('how many cells are left', context)?.tool, 'fiji_object_stats', 'an empty manager is counted without re-segmenting');
   assert.equal(fiji.fastRoute('remove the tiny ones and then count them', segmented), undefined, 'a chained request goes to the model');
   assert.equal(fiji.fastRoute('how many cells are in the red channel', segmented), undefined, 'a channel question goes to the model');
 });

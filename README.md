@@ -10,9 +10,10 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 ## Fiji (current demo application)
 
-- `LUMA_APP=fiji` (written to `.local/state/app` by `./script/run-fiji.sh`) switches the agent to the Fiji profile: ~60 `fiji_*` tools over a 51-operation bridge plugin (open/samples, ROIs, measure, threshold, Analyze Particles, one-shot `segment_cells`, filters, stacks, zoom, highlight, overlays, display, commands/dialogs, macros and scripts, Macro Recorder → saved workflows, checkpoints/undo, tracking, intensity over time, tumour region, colocalisation, positivity, dynamic macros) plus the Accessibility desktop tools.
+- `LUMA_APP=fiji` (written to `.local/state/app` by `./script/run-fiji.sh`) switches the agent to the Fiji profile: 68 tools over a 57-operation bridge plugin, including analysis recipes and Accessibility desktop tools.
 - Verified by voice-style turns on the Blobs sample: "segment the cells" → 67 cells outlined, "how many and the mean intensity" → 67 / 190 (from the original pixels), "make it stricter / looser" → instant re-segmentation with the new count (~40 ms, no model round), "go back", "save this as a macro" → `.ijm` written. See [DEMO-FIJI.md](docs/DEMO-FIJI.md), [FIJI-SETUP.md](docs/FIJI-SETUP.md) and the [bridge contract](docs/FIJI-PROTOCOL.md).
-- Say "Penny, …" to address it in a noisy room; follow-ups within 30 s need no name; "zoom in", "undo", "stricter" always work.
+- Speak naturally: the wake word is optional by default. `LUMA_WAKE_WORD=on` requires "Penny, …" in a noisy room; follow-ups within 30 s and short controls such as "stop", "undo", "stricter" and "brighter" work without repeating the name.
+- The real-gateway correction workflow passed on an isolated installed Fiji: 12 objects → split 13 → remove under 20 µm² 10 → replay three fields with 10 objects each. Counts use image-owned detections; selection/corner queries preserve the segmentation, and undo restores workflow parameters. See [voice workflow evidence](docs/qa/PENNY-VOICE-WORKFLOW.md).
 
 ## QuPath profile
 

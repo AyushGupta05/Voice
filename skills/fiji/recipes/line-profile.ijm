@@ -22,17 +22,20 @@ step = length / maxOf(n - 1, 1);
 Array.getStatistics(profile, min, max, mean, std);
 peak = 0; for (i = 1; i < n; i++) if (profile[i] > profile[peak]) peak = i;
 half = min + (max - min) / 2;
-left = peak; while (left > 0 && profile[left - 1] >= half) left--;
-right = peak; while (right < n - 1 && profile[right + 1] >= half) right++;
+// ImageJ macro evaluates both sides of &&, so the bounds are checked before indexing.
+left = peak; while (left > 0) { if (profile[left - 1] >= half) left--; else break; }
+right = peak; while (right < n - 1) { if (profile[right + 1] >= half) right++; else break; }
 // Interpolate the half-maximum crossings linearly between samples.
 l = left; if (left > 0) l = left - (profile[left] - half) / (profile[left] - profile[left - 1]);
 r = right; if (right < n - 1) r = right + (profile[right] - half) / (profile[right] - profile[right + 1]);
+// A width needs a real peak and a half-maximum crossing on both sides; otherwise it is not reported (NaN).
 fwhm = (r - l) * step;
+if (max <= min || (left == 0 && profile[0] >= half) || (right == n - 1 && profile[n - 1] >= half)) fwhm = NaN;
 run("Clear Results");
 for (i = 0; i < n; i++) { setResult("Distance", i, i * step); setResult("Value", i, profile[i]); }
 updateResults();
 if (!is("batch mode")) run("Plot Profile");
 run("Line Width...", "line=1");
-print("RESULT length=" + d2s(length, 3) + " min=" + d2s(min, 2) + " max=" + d2s(max, 2) + " mean=" + d2s(mean, 2) + " peakAt=" + d2s(peak * step, 3) + " fwhm=" + d2s(fwhm, 3) + " samples=" + n + " unit=" + replace(unit, " ", "_") + " channel=" + channel);
+print("RESULT length=" + d2s(length, 3) + " min=" + d2s(min, 2) + " max=" + d2s(max, 2) + " mean=" + d2s(mean, 2) + " peakAt=" + d2s(peak * step, 3) + " fwhm=" + d2s(fwhm, 3) + " samples=" + n + " unit=" + replace(unit, "\\s", "_") + " channel=" + channel);
 
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

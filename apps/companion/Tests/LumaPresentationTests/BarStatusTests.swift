@@ -6,12 +6,12 @@ final class BarStatusTests: XCTestCase {
                         working: Bool = false, voice: Bool = false, running: Int = 0,
                         starting: Bool = false, speaking: Bool = false,
                         ack: String = "", result: String = "", transcript: String = "",
-                        voiceReady: Bool = true, reason: String = "") -> BarStatus {
+                        voiceReady: Bool = true, reason: String = "", resultIsError: Bool = false) -> BarStatus {
         BarStatus(connected: connected, bridgeConnected: bridge, eventsReady: events,
                   working: working, voiceActive: voice, runningActions: running,
                   voiceStarting: starting, voiceSpeaking: speaking,
                   executingText: ack, resultText: result, liveTranscript: transcript,
-                  voiceReady: voiceReady, voiceReason: reason)
+                  voiceReady: voiceReady, voiceReason: reason, resultIsError: resultIsError)
     }
     func testOnlyThreePhasesExist() {
         let phases: [BarPhase] = [.idle, .listening, .executing]
@@ -41,8 +41,8 @@ final class BarStatusTests: XCTestCase {
         XCTAssertFalse(status(starting: true).ready); XCTAssertEqual(status(starting: true).note, "Connecting speech")
         XCTAssertEqual(status(connected: false, voice: true).phase, .listening, "A live microphone stays visible while the gateway poll fails")
     }
-    func testExecutingShowsTheAcknowledgementAndBeatsEverything() {
-        let value = status(working: true, voice: true, speaking: true, ack: "Detecting cells.", result: "Old.", transcript: "detect cells")
+    func testExecutingShowsTheAcknowledgementAndBeatsAnOldResult() {
+        let value = status(working: true, voice: true, speaking: true, ack: "Detecting cells.", result: "Old.")
         XCTAssertEqual(value.phase, .executing); XCTAssertEqual(value.title, "Detecting cells.")
         XCTAssertFalse(value.showsResult); XCTAssertTrue(value.speaking)
         XCTAssertEqual(status(working: true).title, BarStatus.workingTitle)
@@ -63,5 +63,29 @@ final class BarStatusTests: XCTestCase {
         XCTAssertTrue(status(speaking: true).speaking, "Playback of a text reply is still speech")
         XCTAssertFalse(status(speaking: true).showsResult)
         XCTAssertEqual(status(speaking: true, ack: "Zooming in.").title, "Zooming in.")
+    }
+    func testResearcherSpeechReplacesAResultOrOngoingWorkImmediately() {
+        let value = status(working: true, voice: true, speaking: true, ack: "Detecting cells.",
+                           result: "Old result.", transcript: "stop, use the other channel")
+        XCTAssertEqual(value.phase, .listening)
+        XCTAssertEqual(value.title, "stop, use the other channel")
+        XCTAssertTrue(value.ready)
+        XCTAssertFalse(value.showsResult)
+        XCTAssertEqual(status(working: true, transcript: "stale transcript").phase, .executing,
+                       "An inactive microphone never presents stale speech as a new request")
+    }
+    func testVoiceCanStartDuringResultsAndWorkButNeedsAnActualConnection() {
+        XCTAssertTrue(status(result: "Found 67 objects.").canStartVoice)
+        XCTAssertTrue(status(working: true).canStartVoice)
+        XCTAssertFalse(status(working: true, voiceReady: false).canStartVoice)
+        XCTAssertFalse(status(events: false, result: "Old result.").canStartVoice)
+        XCTAssertFalse(status(connected: false, voice: true).canStartVoice)
+    }
+    func testFailedOutcomeGetsAttentionInsteadOfASuccessCheck() {
+        let value = status(result: "No checkpoint for this image.", resultIsError: true)
+        XCTAssertTrue(value.showsResult)
+        XCTAssertTrue(value.showsError)
+        XCTAssertFalse(status(working: true, result: "Old failure.", resultIsError: true).showsError)
+        XCTAssertFalse(status(result: "Found 67 objects.").showsError)
     }
 }

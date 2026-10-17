@@ -48,6 +48,6 @@ run("Clear Results");
 for (t = 0; t < n; t++) { setResult("Time", t, t * interval); setResult("ROI mean", t, roi[t]); setResult("Reference mean", t, ref[t]); setResult("Normalised", t, norm[t]); }
 updateResults();
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT mobileFraction=" + d2s(mobile, 4) + " immobileFraction=" + d2s(1 - mobile, 4) + " halfTime=" + d2s(halfTime, 3) + " timeUnit=" + replace(timeUnit, " ", "_") + " bleachFrame=" + bleachFrame + " postBleach=" + d2s(post, 4) + " plateau=" + d2s(plateau, 4) + " rSquared=" + d2s(r2, 4) + " frames=" + n);
+print("RESULT mobileFraction=" + d2s(mobile, 4) + " immobileFraction=" + d2s(1 - mobile, 4) + " halfTime=" + d2s(halfTime, 3) + " timeUnit=" + replace(timeUnit, "\\s", "_") + " bleachFrame=" + bleachFrame + " postBleach=" + d2s(post, 4) + " plateau=" + d2s(plateau, 4) + " rSquared=" + d2s(r2, 4) + " frames=" + n);
 
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

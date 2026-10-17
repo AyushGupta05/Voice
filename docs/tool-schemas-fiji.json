@@ -296,7 +296,7 @@
     },
     {
       "name": "fiji_segment_cells",
-      "description": "One-step cell/nucleus segmentation of the active image: duplicate → 8-bit → Gaussian 1 → auto threshold (method, default Otsu) → fill holes → watershed (default true) → Analyze Particles on the original, adding every cell to the ROI Manager. Pick channel and minSize yourself from the image. Returns count, the steps taken (macro-equivalent) and a highlight; follow with fiji_measure scope manager for areas and intensities.",
+      "description": "Segment nuclei on the active image or selected area using image-compatible nuclear-channel defaults (hematoxylin for RGB brightfield), threshold, fill holes and watershed. Returns actual count, original-source measurements and a highlight. Leave optional tuning at defaults unless requested. keepArtifacts true retains text/specks only when explicitly requested; default false excludes them. watershed false keeps touching components together.",
       "operation": "segment_cells",
       "risk": "data",
       "inputSchema": {
@@ -315,6 +315,9 @@
             "minimum": 0
           },
           "watershed": {
+            "type": "boolean"
+          },
+          "keepArtifacts": {
             "type": "boolean"
           }
         },
@@ -543,7 +546,7 @@
     },
     {
       "name": "fiji_object_stats",
-      "description": "Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Opens a “Size distribution” histogram plot window (plot, default true) — the answer to “show me the size distribution”. Read only.",
+      "description": "Summarise existing objects belonging to the active image, without re-segmenting: count, area/intensity/circularity statistics, histogram and largest/smallest with a highlight. scope selection counts only centroids inside the current area selection; region counts inside an image-pixel rectangle without changing selection. Returns scopeUsed and totalForImage. Opens a size histogram when plot is true (default true). Use plot false for counts.",
       "operation": "object_stats",
       "risk": "read",
       "inputSchema": {
@@ -555,6 +558,39 @@
           },
           "plot": {
             "type": "boolean"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "image",
+              "selection"
+            ]
+          },
+          "region": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "height": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
           }
         },
         "required": [],

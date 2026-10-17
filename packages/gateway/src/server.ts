@@ -141,7 +141,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
         }
         else if(event.type==='start_voice') {
           if(typeof event.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(event.requestId))throw new Error('A voice request identity is required.');
-          if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',message:'Voice is already active in another companion.'});return;}
+          if(voiceOwner){if(voiceOwner.peer!==ws)send({type:'voice_error',requestId:event.requestId,message:'Voice is already active in another companion.'});return;}
           // Claim before any funding await; simultaneous starts cannot open two streams.
           const owner={peer:ws,requestId:event.requestId};voiceOwner=owner;
           try{

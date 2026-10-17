@@ -619,9 +619,14 @@ final class Operations {
             if (watershed) { IJ.run(work, "Watershed", ""); steps.add("watershed"); macro.add("run(\"Watershed\");"); }
             var particleArgs = args.deepCopy(); particleArgs.addProperty("show", "Nothing"); if (!particleArgs.has("exclude")) particleArgs.addProperty("exclude", false);
             if (!particleArgs.has("minSize")) particleArgs.addProperty("minSize", 0);
-            // Each segmentation answers for the current image only: previous ROIs and rows must not inflate the count.
+            // Replace this image's analysis; keep other images' objects available when the researcher switches back.
             var existing = managerOrNull();
-            if (existing != null && existing.getCount() > 0) { existing.reset(); steps.add("reset ROI Manager"); macro.add("roiManager(\"reset\");"); }
+            if (existing != null && existing.getCount() > 0) {
+                var others = new ArrayList<Roi>();
+                for (var roi : existing.getRoisAsArray()) if (!belongsTo(roi, imp.getID())) others.add(roi);
+                existing.reset(); for (var roi : others) existing.addRoi(roi);
+                steps.add("replace this image's ROI Manager objects"); macro.add("roiManager(\"reset\");");
+            }
             if (results().size() > 0) { results().reset(); steps.add("clear results"); macro.add("run(\"Clear Results\");"); }
             for (var line : macro) journal.record("segment_cells", line);
             int journalBefore = journal.size();
@@ -638,12 +643,25 @@ final class Operations {
             result.put("threshold", Map.of("lower", lower, "upper", upper, "method", method, "dark", dark));
             // Intensities must come from the original pixels, not the binary mask: re-measure the new ROIs on the image.
             var measuredManager = managerOrNull();
-            if (measuredManager != null && measuredManager.getCount() > 0) {
+            int added = ((Number) result.get("addedToManager")).intValue();
+            if (measuredManager != null && added > 0) {
                 results().reset();
-                IJ.run("Set Measurements...", "area mean standard min integrated median perimeter shape bounding redirect=None decimal=3");
-                measuredManager.runCommand(imp, "Measure");
-                var measured = summary(results(), 0, Measurements.AREA | Measurements.MEAN | Measurements.MIN_MAX | Measurements.INTEGRATED_DENSITY | Measurements.MEDIAN | Measurements.PERIMETER | Measurements.SHAPE_DESCRIPTORS);
+                int flags = Measurements.AREA | Measurements.MEAN | Measurements.STD_DEV | Measurements.MIN_MAX | Measurements.INTEGRATED_DENSITY | Measurements.MEDIAN | Measurements.PERIMETER | Measurements.SHAPE_DESCRIPTORS | Measurements.RECT;
+                Analyzer.setMeasurements(flags); Analyzer.setUnsavedMeasurements(false);
+                // Measure the chosen source channel directly, without changing the visible channel or repainting per ROI.
+                // RoiManager.Measure uses the active channel and would include other images' retained manager entries.
+                ImageProcessor ip = Analysis.measurementProcessor(imp, channel);
+                var rois = measuredManager.getRoisAsArray(); int first = ((Number) result.get("managerTotal")).intValue() - added;
+                try {
+                    for (int i = first; i < first + added; i++) {
+                        Roi roi = (Roi) rois[i].clone(); roi.setImage(imp); ip.setRoi(roi);
+                        new Analyzer(imp, flags, results()).saveResults(ImageStatistics.getStatistics(ip, flags, imp.getCalibration()), roi);
+                    }
+                } finally { ip.setRoi(saved); }
+                showResults(results());
+                var measured = summary(results(), 0, flags);
                 result.put("summary", measured.get("summary")); result.put("resultsRows", results().size());
+                result.put("measurementChannel", deconvolve ? null : channel);
                 steps.add("measure the ROIs on the original image");
                 macro.add("run(\"Set Measurements...\", \"area mean standard min integrated median perimeter shape bounding redirect=None decimal=3\");\nroiManager(\"Measure\");");
             }

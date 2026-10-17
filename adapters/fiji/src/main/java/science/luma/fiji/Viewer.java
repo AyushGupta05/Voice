@@ -12,10 +12,41 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 /** The ImageJ canvas as the researcher sees it: screen geometry for the companion cursor and "the view follows the work" zooming. EDT only. */
 final class Viewer {
     private Viewer() {}
+
+    static final long POINTER_MAX_AGE_MS = 30_000;
+    private record PointerTrace(int imageId, int plane, int x, int y, long at) {}
+    private static final Map<ImageCanvas, PointerTrace> pointers = new WeakHashMap<>();
+
+    /** Listen to real canvas motion; ImageCanvas.getCursorLoc() defaults to (0,0) even before the first hover. */
+    static void trackPointer(ImagePlus imp, ImageCanvas canvas) {
+        if (pointers.containsKey(canvas)) return;
+        pointers.put(canvas, null);
+        var owner = new java.lang.ref.WeakReference<>(imp);
+        var listener = new java.awt.event.MouseAdapter() {
+            private void remember(java.awt.event.MouseEvent event) {
+                var image = owner.get();
+                if (image != null && event.getSource() instanceof ImageCanvas source) rememberPointer(image, source, event.getX(), event.getY(), System.currentTimeMillis());
+            }
+            @Override public void mouseMoved(java.awt.event.MouseEvent event) { remember(event); }
+            @Override public void mouseDragged(java.awt.event.MouseEvent event) { remember(event); }
+            @Override public void mouseEntered(java.awt.event.MouseEvent event) { remember(event); }
+        };
+        canvas.addMouseMotionListener(listener); canvas.addMouseListener(listener);
+    }
+    static void rememberPointer(ImagePlus imp, ImageCanvas canvas, int sx, int sy, long at) {
+        int x = canvas.offScreenX(sx), y = canvas.offScreenY(sy);
+        if (sx >= 0 && sy >= 0 && sx < canvas.getWidth() && sy < canvas.getHeight() && x >= 0 && y >= 0 && x < imp.getWidth() && y < imp.getHeight()) pointers.put(canvas, new PointerTrace(imp.getID(), (imp.getCurrentSlice() - 1) / Math.max(1, imp.getNChannels()), x, y, at));
+    }
+    static Map<String, Object> lastPointer(ImagePlus imp, ImageCanvas canvas, long now) {
+        PointerTrace last = pointers.get(canvas);
+        if (last == null || last.imageId() != imp.getID() || last.plane() != (imp.getCurrentSlice() - 1) / Math.max(1, imp.getNChannels()) || now < last.at() || now - last.at() > POINTER_MAX_AGE_MS) return Map.of();
+        return Map.of("lastX", last.x(), "lastY", last.y(), "lastObservedAt", java.time.Instant.ofEpochMilli(last.at()).toString(), "lastAgeMs", now - last.at());
+    }
 
     /** Global-screen view of the image's canvas, or null when the image has no visible window. */
     static Geometry.View view(ImagePlus imp) {
@@ -70,18 +101,24 @@ final class Viewer {
         try { var info = java.awt.MouseInfo.getPointerInfo(); if (info != null) screen = info.getLocation(); } catch (RuntimeException ignored) { /* no pointer device */ }
         result.put("screenX", screen == null ? null : screen.x); result.put("screenY", screen == null ? null : screen.y);
         ImageCanvas ic = imp == null ? null : imp.getCanvas();
+        if (ic != null) trackPointer(imp, ic);
         boolean over = false; Integer x = null, y = null;
         if (ic != null && ic.isShowing() && screen != null) {
             try {
                 Point origin = ic.getLocationOnScreen(); Dimension size = ic.getSize();
                 int sx = screen.x - origin.x, sy = screen.y - origin.y;
                 over = sx >= 0 && sy >= 0 && sx < size.width && sy < size.height;
-                if (over) { x = ic.offScreenX(sx); y = ic.offScreenY(sy); }
+                if (over) {
+                    x = ic.offScreenX(sx); y = ic.offScreenY(sy);
+                    over = x >= 0 && y >= 0 && x < imp.getWidth() && y < imp.getHeight();
+                    if (over) rememberPointer(imp, ic, sx, sy, System.currentTimeMillis()); else { x = null; y = null; }
+                }
             } catch (RuntimeException ignored) { /* canvas not realised */ }
         }
         result.put("x", x); result.put("y", y); result.put("overCanvas", over);
-        if (ic != null) { Point last = ic.getCursorLoc(); if (last != null && last.x >= 0 && last.y >= 0 && last.x < imp.getWidth() && last.y < imp.getHeight()) { result.put("lastX", last.x); result.put("lastY", last.y); } }
-        result.put("note", over ? "pointer is over the image canvas; x/y are image pixels" : "pointer is not over the canvas; lastX/lastY (if present) are the last image pixels the mouse hovered");
+        if (imp != null) { result.put("imageId", imp.getID()); result.put("z", imp.getZ()); result.put("t", imp.getT()); }
+        if (ic != null) result.putAll(lastPointer(imp, ic, System.currentTimeMillis()));
+        result.put("note", over ? "pointer is over the image canvas; x/y are image pixels" : "pointer is not over the canvas; lastX/lastY are present only for an observed hover on this image plane within 30 seconds");
         return result;
     }
 

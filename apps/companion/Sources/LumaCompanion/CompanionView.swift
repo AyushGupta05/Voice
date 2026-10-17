@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import LumaPresentation
 
 private let mint = Color(red: 0.64, green: 0.92, blue: 0.79)
 private let secondaryText = Color.white.opacity(0.5)
@@ -35,7 +36,7 @@ struct CompanionView: View {
                 Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(mint)
                 Text("Voice connection").font(.system(size: 24, weight: .semibold))
                 Text(model.voiceReason).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(model.textReady ? "Type in Penny to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
+                Text(model.textReady ? "Type in Penny to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate \(model.appName) locally.").foregroundStyle(.secondary)
                 Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
             }.padding(28).frame(width: 360)
         }
@@ -43,7 +44,7 @@ struct CompanionView: View {
     private var header: some View {
         HStack(spacing: 10) {
             BuddyMark(size: 30)
-            Text("luma").font(.system(size: 21, weight: .semibold, design: .rounded)).tracking(-0.8)
+            Text("Penny").font(.system(size: 21, weight: .semibold, design: .rounded)).tracking(-0.8)
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(model.bridgeConnected ? mint : Color.orange).frame(width: 5, height: 5)
@@ -76,9 +77,9 @@ struct CompanionView: View {
                 }.padding(.top, 8).padding(.bottom, 2)
             }
             HStack(spacing: 8) {
-                quickAction("Focus here", icon: "scope") { await model.call("qupath_focus") }
-                quickAction("Highlights", icon: "circle.dotted") { await model.call("qupath_overlays", ["detections": true, "fill": true]) }
-                quickAction("Checkpoint", icon: "clock.arrow.circlepath") { await model.call("qupath_checkpoint", ["label": "Researcher checkpoint"]) }
+                ForEach(model.application.quickActions) { action in
+                    quickAction(action.title, icon: action.icon) { await model.call(action.tool, action.arguments) }
+                }
             }.disabled(!model.bridgeConnected || (model.context["image"] as? [String: Any]) == nil)
             if !model.activities.isEmpty {
                 HStack {
@@ -126,7 +127,7 @@ struct CompanionView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 TextField("Find a \(model.appName) workflow…", text: $model.knowledgeQuery).textFieldStyle(.plain).onSubmit { Task { await model.search() } }
-                Button { Task { await model.search() } } label: { Image(systemName: "magnifyingglass").foregroundStyle(mint) }.buttonStyle(.plain).help("Search QuPath guidance")
+                Button { Task { await model.search() } } label: { Image(systemName: "magnifyingglass").foregroundStyle(mint) }.buttonStyle(.plain).help("Search \(model.appName) guidance")
             }.padding(12).background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
             if model.knowledgeResults.isEmpty {
                 Text("Application knowledge, close at hand.").font(.system(size: 21, weight: .medium)).tracking(-0.5).padding(.top, 12)
@@ -149,7 +150,7 @@ struct CompanionView: View {
             Divider().overlay(hairline)
             HStack(spacing: 10) {
                 TextField("Ask Penny to do something…", text: $model.input).font(.system(size: 12)).textFieldStyle(.plain).onSubmit { model.sendText() }
-                if model.textBusy {
+                if model.canStopTask {
                     Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 10)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).help("Stop unstarted work; completed actions remain")
                 }
                 Button { model.sendText() } label: { Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).disabled(model.input.isEmpty || !model.textReady || !model.connected || !model.eventsReady || model.textSending).help(model.textReady ? "Send message using verified AWS credits" : model.textReason)
@@ -161,7 +162,7 @@ struct CompanionView: View {
                 Spacer()
                 Button { model.toggleVoice() } label: {
                     HStack(spacing: 7) { Image(systemName: model.voiceActive || model.voiceStarting ? "stop.fill" : "waveform"); Text(model.voiceActive || model.voiceStarting ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(mint, in: Capsule()).foregroundStyle(Color.black.opacity(0.85))
-                }.buttonStyle(HoverButtonStyle()).disabled(!model.connected || !model.eventsReady || !model.voiceReady)
+                }.buttonStyle(HoverButtonStyle()).disabled(!model.voiceOn && !model.canStartVoice)
             }
         }.padding(.horizontal, 22).padding(.bottom, 20).padding(.top, 12)
     }

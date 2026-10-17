@@ -10,6 +10,8 @@ channel = parseFloat(pennyParam("channel", "1"));
 method = pennyParam("method", "Simple Ratio");
 background = parseFloat(pennyParam("background", "0"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
@@ -17,9 +19,9 @@ getDimensions(w, h, channels, slices, frames);
 series = frames; if (frames == 1) series = slices;
 if (series < 2) { if (!wasBatch) setBatchMode("exit and display"); print("RESULT error=not_a_time_series"); exit; }
 run("Select None");
-if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=penny-bleach duplicate channels=" + channel);
-else run("Duplicate...", "title=penny-bleach duplicate");
-if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-bleach"); rename("penny-bleach"); }
+if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=[penny-bleach-" + tag + "] duplicate channels=" + channel);
+else run("Duplicate...", "title=[penny-bleach-" + tag + "] duplicate");
+if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-bleach-" + tag); rename("penny-bleach-" + tag); }
 run("Properties...", "channels=1 slices=1 frames=" + nSlices);
 if (bitDepth() == 24) run("8-bit");
 if (bitDepth() == 32) run("16-bit");

@@ -10,6 +10,8 @@ channel = parseFloat(pennyParam("channel", "1"));
 transformation = pennyParam("transformation", "Translation");
 maxError = parseFloat(pennyParam("maxError", "25"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 if (transformation != "Translation" && transformation != "Rigid" && transformation != "Similarity" && transformation != "Affine") { print("RESULT error=unknown_transformation"); exit; }
 orig = getImageID(); title = getTitle();
@@ -18,9 +20,9 @@ getDimensions(w, h, channels, slices, frames);
 series = frames; if (frames == 1) series = slices;
 if (series < 2) { if (!wasBatch) setBatchMode("exit and display"); print("RESULT error=not_a_stack"); exit; }
 run("Select None");
-if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=penny-drift duplicate channels=" + channel);
-else run("Duplicate...", "title=penny-drift duplicate");
-if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-drift"); rename("penny-drift"); }
+if (channels > 1 || (slices > 1 && frames > 1)) run("Duplicate...", "title=[penny-drift-" + tag + "] duplicate channels=" + channel);
+else run("Duplicate...", "title=[penny-drift-" + tag + "] duplicate");
+if (slices > 1 && frames > 1) { run("Z Project...", "projection=[Max Intensity] all"); close("penny-drift-" + tag); rename("penny-drift-" + tag); }
 input = getImageID();
 options = "initial_gaussian_blur=1.60 steps_per_scale_octave=3 minimum_image_size=64 maximum_image_size=1024 feature_descriptor_size=4 feature_descriptor_orientation_bins=8 closest/next_closest_ratio=0.92 maximal_alignment_error=" + maxError + " inlier_ratio=0.05 expected_transformation=" + transformation + " interpolate show_transformation_matrix";
 // SIFT logs one matrix per consecutive frame pair. Without a Log window (batch sessions) ImageJ prints the log to the

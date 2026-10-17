@@ -50,6 +50,7 @@ test('params are formatted like make_macro arguments and refused when unknown or
   assert.equal(recipeArgument(nuclei, { watershed: false, minSize: 100, method: 'Li' }), 'watershed=false minSize=100 method=Li');
   assert.equal(recipeArgument(nuclei, { minSize: '120', exclude: 'true' }), 'minSize=120 exclude=true', 'spoken numbers and flags as text are accepted');
   assert.equal(recipeArgument(nuclei), '');
+  assert.equal(recipeArgument(recipes.find(recipe => recipe.id === 'pairwise-stitch')!, { second: '[tileA' }), 'second=[[tileA]', 'a leading bracket is bracketed');
   assert.throws(() => recipeArgument(nuclei, { minsize: 5 }), /has no parameter "minsize"/);
   assert.throws(() => recipeArgument(nuclei, { minSize: 'big' }), /must be a number/);
   assert.throws(() => recipeArgument(nuclei, { watershed: 'yes' }), /must be true or false/);
@@ -81,12 +82,15 @@ test('the RESULT line becomes the spoken sentence, never a guess', () => {
   assert.deepEqual(values, { pearson: 0.532, tM1: 0.0266, tM2: 0.0213, costesP: 1, method: 'Simple Ratio', unit: 'µm' });
   assert.equal(parseResultLine('no result here'), undefined);
   assert.equal(parseResultLine('RESULT count=1\nRESULT count=2')!.count, 2, 'the last RESULT line wins');
+  assert.deepEqual(parseResultLine('RESULT dx=300.00 dy=0.00 r=1.0000 fused=[tile] dx=999 dy=888 r=0.99 x<->y]'), { dx: 300, dy: 0, r: 1, fused: 'tile' }, 'a title cannot overwrite a measurement');
   assert.equal(recipeSentence('Found {count} objects, mean area {meanArea:area}.', { count: 15, meanArea: 496.4, unit: 'pixels' }), 'Found 15 objects, mean area 496 square pixels.');
   assert.equal(recipeSentence('Mean volume {v:volume}.', { v: 3.96, unit: 'µm' }), 'Mean volume 3.96 µm³.');
   assert.equal(recipeSentence('Covers {f:%} of the {basis}, {area:area}.', { f: 0.3421, basis: 'image', area: 2.5e6, unit: 'micron' }), 'Covers 34% of the image, 2.50 mm².');
   assert.equal(recipeSentence('Length {l:len}.', { l: 15.05, unit: 'pixels' }), 'Length 15.1 pixels.');
   assert.equal(recipeSentence('Found {count}.', { error: 'no_image' }), undefined, 'a reported error goes to the model');
   assert.equal(recipeSentence('Pearson {pearson}.', { pearson: 'NaN' }), undefined, 'NaN is not spoken');
+  assert.equal(recipeSentence('Half-time {halfTime} {timeUnit}.', parseResultLine('RESULT halfTime=Infinity timeUnit=frames')), undefined, 'infinity is not spoken');
+  assert.equal(recipeSentence('Shift {d}.', { d: '-Infinity' }), undefined);
   assert.equal(recipeSentence('Found {count}.', {}), undefined);
 });
 
@@ -105,6 +109,9 @@ test('fiji_recipes and fiji_run_recipe are declared without new bridge operation
   validateTool('fiji_recipes', { query: 'nuclei' }, fiji);
   assert.equal(fiji.acknowledgmentFor('fiji_run_recipe', { id: 'coloc2' }, {}), 'On it.');
   assert.ok(fiji.longRunningTools.has('fiji_run_recipe'));
+  assert.equal(fiji.requestContinuesAfter('fiji_run_recipe', 'run Coloc 2 on these channels'), false, 'the headline sentence answers it');
+  assert.equal(fiji.requestContinuesAfter('fiji_run_recipe', 'what is the Spearman correlation with Coloc 2'), true, 'another statistic goes to the model');
+  assert.equal(fiji.requestContinuesAfter('fiji_run_recipe', 'count the nuclei in 3D and give me the volume of each'), true);
   assert.match(fijiInstructions, /fiji_recipes/);
   assert.ok(fijiInstructions.length <= 4400, `instructions are ${fijiInstructions.length} characters`);
 });
@@ -114,11 +121,11 @@ test('fiji_run_recipe dispatches the recipe file as run_macro with the params as
   await symlink(join(root, 'skills'), join(directory, 'skills'));
   const state = join(directory, '.local/state'); await mkdir(state, { recursive: true });
   const calls: Array<{ operation: string; args: Record<string, unknown> }> = [];
-  const log = 'RESULT count=15 meanArea=496.40 meanIntensity=124.42 unit=pixels channel=3 threshold=Otsu:64-255\n';
+  const log = { value: 'RESULT count=15 meanArea=496.40 meanIntensity=124.42 unit=pixels channel=3 threshold=Otsu:64-255\n' };
   const adapter: Adapter = { execute: async (operation, args = {}) => {
     calls.push({ operation, args });
     if (operation === 'context') return { contextKey: 'fiji-1', application: 'Fiji', image: { id: -2, title: 'FluorescentCells.tif', channels: 3 } };
-    if (operation === 'run_macro') return { result: { elapsedMs: 80, completed: true, result: '', aborted: false, log }, checkpoint: 'c1' };
+    if (operation === 'run_macro') return { result: { elapsedMs: 80, completed: true, result: '', aborted: false, log: log.value }, checkpoint: 'c1' };
     return { ok: true };
   } };
   try {
@@ -136,16 +143,34 @@ test('fiji_run_recipe dispatches the recipe file as run_macro with the params as
     assert.equal(fiji.localSentenceFor('fiji_run_recipe', {}, outcome), 'Found 15 objects, mean area 496 square pixels.');
     const action = runtime.actions.get(outcome.actionId as string)!;
     assert.equal(action.tool, 'fiji_run_macro'); assert.equal(action.decidedBy, 'policy');
-    await assert.rejects(runtime.call('fiji_run_recipe', { id: 'no-such-recipe' }), /No recipe "no-such-recipe"/);
+    log.value = 'RESULT error=needs_two_channels\n';
+    const stopped = await runtime.call('fiji_run_recipe', { id: 'coloc2' }) as Record<string, unknown>;
+    assert.equal(stopped.status, 'failed'); assert.match(String(stopped.error), /coloc2 stopped: needs_two_channels/);
+    assert.equal(fiji.localSentenceFor('fiji_run_recipe', {}, stopped), undefined, 'a reported error goes back to the model');
+        await assert.rejects(runtime.call('fiji_run_recipe', { id: 'no-such-recipe' }), /No recipe "no-such-recipe"/);
     await assert.rejects(runtime.call('fiji_run_recipe', { id: 'nuclei-count-2d', params: { radius: 3 } }), /has no parameter "radius"/);
-    assert.equal(calls.filter(call => call.operation === 'run_macro').length, 1, 'refused requests never reach the bridge');
+    assert.equal(calls.filter(call => call.operation === 'run_macro').length, 2, 'refused requests never reach the bridge');
 
     const review = new Runtime(adapter, new Knowledge(fiji), state, { autoApprove: false, profile: fiji });
     const pending = await review.call('fiji_run_recipe', { id: 'coloc2' }) as Record<string, unknown>;
     assert.equal(pending.status, 'approval_required'); assert.equal(pending.spoken, undefined);
     assert.equal(fiji.localSentenceFor('fiji_run_recipe', {}, pending), undefined);
-    assert.equal(calls.filter(call => call.operation === 'run_macro').length, 1, 'review mode dispatches nothing');
+    assert.equal(calls.filter(call => call.operation === 'run_macro').length, 2, 'review mode dispatches nothing');
     const card = review.actions.get(pending.actionId as string)!;
     assert.equal(card.tool, 'fiji_run_macro'); assert.match(String(card.arguments.code), /@recipe coloc2/, 'the review card shows the exact code');
+    // After the human approves, the decision is finished like an immediate run: summary, sentence, failure mapping.
+    log.value = 'RESULT pearson=0.5320 tM1=0.0266 tM2=0.0213 costesP=1.0000 channelA=1 channelB=2\n';
+    const decided = await review.decide(card.id, true);
+    const decision = { actionId: decided.id, tool: decided.tool, status: decided.status, result: decided.result, error: decided.error };
+    const finished = fiji.finalizeDecision!('fiji_run_recipe', pending, decision) as Record<string, unknown>;
+    assert.equal(finished.status, 'completed'); assert.deepEqual(finished.arguments, { recipe: 'coloc2', argument: '' });
+    assert.equal((finished.summary as Record<string, unknown>).pearson, 0.532);
+    assert.equal(fiji.localSentenceFor('fiji_run_recipe', {}, finished), 'Coloc 2: Pearson 0.53, Manders tM1 0.03 and tM2 0.02 above the Costes thresholds, Costes P 1.');
+    log.value = 'RESULT error=needs_two_channels\n';
+    const second = await review.call('fiji_run_recipe', { id: 'coloc2' }) as Record<string, unknown>;
+    const secondCard = await review.decide(second.actionId as string, true);
+    const stoppedAfterReview = fiji.finalizeDecision!('fiji_run_recipe', second, { actionId: secondCard.id, tool: secondCard.tool, status: secondCard.status, result: secondCard.result, error: secondCard.error }) as Record<string, unknown>;
+    assert.equal(stoppedAfterReview.status, 'failed'); assert.match(String(stoppedAfterReview.error), /needs_two_channels/);
+    assert.equal(fiji.finalizeDecision!('fiji_run_macro', pending, decision), undefined, 'other tools keep their decision');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

@@ -523,9 +523,9 @@ final class Analysis {
             Roi roi = rois[i];
             roi.setStrokeColor(pos ? POSITIVE : NEGATIVE);
             manager.rename(mine.index()[i], newName);
-            if (pos) { if (positiveIndices.size() < 500) positiveIndices.add(i); positiveRois.add(roi); }
+            if (pos) { if (positiveIndices.size() < 500) positiveIndices.add(mine.index()[i]); positiveRois.add(roi); }
             var copy = (Roi) roi.clone(); copy.setName(newName); overlay.add(copy);
-            table.addRow(); table.addValue("Index", i); table.addLabel(newName); table.addValue("Class", pos ? 1 : 0); table.addValue(measurementHeading(measurement), values[i]);
+            table.addRow(); table.addValue("Index", mine.index()[i]); table.addLabel(newName); table.addValue("Class", pos ? 1 : 0); table.addValue(measurementHeading(measurement), values[i]);
         }
         imp.setOverlay(overlay);
         if (Operations.guiVisible()) table.show("Classification");
@@ -559,9 +559,34 @@ final class Analysis {
     // =====================================================================================================
     Map<String, Object> regionStats(JsonObject args) {
         var imp = ops.active();
-        Roi[] rois = imageEntries(ops.managerOrNull(), imp, args).rois();
-        if (rois.length == 0) throw new IllegalStateException("The ROI Manager is empty; segment the cells first.");
-        if (rois.length > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + rois.length + " objects; the limit is " + MAX_OBJECTS + ".");
+        var entries = imageEntries(ops.managerOrNull(), imp, args);
+        Roi[] all = entries.rois();
+        if (all.length > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + all.length + " objects; the limit is " + MAX_OBJECTS + ".");
+        String scope = Operations.string(args, "scope", "image");
+        if (!scope.equals("image") && !scope.equals("selection")) throw new IllegalArgumentException("scope must be image or selection.");
+        Roi within = null;
+        java.awt.geom.Rectangle2D.Double regionBounds = null;
+        if (scope.equals("selection")) {
+            within = imp.getRoi();
+            if (within == null || !within.isArea()) throw new IllegalStateException("Select an area on the image first.");
+        }
+        if (args.has("region") && !args.get("region").isJsonNull()) {
+            if (within != null) throw new IllegalArgumentException("Use either scope selection or region, not both.");
+            JsonObject region = args.getAsJsonObject("region");
+            double x = requiredFinite(region, "x"), y = requiredFinite(region, "y"), width = requiredFinite(region, "width"), height = requiredFinite(region, "height");
+            if (x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > imp.getWidth() || y + height > imp.getHeight()) throw new IllegalArgumentException("region must be a positive rectangle inside the image, in pixels.");
+            regionBounds = new java.awt.geom.Rectangle2D.Double(x, y, width, height);
+            within = new Roi(x, y, width, height); scope = "region";
+        }
+        var included = new ArrayList<Roi>(); var originalIndices = new ArrayList<Integer>();
+        for (int i = 0; i < all.length; i++) {
+            // Use the actual mask centroid, not the bounding-box centre (which can lie outside a crescent-shaped object).
+            double[] centroid = maskCentroid(all[i]);
+            // Roi.containsPoint() in the installed ImageJ returns false for rectangles with floating bounds.
+            boolean inside = regionBounds != null ? regionBounds.contains(centroid[0], centroid[1]) : within == null || within.contains((int) Math.floor(centroid[0]), (int) Math.floor(centroid[1]));
+            if (inside) { included.add(all[i]); originalIndices.add(entries.index()[i]); }
+        }
+        Roi[] rois = included.toArray(Roi[]::new);
         int channel = Operations.integer(args, "channel", imp.getC(), 1, Math.max(1, imp.getNChannels()));
         ImageProcessor ip = measurementProcessor(imp, channel); Calibration cal = imp.getCalibration();
         int n = rois.length; double[] area = new double[n], mean = new double[n], circ = new double[n], feret = new double[n];
@@ -580,17 +605,31 @@ final class Analysis {
         Integer[] order = new Integer[n]; for (int i = 0; i < n; i++) order[i] = i;
         Arrays.sort(order, (x, y) -> Double.compare(area[y], area[x]));
         var largest = new ArrayList<Map<String, Object>>(); var smallest = new ArrayList<Map<String, Object>>(); var largestRois = new ArrayList<Roi>();
-        for (int k = 0; k < Math.min(5, n); k++) { int i = order[k]; largest.add(entry(i, rois[i], area[i], mean[i])); largestRois.add(rois[i]); }
-        for (int k = 0; k < Math.min(5, n); k++) { int i = order[n - 1 - k]; smallest.add(entry(i, rois[i], area[i], mean[i])); }
+        for (int k = 0; k < Math.min(5, n); k++) { int i = order[k]; largest.add(entry(originalIndices.get(i), rois[i], area[i], mean[i])); largestRois.add(rois[i]); }
+        for (int k = 0; k < Math.min(5, n); k++) { int i = order[n - 1 - k]; smallest.add(entry(originalIndices.get(i), rois[i], area[i], mean[i])); }
         result.put("largest", largest); result.put("smallest", smallest);
+        result.put("scopeUsed", scope); result.put("totalForImage", all.length);
+        if (within != null) result.put("region", Operations.roiJson(within));
         result.put("unit", cal.getUnit()); result.put("areaUnit", cal.getUnit() + "^2"); result.put("channel", channel);
         result.put("highlight", Viewer.roiHighlight(imp, largestRois, largestRois.size() == 1 ? "Largest object" : largestRois.size() + " largest objects", 5));
-        if (Operations.bool(args, "plot", true) && Operations.guiVisible()) {
+        if (n > 0 && Operations.bool(args, "plot", true) && Operations.guiVisible()) {
             showHistogram(imp, area, cal.getUnit()); result.put("plot", "Size distribution");
             // The plot window must not become the active image: the next "segment"/"count" still means the cells' image.
             if (imp.getWindow() != null) { WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
         }
         return result;
+    }
+    private static double requiredFinite(JsonObject args, String key) {
+        if (!args.has(key) || !args.get(key).isJsonPrimitive() || !args.getAsJsonPrimitive(key).isNumber()) throw new IllegalArgumentException("region requires a numeric " + key + ".");
+        double value = args.get(key).getAsDouble();
+        if (!Double.isFinite(value)) throw new IllegalArgumentException("region requires a finite " + key + ".");
+        return value;
+    }
+    /** Centroid of the filled ROI mask, in uncalibrated image pixels, matching Analyze Particles' centroid scope rule. */
+    static double[] maskCentroid(Roi roi) {
+        Roi local = (Roi) roi.clone(); local.setImage(null);
+        var stats = local.getStatistics();
+        return new double[]{stats.xCentroid, stats.yCentroid};
     }
     /** "Show me the size distribution": an ImageJ histogram plot window of object areas, drawn from the same values as the result. */
     static void showHistogram(ImagePlus imp, double[] area, String unit) {
@@ -628,7 +667,7 @@ final class Analysis {
     Map<String, Object> filterObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        var entries = imageEntries(manager, imp, args); Roi[] rois = entries.rois(); int n = rois.length;
         if (n == 0) throw new IllegalStateException("Segment the cells first.");
         if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
         ImageProcessor ip = measurementProcessor(imp, imp.getC()); Calibration cal = imp.getCalibration();
@@ -676,7 +715,7 @@ final class Analysis {
     Map<String, Object> splitObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        var entries = imageEntries(manager, imp, args); Roi[] rois = entries.rois(); int n = rois.length;
         if (n == 0) throw new IllegalStateException("Segment the cells first.");
         if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
         double[] area = new double[n];
@@ -686,7 +725,7 @@ final class Analysis {
         Set<Integer> targets = new TreeSet<>();
         Roi selection = imp.getRoi();
         boolean pointed = "pointer".equals(Operations.string(args, "at", "")) || args.has("x") && args.has("y");
-        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) { int i = e.getAsInt(); if (i < 0 || i >= n) throw new IllegalArgumentException("No object " + i + " in the ROI Manager."); targets.add(i); }
+        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) targets.add(entries.requireLocalIndex(e.getAsInt()));
         else if (pointed) { var hits = objectsAt(rois, pointedAt(imp, args), median, 1); if (hits.isEmpty()) throw new IllegalStateException("No cell under the pointer; point at the cells to separate."); targets.addAll(hits); }
         else if (selection != null && selection.isArea() && !Operations.bool(args, "all", false)) {
             for (int i = 0; i < n; i++) { var b = rois[i].getBounds(); if (selection.contains((int) b.getCenterX(), (int) b.getCenterY())) targets.add(i); }
@@ -721,12 +760,12 @@ final class Analysis {
     Map<String, Object> explainObject(JsonObject args, Map<String, Object> analysis) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        var entries = imageEntries(manager, imp, args); Roi[] rois = entries.rois(); int n = rois.length;
         if (n == 0) throw new IllegalStateException("Segment the cells first.");
         double[] px = new double[n]; for (int i = 0; i < n; i++) px[i] = rois[i].getStatistics().pixelCount;
         double median = (double) describeValues(px).get("median");
         int index;
-        if (args.has("index")) index = Operations.integer(args, "index", 0, 0, n - 1);
+        if (args.has("index")) index = entries.requireLocalIndex(Operations.integer(args, "index", 0, 0, Integer.MAX_VALUE));
         else { var hits = objectsAt(rois, pointedAt(imp, args), median, 1); if (hits.isEmpty()) throw new IllegalStateException("No detected object under the pointer, so it was not counted."); index = hits.getFirst(); }
         Roi roi = (Roi) rois[index].clone(); roi.setImage(imp);
         Calibration cal = imp.getCalibration();
@@ -737,7 +776,7 @@ final class Analysis {
         double perimeter = roi.getLength(), circularity = perimeter > 0 ? Math.min(1, 4 * Math.PI * px[index] / (perimeter * perimeter)) : 0;
         int smaller = 0; for (double v : px) if (v < px[index]) smaller++;
         var result = new LinkedHashMap<String, Object>();
-        result.put("index", index); result.put("name", rois[index].getName()); result.put("channel", channel);
+        result.put("index", entries.index()[index]); result.put("name", rois[index].getName()); result.put("channel", channel);
         result.put("area", stats.area); result.put("unit", cal.getUnit()); result.put("mean", stats.mean); result.put("min", stats.min); result.put("max", stats.max);
         result.put("circularity", circularity); result.put("areaPercentile", Math.round(100.0 * smaller / Math.max(1, n - 1)));
         result.put("relativeToMedian", px[index] / median);
@@ -760,13 +799,13 @@ final class Analysis {
     Map<String, Object> mergeObjects(JsonObject args) {
         var imp = ops.active();
         var manager = ops.managerOrNull();
-        Roi[] rois = imageEntries(manager, imp, args).rois(); int n = rois.length;
+        var entries = imageEntries(manager, imp, args); Roi[] rois = entries.rois(); int n = rois.length;
         if (n < 2) throw new IllegalStateException("Segment the cells first.");
         double[] area = new double[n]; for (int i = 0; i < n; i++) area[i] = rois[i].getStatistics().pixelCount;
         double median = (double) describeValues(area).get("median");
         List<Integer> targets = new ArrayList<>();
         Roi selection = imp.getRoi();
-        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) { int i = e.getAsInt(); if (i < 0 || i >= n) throw new IllegalArgumentException("No object " + i + " in the ROI Manager."); targets.add(i); }
+        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) targets.add(entries.requireLocalIndex(e.getAsInt()));
         else if (selection != null && selection.isArea() && !"pointer".equals(Operations.string(args, "at", ""))) { for (int i = 0; i < n; i++) { var b = rois[i].getBounds(); if (selection.contains((int) b.getCenterX(), (int) b.getCenterY())) targets.add(i); } }
         else targets = objectsAt(rois, pointedAt(imp, args), median, Operations.integer(args, "count", 2, 2, 20));
         if (targets.size() < 2) throw new IllegalStateException("Point between the two cells to merge, or select them.");
@@ -788,7 +827,13 @@ final class Analysis {
     }
     /** Rewrites the ROI Manager and the image overlay with the given objects, numbered in order. */
     /** The ROI Manager entries that belong to {@code imp} (untagged entries belong to every image), with their manager indices; allImages:true takes every entry. */
-    record Entries(Roi[] rois, int[] index) {}
+    record Entries(Roi[] rois, int[] index) {
+        int requireLocalIndex(int managerIndex) {
+            int local = Arrays.binarySearch(index, managerIndex);
+            if (local < 0) throw new IllegalArgumentException("ROI Manager object " + managerIndex + " does not belong to the active image.");
+            return local;
+        }
+    }
     static Entries imageEntries(RoiManager manager, ImagePlus imp, JsonObject args) {
         if (manager == null) return new Entries(new Roi[0], new int[0]);
         Roi[] all = manager.getRoisAsArray(); boolean every = imp == null || Operations.bool(args, "allImages", false);

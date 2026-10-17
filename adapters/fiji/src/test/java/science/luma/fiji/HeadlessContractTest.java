@@ -211,6 +211,22 @@ public final class HeadlessContractTest {
         var described = Operations.describe(composite);
         @SuppressWarnings("unchecked") var channels = (List<Map<String, Object>>) described.get("channels");
         expect(channels.size() == 2 && "DAPI".equals(channels.get(1).get("label")) && "grays".equals(channels.get(1).get("lut")), "channels carry labels and LUT names: " + channels);
+        // The active GFP channel is intentionally unrelated to the chosen DAPI channel.
+        var gfp = new ByteProcessor(100, 80); gfp.setValue(33); gfp.fill();
+        var dapi = new ByteProcessor(100, 80); dapi.setValue(10); dapi.fill(); dapi.setValue(210); dapi.fill(new OvalRoi(30, 20, 24, 24));
+        var measuredStack = new ij.ImageStack(100, 80); measuredStack.addSlice("GFP", gfp); measuredStack.addSlice("DAPI", dapi);
+        var measuredComposite = new ij.CompositeImage(new ImagePlus("measured-channels", measuredStack), ij.CompositeImage.COMPOSITE); measuredComposite.setDimensions(2, 1, 1); measuredComposite.setC(1);
+        var sourceCalibration = measuredComposite.getCalibration(); sourceCalibration.pixelWidth = 0.5; sourceCalibration.pixelHeight = 0.5; sourceCalibration.setUnit("micron");
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(measuredComposite));
+        var sourceArgs = obj("channel", 2); sourceArgs.addProperty("gaussian", false); sourceArgs.addProperty("watershed", false); sourceArgs.addProperty("keepArtifacts", true);
+        var sourceMeasured = call("segment_cells", sourceArgs, true, key("context"));
+        double sourceMean = sourceMeasured.getAsJsonObject("summary").getAsJsonObject("mean").get("mean").getAsDouble();
+        expect(sourceMeasured.get("count").getAsInt() == 1 && sourceMean == 210 && measuredComposite.getC() == 1, "nuclear summary measures original channel2 pixels, preserves visible channel1: " + sourceMeasured.get("summary"));
+        expect(sourceMeasured.get("measurementChannel").getAsInt() == 2 && Operations.results().size() == 1, "measurement provenance and rows only include this image's new object");
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
+        var preserveForeign = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        int foreign = 0; for (var roi : bridge.ops.managerOrNull().getRoisAsArray()) if (String.valueOf(measuredComposite.getID()).equals(roi.getProperty(Operations.ROI_IMAGE_PROPERTY))) foreign++;
+        expect(foreign == 1 && preserveForeign.get("count").getAsInt() == discs && preserveForeign.get("resultsRows").getAsInt() == discs, "segmenting another image retains DAPI objects and measures only current-image objects");
 
         // --- open_path reads off the event thread and presents the image; bad paths are refused
         var pngFile = java.nio.file.Files.createTempFile("luma-open-", ".png");

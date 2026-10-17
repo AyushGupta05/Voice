@@ -151,7 +151,7 @@ export class ResponsesBackend implements DelegationBackend {
   private readonly instantTools: Set<string>;
   private readonly staleObservation: InputItem;
   constructor(private runtime: Runtime, private client: BackendClient, private model: string,
-    private display: (delegationId: string, text: string) => void, private maxOutputTokens = 600) {
+    private display: (delegationId: string, text: string, outcome?: 'failed') => void, private maxOutputTokens = 600) {
     this.profile = runtime.profile;
     this.instantTools = new Set(this.profile.tools.filter(tool => tool.risk === 'read' || tool.risk === 'view').map(tool => tool.name));
     this.staleObservation = { role: 'user', content: [{ type: 'input_text', text: JSON.stringify({ note: `Earlier-round observation omitted; the latest ${this.profile.id}Observation below is current.` }) }] };
@@ -170,9 +170,9 @@ export class ResponsesBackend implements DelegationBackend {
     // The outcome of the latest data/code action in this task: a reply after it failed must say so, never "Done.".
     let lastAction: { name: string; failure?: string } | undefined;
     const utterance = () => task.conversation().fragments.filter(fragment => fragment.role === 'user').at(-1)?.text ?? '';
-    const finish = (text: string, local: boolean) => {
+    const finish = (text: string, local: boolean, outcome?: 'failed') => {
       memory.answer = text; memory.status = 'completed'; if (task.spoken) memory.spoken = [...spokenSoFar, text]; if (local) memory.finishedLocally = true; this.trimMemory();
-      this.display(task.id, text);
+      this.display(task.id, text, outcome);
       task.update({ spoken: true, content: Buffer.byteLength(text, 'utf8') <= 480 ? text : 'The detailed result is ready in the companion. Ask for a specific detail.' });
     };
     const { profile } = this; const p = profile.toolPrefix; const app = profile.displayName;
@@ -228,8 +228,8 @@ export class ResponsesBackend implements DelegationBackend {
           .flatMap(item => Array.isArray(item.content) ? item.content : [])
           .filter(part => part?.type === 'output_text' && typeof part.text === 'string').map(part => part.text).join('\n').trim();
         if (!text) throw new Error('Backend returned no user-facing result.');
-        if (lastAction?.failure && !admitsFailure(text)) { finish(task.spoken ? failureSentence(lastAction.failure) : `${failureSentence(lastAction.failure)}\n\n${text}`, false); return; }
-        finish(text, false);
+        if (lastAction?.failure && !admitsFailure(text)) { finish(task.spoken ? failureSentence(lastAction.failure) : `${failureSentence(lastAction.failure)}\n\n${text}`, false, 'failed'); return; }
+        finish(text, false, lastAction?.failure ? 'failed' : undefined);
         return;
       }
       const executed: Array<{ name: string; args: Record<string, unknown>; result: unknown }> = []; let roundComplete = true; let humanReviewed = false;
@@ -265,6 +265,8 @@ export class ResponsesBackend implements DelegationBackend {
             const decision = await awaitHuman(this.runtime, String(result.actionId), task.signal);
             if (task.spoken && task.acknowledge && decision.status === 'completed' && profile.longRunningTools.has(call.name as string)) { spokenSoFar.push('Running it now.'); task.acknowledge('Running it now.'); }
             result = { actionId: decision.id, tool: decision.tool, status: decision.status, result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
+            // A profile may finish a reviewed result the way it finishes an immediate one (e.g. a Fiji recipe's RESULT summary).
+            result = profile.finalizeDecision?.(call.name as string, remembered.output, result) ?? result;
           }
         } catch (error) {
           task.signal.throwIfAborted();
@@ -303,9 +305,9 @@ export class ResponsesBackend implements DelegationBackend {
         const sentences = executed.map(call => profile.requestContinuesAfter(call.name, said) ? undefined : profile.localSentenceFor(call.name, call.args, call.result));
         if (sentences.every(sentence => sentence !== undefined)) {
           const text = sentences.filter(Boolean).join(' ');
-          if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true); return; }
+          if (lastAction?.failure && !admitsFailure(text)) { finish(failureSentence(lastAction.failure), true, 'failed'); return; }
           // A silent finish needs an acknowledgment to have carried the outcome; "Done." stays unspoken after one.
-          if (text) { finish(text, true); return; }
+          if (text) { finish(text, true, lastAction?.failure ? 'failed' : undefined); return; }
           if (spokenSoFar.length) { finish('Done.', true); return; }
         }
       }

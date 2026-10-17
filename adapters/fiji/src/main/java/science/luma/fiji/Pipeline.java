@@ -37,6 +37,16 @@ public final class Pipeline {
 
     boolean ready() { return image != null; }
 
+    /** Private checkpoint copy: a later correction must not mutate the analysis restored by undo. */
+    synchronized Pipeline copy() {
+        var copy = new Pipeline();
+        copy.image = image; copy.channel = channel; copy.method = method; copy.dark = dark; copy.watershed = watershed; copy.excludeArtifacts = excludeArtifacts;
+        copy.sigma = sigma; copy.minArea = minArea; copy.maxArea = maxArea; copy.minCircularity = minCircularity;
+        copy.splitFactor = splitFactor; copy.splitTolerance = splitTolerance; copy.unit = unit; copy.lastCount = lastCount;
+        copy.corrections.addAll(corrections); copy.notReplayed.addAll(notReplayed);
+        return copy;
+    }
+
     /** Follows the operations that define or correct a segmentation; everything else leaves the analysis unchanged. */
     synchronized void observe(String operation, JsonObject args, Map<String, Object> result, ImagePlus imp) {
         if (result == null) return;
@@ -50,10 +60,11 @@ public final class Pipeline {
                 }
                 watershed = Operations.bool(args, "watershed", true); excludeArtifacts = !Operations.bool(args, "keepArtifacts", false);
                 sigma = Operations.bool(args, "gaussian", true) ? Operations.number(args, "sigma", 1) : 0;
-                minArea = Operations.number(args, "minSize", 0); maxArea = Double.POSITIVE_INFINITY; minCircularity = 0;
+                minArea = Operations.number(args, "minSize", 0); maxArea = Operations.number(args, "maxSize", Double.POSITIVE_INFINITY); minCircularity = Operations.number(args, "minCircularity", 0);
                 splitFactor = 0; splitTolerance = 0.5;
                 unit = imp == null ? "pixel" : imp.getCalibration().getUnit();
                 corrections.clear(); notReplayed.clear();
+                if ("selection".equals(result.get("scope"))) notReplayed.add("the source-image selection; folder replay analyses the full field of each image");
                 count(result.get("count"));
             }
             case "filter_objects" -> {
@@ -80,7 +91,7 @@ public final class Pipeline {
         }
     }
     private void count(Object value) { if (value instanceof Number n) lastCount = n.intValue(); }
-    private String area(double value) { return Operations.plain(round(value)) + " " + (unit == null || unit.isBlank() ? "pixel" : unit) + "²"; }
+    private String area(double value) { return Double.toString(value) + " " + (unit == null || unit.isBlank() ? "pixel" : unit) + "²"; }
     private static double round(double v) { return Math.round(v * 1000) / 1000.0; }
 
     /** The analysis as the researcher would read it, plus the exact parameters and macro that replay it. */
@@ -100,19 +111,19 @@ public final class Pipeline {
     LinkedHashMap<String, Object> params() {
         var p = new LinkedHashMap<String, Object>();
         p.put("channel", channel == null ? 1 : channel); p.put("method", method); p.put("dark", dark); p.put("sigma", sigma); p.put("watershed", watershed);
-        p.put("minArea", round(minArea)); p.put("maxArea", Double.isInfinite(maxArea) ? "Infinity" : String.valueOf(round(maxArea))); p.put("minCircularity", round(minCircularity));
-        p.put("splitFactor", round(splitFactor)); p.put("splitTolerance", splitTolerance); p.put("excludeArtifacts", excludeArtifacts);
+        p.put("hematoxylin", channel == null);
+        p.put("minArea", minArea); p.put("maxArea", Double.isInfinite(maxArea) ? "Infinity" : Double.toString(maxArea)); p.put("minCircularity", minCircularity);
+        p.put("splitFactor", splitFactor); p.put("splitTolerance", splitTolerance); p.put("excludeArtifacts", excludeArtifacts);
         return p;
     }
     /** ImageJ macro that reproduces the analysis; the split and the post-split filter call this class so they behave exactly as live. */
     String macro() {
         return String.join("\n",
             "// Reproduces the analysis Penny ran on " + image + " with the researcher's corrections.",
-            "original = getTitle();",
+            "original = getImageID(); Stack.getPosition(sourceC, sourceZ, sourceT);",
             "roiManager(\"reset\"); run(\"Clear Results\");",
             "// Brightfield RGB (H&E, IHC): nuclei from the hematoxylin optical density, as live segment_cells does.",
-            "if (bitDepth() == 24) { call(\"science.luma.fiji.Pipeline.hematoxylin\"); selectImage(\"penny-mask\"); dark = true; }",
-            "else { if (nSlices > 1 || is(\"composite\")) run(\"Duplicate...\", \"title=penny-mask duplicate channels=\" + channel); else run(\"Duplicate...\", \"title=penny-mask\"); if (bitDepth() != 8) run(\"8-bit\"); }",
+            "call(\"science.luma.fiji.Pipeline.prepareMask\", \"\" + channel, \"\" + hematoxylin); selectImage(\"penny-mask\"); if (hematoxylin) dark = true;",
             "if (sigma > 0) run(\"Gaussian Blur...\", \"sigma=\" + sigma);",
             "if (dark) setAutoThreshold(method + \" dark\"); else setAutoThreshold(method);",
             "setOption(\"BlackBackground\", true);",
@@ -122,12 +133,16 @@ public final class Pipeline {
             "run(\"Analyze Particles...\", \"size=0-Infinity show=Nothing add\");",
             "close(\"penny-mask\");",
             "selectImage(original);",
-            "call(\"science.luma.fiji.Pipeline.refine\", \"\" + splitFactor, \"\" + splitTolerance, \"\" + minArea, \"\" + maxArea, \"\" + minCircularity, \"\" + excludeArtifacts, \"\" + channel);",
+            "call(\"science.luma.fiji.Pipeline.refine\", " + exactParameter("splitFactor", splitFactor) + ", " + exactParameter("splitTolerance", splitTolerance) + ", " + exactParameter("minArea", minArea) + ", " + exactParameter("maxArea", maxArea) + ", " + exactParameter("minCircularity", minCircularity) + ", \"\" + excludeArtifacts, \"\" + channel);",
+            "Stack.setChannel(channel);",
             "run(\"Set Measurements...\", \"area mean standard min integrated median perimeter shape bounding redirect=None decimal=3\");",
             "if (roiManager(\"count\") > 0) roiManager(\"Measure\");",
             "sum = 0; for (i = 0; i < nResults; i++) sum += getResult(\"Area\", i);",
+            "Stack.setPosition(sourceC, sourceZ, sourceT);",
             "print(\"RESULT count=\" + roiManager(\"count\") + \" meanArea=\" + d2s(sum / maxOf(1, nResults), 3));");
     }
+    /** Pass the exact parameter text to Java; IJM numeric string concatenation can round tiny calibrated areas. */
+    private static String exactParameter(String name, double value) { return "pennyParam(\"" + name + "\", \"" + Double.toString(value) + "\")"; }
 
     // =====================================================================================================
     // Shared object corrections: used live by Analysis and from replayed macros through call(...)
@@ -187,6 +202,29 @@ public final class Pipeline {
         ImagePlus mask = h.image(); mask.setTitle("penny-mask"); mask.show();
         return h.vectors();
     }
+    /** Macro entry point: the same single-plane, source-channel input as live segment_cells, never a whole hyperstack. */
+    public static String prepareMask(String channel, String hematoxylin) {
+        ImagePlus imp = WindowManager.getCurrentImage();
+        if (imp == null) throw new IllegalStateException("Open an image first.");
+        int c = (int) Math.round(Double.parseDouble(channel));
+        if (c < 1 || c > imp.getNChannels()) throw new IllegalArgumentException("Analysis channel " + c + " is missing from " + imp.getTitle() + ".");
+        Roi saved = imp.getRoi(); imp.deleteRoi();
+        ImagePlus mask;
+        try {
+            if ("true".equals(hematoxylin) || "1".equals(hematoxylin)) {
+                if (imp.getType() != ImagePlus.COLOR_RGB) throw new IllegalArgumentException("Hematoxylin replay requires an RGB image: " + imp.getTitle());
+                mask = Operations.hematoxylin(imp).image();
+            } else {
+                mask = new ij.plugin.Duplicator().run(imp, c, c, imp.getZ(), imp.getZ(), imp.getT(), imp.getT());
+                if (mask.getBitDepth() != 8) ij.IJ.run(mask, "8-bit", "");
+            }
+        } finally { if (saved != null) imp.setRoi(saved); }
+        mask.setTitle("penny-mask"); mask.show();
+        // Bind Analyze Particles to the same manager used by roiManager() and refine(), including hidden batch managers.
+        var manager = RoiManager.getInstance();
+        if (manager != null) ij.plugin.filter.ParticleAnalyzer.setRoiManager(manager);
+        return String.valueOf(mask.getID());
+    }
     /** Macro entry point: split oversized objects, then apply the area/circularity filter, on the macro's ROI Manager. */
     public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) { return refine(factor, tolerance, minArea, maxArea, minCircularity, "false", "1"); }
     /** As live: drop artifacts (as segment_cells does), then split oversized objects, then apply the area/circularity filter. */
@@ -214,7 +252,7 @@ public final class Pipeline {
             double area = roi.getStatistics().pixelCount * pxArea;
             double c = roi.getLength() > 0 ? Math.min(1, 4 * Math.PI * roi.getStatistics().pixelCount / (roi.getLength() * roi.getLength())) : 0;
             if (area < lo || area > hi || c < circ) continue;
-            roi.setName(String.format(Locale.ROOT, "Cell %d", ++n)); rm.addRoi(roi);
+            roi.setName(String.format(Locale.ROOT, "Cell %d", ++n)); Operations.tag(roi, imp); rm.addRoi(roi);
         }
         return String.valueOf(n);
     }

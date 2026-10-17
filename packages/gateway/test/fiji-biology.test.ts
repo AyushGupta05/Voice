@@ -163,7 +163,7 @@ test('the Hey Fiji closing lines route to the corrected pipeline', () => {
   assert.deepEqual(fiji.fastRoute!('Remove anything smaller than 20 square microns.', ctx), { tool: 'fiji_filter_objects', arguments: { minArea: 20 }, reply: 'Removing anything under 20.' });
   assert.equal(fiji.fastRoute!('That looks right. Apply this analysis to the entire folder.', ctx)?.tool, 'fiji_apply_analysis');
   assert.equal(fiji.fastRoute!('Why did you count this as a cell?', ctx)?.tool, 'fiji_explain_object');
-  assert.equal(fiji.fastRoute!('Remove anything smaller than 20 square pixels', ctx), undefined);
+  assert.match(String(fiji.fastRoute!('Remove anything smaller than 20 square pixels', ctx)?.refusal), /pixel calibration/);
   assert.equal(fiji.localSentenceFor!('fiji_apply_analysis', {}, { status: 'completed', result: { notReplayed: ['merged 2 objects by hand'], run: { processed: 3, failed: [], perImage: [{ resultsRows: 10 }, { resultsRows: 10 }, { resultsRows: 10 }], csv: '/x/analysis-1.csv' } } }),
     'Ran the corrected analysis on 3 images, 10 cells each on average; results in analysis-1.csv. 1 hand edit not replayed.');
 });

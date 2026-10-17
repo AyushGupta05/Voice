@@ -5,6 +5,8 @@ import type { Runtime } from '../runtime.js';
 export type AppId = 'qupath' | 'fiji';
 /** Instant spoken route: a whole-utterance match that dispatches one tool with a fixed reply and no model round. */
 export type FastRoute = { tool: string; arguments: Record<string, unknown>; reply: string;
+  /** A known prerequisite is missing; report this reason without dispatching an action or asking the model to guess. */
+  refusal?: string;
   /** A folder the utterance names ("the bbbc folder"): the host resolves it with `<prefix>_find_images` and passes the
    * first matching folder as `arguments.folder`; when nothing matches the route runs with its default. */
   folderQuery?: string };
@@ -65,6 +67,9 @@ export type AppProfile = {
    * that acts must do so through `runtime.call` of a real operation tool, so the decision, audit and checkpoint path
    * is the same as for a direct call. `root` is the repository root. */
   localTool?(input: LocalToolInput): Promise<unknown> | undefined;
+  /** Finishes the result of a human-reviewed call from its `approval_required` proposal and the settled decision, the
+   * same way the tool finishes an immediately executed call; undefined keeps the decision as it is. */
+  finalizeDecision?(name: string, proposal: unknown, decision: unknown): unknown;
   /** After a completed auto-approved action, settle any dialog the application raised; the returned fields are
    * merged into the tool result so the model learns what happened. */
   settleDialogs?(runtime: Runtime, name: string, args: Arguments, signal?: AbortSignal): Promise<Record<string, unknown> | undefined>;

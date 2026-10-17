@@ -64,7 +64,8 @@ final class PointerOverlay: ObservableObject {
     }
 
     private func trackMouse() {
-        guard following, hideTask == nil || targets.isEmpty else { return }
+        // A point-only focus has no outlined targets; it still owns its hold time before mouse following resumes.
+        guard following, hideTask == nil else { return }
         let mouse = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main else { return }
         let global = CGPoint(x: mouse.x - screen.frame.minX + globalBounds(of: screen).minX,
@@ -76,6 +77,7 @@ final class PointerOverlay: ObservableObject {
     }
 
     private func present(point: CGPoint, label: String, targets: [HighlightTarget], hold: Double) {
+        guard point.x.isFinite, point.y.isFinite else { return }
         hideTask?.cancel(); hideTask = nil
         Logger(subsystem: "science.luma.companion", category: "cursor").info("Cursor flies to (\(Int(point.x)), \(Int(point.y))) '\(label)' with \(targets.count) outlines")
         let movedScreen = ensurePanel(for: point)

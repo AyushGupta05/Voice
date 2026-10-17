@@ -30,7 +30,8 @@ private struct VoiceBar: View {
                   voiceActive: model.voiceActive, runningActions: model.runningActionIDs.count,
                   voiceStarting: model.voiceStarting, voiceSpeaking: model.voiceSpeaking,
                   executingText: model.executingText, resultText: model.resultText, liveTranscript: model.liveTranscript,
-                  voiceReady: model.voiceReady, voiceReason: model.voiceReason, appName: model.appName)
+                  voiceReady: model.voiceReady, voiceReason: model.voiceReason, appName: model.appName,
+                  resultIsError: model.resultIsError)
     }
     private var voiceOn: Bool { model.voiceActive || model.voiceStarting }
     private var transition: AnyTransition { reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)).combined(with: .scale(scale: 0.96)) }
@@ -62,14 +63,14 @@ private struct VoiceBar: View {
                 } else if voiceOn {
                     Image(systemName: "stop.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(mint)
                 } else {
-                    Image(systemName: status.phase == .idle && !status.ready ? "mic.slash" : "mic.fill")
+                    Image(systemName: status.canStartVoice ? "mic.fill" : "mic.slash")
                         .font(.system(size: 15, weight: .medium)).foregroundStyle(.white.opacity(0.75))
                 }
             }
         }.buttonStyle(.plain)
-            .disabled(!voiceOn && !(status.phase == .idle && status.ready))
+            .disabled(!voiceOn && !status.canStartVoice)
             .accessibilityLabel(voiceOn ? "Stop voice" : "Start voice")
-            .help(voiceOn ? "Stop microphone" : status.phase == .idle && !status.ready ? status.note : "Talk to Penny")
+            .help(voiceOn ? "Stop microphone" : status.canStartVoice ? "Talk to Penny" : model.voiceReason)
     }
 
     @ViewBuilder private func centre(_ status: BarStatus) -> some View {
@@ -110,7 +111,8 @@ private struct VoiceBar: View {
         case .executing:
             HStack(spacing: 10) {
                 if status.showsResult {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).foregroundStyle(mint)
+                    Image(systemName: status.showsError ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                        .font(.system(size: 13)).foregroundStyle(status.showsError ? Color.orange : mint)
                         .transition(.scale.combined(with: .opacity)).accessibilityHidden(true)
                 } else {
                     ProgressView().controlSize(.small).tint(mint).accessibilityHidden(true)
@@ -126,13 +128,13 @@ private struct VoiceBar: View {
                 }
             }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()).onTapGesture { model.toggleDetails() }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(status.showsResult ? "Done" : status.speaking ? "Speaking" : "Working")
+                .accessibilityLabel(status.showsError ? "Needs attention" : status.showsResult ? "Done" : status.speaking ? "Speaking" : "Working")
                 .accessibilityValue(status.title)
         }
     }
 
     @ViewBuilder private var trailing: some View {
-        if model.textBusy {
+        if model.canStopTask {
             Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 12)).frame(width: 24, height: 30) }
                 .buttonStyle(.plain).accessibilityLabel("Stop task").help("Stop unstarted work; completed actions remain")
         }

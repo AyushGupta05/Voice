@@ -14,6 +14,8 @@ minSize = parseFloat(pennyParam("minSize", "150"));
 sigma = parseFloat(pennyParam("sigma", "2"));
 minDabFraction = parseFloat(pennyParam("minDabFraction", "0.3"));
 
+// Temporary windows get a per-run suffix, so cleanup by title can never match one of the researcher's images.
+tag = "" + getTime() + "-" + floor(random * 100000);
 if (nImages == 0) { print("RESULT error=no_image"); exit; }
 if (bitDepth() != 24) { print("RESULT error=needs_rgb_brightfield"); exit; }
 orig = getImageID(); title = getTitle();
@@ -26,7 +28,7 @@ run("Colour Deconvolution", "vectors=[H DAB] hide");
 hem = title + "-(Colour_1)"; dab = title + "-(Colour_2)";
 if (!isOpen(hem) || !isOpen(dab)) { print("RESULT error=missing_stain_image"); exit; }
 fractions = newArray(2);
-masks = newArray("penny-hem-mask", "penny-dab-mask");
+masks = newArray("penny-hem-mask-" + tag, "penny-dab-mask-" + tag);
 names = newArray(hem, dab);
 methods = newArray(hemMethod, dabMethod);
 for (s = 0; s < 2; s++) {
@@ -46,24 +48,26 @@ for (s = 0; s < 2; s++) {
 }
 // Nuclei are the objects of the combined (haematoxylin OR DAB) mask; each whole nucleus is then classified by the
 // share of its pixels that are DAB-positive, so one nucleus is never counted as both positive and negative.
-imageCalculator("OR", "penny-hem-mask", "penny-dab-mask");
-selectImage("penny-hem-mask");
+imageCalculator("OR", "penny-hem-mask-" + tag, "penny-dab-mask-" + tag);
+selectImage("penny-hem-mask-" + tag);
 run("Fill Holes");
 run("Watershed");
 if (area) Roi.paste();
-run("Set Measurements...", "area mean redirect=penny-dab-mask decimal=3");
+run("Set Measurements...", "area mean redirect=[penny-dab-mask-" + tag + "] decimal=3");
 run("Clear Results");
 run("Analyze Particles...", "size=" + minSize + "-Infinity pixel show=Nothing display clear");
 run("Set Measurements...", "area mean redirect=None decimal=3");
 total = nResults; positive = 0;
 for (i = 0; i < total; i++) if (getResult("Mean", i) / 255 >= minDabFraction) positive++;
 run("Clear Results");
-close("penny-hem-mask"); close("penny-dab-mask");
+close("penny-hem-mask-" + tag); close("penny-dab-mask-" + tag);
 counts = newArray(total - positive, positive);
 selectImage(orig);
 if (area) Roi.paste();
 basis = "image"; if (area) basis = "selection";
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT dabFraction=" + d2s(fractions[1], 4) + " hematoxylinFraction=" + d2s(fractions[0], 4) + " positive=" + positive + " negative=" + counts[0] + " total=" + total + " percentPositive=" + d2s(100 * positive / maxOf(total, 1), 1) + " minDabFraction=" + minDabFraction + " basis=" + basis + " dabMethod=" + dabMethod + " hemMethod=" + hemMethod);
+print("RESULT dabFraction=" + d2s(fractions[1], 4) + " hematoxylinFraction=" + d2s(fractions[0], 4) + " positive=" + positive + " negative=" + counts[0] + " total=" + total + " percentPositive=" + d2s(ratio(100 * positive, total), 1) + " minDabFraction=" + minDabFraction + " basis=" + basis + " dabMethod=" + dabMethod + " hemMethod=" + hemMethod);
 
+/** a / b, or NaN when nothing was measured (b = 0), so an empty result is never reported as a zero mean. */
+function ratio(a, b) { if (b == 0) return NaN; return a / b; }
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

@@ -28,7 +28,7 @@ public final class AnalysisContractTest {
         ij.Prefs.blackBackground = true;
         journal = new Journal(); ops = new Operations(journal); analysis = new Analysis(ops, journal);
         try {
-            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); perImageManager(); errors(); samples();
+            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); filterBimodal(); globalManagerIndices(); centroidScope(); perImageManager(); emptyExistingObjects(); errors(); samples();
         } catch (Throwable error) { error.printStackTrace(); System.exit(1); }
         System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats, filter_objects, split_objects): passed");
         System.exit(0);
@@ -167,6 +167,26 @@ public final class AnalysisContractTest {
         expect(((List<?>) histogram.get("counts")).stream().mapToInt(c -> ((Number) c).intValue()).sum() == 10, "histogram counts every object");
         @SuppressWarnings("unchecked") var largest = (List<Map<String, Object>>) result.get("largest");
         expect(num(largest.getFirst(), "area") == num(area, "max"), "largest first");
+        imp.setRoi(new Roi(0, 0, 200, 100));
+        var selectionArgs = new JsonObject(); selectionArgs.addProperty("scope", "selection"); selectionArgs.addProperty("plot", false);
+        var selected = edt(() -> analysis.regionStats(selectionArgs));
+        expect(num(selected, "n") == 3 && num(selected, "totalForImage") == 10 && "selection".equals(selected.get("scopeUsed")), "count existing objects in selection without resegmenting: " + selected);
+        expect(manager.getCount() == 10 && imp.getRoi().getBounds().equals(new java.awt.Rectangle(0, 0, 200, 100)), "count preserves objects and selection");
+        var regionArgs = new JsonObject(); var region = new JsonObject();
+        region.addProperty("x", 0); region.addProperty("y", 0); region.addProperty("width", 200); region.addProperty("height", 100); regionArgs.add("region", region); regionArgs.addProperty("plot", false);
+        var corner = edt(() -> analysis.regionStats(regionArgs));
+        expect(num(corner, "n") == 3 && "region".equals(corner.get("scopeUsed")), "explicit corner counts the same three existing objects: " + corner);
+        @SuppressWarnings("unchecked") var cornerLargest = (List<Map<String, Object>>) corner.get("largest");
+        expect(num(cornerLargest.getFirst(), "index") == 2, "scoped output keeps original object index");
+        region.addProperty("width", 1); region.addProperty("height", 1);
+        var empty = edt(() -> analysis.regionStats(regionArgs));
+        expect(num(empty, "n") == 0 && ((Map<?, ?>) empty.get("area")).isEmpty(), "an empty corner reports zero, never whole-image fallback");
+        imp.deleteRoi();
+        try { edt(() -> analysis.regionStats(selectionArgs)); throw new AssertionError("missing selection accepted"); }
+        catch (IllegalStateException expectedError) { expect(expectedError.getMessage().contains("Select an area"), "selection scope refuses missing selection"); }
+        region.addProperty("x", -1);
+        try { edt(() -> analysis.regionStats(regionArgs)); throw new AssertionError("negative region accepted"); }
+        catch (IllegalArgumentException expectedError) { /* invalid bounds must never silently widen scope */ }
         System.out.println("PASS object_stats");
     }
 
@@ -241,6 +261,72 @@ public final class AnalysisContractTest {
         try { edt(() -> analysis.colocalize(new JsonObject())); throw new AssertionError("single channel accepted"); }
         catch (IllegalArgumentException expected) { /* speakable */ }
         System.out.println("PASS speakable errors");
+    }
+    static void globalManagerIndices() throws Exception {
+        var manager = ops.manager(); manager.reset();
+        var other = new ImagePlus("foreign-indices", new ByteProcessor(200, 120));
+        for (int i = 0; i < 2; i++) { var roi = new Roi(5 + 10 * i, 5, 5, 5); Operations.tag(roi, other); manager.addRoi(roi); }
+        var imp = new ImagePlus("global-indices", new ByteProcessor(200, 120)); activate(imp);
+        var normal = new OvalRoi(10, 10, 20, 20); Operations.tag(normal, imp); manager.addRoi(normal);
+        var pair = new ShapeRoi(new OvalRoi(60, 40, 24, 24)).or(new ShapeRoi(new OvalRoi(79, 40, 24, 24))); Operations.tag(pair, imp); manager.addRoi(pair);
+        var statsArgs = new JsonObject(); statsArgs.addProperty("plot", false);
+        var stats = edt(() -> analysis.regionStats(statsArgs));
+        @SuppressWarnings("unchecked") var largest = (List<Map<String, Object>>) stats.get("largest");
+        int global = (int) num(largest.getFirst(), "index");
+        expect(global == 3, "stats exposes global manager index3 after two foreign entries: " + largest);
+        var target = new JsonObject(); var indices = new com.google.gson.JsonArray(); indices.add(global); target.add("indices", indices);
+        var highlightTargets = edt(() -> Map.of("rois", ops.managerRois(target)));
+        expect(((List<?>) highlightTargets.get("rois")).getFirst() == manager.getRoi(global), "stats index selects the exact manager ROI used by highlight");
+        var why = new JsonObject(); why.addProperty("index", global);
+        expect(num(edt(() -> analysis.explainObject(why, null)), "index") == global, "explain uses manager-global index");
+        var split = edt(() -> analysis.splitObjects(target));
+        expect(num(split, "split") == 1 && num(split, "after") == 3 && manager.getCount() == 5, "global index3 splits the intended pair and preserves foreign entries");
+        indices.set(0, new com.google.gson.JsonPrimitive(0));
+        try { edt(() -> analysis.splitObjects(target)); throw new AssertionError("foreign manager index accepted"); }
+        catch (IllegalArgumentException expected) { expect(expected.getMessage().contains("active image"), "foreign index refused"); }
+        indices.set(0, new com.google.gson.JsonPrimitive(3)); indices.add(4);
+        expect(num(edt(() -> analysis.mergeObjects(target)), "merged") == 2 && manager.getCount() == 4, "global split-piece indices merge the same pair");
+        var threshold = new JsonObject(); threshold.addProperty("threshold", 0);
+        expect(edt(() -> analysis.classifyIntensity(threshold)).get("positiveIndices").equals(List.of(2, 3)), "classification indices also use global manager positions");
+        System.out.println("PASS manager-global indices across stats, highlight target resolution, explanation, split, merge and classification");
+    }
+    static void centroidScope() throws Exception {
+        var shapes = List.of(
+            new ShapeRoi(new Roi(10, 10, 40, 40)).or(new ShapeRoi(new Roi(50, 45, 65, 5))),
+            new ShapeRoi(new Roi(10, 10, 90, 70)).not(new ShapeRoi(new Roi(60, 20, 30, 50))));
+        for (var shape : shapes) {
+            var ip = new ByteProcessor(160, 120); ip.setValue(255); ip.fill(shape); ip.setThreshold(255, 255, ij.process.ImageProcessor.NO_LUT_UPDATE);
+            var truth = ij.process.ImageStatistics.getStatistics(ip, ij.measure.Measurements.CENTROID | ij.measure.Measurements.LIMIT, null);
+            double contourX = shape.getContourCentroid()[0], boundary = (truth.xCentroid + contourX) / 2;
+            expect(Math.abs(truth.xCentroid - contourX) > 2, "asymmetric/holed fixture separates filled-mask and perimeter centroids");
+            var imp = new ImagePlus("centroid-scope", ip); imp.getCalibration().pixelWidth = 0.001; imp.getCalibration().pixelHeight = 0.001; imp.getCalibration().setUnit("mm"); activate(imp);
+            var manager = ops.manager(); manager.reset(); Operations.tag(shape, imp); manager.addRoi(shape);
+            var args = new JsonObject(); args.addProperty("plot", false); var region = new JsonObject();
+            region.addProperty("x", truth.xCentroid < boundary ? 0 : boundary); region.addProperty("y", 0); region.addProperty("width", truth.xCentroid < boundary ? boundary : imp.getWidth() - boundary); region.addProperty("height", imp.getHeight()); args.add("region", region);
+            expect(num(edt(() -> analysis.regionStats(args)), "n") == 1, "regional count uses filled-pixel centroid despite calibration and holes");
+            int edge = (int) Math.floor(boundary); imp.setRoi(truth.xCentroid < boundary ? new Roi(0, 0, edge, imp.getHeight()) : new Roi(edge, 0, imp.getWidth() - edge, imp.getHeight()));
+            args.remove("region"); args.addProperty("scope", "selection");
+            expect(num(edt(() -> analysis.regionStats(args)), "n") == 1, "selection count agrees with mask-based segmentation scope");
+        }
+        System.out.println("PASS filled-mask centroid scope on asymmetric and holed objects, calibrated in mm");
+    }
+    /** After the researcher removes every current-image object, "how many are left?" must answer zero without starting over. */
+    static void emptyExistingObjects() throws Exception {
+        ImagePlus imp = (ImagePlus) edt(() -> Map.of("image", ops.active())).get("image"); var manager = ops.manager();
+        var filter = new JsonObject(); filter.addProperty("minArea", 1e12);
+        var cleared = edt(() -> analysis.filterObjects(filter));
+        expect(num(cleared, "kept") == 0 && manager.getCount() == 1, "all current-image objects removed; other-image object retained");
+        byte[] before = ((byte[]) imp.getProcessor().getPixels()).clone(); int rows = Operations.results().size();
+        var args = new JsonObject(); args.addProperty("plot", false);
+        var zero = edt(() -> analysis.regionStats(args));
+        expect(num(zero, "n") == 0 && num(zero, "totalForImage") == 0 && ((Map<?, ?>) zero.get("area")).isEmpty() && ((Map<?, ?>) zero.get("mean")).isEmpty(), "empty active-image population reports zero and absent measurements: " + zero);
+        expect(manager.getCount() == 1 && Operations.results().size() == rows && java.util.Arrays.equals(before, (byte[]) imp.getProcessor().getPixels()), "reading zero does not resegment or mutate the existing analysis");
+        manager.reset();
+        expect(num(edt(() -> analysis.regionStats(args)), "n") == 0, "an entirely empty ROI Manager also reports zero");
+        imp.deleteRoi(); args.addProperty("scope", "selection");
+        try { edt(() -> analysis.regionStats(args)); throw new AssertionError("empty population accepted absent selection"); }
+        catch (IllegalStateException expected) { expect(expected.getMessage().contains("Select an area"), "selection remains mandatory for explicit scope even with zero objects"); }
+        System.out.println("PASS object_stats after all objects removed (zero, no resegmentation, image ownership, explicit selection validation)");
     }
 
     static void samples() throws Exception {
