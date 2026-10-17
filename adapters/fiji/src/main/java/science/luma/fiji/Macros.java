@@ -575,15 +575,44 @@ final class Macros {
         return Objects.toString(cause.getMessage(), cause.getClass().getSimpleName());
     }
 
-    /** Snapshot of the Results table, to tell rows a run appended from a table it cleared and rewrote. */
-    record ResultsState(ResultsTable table, int size, String first, String last) {
+    /**
+     * Snapshot of the Results table, to tell rows a run appended from a table it cleared and rewrote. Row contents alone cannot
+     * tell them apart: with Set Measurements limited to e.g. Area/Mean/Min/Max (an ImageJ preference the live Fiji persists),
+     * equal-sized particles give identical rows, so a cleared table whose first and last rows happen to match looked appended and
+     * only the rows past the old size were reported. ResultsTable.reset() (Analyze Particles "clear", run("Clear Results"))
+     * drops every column array, while appending writes into the same arrays until they grow past maxRows, so the identity of the
+     * column arrays decides; row contents are only the fallback when that is not observable.
+     */
+    record ResultsState(ResultsTable table, int size, int capacity, Object[] columns, int contentHash) {
         static ResultsState of(ResultsTable table) {
             int size = table == null ? 0 : table.size();
-            return new ResultsState(table, size, size == 0 ? "" : rowText(table, 0), size == 0 ? "" : rowText(table, size - 1));
+            if (table == null) return new ResultsState(null, 0, 0, null, 0);
+            synchronized (table) { return new ResultsState(table, size, capacity(table), columnArrays(table), contentHash(table, size)); }
+        }
+        /** 1 = the table kept every earlier row (appended), 0 = it was cleared/rewritten, -1 = cannot tell from array identity. */
+        private int sameStorage(ResultsTable now) {
+            if (columns == null) return -1;
+            Object[] current = columnArrays(now);
+            if (current == null) return -1;
+            boolean any = false;
+            for (int c = 0; c < columns.length; c++) {
+                if (columns[c] == null) continue;
+                any = true;
+                if (c < current.length && current[c] == columns[c]) return 1;
+            }
+            if (!any) return -1;
+            // Every old column array was replaced: a reset, unless the table grew past its capacity (growth copies the arrays).
+            return now.size() > capacity && capacity > 0 ? -1 : 0;
         }
         List<Map<String, String>> added(ResultsTable now) {
             if (now == null || now.size() == 0) return List.of();
-            boolean appended = now == table && now.size() >= size && (size == 0 || rowText(now, 0).equals(first) && rowText(now, size - 1).equals(last));
+            boolean appended;
+            if (now != table || now.size() < size) appended = false;
+            else if (size == 0) appended = true;
+            else {
+                int storage; synchronized (now) { storage = sameStorage(now); }
+                appended = storage == 1 || storage == -1 && contentHash(now, size) == contentHash;
+            }
             int from = appended ? size : 0;
             var headings = Arrays.stream(now.getHeadings()).filter(h -> h != null && !h.isBlank()).toList();
             var rows = new ArrayList<Map<String, String>>();
@@ -600,6 +629,19 @@ final class Macros {
             return rows;
         }
         private static String rowText(ResultsTable table, int row) { try { return Objects.toString(table.getRowAsString(row), ""); } catch (RuntimeException error) { return ""; } }
+        private static int contentHash(ResultsTable table, int rows) {
+            int hash = 1;
+            for (int r = 0; r < Math.min(rows, table.size()); r++) hash = 31 * hash + rowText(table, r).hashCode();
+            return hash;
+        }
+        private static Object[] columnArrays(ResultsTable table) {
+            try { var field = ResultsTable.class.getDeclaredField("columns"); field.setAccessible(true); var arrays = (Object[]) field.get(table); return arrays == null ? null : arrays.clone(); }
+            catch (ReflectiveOperationException | RuntimeException error) { return null; }
+        }
+        private static int capacity(ResultsTable table) {
+            try { var field = ResultsTable.class.getDeclaredField("maxRows"); field.setAccessible(true); return field.getInt(table); }
+            catch (ReflectiveOperationException | RuntimeException error) { return 0; }
+        }
     }
 
     // =====================================================================================================

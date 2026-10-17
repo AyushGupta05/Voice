@@ -3,6 +3,7 @@ package science.luma.fiji;
 import com.google.gson.JsonObject;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.Menus;
 import ij.gui.Overlay;
 import ij.gui.Roi;
@@ -524,7 +525,117 @@ final class Analysis {
         result.put("largest", largest); result.put("smallest", smallest);
         result.put("unit", cal.getUnit()); result.put("areaUnit", cal.getUnit() + "^2"); result.put("channel", channel);
         result.put("highlight", Viewer.roiHighlight(imp, largestRois, largestRois.size() == 1 ? "Largest object" : largestRois.size() + " largest objects", 5));
+        if (Operations.bool(args, "plot", true) && Operations.guiVisible()) {
+            showHistogram(area, cal.getUnit()); result.put("plot", "Size distribution");
+            // The plot window must not become the active image: the next "segment"/"count" still means the cells' image.
+            if (imp.getWindow() != null) { WindowManager.setCurrentWindow(imp.getWindow()); imp.getWindow().toFront(); }
+        }
         return result;
+    }
+    /** "Show me the size distribution": an ImageJ histogram plot window of object areas, drawn from the same values as the result. */
+    static void showHistogram(double[] area, String unit) {
+        int bins = Math.max(5, Math.min(30, (int) Math.round(Math.sqrt(area.length))));
+        var plot = new ij.gui.Plot("Size distribution", "Area (" + (unit == null || unit.isBlank() ? "pixel" : unit) + "²)", "Objects");
+        plot.addHistogram(area, (Arrays.stream(area).max().orElse(1) - Arrays.stream(area).min().orElse(0)) / bins);
+        plot.show();
+    }
+
+    // =====================================================================================================
+    // filter_objects: "remove the tiny ones" without re-segmenting
+    // =====================================================================================================
+    Map<String, Object> filterObjects(JsonObject args) {
+        var imp = ops.active();
+        var manager = ops.managerOrNull();
+        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
+        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
+        ImageProcessor ip = measurementProcessor(imp, imp.getC()); Calibration cal = imp.getCalibration();
+        double[] area = new double[n], circ = new double[n];
+        for (int i = 0; i < n; i++) {
+            Roi roi = (Roi) rois[i].clone(); roi.setImage(imp); ip.setRoi(roi);
+            area[i] = ImageStatistics.getStatistics(ip, Measurements.AREA, cal).area; ip.resetRoi();
+            double perimeter = roi.getLength(); circ[i] = perimeter > 0 ? Math.min(1, 4 * Math.PI * area[i] / (perimeter * perimeter)) : 0;
+        }
+        double median = (double) describeValues(area).get("median");
+        String preset = Operations.string(args, "remove", "tiny").toLowerCase(Locale.ROOT);
+        double minArea = Operations.number(args, "minArea", preset.equals("tiny") || preset.equals("small") ? median * Operations.number(args, "fraction", 0.35) : 0);
+        double maxArea = Operations.number(args, "maxArea", preset.equals("huge") || preset.equals("large") ? median * 3 : Double.POSITIVE_INFINITY);
+        double minCirc = Operations.number(args, "minCircularity", 0);
+        var keep = new ArrayList<Roi>(); var removedIndices = new ArrayList<Integer>();
+        for (int i = 0; i < n; i++) { if (area[i] >= minArea && area[i] <= maxArea && circ[i] >= minCirc) keep.add(rois[i]); else removedIndices.add(i); }
+        replaceManager(imp, manager, keep);
+        var result = new LinkedHashMap<String, Object>();
+        result.put("before", n); result.put("removed", removedIndices.size()); result.put("kept", keep.size());
+        result.put("minArea", minArea); result.put("maxArea", Double.isInfinite(maxArea) ? "Infinity" : maxArea); result.put("minCircularity", minCirc);
+        result.put("medianArea", median); result.put("unit", cal.getUnit());
+        journal.record("filter_objects", "// filter_objects: keep area " + Operations.plain(round(minArea, 2)) + "-" + (Double.isInfinite(maxArea) ? "Infinity" : Operations.plain(round(maxArea, 2))) + ", circularity >= " + Operations.plain(minCirc) + ": " + keep.size() + " of " + n
+            + "\nrun(\"Analyze Particles...\", \"size=" + Operations.plain(round(minArea, 2)) + "-" + (Double.isInfinite(maxArea) ? "Infinity" : Operations.plain(round(maxArea, 2))) + " circularity=" + Operations.plain(minCirc) + "-1.00 add\");");
+        result.put("highlight", Viewer.roiHighlight(imp, keep, keep.size() + " kept, " + removedIndices.size() + " removed", 120));
+        return result;
+    }
+
+    // =====================================================================================================
+    // split_objects: "those cells are touching, separate them" (watershed inside oversized objects)
+    // =====================================================================================================
+    Map<String, Object> splitObjects(JsonObject args) {
+        var imp = ops.active();
+        var manager = ops.managerOrNull();
+        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
+        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        if (n > MAX_OBJECTS) throw new IllegalArgumentException("The ROI Manager holds " + n + " objects; the limit is " + MAX_OBJECTS + ".");
+        double[] area = new double[n];
+        for (int i = 0; i < n; i++) area[i] = rois[i].getStatistics().pixelCount;
+        double median = (double) describeValues(area).get("median");
+        double factor = Operations.number(args, "factor", 1.5);
+        Set<Integer> targets = new TreeSet<>();
+        Roi selection = imp.getRoi();
+        if (args.has("indices")) for (var e : args.getAsJsonArray("indices")) { int i = e.getAsInt(); if (i < 0 || i >= n) throw new IllegalArgumentException("No object " + i + " in the ROI Manager."); targets.add(i); }
+        else if (selection != null && selection.isArea() && !Operations.bool(args, "all", false)) {
+            for (int i = 0; i < n; i++) { var b = rois[i].getBounds(); if (selection.contains((int) b.getCenterX(), (int) b.getCenterY())) targets.add(i); }
+        }
+        else for (int i = 0; i < n; i++) if (area[i] > factor * median) targets.add(i);
+        var out = new ArrayList<Roi>(); var newParts = new ArrayList<Roi>(); int split = 0;
+        var edm = new ij.plugin.filter.EDM();
+        for (int i = 0; i < n; i++) {
+            if (!targets.contains(i)) { out.add(rois[i]); continue; }
+            var b = rois[i].getBounds(); int w = b.width + 2, h = b.height + 2;
+            var mask = new ByteProcessor(w, h);
+            var local = (Roi) rois[i].clone(); local.setLocation(local.getXBase() - b.x + 1, local.getYBase() - b.y + 1);
+            mask.setColor(255); mask.fill(local);
+            edm.toWatershed(mask);
+            int[] labels = new int[w * h]; var parts = label((byte[]) mask.getPixels(), w, h, labels);
+            int minPart = Math.max(4, (int) Math.round(median * 0.15));
+            var pieces = new ArrayList<Roi>();
+            for (int k = 0; k < parts.size(); k++) {
+                if (parts.get(k) < minPart) continue;
+                var part = new ByteProcessor(w, h); byte[] pp = (byte[]) part.getPixels();
+                for (int j = 0; j < labels.length; j++) if (labels[j] == k + 1) pp[j] = (byte) 255;
+                Roi piece = maskToRoi(part); if (piece == null) continue;
+                piece.setLocation(piece.getXBase() + b.x - 1, piece.getYBase() + b.y - 1);
+                pieces.add(piece);
+            }
+            if (pieces.size() >= 2) { split++; out.addAll(pieces); newParts.addAll(pieces); } else out.add(rois[i]);
+        }
+        replaceManager(imp, manager, out);
+        var result = new LinkedHashMap<String, Object>();
+        result.put("before", n); result.put("after", out.size()); result.put("checked", targets.size()); result.put("split", split);
+        result.put("scope", args.has("indices") ? "indices" : selection != null && selection.isArea() && !Operations.bool(args, "all", false) ? "selection" : "oversized");
+        result.put("medianArea", median);
+        journal.record("split_objects", "// split_objects: watershed inside " + targets.size() + " objects (" + result.get("scope") + "), " + split + " split: " + n + " -> " + out.size() + "\nrun(\"Watershed\");");
+        result.put("highlight", Viewer.roiHighlight(imp, newParts.isEmpty() ? out : newParts, split == 0 ? "Nothing to split" : split + " split, " + out.size() + " cells", 120));
+        return result;
+    }
+    /** Rewrites the ROI Manager and the image overlay with the given objects, numbered in order. */
+    private static void replaceManager(ImagePlus imp, RoiManager manager, List<Roi> rois) {
+        manager.reset();
+        var overlay = new Overlay();
+        for (int i = 0; i < rois.size(); i++) {
+            Roi roi = rois.get(i); roi.setName(String.format(Locale.ROOT, "Cell %d", i + 1));
+            if (roi.getStrokeColor() == null) roi.setStrokeColor(Color.CYAN);
+            manager.addRoi(roi);
+            var copy = (Roi) roi.clone(); overlay.add(copy);
+        }
+        imp.setOverlay(overlay);
     }
     private static Map<String, Object> entry(int index, Roi roi, double area, double mean) {
         var m = new LinkedHashMap<String, Object>(); m.put("index", index); m.put("name", roi.getName()); m.put("area", area); m.put("mean", mean);

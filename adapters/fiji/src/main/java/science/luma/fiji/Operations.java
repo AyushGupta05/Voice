@@ -94,7 +94,42 @@ final class Operations {
         var ip = imp.getProcessor();
         result.put("threshold", ip == null || ip.getMinThreshold() == ImageProcessor.NO_THRESHOLD ? null : Map.of("lower", ip.getMinThreshold(), "upper", ip.getMaxThreshold()));
         result.put("invertedLut", ip != null && ip.isInvertedLut());
+        result.put("channels", channelInfo(imp));
         return result;
+    }
+    /** Per-channel LUT colour name and slice label, so "the nuclei channel" can be resolved without guessing. */
+    static List<Map<String, Object>> channelInfo(ImagePlus imp) {
+        var result = new ArrayList<Map<String, Object>>();
+        int n = Math.max(1, imp.getNChannels());
+        ij.process.LUT[] luts = null;
+        try { luts = imp.getType() == ImagePlus.COLOR_RGB ? null : imp.getLuts(); } catch (RuntimeException ignored) { /* no LUTs */ }
+        for (int c = 1; c <= n; c++) {
+            var row = new LinkedHashMap<String, Object>(); row.put("index", c);
+            row.put("lut", imp.getType() == ImagePlus.COLOR_RGB ? "rgb" : luts != null && luts.length >= c && luts[c - 1] != null ? lutName(luts[c - 1]) : "unknown");
+            String label = null;
+            try { label = imp.getStack().getSliceLabel(imp.getStackIndex(c, imp.getZ(), imp.getT())); } catch (RuntimeException ignored) { /* no labels */ }
+            row.put("label", label == null ? "" : label.lines().findFirst().orElse("").strip());
+            result.add(row);
+        }
+        return result;
+    }
+    static String lutName(ij.process.LUT lut) {
+        int r = lut.getRed(255), g = lut.getGreen(255), b = lut.getBlue(255); int max = Math.max(r, Math.max(g, b));
+        if (max < 32) return "black";
+        boolean red = r > 0.6 * max, green = g > 0.6 * max, blue = b > 0.6 * max;
+        if (red && green && blue) return "grays"; if (red && green) return "yellow"; if (red && blue) return "magenta"; if (green && blue) return "cyan";
+        return red ? "red" : green ? "green" : blue ? "blue" : "other";
+    }
+    record ChannelChoice(int channel, String by) {}
+    /** Nuclei first: an explicit channel, else a blue-LUT channel, else a DAPI/Hoechst/nuc label, else the current channel. */
+    static ChannelChoice nucleiChannel(ImagePlus imp, JsonObject args) {
+        int n = Math.max(1, imp.getNChannels());
+        if (args.has("channel") && !args.get("channel").isJsonNull()) return new ChannelChoice(integer(args, "channel", imp.getC(), 1, n), "argument");
+        if (n == 1) return new ChannelChoice(1, "current");
+        var channels = channelInfo(imp);
+        for (var c : channels) if ("blue".equals(c.get("lut"))) return new ChannelChoice((Integer) c.get("index"), "lut-blue");
+        for (var c : channels) if (String.valueOf(c.get("label")).matches("(?i).*(dapi|hoechst|nuc).*")) return new ChannelChoice((Integer) c.get("index"), "name");
+        return new ChannelChoice(imp.getC(), "current");
     }
     static String typeName(int type) {
         return switch (type) { case ImagePlus.GRAY8 -> "GRAY8"; case ImagePlus.GRAY16 -> "GRAY16"; case ImagePlus.GRAY32 -> "GRAY32"; case ImagePlus.COLOR_256 -> "COLOR_256"; case ImagePlus.COLOR_RGB -> "COLOR_RGB"; default -> "UNKNOWN"; };
@@ -412,6 +447,27 @@ final class Operations {
         result.put("highlight", Viewer.rectHighlight(imp, bounds, count + (count == 1 ? " particle" : " particles"), 120, true)); 
         return result;
     }
+    /** "Only this area": drops the particles just added whose centroid is outside the ROI, from the Results table and the ROI Manager alike. */
+    void restrictToSelection(Map<String, Object> result, Roi selection, Calibration cal) {
+        var table = results(); int count = ((Number) result.get("count")).intValue(); if (count == 0) return;
+        int first = table.size() - count, xc = column(table, "X"), yc = column(table, "Y"), areaColumn = column(table, "Area");
+        if (xc < 0 || yc < 0) throw new IllegalStateException("Centroid columns are missing; cannot scope to the selection.");
+        var keep = new ArrayList<Integer>();
+        for (int r = first; r < table.size(); r++) { double x = cal.getRawX(table.getValueAsDouble(xc, r)), y = cal.getRawY(table.getValueAsDouble(yc, r)); if (selection.contains((int) Math.floor(x), (int) Math.floor(y))) keep.add(r - first); }
+        for (int r = table.size() - 1; r >= first; r--) if (!keep.contains(r - first)) table.deleteRows(r, r);
+        var manager = managerOrNull(); int added = ((Number) result.get("addedToManager")).intValue(); int managerBefore = ((Number) result.get("managerTotal")).intValue() - added;
+        if (manager != null && added == count) {
+            var rois = manager.getRoisAsArray(); manager.reset();
+            for (int i = 0; i < managerBefore; i++) manager.addRoi(rois[i]);
+            for (int k : keep) manager.addRoi(rois[managerBefore + k]);
+        }
+        double total = 0; for (int r = first; r < table.size() && areaColumn >= 0; r++) total += table.getValueAsDouble(areaColumn, r);
+        result.put("count", keep.size()); result.put("totalArea", total); result.put("averageSize", keep.isEmpty() ? 0.0 : total / keep.size());
+        result.put("excludedOutsideSelection", count - keep.size()); result.put("scope", "selection"); result.put("selection", roiJson(selection));
+        result.put("addedToManager", manager == null ? 0 : keep.size()); result.put("managerTotal", manager == null ? 0 : manager.getCount()); result.put("resultsRows", table.size());
+        result.put("summary", summary(table, first, (Analyzer.getMeasurements() | Measurements.AREA | Measurements.MEAN | Measurements.RECT | Measurements.CENTROID) & ~Measurements.ADD_TO_OVERLAY).get("summary"));
+        if (IJ.isResultsWindow()) table.show("Results");
+    }
     /** Detections stay visible even with the ROI Manager hidden: bright magenta outlines in the overlay, numbered when there are at most 200. */
     static void outline(ImagePlus imp, RoiManager manager, int managerBefore, List<Rectangle> bounds, int count) {
         if (count <= 0) return;
@@ -426,7 +482,7 @@ final class Operations {
     Map<String, Object> segmentCells(JsonObject args) {
         var imp = active();
         if (imp.getType() == ImagePlus.COLOR_RGB && !args.has("channel")) throw new IllegalStateException("RGB image: convert to 8-bit or choose a channel before segmenting.");
-        int channel = integer(args, "channel", imp.getC(), 1, Math.max(1, imp.getNChannels()));
+        var choice = nucleiChannel(imp, args); int channel = choice.channel();
         String method = thresholdMethod(args); boolean watershed = bool(args, "watershed", true), gaussian = bool(args, "gaussian", true);
         double sigma = number(args, "sigma", 1);
         var steps = new ArrayList<String>(); var macro = new ArrayList<String>();
@@ -455,7 +511,10 @@ final class Operations {
             for (var line : macro) journal.record("segment_cells", line);
             int journalBefore = journal.size();
             var result = particles(work, particleArgs, "segment_cells");
+            result.put("channel", channel); result.put("channelChosenBy", choice.by());
             steps.add("analyze particles (" + result.get("count") + " found)");
+            result.put("scope", "image");
+            if (saved != null && saved.isArea()) { restrictToSelection(result, saved, imp.getCalibration()); steps.add("kept particles whose centroid lies inside the selection (" + result.get("count") + ")"); }
             for (var step : journal.steps(journal.size() - journalBefore)) macro.add(String.valueOf(step.get("macro"))); 
             macro.add("close(\"luma-segmentation-mask\");\nselectImage(\"" + Journal.escape(imp.getTitle()) + "\");\nroiManager(\"Show All without labels\");");
             journal.record("segment_cells", macro.getLast());

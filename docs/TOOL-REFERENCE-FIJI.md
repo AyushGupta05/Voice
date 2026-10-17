@@ -25,6 +25,8 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_colocalize`](#fiji-colocalize) | read | No |
 | [`fiji_classify_intensity`](#fiji-classify-intensity) | data | Yes |
 | [`fiji_object_stats`](#fiji-object-stats) | read | No |
+| [`fiji_filter_objects`](#fiji-filter-objects) | data | Yes |
+| [`fiji_split_objects`](#fiji-split-objects) | data | Yes |
 | [`fiji_filter`](#fiji-filter) | data | Yes |
 | [`fiji_convert`](#fiji-convert) | data | Yes |
 | [`fiji_duplicate`](#fiji-duplicate) | data | Yes |
@@ -55,6 +57,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_close`](#fiji-close) | data | Yes |
 | [`fiji_snapshot`](#fiji-snapshot) | read | No |
 | [`fiji_log`](#fiji-log) | read | No |
+| [`fiji_status`](#fiji-status) | read | No |
 | [`fiji_plugins`](#fiji-plugins) | read | No |
 | [`fiji_undo`](#fiji-undo) | data | Yes |
 | [`fiji_knowledge`](#fiji-knowledge) | read | No |
@@ -294,9 +297,38 @@ Score every ROI Manager object (usually cells from fiji_segment_cells) as positi
 
 ## fiji_object_stats
 
-Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Read only.
+Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Opens a “Size distribution” histogram plot window (plot, default true) — the answer to “show me the size distribution”. Read only.
 
-Input: `{}`.
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `channel` | No | integer; min 1 |
+| `plot` | No | boolean |
+
+<a id="fiji-filter-objects"></a>
+
+## fiji_filter_objects
+
+Remove unwanted detections from the ROI Manager and overlay without re-segmenting: remove "tiny" (default: area below fraction 0.35 of the median), "huge" (above 3× median), or explicit minArea/maxArea (calibrated units²) and minCircularity. The answer to “remove the tiny ones / the debris / the specks”. Returns before, removed, kept and a highlight.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `remove` | No | "tiny", "small", "huge", "large", "none" |
+| `fraction` | No | number; max 1; greater than 0 |
+| `minArea` | No | number; min 0 |
+| `maxArea` | No | number; greater than 0 |
+| `minCircularity` | No | number; min 0; max 1 |
+
+<a id="fiji-split-objects"></a>
+
+## fiji_split_objects
+
+Separate touching or merged cells: watershed inside oversized objects (area above factor × median, default 1.5), inside objects within the active selection, or the given ROI Manager indices; pieces replace the merged object. The answer to “those cells are touching, separate them”. Returns before, after, split and a highlight of the new pieces.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `factor` | No | number; min 1; max 10 |
+| `indices` | No | array of (integer; min 0); max 1000 items |
+| `all` | No | boolean |
 
 <a id="fiji-filter"></a>
 
@@ -396,11 +428,11 @@ Brightness/contrast and lookup table (display only): min/max, auto range, lut na
 
 ## fiji_stack
 
-Navigate a stack or hyperstack: slice (1-based, or "next"/"previous"), channel, frame. Display only.
+Navigate a stack or hyperstack: slice, channel, frame (1-based; the current position is image.position in fiji_context). Display only.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
-| `slice` | No | integer; min 1 or "next", "previous" |
+| `slice` | No | integer; min 1 |
 | `channel` | No | integer; min 1 |
 | `frame` | No | integer; min 1 |
 
@@ -635,6 +667,14 @@ Read the tail of the ImageJ Log window.
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `limit` | No | integer; min 1; max 500 |
+
+<a id="fiji-status"></a>
+
+## fiji_status
+
+Read Fiji’s status bar text, whether a bridge command, macro or script is still running (analysisRunning) and the last dispatched operation. Use it to tell the researcher what Fiji is doing during a long step.
+
+Input: `{}`.
 
 <a id="fiji-plugins"></a>
 

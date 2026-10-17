@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fiji",
   "app": "fiji",
-  "toolCount": 59,
+  "toolCount": 62,
   "tools": [
     {
       "name": "fiji_context",
@@ -543,12 +543,90 @@
     },
     {
       "name": "fiji_object_stats",
-      "description": "Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Read only.",
+      "description": "Summarise the objects in the ROI Manager: count, area/intensity/circularity mean, median, SD, min and max, an area histogram and the largest and smallest objects with a highlight. Opens a “Size distribution” histogram plot window (plot, default true) — the answer to “show me the size distribution”. Read only.",
       "operation": "object_stats",
       "risk": "read",
       "inputSchema": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "plot": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_filter_objects",
+      "description": "Remove unwanted detections from the ROI Manager and overlay without re-segmenting: remove \"tiny\" (default: area below fraction 0.35 of the median), \"huge\" (above 3× median), or explicit minArea/maxArea (calibrated units²) and minCircularity. The answer to “remove the tiny ones / the debris / the specks”. Returns before, removed, kept and a highlight.",
+      "operation": "filter_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "remove": {
+            "type": "string",
+            "enum": [
+              "tiny",
+              "small",
+              "huge",
+              "large",
+              "none"
+            ]
+          },
+          "fraction": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "minArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxArea": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minCircularity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_split_objects",
+      "description": "Separate touching or merged cells: watershed inside oversized objects (area above factor × median, default 1.5), inside objects within the active selection, or the given ROI Manager indices; pieces replace the merged object. The answer to “those cells are touching, separate them”. Returns before, after, split and a highlight of the new pieces.",
+      "operation": "split_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "factor": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxItems": 1000
+          },
+          "all": {
+            "type": "boolean"
+          }
+        },
         "required": [],
         "additionalProperties": false
       }
@@ -793,26 +871,15 @@
     },
     {
       "name": "fiji_stack",
-      "description": "Navigate a stack or hyperstack: slice (1-based, or \"next\"/\"previous\"), channel, frame. Display only.",
+      "description": "Navigate a stack or hyperstack: slice, channel, frame (1-based; the current position is image.position in fiji_context). Display only.",
       "operation": "stack",
       "risk": "view",
       "inputSchema": {
         "type": "object",
         "properties": {
           "slice": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "next",
-                  "previous"
-                ]
-              }
-            ]
+            "type": "integer",
+            "minimum": 1
           },
           "channel": {
             "type": "integer",
@@ -1347,6 +1414,18 @@
             "maximum": 500
           }
         },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fiji_status",
+      "description": "Read Fiji’s status bar text, whether a bridge command, macro or script is still running (analysisRunning) and the last dispatched operation. Use it to tell the researcher what Fiji is doing during a long step.",
+      "operation": "status",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
         "required": [],
         "additionalProperties": false
       }

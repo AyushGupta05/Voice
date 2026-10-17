@@ -7,6 +7,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.WindowManager;
 import ij.gui.OvalRoi;
+import ij.gui.ShapeRoi;
 import ij.gui.Roi;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
@@ -27,9 +28,9 @@ public final class AnalysisContractTest {
         ij.Prefs.blackBackground = true;
         journal = new Journal(); ops = new Operations(journal); analysis = new Analysis(ops, journal);
         try {
-            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); errors(); samples();
+            tumorGray(); tumorRgb(); colocalisation(); classification(); objectStats(); filterAndSplit(); errors(); samples();
         } catch (Throwable error) { error.printStackTrace(); System.exit(1); }
-        System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats): passed");
+        System.out.println("Analysis contract (tumor_region, colocalize, classify_intensity, object_stats, filter_objects, split_objects): passed");
         System.exit(0);
     }
 
@@ -158,6 +159,23 @@ public final class AnalysisContractTest {
         System.out.println("PASS object_stats");
     }
 
+    static void filterAndSplit() throws Exception {
+        // 6 normal cells, 3 specks and one touching pair (two overlapping discs = one oversized object).
+        var ip = new ByteProcessor(400, 200); var manager = ops.manager(); manager.reset();
+        for (int i = 0; i < 6; i++) manager.addRoi(new OvalRoi(20 + i * 60, 20, 40, 40));
+        for (int i = 0; i < 3; i++) manager.addRoi(new OvalRoi(30 + i * 60, 100, 6, 6));
+        var pair = new ShapeRoi(new OvalRoi(220, 100, 44, 44)).or(new ShapeRoi(new OvalRoi(256, 100, 44, 44)));
+        manager.addRoi(pair);
+        var imp = new ImagePlus("synthetic-touching.tif", ip); activate(imp);
+        var filtered = edt(() -> analysis.filterObjects(new JsonObject()));
+        System.out.println("  filter: " + filtered);
+        expect(((Number) filtered.get("removed")).intValue() == 3 && manager.getCount() == 7, "3 specks removed, 7 kept");
+        var split = edt(() -> analysis.splitObjects(new JsonObject()));
+        System.out.println("  split: " + split);
+        expect(((Number) split.get("split")).intValue() == 1 && manager.getCount() == 8, "touching pair split into two: " + manager.getCount());
+        expect(imp.getOverlay() != null && imp.getOverlay().size() == 8, "overlay follows the ROI Manager");
+        System.out.println("PASS filter_objects (3 specks removed) and split_objects (touching pair -> 2)");
+    }
     static void errors() throws Exception {
         ops.manager().reset();
         try { edt(() -> analysis.classifyIntensity(new JsonObject())); throw new AssertionError("empty manager accepted"); }

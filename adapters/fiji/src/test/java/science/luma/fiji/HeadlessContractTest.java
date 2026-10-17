@@ -60,7 +60,7 @@ public final class HeadlessContractTest {
         expect(context.getAsJsonObject("image").get("title").getAsString().equals("synthetic-blobs.tif"), "context sees the synthetic image");
         expect(context.getAsJsonObject("image").get("bitDepth").getAsInt() == 8, "8-bit image");
         expect(context.get("viewer").isJsonNull(), "no window means no viewer geometry");
-        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 51, "adapter declares 51 operations");
+        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 53, "adapter declares 53 operations");
 
         var status = call("status", new JsonObject(), false, null);
         expect(status.has("status") && !status.get("analysisRunning").getAsBoolean(), "status reports the status bar text: " + status);
@@ -156,6 +156,33 @@ public final class HeadlessContractTest {
         // --- undo goes back to the checkpoint taken before segment_cells
         var undone = call("undo", new JsonObject(), true, key("context"));
         expect(undone.get("mode").getAsString().equals("checkpoint") && undone.getAsJsonObject("counts").get("roiManager").getAsInt() == 0, "undo restores the pre-segmentation checkpoint: " + undone);
+
+        // --- "only this area": an active area ROI scopes segmentation to particles whose centroid lies inside it
+        var scopeRoi = obj("type", "rectangle"); scopeRoi.addProperty("x", 0); scopeRoi.addProperty("y", 0); scopeRoi.addProperty("width", 120); scopeRoi.addProperty("height", 254);
+        call("select_roi", scopeRoi, false, null);
+        var scoped = call("segment_cells", obj("method", "Otsu"), true, key("context"));
+        expect(scoped.get("scope").getAsString().equals("selection") && scoped.get("count").getAsInt() == 6 && scoped.get("excludedOutsideSelection").getAsInt() == discs - 6, "six discs have centroids inside x<120: " + scoped.get("count") + " " + scoped.get("scope"));
+        expect(scoped.get("managerTotal").getAsInt() == 6 && scoped.get("resultsRows").getAsInt() == 6 && scoped.get("channelChosenBy").getAsString().equals("current"), "manager and results trimmed to the selection: " + scoped);
+        expect(imp.getRoi() != null && imp.getRoi().getBounds().width == 120, "the selection is restored after segmentation");
+        var ctxChannels = call("context", new JsonObject(), false, null).getAsJsonObject("image").getAsJsonArray("channels");
+        expect(ctxChannels.size() == 1 && ctxChannels.get(0).getAsJsonObject().get("lut").getAsString().equals("grays"), "context lists channels with LUT names: " + ctxChannels);
+        call("undo", new JsonObject(), true, key("context"));
+        call("select_roi", obj("type", "none"), false, null);
+
+        // --- nuclei channel choice on a synthetic composite (green + blue LUTs, then DAPI label)
+        var twoChannel = new ij.ImageStack(32, 32); twoChannel.addSlice("GFP", new ByteProcessor(32, 32)); twoChannel.addSlice("DAPI", new ByteProcessor(32, 32));
+        var composite = new ij.CompositeImage(new ImagePlus("two-channel", twoChannel), ij.CompositeImage.COMPOSITE);
+        composite.setDimensions(2, 1, 1);
+        composite.setLuts(new ij.process.LUT[] { ij.process.LUT.createLutFromColor(java.awt.Color.GREEN), ij.process.LUT.createLutFromColor(java.awt.Color.BLUE) });
+        var byLut = Operations.nucleiChannel(composite, new JsonObject());
+        expect(byLut.channel() == 2 && byLut.by().equals("lut-blue"), "blue LUT channel chosen: " + byLut);
+        composite.setLuts(new ij.process.LUT[] { ij.process.LUT.createLutFromColor(java.awt.Color.WHITE), ij.process.LUT.createLutFromColor(java.awt.Color.WHITE) });
+        var byName = Operations.nucleiChannel(composite, new JsonObject());
+        expect(byName.channel() == 2 && byName.by().equals("name"), "DAPI-labelled channel chosen: " + byName);
+        expect(Operations.nucleiChannel(composite, obj("channel", 1)).by().equals("argument"), "explicit channel wins");
+        var described = Operations.describe(composite);
+        @SuppressWarnings("unchecked") var channels = (List<Map<String, Object>>) described.get("channels");
+        expect(channels.size() == 2 && "DAPI".equals(channels.get(1).get("label")) && "grays".equals(channels.get(1).get("lut")), "channels carry labels and LUT names: " + channels);
 
         // --- filters and conversions change pixels and are checkpointed
         expect(imp.getProcessor().getPixel(47, 48) >= 200, "disc edge pixel starts bright");

@@ -51,6 +51,7 @@ Penny's second application is Fiji (ImageJ2 + ImageJ1 compatibility). The same v
 | `close` | data | `id?`, `all?` | closes image(s) without saving (changes flag reported) |
 | `snapshot` | read | | PNG of the active canvas (`ImagePlus.flatten()` or canvas paint) |
 | `log` | read | `limit?` | tail of the ImageJ Log window |
+| `status` | read | | status bar text, `analysisRunning` (a bridge command, macro or script still running), `lastDispatch`; ImageJ's progress bar exposes no value |
 | `plugins` | read | `query?` | installed plugin commands under `Plugins>` |
 | `undo` | data | | `IJ.run("Undo")` when available, else restore last checkpoint |
 | `track_objects` | data | `channel?`, `method?`, `dark?:boolean`, `minSize?`, `maxSize?`, `maxDistance?` (px/frame), `maxGap?:0–10`, `minLength?`, `startFrame?`, `endFrame?`, `sigma?`, `replaceOverlay?:boolean` | detects objects per frame, links them and draws trajectories → `{tracks, objectsPerFrame:{min,max,mean}, frames, longestTrack, meanSpeed, meanDisplacement, meanPathLength, unit, frameInterval?, timeUnit?, divisions?, top:[{track,length,start,end,displacement,meanSpeed,meanIntensity,intensityChange}], table:"Tracks", highlight}`; `speedUnit` (`<unit>/<timeUnit>`, per frame or slice without a frame interval) is the unit of `meanSpeed` |
@@ -59,6 +60,8 @@ Penny's second application is Fiji (ImageJ2 + ImageJ1 compatibility). The same v
 | `colocalize` | read | `channelA?`, `channelB?`, `roi?:boolean`, `imageA?`, `imageB?` (ImageJ ids), `method?`, `thresholdA?`, `thresholdB?` | `{pearson, manders:{m1, m2}, overlap, icq?, thresholds, method, pixels, interpretation, highlight}` |
 | `classify_intensity` | data | `channel?`, `measurement?:mean|intdens|median|max`, `threshold?`, `method?`, `label?` (≤40) | scores ROI Manager objects → `{total, positive, negative, percentPositive, threshold, measurement, channel, label, positiveIndices, highlight}` |
 | `object_stats` | read | | ROI Manager summary → `{n, area:{mean,median,sd,min,max}, mean:{…}, circularity:{…}, histogram, largest, smallest, unit, highlight}` |
+| `filter_objects` | data | `remove?:tiny|small|huge|large|none`, `fraction?` (0–1, default 0.35), `minArea?`, `maxArea?`, `minCircularity?` | drops ROI Manager objects by area/circularity without re-segmenting → `{before, removed, kept, highlight}`; checkpointed |
+| `split_objects` | data | `factor?` (1–10, default 1.5), `indices?`, `all?` | watershed inside oversized/selected/listed objects; pieces replace the merged object → `{before, after, split, highlight}`; checkpointed |
 | `make_macro` | code | `name` (≤80), `code` (≤32000), `description?` (≤200), `language?:ijm|groovy|python`, `test?:boolean(default true)`, `params?:{key: string|number|boolean}` | saves the macro as a workflow and test-runs it (params via `getArgument()` `key=value` pairs) → `{path, name, language, lines, tested, ok, error?, errorLine?, log, resultsAdded, imagesOpened, params}` |
 | `workflows` | read | `query?` | `{workflows:[{name, file, language, description, params, modified, lines}]}` |
 | `run_workflow` | code | `name`, `target?:active|open|folder`, `folder?` (absolute), `pattern?`, `params?`, `limit?:1–500`, `saveResults?:boolean` | `{workflow, processed, failed:[…], perImage, csv?, durationMs}` |

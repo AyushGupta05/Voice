@@ -13,7 +13,7 @@ const acknowledgments: Record<string, string> = {
   fiji_activate_image: 'Switching image.', fiji_project_stack: 'Projecting.', fiji_convert: 'Converting.', fiji_save_image: 'Saving.', fiji_export_results: 'Exporting.',
   fiji_results: 'Checking.', fiji_roi_manager: 'Checking.', fiji_images: 'Checking.',
   fiji_track_objects: 'Tracking them.', fiji_intensity_over_time: 'Following the intensity.', fiji_tumor_region: 'Outlining the tumour.',
-  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Checking.',
+  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Plotting the sizes.', fiji_filter_objects: 'Removing them.', fiji_split_objects: 'Separating them.',
   fiji_make_macro: 'Writing the macro.', fiji_workflows: 'Checking.', fiji_run_workflow: 'Running it on every image.', fiji_capture_macro: 'Saving the macro.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
@@ -46,8 +46,9 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     // multi-measure summary is used only for the ROI Manager scope, where the bridge measures every entry.
     const scope = args.scope === 'manager' ? 'manager' : 'roi';
     if (scope === 'manager') {
-      const summary = inner?.summary as Record<string, { mean?: unknown }> | undefined;
-      const mean = finite(summary?.mean?.mean), rows = finite(inner?.rows);
+      // `rows` is the whole accumulated Results table; the summary's count covers only the rows this call added.
+      const summary = inner?.summary as Record<string, { mean?: unknown; count?: unknown }> | undefined;
+      const mean = finite(summary?.mean?.mean), rows = finite(summary?.mean?.count) ?? finite(inner?.rows);
       if (mean === undefined || rows === undefined) return undefined;
       return `Mean intensity ${round(mean)} over ${rows} region${rows === 1 ? '' : 's'}.`;
     }
@@ -149,7 +150,19 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
     const n = finite(inner.n), area = inner.area as { mean?: unknown; median?: unknown } | undefined;
     const mean = finite(area?.mean), median = finite(area?.median);
     if (n === undefined || mean === undefined) return undefined;
+    const range = inner.area as { min?: unknown; max?: unknown }, low = finite(range?.min), high = finite(range?.max);
+    if (inner.plot && median !== undefined && low !== undefined && high !== undefined) return `Plotted ${plural(n, 'object')}: median ${spokenArea(median, unit)}, from ${round(low)} to ${spokenArea(high, unit)}.`;
     return `${plural(n, 'object')}, mean area ${spokenArea(mean, unit)}${median !== undefined ? `, median ${spokenArea(median, unit)}` : ''}.`;
+  }
+  if (name === 'fiji_filter_objects') {
+    const removed = finite(inner.removed), kept = finite(inner.kept);
+    if (removed === undefined || kept === undefined) return undefined;
+    return removed ? `Removed ${removed} tiny ${removed === 1 ? 'one' : 'ones'}; ${plural(kept, 'cell')} left.` : `Nothing that small; still ${plural(kept, 'cell')}.`;
+  }
+  if (name === 'fiji_split_objects') {
+    const split = finite(inner.split), before = finite(inner.before), after = finite(inner.after);
+    if (split === undefined || before === undefined || after === undefined) return undefined;
+    return split ? `Separated ${plural(split, 'clump')}: ${before} to ${after} cells.` : `Nothing looked merged; still ${plural(after, 'cell')}.`;
   }
   if (name === 'fiji_make_macro' || name === 'fiji_capture_macro') {
     if (inner.ok !== true || inner.error != null) return undefined;
@@ -192,7 +205,7 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
   if (name === 'fiji_intensity_over_time') return /\b(recover|half|mobile|immobile|fit|rate|constant)/.test(said);
   if (name === 'fiji_tumor_region') return /\b(intens|stain|perimeter|circular|solid|shape|cells?|nucle)/.test(said);
   if (name === 'fiji_colocalize') return /\b(icq|costes|overlap|significan|random)/.test(said);
-  if (name === 'fiji_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest|histogram|distribution)/.test(said);
+  if (name === 'fiji_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest)/.test(said);
   // A macro written to answer a question reports what it found; only "write/save a macro" is answered locally.
   if (name === 'fiji_make_macro') return !/\b(macro|script)\b/.test(said) || /\b(how many|what|which|find|count|measure)\b/.test(said);
   return false;
@@ -200,7 +213,7 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
 /** Whole-utterance instant routes from the protocol: zoom, fit, overlay, slices and undo. */
 function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const said = cleanUtterance(text);
-  const image = (context as { image?: { slices?: unknown } } | undefined)?.image;
+  const image = (context as { image?: { slices?: unknown; position?: { slice?: unknown } } } | undefined)?.image;
   if (!image) return undefined;
   const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?$/);
   if (zoom) return { tool: 'fiji_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
@@ -211,14 +224,26 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     const stricter = /strict(?!.*less)|tight|conservative|less sensitive/.test(strictness[1]) && !/less strict/.test(strictness[1]);
     return { tool: 'fiji_segment_cells', arguments: { method: stricter ? 'Li' : 'Huang' }, reply: stricter ? 'Segmenting with a stricter threshold.' : 'Segmenting with a looser threshold.' };
   }
+  // Corrections to a segmentation act on the ROI Manager directly, instantly, without re-segmenting.
+  const objects = finite((context as { counts?: { roiManager?: unknown } } | undefined)?.counts?.roiManager) ?? 0;
+  if (objects > 0 && !/\b(and then|then|after that|channels?)\b/.test(said)) {
+    if (/\b(remove|drop|delete|get rid of|filter out|exclude|ignore|lose)\b.*\b(tiny|small|little|specks?|debris|dots?|noise|junk|fragments?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' };
+    if (/\b(remove|drop|delete|get rid of|filter out|exclude)\b.*\b(huge|big|giant|large|clumps?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'huge' }, reply: 'Removing the big ones.' };
+    if (/\b(separate|split|divide|break up|pull apart)\b/.test(said) && /\b(them|touching|merged|stuck|clump\w*|together|cells?|nuclei|blobs?|those)\b/.test(said)) return { tool: 'fiji_split_objects', arguments: {}, reply: 'Separating them.' };
+    if (/\b(size|area) (distribution|histogram)\b|\bhistogram\b|\bdistribution of (sizes?|areas?)\b/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: true }, reply: 'Plotting the sizes.' };
+    // "How many are left?" reads the ROI Manager; re-segmenting would discard the researcher's corrections.
+    if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: {}, reply: 'Counting.' };
+  }
   const overlay = said.match(/^(show|hide) (?:the )?(?:overlay|outlines)$/);
   if (overlay) return { tool: 'fiji_overlay', arguments: { show: overlay[1] === 'show' }, reply: overlay[1] === 'show' ? 'Showing the overlay.' : 'Hiding the overlay.' };
   const slice = said.match(/^(next|previous|prev|last) slice$/);
   if (slice) {
-    const slices = finite(image.slices);
-    if (slices !== undefined && slices < 2) return undefined;
-    const direction = slice[1] === 'next' ? 'next' : 'previous';
-    return { tool: 'fiji_stack', arguments: { slice: direction }, reply: direction === 'next' ? 'Next slice.' : 'Previous slice.' };
+    // The bridge takes a 1-based slice number, so the route needs the current position and the slice count from the context.
+    const slices = finite(image.slices), current = finite(image.position?.slice);
+    if (slices === undefined || current === undefined || slices < 2) return undefined;
+    const next = slice[1] === 'next' ? current + 1 : current - 1;
+    if (next < 1 || next > slices) return undefined;
+    return { tool: 'fiji_stack', arguments: { slice: next }, reply: slice[1] === 'next' ? 'Next slice.' : 'Previous slice.' };
   }
   if (/^undo(?: that| it)?$|^go back$/.test(said)) return { tool: 'fiji_undo', arguments: {}, reply: 'Undoing.' };
   return undefined;
@@ -254,12 +279,12 @@ async function settleOpenDialog(runtime: Runtime, signal?: AbortSignal): Promise
 export const fiji: AppProfile = {
   id: 'fiji', displayName: 'Fiji', bundleId: FIJI_BUNDLE_ID, bridgePort: 49557, toolPrefix: 'fiji',
   tools: fijiTools, instructions: fijiInstructions,
-  backendNotes: 'Relative view requests use fiji_zoom: direction in/out for "zoom in/out", fit true for "fit to window", magnification for an exact factor; "next/previous slice" uses fiji_stack with slice "next"/"previous".',
+  backendNotes: 'Relative view requests use fiji_zoom: direction in/out for "zoom in/out", fit true for "fit to window", magnification for an exact factor; "next/previous slice" uses fiji_stack with the 1-based slice number from image.position.slice.',
   skillDir: 'skills/fiji', knowledgeSources: ['skills/fiji', '.local/upstream/imagej-docs'], apiSource: false,
   launcherScript: './script/run-fiji.sh', bridgeJar: 'dist/luma-fiji-bridge.jar', buildManifest: '.local/fiji-bridge-build.json', buildScript: 'script/build-fiji-bridge.sh',
   doctorArtifacts: [['dist/luma-fiji-bridge.jar', 'Fiji bridge build'], ['.local/fiji/Fiji.app/Contents/MacOS/ImageJ-macosx', 'Fiji launcher']],
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
-  longRunningTools: new Set(['fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
+  longRunningTools: new Set(['fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.

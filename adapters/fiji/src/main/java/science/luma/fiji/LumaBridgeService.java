@@ -21,6 +21,11 @@ public final class LumaBridgeService extends AbstractService implements SciJavaS
 
     @Override public void initialize() {
         shared = getContext();
+        // Headless and batch-mode Fiji processes (tests, recipe runs) must not start a bridge: they would fight the
+        // interactive instance for its port and each one flashes an ImageJ window. An explicit -Dluma.bridgePort opts in.
+        boolean headless = Boolean.getBoolean("java.awt.headless") || java.awt.GraphicsEnvironment.isHeadless() || "true".equals(System.getProperty("ij.batch"))
+            || System.getProperty("sun.java.command", "").matches(".*\\s(-batch|--headless|-macro|-eval|--run)(\\s.*|$)");
+        if (headless && System.getProperty("luma.bridgePort") == null) { log("headless/batch process: bridge auto-start skipped"); return; }
         log("service initialised; scheduling bridge start");
         var thread = new Thread(this::startLater, "luma-bridge-autostart");
         thread.setDaemon(true);

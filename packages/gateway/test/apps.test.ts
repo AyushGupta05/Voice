@@ -24,9 +24,9 @@ const protocol: Record<string, 'read' | 'view' | 'data' | 'code'> = {
   context: 'read', images: 'read', open_path: 'code', activate_image: 'view', select_roi: 'view', roi_manager: 'read', add_to_manager: 'data', measure: 'data', results: 'read', clear_results: 'data',
   threshold: 'data', analyze_particles: 'data', segment_cells: 'data', filter: 'data', convert: 'data', duplicate: 'data', zoom: 'view', highlight: 'view', overlay: 'view', display: 'view', stack: 'view',
   commands: 'read', run_command: 'code', ui: 'read', ui_action: 'code', run_macro: 'code', run_script: 'code', recorder: 'read', save_workflow: 'code', save_image: 'code', export_results: 'code',
-  checkpoint: 'data', checkpoints: 'read', compare: 'read', restore: 'data', close: 'data', snapshot: 'read', log: 'read', plugins: 'read', undo: 'data',
+  checkpoint: 'data', checkpoints: 'read', compare: 'read', restore: 'data', close: 'data', snapshot: 'read', log: 'read', status: 'read', plugins: 'read', undo: 'data',
   track_objects: 'data', intensity_over_time: 'data', tumor_region: 'data', colocalize: 'read', classify_intensity: 'data', object_stats: 'read',
-  make_macro: 'code', workflows: 'read', run_workflow: 'code', capture_macro: 'code',
+  make_macro: 'code', workflows: 'read', run_workflow: 'code', capture_macro: 'code', filter_objects: 'data', split_objects: 'data',
 };
 
 test('LUMA_APP selects the profile, QuPath by default, and refuses unknown applications', () => {
@@ -81,8 +81,8 @@ test('Fiji tool schemas are valid, distinct, prefixed and cover every protocol o
   assert.equal(validateTool('fiji_select_roi', { type: 'rectangle', x: 10, y: 10, width: 50, height: 40 }, fiji).operation, 'select_roi');
   assert.throws(() => validateTool('fiji_select_roi', { x: 1 }, fiji), /Invalid arguments/);
   validateTool('fiji_threshold', { method: 'Otsu', dark: true }, fiji); validateTool('fiji_threshold', { lower: 40, upper: 255 }, fiji);
-  validateTool('fiji_stack', { slice: 'next' }, fiji); validateTool('fiji_stack', { slice: 3, channel: 1 }, fiji);
-  assert.throws(() => validateTool('fiji_stack', { slice: 'first' }, fiji), /Invalid arguments/);
+  validateTool('fiji_stack', { slice: 1 }, fiji); validateTool('fiji_stack', { slice: 3, channel: 1 }, fiji);
+  assert.throws(() => validateTool('fiji_stack', { slice: 'next' }, fiji), /Invalid arguments/, 'the bridge takes slice numbers only');
   assert.throws(() => validateTool('fiji_project_stack', {}, fiji), /Invalid arguments/);
   validateTool('fiji_run_command', { name: 'Blobs (25K)' }, fiji); validateTool('fiji_activate_image', { id: -3 }, fiji); validateTool('fiji_close', { id: -12 }, fiji); validateTool('fiji_measure', { measurements: ['area', 'mean'], scope: 'manager' }, fiji);
   assert.throws(() => validateTool('fiji_run_command', { name: 'x', approved: true }, fiji), /Invalid arguments/);
@@ -111,19 +111,32 @@ test('bridge readiness compares the Fiji bridge identity with the fiji_* operati
 });
 
 test('Fiji fast routes cover zoom, fit, overlay, slices and undo, and nothing else', () => {
-  const context = { image: { title: 'blobs.gif', slices: 3 }, viewer: { magnification: 1 } };
+  const context = { image: { title: 'blobs.gif', slices: 3, position: { slice: 2 } }, viewer: { magnification: 1 } };
   assert.deepEqual(fiji.fastRoute('Zoom in a little.', context), { tool: 'fiji_zoom', arguments: { direction: 'in' }, reply: 'Zooming in.' });
   assert.deepEqual(fiji.fastRoute('Okay Luma, zoom out please', context), { tool: 'fiji_zoom', arguments: { direction: 'out' }, reply: 'Zooming out.' });
   assert.deepEqual(fiji.fastRoute('Fit to window', context), { tool: 'fiji_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' });
   assert.deepEqual(fiji.fastRoute('show the overlay', context), { tool: 'fiji_overlay', arguments: { show: true }, reply: 'Showing the overlay.' });
   assert.deepEqual(fiji.fastRoute('Hide overlay.', context)?.arguments, { show: false });
-  assert.deepEqual(fiji.fastRoute('Next slice', context), { tool: 'fiji_stack', arguments: { slice: 'next' }, reply: 'Next slice.' });
-  assert.deepEqual(fiji.fastRoute('previous slice', context)?.arguments, { slice: 'previous' });
+  assert.deepEqual(fiji.fastRoute('Next slice', context), { tool: 'fiji_stack', arguments: { slice: 3 }, reply: 'Next slice.' });
+  assert.deepEqual(fiji.fastRoute('previous slice', context)?.arguments, { slice: 1 });
+  assert.equal(fiji.fastRoute('next slice', { image: { slices: 3, position: { slice: 3 } } }), undefined, 'already on the last slice');
+  assert.equal(fiji.fastRoute('next slice', { image: { slices: 3 } }), undefined, 'no current position, no route');
   assert.deepEqual(fiji.fastRoute('Undo', context), { tool: 'fiji_undo', arguments: {}, reply: 'Undoing.' });
   assert.deepEqual(fiji.fastRoute('go back', context)?.tool, 'fiji_undo');
-  assert.equal(fiji.fastRoute('next slice', { image: { slices: 1 } }), undefined, 'a single-plane image has no next slice');
+  assert.equal(fiji.fastRoute('next slice', { image: { slices: 1, position: { slice: 1 } } }), undefined, 'a single-plane image has no next slice');
   for (const other of ['zoom in on the cells', 'show the overlay and count them', 'undo the threshold', 'hide the cells', 'segment the cells', 'fit']) assert.equal(fiji.fastRoute(other, context), undefined, other);
   assert.equal(fiji.fastRoute('zoom in', {}), undefined, 'no image, no route');
+  // Corrections and counts act on the ROI Manager instantly, and only while it holds objects.
+  const segmented = { ...context, counts: { roiManager: 67 } };
+  assert.deepEqual(fiji.fastRoute('Remove the tiny ones.', segmented), { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' });
+  assert.deepEqual(fiji.fastRoute('get rid of the big clumps', segmented)?.arguments, { remove: 'huge' });
+  assert.deepEqual(fiji.fastRoute('Those cells are touching, separate them.', segmented), { tool: 'fiji_split_objects', arguments: {}, reply: 'Separating them.' });
+  assert.deepEqual(fiji.fastRoute('show me the size distribution', segmented), { tool: 'fiji_object_stats', arguments: { plot: true }, reply: 'Plotting the sizes.' });
+  assert.deepEqual(fiji.fastRoute('How many cells are left?', segmented), { tool: 'fiji_object_stats', arguments: {}, reply: 'Counting.' });
+  assert.deepEqual(fiji.fastRoute('so how many are there now', segmented)?.tool, 'fiji_object_stats');
+  for (const other of ['Remove the tiny ones.', 'separate them', 'how many cells are left']) assert.equal(fiji.fastRoute(other, context), undefined, `${other}: nothing segmented, no route`);
+  assert.equal(fiji.fastRoute('remove the tiny ones and then count them', segmented), undefined, 'a chained request goes to the model');
+  assert.equal(fiji.fastRoute('how many cells are in the red channel', segmented), undefined, 'a channel question goes to the model');
 });
 
 test('Fiji acknowledgments and local sentences follow the protocol wording and real numbers', () => {
@@ -135,7 +148,7 @@ test('Fiji acknowledgments and local sentences follow the protocol wording and r
   assert.equal(fiji.localSentenceFor('fiji_segment_cells', {}, completed({ count: 64, averageSize: 42.37, unit: 'µm' })), 'Found 64 cells, mean area 42.4 µm².');
   assert.equal(fiji.localSentenceFor('fiji_segment_cells', {}, completed({ count: 64 })), 'Found 64 cells.');
   assert.equal(fiji.localSentenceFor('fiji_analyze_particles', {}, completed({ count: 12, averageSize: 250.6 })), 'Found 12 cells, mean area 251.');
-  assert.equal(fiji.localSentenceFor('fiji_measure', { scope: 'manager' }, completed({ rows: 64, summary: { mean: { mean: 103.25 } } })), 'Mean intensity 103 over 64 regions.');
+  assert.equal(fiji.localSentenceFor('fiji_measure', { scope: 'manager' }, completed({ rows: 134, summary: { mean: { mean: 103.25, count: 67 } } })), 'Mean intensity 103 over 67 regions.');
   // Results accumulate in ImageJ: a single-ROI measurement reports its own row, never the table average.
   assert.equal(fiji.localSentenceFor('fiji_measure', { scope: 'roi' }, completed({ rows: 2, lastRow: { Area: 10, Mean: 100 }, summary: { mean: { mean: 60 } } })), 'Mean intensity 100 in this region.');
   assert.equal(fiji.localSentenceFor('fiji_measure', {}, completed({ rows: 2, summary: { mean: { mean: 60 } } })), undefined, 'no row for the current region, no sentence');
@@ -154,7 +167,7 @@ test('Fiji acknowledgments and local sentences follow the protocol wording and r
 });
 
 test('Fiji instructions stay short, action-first and encode the demo recipes', () => {
-  assert.ok(fijiInstructions.length <= 3700, `instructions are ${fijiInstructions.length} characters`); assert.ok(fijiInstructions.length >= 1500);
+  assert.ok(fijiInstructions.length <= 4400, `instructions are ${fijiInstructions.length} characters`); assert.ok(fijiInstructions.length >= 1500);
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'one short question', 'at most 20 words', 'Never stop halfway', 'viewer.srcRect', 'image.width/height', 'at request time', 'independent of zoom', 'never recreate or resize it',
     '"open the blobs sample" -> fiji_run_command name "Blobs (25K)"', 'fiji_find_images then fiji_open_path', 'never ask for a folder', 'fiji_segment_cells', 'fiji_measure scope manager', 'N cells, mean area X unit²',
     'never arithmetic on truncated rows', 'fiji_threshold', 'fiji_segment_cells again with method "Li"', '"Go back / undo" -> fiji_undo', 'fiji_checkpoints then fiji_restore', 'fiji_compare', '"Measure the intensity here" -> fiji_measure scope roi',

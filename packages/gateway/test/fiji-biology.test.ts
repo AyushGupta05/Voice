@@ -117,7 +117,7 @@ test('requests that need more than the local sentence continue with the model', 
 });
 
 test('instructions route the biology requests within the length budget', () => {
-  assert.ok(fijiInstructions.length <= 3700, `instructions are ${fijiInstructions.length} characters`);
+  assert.ok(fijiInstructions.length <= 4400, `instructions are ${fijiInstructions.length} characters`);
   for (const phrase of ['time-lapse -> fiji_track_objects', 'fiji_intensity_over_time', 'fiji_tumor_region', 'fiji_colocalize', 'fiji_segment_cells then fiji_classify_intensity',
     'fiji_make_macro, fix errors silently (max 3 tries)', 'fiji_run_workflow', 'fiji_capture_macro', 'fiji_highlight when you name cells, regions or results'])
     assert.ok(fijiInstructions.includes(phrase), phrase);
@@ -135,4 +135,16 @@ test('the biology tools reference is linked from the skill and its templates rea
   }
   assert.ok(templates.filter(code => code.includes('call("ij.Macro.getValue", ')).length >= 5);
   assert.match(recipes, /setBatchMode\(true\)/);
+});
+
+test('segmentation corrections from the Hey Fiji demo take the instant route only when objects exist', () => {
+  const withCells = { image: { slices: 1 }, counts: { roiManager: 82 } }, empty = { image: { slices: 1 }, counts: { roiManager: 0 } };
+  assert.deepEqual(fiji.fastRoute!('Some of these detections look wrong. Remove the tiny ones.', withCells), { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' });
+  assert.equal(fiji.fastRoute!('Those two cells are touching. Can you separate them?', withCells)?.tool, 'fiji_split_objects');
+  assert.deepEqual(fiji.fastRoute!('Show me the size distribution.', withCells)?.arguments, { plot: true });
+  assert.equal(fiji.fastRoute!('Remove the tiny ones.', empty), undefined);
+  assert.equal(fiji.fastRoute!('Split the channels', withCells), undefined);
+  assert.equal(fiji.fastRoute!('Remove the small ones and then measure intensity', withCells), undefined);
+  assert.equal(fiji.localSentenceFor!('fiji_filter_objects', {}, { status: 'completed', result: { before: 82, removed: 9, kept: 73 } }), 'Removed 9 tiny ones; 73 cells left.');
+  assert.equal(fiji.localSentenceFor!('fiji_split_objects', {}, { status: 'completed', result: { before: 73, after: 79, split: 5 } }), 'Separated 5 clumps: 73 to 79 cells.');
 });
