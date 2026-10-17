@@ -212,6 +212,15 @@ public final class Pipeline {
             java.awt.EventQueue.invokeLater(() -> java.awt.EventQueue.invokeLater(() -> WindowManager.setCurrentWindow(image)));
         }
     }
+    /** Prefer below the batch table, then above it; keep the editor's complete bounds in the usable screen area. */
+    static java.awt.Rectangle batchEditorBounds(java.awt.Rectangle table, int width, int height, java.awt.Rectangle screen) {
+        int w = Math.min(width, screen.width), h = Math.min(height, screen.height);
+        int below = table.y + table.height + 8, above = table.y - h - 8;
+        int y = below + h <= screen.y + screen.height ? below : above >= screen.y ? above : below;
+        int x = Math.max(screen.x, Math.min(table.x, screen.x + screen.width - w));
+        y = Math.max(screen.y, Math.min(y, screen.y + screen.height - h));
+        return new java.awt.Rectangle(x, y, w, h);
+    }
     /** After "apply this to the folder": a per-image summary table and the generated macro, side by side with the image. */
     @SuppressWarnings("unchecked")
     static void showBatch(ImagePlus imp, Map<String, Object> applied) {
@@ -234,7 +243,10 @@ public final class Pipeline {
                 var editor = new ij.plugin.frame.Editor(18, 70, 0, ij.plugin.frame.Editor.MONOSPACED);
                 editor.create(new java.io.File(path).getName(), java.nio.file.Files.readString(java.nio.file.Path.of(path)));
                 var tableWindow = WindowManager.getWindow("Penny batch results");
-                if (tableWindow != null) editor.setLocation(tableWindow.getX(), tableWindow.getY() + tableWindow.getHeight() + 8); else placeBeside(imp, editor);
+                if (tableWindow != null) {
+                    var screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+                    editor.setBounds(batchEditorBounds(tableWindow.getBounds(), editor.getWidth(), editor.getHeight(), screen));
+                } else placeBeside(imp, editor);
                 if (imp != null && imp.getWindow() != null) java.awt.EventQueue.invokeLater(() -> WindowManager.setCurrentWindow(imp.getWindow()));
             } catch (Exception ignored) { /* the macro is still saved; showing it is a courtesy */ }
         }

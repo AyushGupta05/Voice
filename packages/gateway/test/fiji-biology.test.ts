@@ -221,9 +221,9 @@ test('magic polish: friendly spoken names, instant description and one-step open
   assert.equal(friendlyName('hela-cells.tif'), 'hela cells');
   assert.equal(friendlyName('AS_09125_050116000001_A24f00d0_slice2_channel1.tif', '/x/samples/bbbc008/images/AS_09125_050116000001_A24f00d0_slice2_channel1.tif'), 'the BBBC008 channel 1 image');
   assert.equal(friendlyName('Invasive_cervical_squamous_cell_carcinoma_HE_and_Ki-67.jpg', '/x/samples/ki67-cervical-scc/a.jpg'), 'the ki67 cervical scc image');
-  const hela = { image: { title: 'hela-cells.tif', width: 672, height: 512, bitDepth: 16, slices: 1, frames: 1, channels: [{ lut: 'red' }, { lut: 'green' }, { lut: 'blue' }], calibration: { pixelWidth: 0.0515, unit: 'micron' } }, counts: { roiManagerForImage: 0 } };
+  const hela = { image: { title: 'hela-cells.tif', width: 672, height: 512, bitDepth: 16, slices: 1, frames: 1, channels: [{ lut: 'red' }, { lut: 'green' }, { lut: 'blue' }], calibration: { pixelWidth: 0.0515, pixelHeight: 0.0515, unit: 'micron' } }, counts: { roiManagerForImage: 0 } };
   assert.equal(describeImage(hela), 'Hela cells: 672 by 512, 16-bit; 3 channels, red, green and blue; 0.0515 microns per pixel.');
-  assert.equal(describeImage({ image: { title: 'rgb.tif', width: 8, height: 8, type: 'COLOR_RGB', bitDepth: 24, calibration: { pixelWidth: 0.00003, unit: 'mm' } } }), 'Rgb: 8 by 8, RGB colour; 0.00003 mm per pixel.');
+  assert.equal(describeImage({ image: { title: 'rgb.tif', width: 8, height: 8, type: 'COLOR_RGB', bitDepth: 24, calibration: { pixelWidth: 0.00003, pixelHeight: 0.00003, unit: 'mm' } } }), 'Rgb: 8 by 8, RGB colour; 0.00003 mm per pixel.');
   assert.deepEqual(fiji.fastRoute!('What am I looking at?', hela), { tool: 'fiji_context', arguments: {}, reply: describeImage(hela) });
   assert.deepEqual(fiji.fastRoute!('Hey Fiji, open the BBBC 008 channel one image.', undefined), { tool: 'fiji_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'bbbc 008 channel one' });
   assert.equal(fiji.fastRoute!('open the hela cells image and tell me if the channels colocalise', undefined), undefined);
@@ -233,4 +233,19 @@ test('magic polish: friendly spoken names, instant description and one-step open
 
 test('voice quirks: a misheard "Opened … cell\'s image" still opens in one step', () => {
   assert.equal(fiji.fastRoute!("Opened the fluorescent cell's image.", undefined)?.imageQuery, 'fluorescent cells');
+});
+
+
+test('descriptions retain axis calibration and explicitly approximate long spoken decimals', async () => {
+  const { describeImage } = await import('../src/apps/fiji.js');
+  const image = { title: 'fixture.tif', width: 8, height: 8, bitDepth: 16, channels: [{ lut: 'blue' }] };
+  assert.match(describeImage({ image: { ...image, calibration: { pixelWidth: 0.2, pixelHeight: 0.4, unit: 'micron' } } })!, /0\.2 by 0\.4 microns per pixel \(horizontal by vertical\)/);
+  assert.match(describeImage({ image: { ...image, calibration: { pixelWidth: 0.05149313617092096, pixelHeight: 0.05149313617092096, unit: 'µm' } } })!, /about 0\.0515 microns per pixel/);
+  assert.match(describeImage({ image: { ...image, calibration: { pixelWidth: 0.2, unit: 'micron' } } })!, /0\.2 microns per pixel horizontally/);
+});
+
+test('opening an image that is already open switches to it instantly', () => {
+  const ctx = { images: [{ id: -3, title: 'hela-cells.tif', active: false }, { id: -5, title: 'blobs.gif', active: true }] };
+  assert.deepEqual(fiji.fastRoute!('Open the hela cells image', ctx), { tool: 'fiji_activate_image', arguments: { id: -3 }, reply: 'Switched to hela cells.' });
+  assert.deepEqual(fiji.fastRoute!('open the blobs image', ctx), { tool: 'fiji_context', arguments: {}, reply: 'Blobs is already open.' });
 });

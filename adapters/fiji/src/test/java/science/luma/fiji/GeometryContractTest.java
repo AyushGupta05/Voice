@@ -29,7 +29,22 @@ public final class GeometryContractTest {
         expect("screen-top-left".equals(payload.get("coordinateSystem")), "global screen coordinates, top-left origin");
         expect(Geometry.union(List.of(new Rectangle(0, 0, 10, 10), new Rectangle(20, 20, 5, 5))).equals(new Rectangle(0, 0, 25, 25)), "union bounds");
         pointerContext();
+        batchEditorPlacement();
         System.out.println("Screen geometry (mapping, clipping, 12% visibility rule, payload shape): passed");
+    }
+    static void batchEditorPlacement() {
+        var screen = new Rectangle(0, 24, 1440, 876);
+        var bottomTable = new Rectangle(950, 700, 480, 200);
+        var above = Pipeline.batchEditorBounds(bottomTable, 700, 400, screen);
+        expect(screen.contains(above) && above.y + above.height <= bottomTable.y - 8, "bottom-clamped batch table places the full editor above it: " + above);
+        var topTable = new Rectangle(900, 100, 400, 200);
+        var below = Pipeline.batchEditorBounds(topTable, 500, 300, screen);
+        expect(screen.contains(below) && below.y == topTable.y + topTable.height + 8, "editor remains below the table when it fits: " + below);
+        var oversized = Pipeline.batchEditorBounds(new Rectangle(100, 100, 800, 650), 1800, 1100, screen);
+        expect(oversized.equals(screen), "oversized editor is resized into the usable screen rather than leaving controls offscreen: " + oversized);
+        var negativeScreen = new Rectangle(-1600, -900, 1600, 900);
+        var negative = Pipeline.batchEditorBounds(new Rectangle(-300, -150, 290, 150), 600, 400, negativeScreen);
+        expect(negativeScreen.contains(negative), "editor placement supports screen bounds with negative origins: " + negative);
     }
     static void pointerContext() {
         var stack = new ij.ImageStack(100, 80); stack.addSlice(new ij.process.ByteProcessor(100, 80)); stack.addSlice(new ij.process.ByteProcessor(100, 80));

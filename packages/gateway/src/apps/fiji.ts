@@ -289,7 +289,7 @@ export function describeImage(context: unknown): string | undefined {
   const width = finite(image.width), height = finite(image.height), depth = finite(image.bitDepth); if (width === undefined || height === undefined) return undefined;
   const channels = Array.isArray(image.channels) ? image.channels as Array<{ lut?: unknown }> : [];
   const slices = finite(image.slices) ?? 1, frames = finite(image.frames) ?? 1;
-  const cal = image.calibration as { pixelWidth?: unknown; unit?: unknown } | undefined, unit = typeof cal?.unit === 'string' ? cal.unit : 'pixel', px = finite(cal?.pixelWidth);
+  const cal = image.calibration as { pixelWidth?: unknown; pixelHeight?: unknown; unit?: unknown } | undefined, unit = typeof cal?.unit === 'string' ? cal.unit : 'pixel', px = finite(cal?.pixelWidth), py = finite(cal?.pixelHeight);
   const parts: string[] = [];
   const rgb = image.type === 'COLOR_RGB' || depth === 24;
   parts.push(`${friendlyName(String(image.title ?? 'This image'), image.path)}: ${width} by ${height}${rgb ? ', RGB colour' : depth ? `, ${depth}-bit` : ''}`);
@@ -300,7 +300,16 @@ export function describeImage(context: unknown): string | undefined {
   } else if (!rgb) parts.push('one channel');
   if (frames > 1) parts.push(`a time-lapse of ${frames} frames`);
   if (slices > 1) parts.push(`a ${slices}-slice z-stack`);
-  if (px !== undefined && !/^pixels?$/i.test(unit)) parts.push(`${px} ${unit === 'micron' ? 'microns' : unit} per pixel`);
+  if (px !== undefined && !/^pixels?$/i.test(unit)) {
+    const spoken = (value: number) => {
+      const rounded = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 3, useGrouping: false }).format(value);
+      return `${Number(rounded) === value ? '' : 'about '}${rounded}`;
+    };
+    const spokenUnit = /^(?:microns?|[µμu]m)$/i.test(unit) ? 'microns' : unit;
+    parts.push(py === undefined ? `${spoken(px)} ${spokenUnit} per pixel horizontally`
+      : px === py ? `${spoken(px)} ${spokenUnit} per pixel`
+      : `${spoken(px)} by ${spoken(py)} ${spokenUnit} per pixel (horizontal by vertical)`);
+  }
   const objects = finite(c?.counts?.roiManagerForImage ?? c?.counts?.roiManager);
   if (objects) parts.push(`${objects} objects outlined`);
   const sentence = `${parts.join('; ')}.`;
@@ -312,8 +321,21 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   // Transcribe often writes "open" as "opened" and plurals as possessives ("cell's").
   const raw = text.toLowerCase().replace(/'s\b/g, 's').replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
   const opening = raw.match(/^(?:(?:hey )?(?:fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
-  if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:blobs|a|an|new)\b/.test(opening[1]) && opening[1].length >= 2)
+  if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:a|an|new)\b/.test(opening[1]) && opening[1].length >= 2) {
+    // Already open: switch to it (or say so) instead of opening a second copy.
+    const words = opening[1].split(' ').filter(word => word.length > 2 && !/^(?:the|image|picture|file|movie|stack|sample|one)$/.test(word));
+    const open = Array.isArray((context as { images?: unknown } | undefined)?.images) ? (context as { images: Array<{ id?: unknown; title?: unknown; active?: unknown }> }).images : [];
+    const squash = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const hit = words.length ? open.find(entry => typeof entry.title === 'string' && words.every(word => squash(entry.title as string).includes(squash(word)))) : undefined;
+    if (hit && typeof hit.title === 'string') {
+      const name = friendlyName(hit.title);
+      if (hit.active === true) return { tool: 'fiji_context', arguments: {}, reply: `${name.charAt(0).toUpperCase()}${name.slice(1)} is already open.` };
+      if (typeof hit.id === 'number') return { tool: 'fiji_activate_image', arguments: { id: hit.id }, reply: `Switched to ${name}.` };
+    }
+    // "Open the blobs sample" with no file on disk is ImageJ's built-in sample: the model knows that route.
+    if (/^blobs(?: sample)?$/.test(opening[1]) && !hit) return undefined;
     return { tool: 'fiji_open_path', arguments: {}, reply: 'Opening it.', imageQuery: opening[1] };
+  }
   const image = (context as { image?: { slices?: unknown; position?: { slice?: unknown } } } | undefined)?.image;
   if (!image) return undefined;
   const area = areaCorrection(text, context); if (area) return area;

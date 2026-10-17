@@ -76,7 +76,7 @@ async function directImageCount(directory: string) {
 }
 /** Where a researcher's slides usually are: the project's data folder first, then common user folders, two levels deep. */
 export function searchRoots(root: string, home = homedir()) {
-  return [join(root, '.local', 'data'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
+  return [join(root, '.local', 'data'), join(root, '.local', 'downloads'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
 }
 export async function findLocalImages(root: string, query = '', limit = 20, roots = searchRoots(root), useSpotlight = true): Promise<{ matches: LocalImage[]; searched: string[]; truncated: boolean }> {
   const pool = Math.max(limit, 500);

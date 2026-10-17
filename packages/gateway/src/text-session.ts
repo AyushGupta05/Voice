@@ -78,7 +78,7 @@ export class TextConversation {
     const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
     // Echo the researcher's word: "Finding the nuclei." is answered with nuclei, not cells.
     if(/\b(?:segment|find|detect|count)/i.test(text)||route.tool.endsWith('_segment_cells'))this.objectWord=/\bnucle/i.test(text)||/\bnuclei\b/i.test(route.reply)?'nuclei':'cells';
-    const echo=(sentence:string)=>this.objectWord==='nuclei'?sentence.replace(/\bcells\b/g,'nuclei').replace(/\bcell\b/g,'nucleus'):sentence;
+    const echo=(sentence:string)=>this.objectWord==='nuclei'?sentence.replace(/\b(?:cells|objects)\b/g,'nuclei').replace(/\b(?:cell|object)\b/g,'nucleus'):sentence;
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);
