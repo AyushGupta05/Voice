@@ -21,7 +21,7 @@ The timestamped transcript buffer is bounded and reports truncation. Suppressed 
 
 ## Provider-injected backend
 
-`backend.ts` provides a bounded Responses-shaped tool loop. Supply a `BackendClient.complete(request, signal)` adapter only after the funding route and model are approved. No provider adapter is instantiated in production today.
+`backend.ts` provides a bounded Responses-shaped tool loop. A provider adapter must implement `BackendClient.complete(request, signal)` under an approved funding route/model. The production researcher-text route now uses the credit-checked Bedrock OpenAI adapter described in [AWS-TEXT.md](AWS-TEXT.md), including real message-route and source-reference verification. It remains text-only and separately funded from the GPT-Live frontend. Production voice still has no funded provider factory or native audio wiring; it does not instantiate `LiveSession`.
 
 The backend retains bounded conversation-scoped task results and detailed answers for follow-ups, with up to eight task records and an 8 MiB logical history limit. Omitted history is explicit. A large later approval result is trimmed again even if the corresponding call arguments were already omitted. It also reconciles later human decisions on interrupted proposals. Use one backend instance per researcher conversation, and clear history before switching unrelated users.
 

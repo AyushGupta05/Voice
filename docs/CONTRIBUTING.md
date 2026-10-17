@@ -19,6 +19,7 @@ The same tool list feeds MCP and the realtime transport. Do not duplicate provid
 - `npm run verify:qupath`: installed stock-bundle comparison against the pinned package, separate-launcher checks and clean upstream pins. Temporary extraction only; no restart, provider call or repair. Requires the default macOS local installation.
 - `python3 script/test-verify-qupath.py -v`: portable synthetic filesystem contracts for mutation, deletion, injection, symlink changes, overlap refusal and preservation on failure.
 - `python3 script/test-build-bridge.py -v`: portable disposable build fixture; failed compilation preserves the previous JAR and successful packaging replaces it from fresh classes.
+- `python3 script/test-qupath-launch.py -v`: portable startup fixture; an already-running instance or failed inventory leaves tokens, artifacts and the filesystem unchanged, without opening an app.
 - `python3 script/test-companion-process.py -v`: macOS-only disposable compiled-process fixture; proves exact-path stop leaves a same-named foreign process running.
 - `./script/test-audio.sh`: four offline native PCM tests; no microphone, playback or provider session.
 - `npm run check`: TypeScript compilation, schema documentation consistency and focused gateway/approval/protocol tests. Mocked approval decisions touch no scientific application data.
@@ -47,7 +48,7 @@ For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `n
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs `npm ci` / `npm run check` and portable preservation contracts on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
+`.github/workflows/verify.yml` runs `npm ci` / `npm run check` and portable preservation/build/startup fixtures on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
 
 CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
 

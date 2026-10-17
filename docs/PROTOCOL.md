@@ -12,7 +12,7 @@ The MCP stdio process is a client of the existing gateway, not a second independ
 
 | Method and route | Credential | Result |
 |---|---|---|
-| `GET /health` | Gateway or companion | Voice blocker, real QuPath context, recent actions, bridge error if unavailable |
+| `GET /health` | Gateway or companion | Voice blocker, text-configuration status, real QuPath context, recent actions, bridge error if unavailable |
 | `GET /tools` | Gateway or companion | Current tool schemas and risk classes |
 | `POST /tools/call` | Gateway or companion | `{name, arguments}` validated against the tool schema |
 | `POST /approvals/:id` | Companion only | `{approved: boolean}` decides one pending action |

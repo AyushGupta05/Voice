@@ -30,6 +30,7 @@ jobs:
       - run: npm run check
       - run: python3 script/test-verify-qupath.py -v
       - run: python3 script/test-build-bridge.py -v
+      - run: python3 script/test-qupath-launch.py -v
 
   native-pcm:
     if: github.event.repository.private == false

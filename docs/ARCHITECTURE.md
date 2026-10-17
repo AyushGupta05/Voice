@@ -37,6 +37,8 @@ The first development launcher used `java.util.prefs.userRoot`, which macOS igno
 
 The separate Realtime and GPT-Live transports and provider-injected backend are locally protocol-tested; see VOICE.md. Neither transport is constructed by the production server. A provider factory and native capture/playback wiring remain. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
 
+The separate researcher-text route uses the implemented AWS-credit Bedrock adapter with the shared tool backend. Each request rechecks account/credit/access/pricing eligibility and retains a conservative attempt reservation. Its working text path does not establish funding or wiring for the GPT-Live audio frontend. See [AWS-TEXT.md](AWS-TEXT.md).
+
 ## Extensibility
 
 Application adapters implement capability discovery, context observation and tool execution. QuPath-specific APIs remain in the adapter. Knowledge is Markdown with source references and version notes. Add a narrow structured operation before resorting to general scripting.
