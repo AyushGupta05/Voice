@@ -1,0 +1,179 @@
+{
+ "dumperVersion": 1,
+ "tag": "s10_save_tiff",
+ "imagej": "1.54p99",
+ "java": "21.0.7",
+ "headlessAwt": true,
+ "currentImageTitle": "two-squares-mask.tif",
+ "images": [
+  {
+   "index": 0,
+   "title": "two-squares-mask.tif",
+   "type": 0,
+   "bitDepth": 8,
+   "width": 64,
+   "height": 64,
+   "channels": 1,
+   "slices": 1,
+   "frames": 1,
+   "stackSize": 1,
+   "invertedLut": false,
+   "lutSha256": "f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363",
+   "displayRange": [
+    "0.0",
+    "255.0"
+   ],
+   "threshold": [
+    "255.0",
+    "255.0"
+   ],
+   "calibration": {
+    "pixelWidth": "1.0",
+    "pixelHeight": "1.0",
+    "pixelDepth": "1.0",
+    "unit": "pixel",
+    "xOrigin": "0.0",
+    "yOrigin": "0.0",
+    "zOrigin": "0.0",
+    "frameInterval": "0.0",
+    "function": 20,
+    "coefficients": null,
+    "valueUnit": "Gray Value",
+    "signed16": false
+   },
+   "infoSha256": null,
+   "overlayCount": 0,
+   "planeSha256": [
+    "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0"
+   ],
+   "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+   "roi": null
+  },
+  {
+   "index": 1,
+   "title": "Mask of two-squares.png",
+   "type": 0,
+   "bitDepth": 8,
+   "width": 64,
+   "height": 64,
+   "channels": 1,
+   "slices": 1,
+   "frames": 1,
+   "stackSize": 1,
+   "invertedLut": true,
+   "lutSha256": "6791becefc91c9be9794f8e01087a64a3b07afb7699d2192885a8ee15361c875",
+   "displayRange": [
+    "0.0",
+    "255.0"
+   ],
+   "threshold": [
+    "-808080.0",
+    "-808080.0"
+   ],
+   "calibration": {
+    "pixelWidth": "1.0",
+    "pixelHeight": "1.0",
+    "pixelDepth": "1.0",
+    "unit": "pixel",
+    "xOrigin": "0.0",
+    "yOrigin": "0.0",
+    "zOrigin": "0.0",
+    "frameInterval": "0.0",
+    "function": 20,
+    "coefficients": null,
+    "valueUnit": "Gray Value",
+    "signed16": false
+   },
+   "infoSha256": null,
+   "overlayCount": 0,
+   "planeSha256": [
+    "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0"
+   ],
+   "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+   "roi": null
+  }
+ ],
+ "results": {
+  "rows": 2,
+  "columns": [
+   {
+    "name": "Area",
+    "values": [
+     "192.0",
+     "304.0"
+    ],
+    "hex": [
+     "0x1.8p7",
+     "0x1.3p8"
+    ]
+   },
+   {
+    "name": "Mean",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "Min",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "Max",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "IntDen",
+    "values": [
+     "48960.0",
+     "77520.0"
+    ],
+    "hex": [
+     "0x1.7e8p15",
+     "0x1.2edp16"
+    ]
+   },
+   {
+    "name": "RawIntDen",
+    "values": [
+     "48960.0",
+     "77520.0"
+    ],
+    "hex": [
+     "0x1.7e8p15",
+     "0x1.2edp16"
+    ]
+   }
+  ]
+ },
+ "summary": null,
+ "roiManager": null,
+ "globals": {
+  "blackBackground": true,
+  "measurements": 32787,
+  "precision": 9,
+  "doScaling": true,
+  "weightedColor": false,
+  "calibrateConversions": false,
+  "padEdges": false,
+  "useInvertingLut": false
+ }
+}

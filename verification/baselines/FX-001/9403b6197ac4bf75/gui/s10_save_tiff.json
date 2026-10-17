@@ -1,0 +1,357 @@
+{
+ "dumperVersion": 1,
+ "tag": "s10_save_tiff",
+ "imagej": "1.54p99",
+ "java": "21.0.7",
+ "headlessAwt": false,
+ "currentImageTitle": "two-squares-mask.tif",
+ "images": [
+  {
+   "index": 0,
+   "title": "two-squares-mask.tif",
+   "type": 0,
+   "bitDepth": 8,
+   "width": 64,
+   "height": 64,
+   "channels": 1,
+   "slices": 1,
+   "frames": 1,
+   "stackSize": 1,
+   "invertedLut": false,
+   "lutSha256": "f3a25aa93aa2fbba28d79260535bbd6a5eb0fc1c24a8b0f04e12b484c1dfe363",
+   "displayRange": [
+    "0.0",
+    "255.0"
+   ],
+   "threshold": [
+    "255.0",
+    "255.0"
+   ],
+   "calibration": {
+    "pixelWidth": "1.0",
+    "pixelHeight": "1.0",
+    "pixelDepth": "1.0",
+    "unit": "pixel",
+    "xOrigin": "0.0",
+    "yOrigin": "0.0",
+    "zOrigin": "0.0",
+    "frameInterval": "0.0",
+    "function": 20,
+    "coefficients": null,
+    "valueUnit": "Gray Value",
+    "signed16": false
+   },
+   "infoSha256": null,
+   "overlayCount": 0,
+   "planeSha256": [
+    "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0"
+   ],
+   "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+   "roi": null
+  },
+  {
+   "index": 1,
+   "title": "Mask of two-squares.png",
+   "type": 0,
+   "bitDepth": 8,
+   "width": 64,
+   "height": 64,
+   "channels": 1,
+   "slices": 1,
+   "frames": 1,
+   "stackSize": 1,
+   "invertedLut": true,
+   "lutSha256": "6791becefc91c9be9794f8e01087a64a3b07afb7699d2192885a8ee15361c875",
+   "displayRange": [
+    "0.0",
+    "255.0"
+   ],
+   "threshold": [
+    "-808080.0",
+    "-808080.0"
+   ],
+   "calibration": {
+    "pixelWidth": "1.0",
+    "pixelHeight": "1.0",
+    "pixelDepth": "1.0",
+    "unit": "pixel",
+    "xOrigin": "0.0",
+    "yOrigin": "0.0",
+    "zOrigin": "0.0",
+    "frameInterval": "0.0",
+    "function": 20,
+    "coefficients": null,
+    "valueUnit": "Gray Value",
+    "signed16": false
+   },
+   "infoSha256": null,
+   "overlayCount": 0,
+   "planeSha256": [
+    "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0"
+   ],
+   "allPlanesSha256": "60edcfa053f0294af016a6f7e66a8dee65348728afdba3571ab0b7a65195efc0",
+   "roi": null
+  }
+ ],
+ "results": {
+  "rows": 2,
+  "columns": [
+   {
+    "name": "Area",
+    "values": [
+     "192.0",
+     "304.0"
+    ],
+    "hex": [
+     "0x1.8p7",
+     "0x1.3p8"
+    ]
+   },
+   {
+    "name": "Mean",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "Min",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "Max",
+    "values": [
+     "255.0",
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7",
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "IntDen",
+    "values": [
+     "48960.0",
+     "77520.0"
+    ],
+    "hex": [
+     "0x1.7e8p15",
+     "0x1.2edp16"
+    ]
+   },
+   {
+    "name": "RawIntDen",
+    "values": [
+     "48960.0",
+     "77520.0"
+    ],
+    "hex": [
+     "0x1.7e8p15",
+     "0x1.2edp16"
+    ]
+   }
+  ]
+ },
+ "summary": {
+  "rows": 1,
+  "columns": [
+   {
+    "name": "Slice",
+    "values": [
+     "NaN"
+    ],
+    "hex": [
+     "NaN"
+    ]
+   },
+   {
+    "name": "Count",
+    "values": [
+     "2.0"
+    ],
+    "hex": [
+     "0x1.0p1"
+    ]
+   },
+   {
+    "name": "Total Area",
+    "values": [
+     "496.0"
+    ],
+    "hex": [
+     "0x1.fp8"
+    ]
+   },
+   {
+    "name": "Average Size",
+    "values": [
+     "248.0"
+    ],
+    "hex": [
+     "0x1.fp7"
+    ]
+   },
+   {
+    "name": "%Area",
+    "values": [
+     "12.109375"
+    ],
+    "hex": [
+     "0x1.838p3"
+    ]
+   },
+   {
+    "name": "Mean",
+    "values": [
+     "255.0"
+    ],
+    "hex": [
+     "0x1.fep7"
+    ]
+   },
+   {
+    "name": "IntDen",
+    "values": [
+     "63240.0"
+    ],
+    "hex": [
+     "0x1.ee1p15"
+    ]
+   }
+  ]
+ },
+ "roiManager": [
+  {
+   "type": 4,
+   "typeName": "Traced",
+   "name": "0001-0016",
+   "bounds": [
+    9,
+    9,
+    14,
+    14
+   ],
+   "position": 0,
+   "strokeWidth": "0.0",
+   "xs": [
+    "22.0",
+    "23.0",
+    "23.0",
+    "22.0",
+    "22.0",
+    "10.0",
+    "10.0",
+    "9.0",
+    "9.0",
+    "10.0",
+    "10.0",
+    "22.0"
+   ],
+   "ys": [
+    "10.0",
+    "10.0",
+    "22.0",
+    "22.0",
+    "23.0",
+    "23.0",
+    "22.0",
+    "22.0",
+    "10.0",
+    "10.0",
+    "9.0",
+    "9.0"
+   ],
+   "nPoints": 12,
+   "maskBounds": [
+    14,
+    14
+   ],
+   "maskSha256": "8a71d66bdbf93a04f08e3e618b1650363f87ae77b640bb5b278d8679cdc4f46e"
+  },
+  {
+   "type": 4,
+   "typeName": "Traced",
+   "name": "0002-0048",
+   "bounds": [
+    39,
+    39,
+    18,
+    18
+   ],
+   "position": 0,
+   "strokeWidth": "0.0",
+   "xs": [
+    "54.0",
+    "56.0",
+    "56.0",
+    "57.0",
+    "57.0",
+    "56.0",
+    "56.0",
+    "54.0",
+    "54.0",
+    "42.0",
+    "42.0",
+    "40.0",
+    "40.0",
+    "39.0",
+    "39.0",
+    "40.0",
+    "40.0",
+    "42.0",
+    "42.0",
+    "54.0"
+   ],
+   "ys": [
+    "40.0",
+    "40.0",
+    "42.0",
+    "42.0",
+    "54.0",
+    "54.0",
+    "56.0",
+    "56.0",
+    "57.0",
+    "57.0",
+    "56.0",
+    "56.0",
+    "54.0",
+    "54.0",
+    "42.0",
+    "42.0",
+    "40.0",
+    "40.0",
+    "39.0",
+    "39.0"
+   ],
+   "nPoints": 20,
+   "maskBounds": [
+    18,
+    18
+   ],
+   "maskSha256": "b94abbe9571dc083f6d09cc8020dc1411b87d576341cc3c926157665e8694592"
+  }
+ ],
+ "globals": {
+  "blackBackground": true,
+  "measurements": 32787,
+  "precision": 9,
+  "doScaling": true,
+  "weightedColor": false,
+  "calibrateConversions": false,
+  "padEdges": false,
+  "useInvertingLut": false
+ }
+}

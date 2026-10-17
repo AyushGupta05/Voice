@@ -1,0 +1,69 @@
+{
+ "dumperVersion": 1,
+ "tag": "s04_threshold",
+ "imagej": "1.54p99",
+ "java": "21.0.7",
+ "headlessAwt": false,
+ "currentImageTitle": "blobs.gif",
+ "images": [
+  {
+   "index": 0,
+   "title": "blobs.gif",
+   "type": 0,
+   "bitDepth": 8,
+   "width": 256,
+   "height": 254,
+   "channels": 1,
+   "slices": 1,
+   "frames": 1,
+   "stackSize": 1,
+   "invertedLut": true,
+   "lutSha256": "ad0f5adebbcafefc7374b08e8f624a9754b196dabb75795cd6da17fa5b8f628e",
+   "displayRange": [
+    "0.0",
+    "255.0"
+   ],
+   "threshold": [
+    "0.0",
+    "143.0"
+   ],
+   "calibration": {
+    "pixelWidth": "1.0",
+    "pixelHeight": "1.0",
+    "pixelDepth": "1.0",
+    "unit": "pixel",
+    "xOrigin": "0.0",
+    "yOrigin": "0.0",
+    "zOrigin": "0.0",
+    "frameInterval": "0.0",
+    "function": 20,
+    "coefficients": null,
+    "valueUnit": "Gray Value",
+    "signed16": false
+   },
+   "infoSha256": null,
+   "overlayCount": 0,
+   "planeSha256": [
+    "b8ac23e32034b3fcbd8804d865accbf872a2442bd2b690fead0d48f83c995f9b"
+   ],
+   "allPlanesSha256": "b8ac23e32034b3fcbd8804d865accbf872a2442bd2b690fead0d48f83c995f9b",
+   "roi": null
+  }
+ ],
+ "results": {
+  "rows": 0,
+  "columns": []
+ },
+ "summary": null,
+ "roiManager": null,
+ "globals": {
+  "blackBackground": true,
+  "measurements": 19,
+  "precision": 3,
+  "doScaling": true,
+  "weightedColor": false,
+  "calibrateConversions": false,
+  "padEdges": false,
+  "useInvertingLut": false
+ }
+}

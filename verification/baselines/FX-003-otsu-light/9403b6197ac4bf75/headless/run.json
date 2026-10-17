@@ -1,0 +1,91 @@
+{
+ "fixture": "FX-003",
+ "fixture_sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271",
+ "mode": "headless",
+ "lock_sha256": "9403b6197ac4bf751e46921d2af6f12624809b0d2ee553d811491791f04c84a5",
+ "exit_code": 0,
+ "seconds": 5.38,
+ "timed_out": false,
+ "complete": true,
+ "dumped_steps": [
+  "s00_globals",
+  "s01_open",
+  "s02_subtract_background",
+  "s03_gaussian_blur",
+  "s04_threshold",
+  "s05_convert_to_mask",
+  "s06_watershed",
+  "s07_set_measurements",
+  "s08_measure",
+  "s09_analyze_particles",
+  "s10_save_tiff"
+ ],
+ "missing_steps": [],
+ "notes": [],
+ "steps": [
+  {
+   "tag": "s01_open",
+   "label": "open",
+   "command_id": "ij1:File>Open...",
+   "macro": "open(\"C:/Users/arnav/Documents/dev/fidelis-agent-verify/fixtures/cache/FX-003/blobs.gif\"); id1 = getImageID();"
+  },
+  {
+   "tag": "s02_subtract_background",
+   "label": "run(\"Subtract Background...\", \"rolling=50\")",
+   "command_id": "ij1:Process>Subtract Background...",
+   "macro": "selectImage(id1); run(\"Subtract Background...\", \"rolling=50\");"
+  },
+  {
+   "tag": "s03_gaussian_blur",
+   "label": "run(\"Gaussian Blur...\", \"sigma=2\")",
+   "command_id": "ij1:Process>Filters>Gaussian Blur...",
+   "macro": "selectImage(id1); run(\"Gaussian Blur...\", \"sigma=2\");"
+  },
+  {
+   "tag": "s04_threshold",
+   "label": "setAutoThreshold(\"Otsu\")",
+   "command_id": "ij1:Image>Adjust>Threshold...",
+   "macro": "selectImage(id1); setAutoThreshold(\"Otsu\");"
+  },
+  {
+   "tag": "s05_convert_to_mask",
+   "label": "run(\"Convert to Mask\")",
+   "command_id": "ij1:Process>Binary>Convert to Mask",
+   "macro": "selectImage(id1); run(\"Convert to Mask\");"
+  },
+  {
+   "tag": "s06_watershed",
+   "label": "run(\"Watershed\")",
+   "command_id": "ij1:Process>Binary>Watershed",
+   "macro": "selectImage(id1); run(\"Watershed\");"
+  },
+  {
+   "tag": "s07_set_measurements",
+   "label": "run(\"Set Measurements...\", \"area mean min integrated redirect=None decimal=9\")",
+   "command_id": "ij1:Analyze>Set Measurements...",
+   "macro": "selectImage(id1); run(\"Set Measurements...\", \"area mean min integrated redirect=None decimal=9\");"
+  },
+  {
+   "tag": "s08_measure",
+   "label": "run(\"Measure\")",
+   "command_id": "ij1:Analyze>Measure",
+   "macro": "selectImage(id1); run(\"Measure\");"
+  },
+  {
+   "tag": "s09_analyze_particles",
+   "label": "run(\"Analyze Particles...\", \"size=20-Infinity show=Masks display clear include summarize\")",
+   "command_id": "ij1:Analyze>Analyze Particles...",
+   "macro": "selectImage(id1); run(\"Analyze Particles...\", \"size=20-Infinity show=Masks display clear include summarize\");"
+  },
+  {
+   "tag": "s10_save_tiff",
+   "label": "saveAs(\"Tiff\", \"C:/Users/arnav/Documents/dev/fidelis-agent-verify/verification/runs/FX-003-otsu-light/headless/out/saved/blobs-mask.tif\")",
+   "command_id": "ij1:File>Save As>Tiff...",
+   "macro": "selectImage(id1); saveAs(\"Tiff\", \"C:/Users/arnav/Documents/dev/fidelis-agent-verify/verification/runs/FX-003-otsu-light/headless/out/saved/blobs-mask.tif\");"
+  }
+ ],
+ "with_add": false,
+ "threshold": "Otsu",
+ "saved_tiff_sha256": "2fe05a61bf4b4cec70615696d3e8cf2a7cecd9a706aacdf86bc34651dee409d6",
+ "saved_tiff_bytes": 65184
+}
