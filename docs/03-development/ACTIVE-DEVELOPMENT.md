@@ -95,7 +95,7 @@ own branch only; the lead merges.
 | A2 U3 | running since 15:05 | `agent/ui` | `--scenario j12` on the real engine with asserted numbers and screenshot; `--instruction` proposal → confirm → execute screenshots; public `ResultsPanel.tsv()`; U2 scenarios re-inspected on the real engine; quit path exit code |
 | A4 T7 | **merged** 15:45 (6abd443): parity on FX-001/003/030/031 exact (345 and 300 particles on BBBC001/BBBC004), speech-to-execution E2E, GUI smoke asserts "Engine: ready" by OCR and a live status-bar test, suite twice 216/0 | `agent/verify` | BBBC001/BBBC004 J-12 through the real engine vs the reference runner (reported-only vs published counts); speech-to-execution E2E; GUI smoke on the real engine; suite run twice for order dependence; VERIFICATION-RESULTS section 10 rewritten |
 | A1 E8 | running since 15:05 | `agent/engine` | `SET_DISPLAY_RANGE channel`, `NEW_IMAGE channels/frames`; principled no-op rule; `quit` test; transient images; window count; stale-singleton review |
-| A3 V5 | running since 15:05 | `agent/voice` | eval 124 cases on the real catalogue; J-12 phrases executed on the real engine with asserted numbers; confirmation policy tests; vocabulary prompt |
+| A3 V5 | **merged** 16:00: eval 124/124 on both FakeEngine and DefaultEngine (retrieval fixed: `Engine.search` misses long clauses, labels are scanned too), ten J-12 phrases executed on the real engine with exact numbers, `ConfirmationPolicy` (required/explicit/reasons), `vocabularyPrompt` | `agent/voice` | eval 124 cases on the real catalogue; J-12 phrases executed on the real engine with asserted numbers; confirmation policy tests; vocabulary prompt |
 
 Shared brief: scratchpad `DEV-BRIEF.md` (copied to `docs/03-development/DEV-BRIEF.md` at the next integration).
 
