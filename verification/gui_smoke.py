@@ -86,7 +86,8 @@ def ocr_lines(png: Path) -> list[str] | None:
     if os.name != "nt":
         return None
     done = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
-                           str(ROOT / "verification" / "ocr.ps1"), str(png)], capture_output=True, text=True, check=False)
+                           str(ROOT / "verification" / "ocr.ps1"), str(png)],
+                          capture_output=True, text=True, check=False)
     if done.returncode != 0:
         return None
     return [line for line in done.stdout.splitlines() if line.strip()]
@@ -137,7 +138,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=str(ROOT / "verification" / "runs" / "gui-smoke.png"))
     ap.add_argument("--timeout", type=float, default=120.0)
-    ap.add_argument("--open", default=str(BLOBS), help="image the app opens before the screenshot (default: cached Blobs)")
+    ap.add_argument("--open", default=str(BLOBS),
+                    help="image the app opens before the screenshot (default: cached Blobs)")
     ap.add_argument("--size", default="1280x800")
     ap.add_argument("--force", action="store_true", help="launch even if the sources do not mention --screenshot")
     ap.add_argument("--check-png", help="only analyse this PNG")

@@ -15,7 +15,6 @@ import argparse
 import array
 import json
 import math
-import struct
 import sys
 from pathlib import Path
 
