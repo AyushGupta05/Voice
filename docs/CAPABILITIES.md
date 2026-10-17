@@ -1,6 +1,6 @@
 # Capability matrix
 
-There are 32 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
+There are 33 MCP tools. The Approval column describes `LUMA_APPROVALS=review`; the default `auto` policy executes those actions immediately through the same recorded decision path (see [DEMO.md](DEMO.md)). See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
 
 | Surface | Behavior | Approval | Evidence / limit |
 |---|---|---|---|

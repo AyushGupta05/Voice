@@ -93,7 +93,7 @@ npm run tool -- qupath_commands '{"query":"measurements"}'
 npm run tool -- qupath_knowledge '{"query":"cell detection"}'
 ```
 
-These commands use the same validator and executor as MCP. Mutating calls only prepare a proposal; they do not auto-approve it.
+These commands use the same validator and executor as MCP. With the default `LUMA_APPROVALS=auto`, mutating calls execute immediately (journaled, checkpointed); with `LUMA_APPROVALS=review` they only prepare a proposal for the companion to approve.
 
 ## Tokens and local data
 

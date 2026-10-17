@@ -10,9 +10,9 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 ## Current prototype
 
-- A compact bar at the top of the screen shows short status text. Expand it for conversation, measured results and action history; approvals expand automatically. The companion follows the active QuPath image and selection.
+- A compact bar at the top of the screen shows short status text. Expand it for conversation, measured results and action history. The companion follows the active QuPath image and selection.
 - **33 implemented MCP tools** expose context, objects, measurements, navigation, display, highlights, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
-- Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
+- Actions execute immediately (`LUMA_APPROVALS=auto`, the default). Every data change is journaled and hierarchy changes get a checkpoint first, so "undo that" works. `LUMA_APPROVALS=review` restores human approval cards bound to the exact arguments and application state; the model never gets an approval tool.
 - MCP discovery reflects the authenticated running gateway; a built update needs a normal reload before its new tools are available.
 - Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
 - A real public-slide fixture detected **899 cells**, classified **49** above a chosen DAB measurement threshold, compared results and restored the empty object hierarchy. An actual OpenAI agent also completed that fixed sequence in 21.5 seconds with five test-only simulated approvals; ordinary production actions still require human decisions. [Scientific agent evidence](docs/SCIENTIFIC-AGENT-TEST.md)

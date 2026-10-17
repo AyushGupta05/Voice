@@ -12,7 +12,7 @@ mic (AVAudioEngine, voice processing / echo cancellation)
   → short final answer → Polly generative voice (default Danielle; `LUMA_VOICE=Amy:neural` etc.) 16 kHz PCM → resampled to 24 kHz → companion playback
 ```
 
-- **Barge-in:** the first partial transcript of a new utterance interrupts current playback and stops the running agent task. Pending human approvals stay pending.
+- **Barge-in:** the first partial transcript of a new utterance interrupts current playback and stops the running agent task. An action already executing in QuPath is not rolled back; say "undo that" to restore the checkpoint.
 - **Spoken style:** spoken requests add `spokenStyle` (`backend.ts`) to the instructions, asking for one short sentence without coordinates or IDs. Full details still appear in the companion. `spokenReply()` trims anything longer than 240 characters to its first sentence.
 - **Bounds:** sessions last at most 180 s, 16 turns and 24 spoken replies (acknowledgments included). Microphone input is rate-limited to real time, with a one-second send buffer and a 500-character reply limit. A second companion cannot open a parallel voice stream.
 
@@ -26,7 +26,7 @@ Measured with `smoke:voice-pipeline` on the public OS-2 slide (individual runs, 
 | One Bedrock `gpt-oss-120b` round (us-east-1, from Europe) | ~1.1 s; `gpt-oss-20b` was not faster |
 | Transcript → visible QuPath action | 1.3–2.3 s (one model round) |
 | End of speech → first spoken audio | 0.4 s on the instant route; 1.7 s with a cached acknowledgment; previously 4.2–10.5 s |
-| End of speech → approval card for a data action | ~2.4 s, spoken "Ready for your approval." |
+| End of speech → data action starts (auto policy) | ~2.4 s, spoken "Detecting cells." / "Classifying." as it starts; in review mode the card appears instead with "Ready for your approval." |
 
 What makes it feel live:
 
