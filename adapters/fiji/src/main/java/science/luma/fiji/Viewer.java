@@ -1,0 +1,131 @@
+package science.luma.fiji;
+
+import ij.IJ;
+import ij.ImagePlus;
+import ij.gui.ImageCanvas;
+import ij.gui.ImageWindow;
+import ij.gui.Roi;
+import java.awt.Dimension;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/** The ImageJ canvas as the researcher sees it: screen geometry for the companion cursor and "the view follows the work" zooming. EDT only. */
+final class Viewer {
+    private Viewer() {}
+
+    /** Global-screen view of the image's canvas, or null when the image has no visible window. */
+    static Geometry.View view(ImagePlus imp) {
+        if (imp == null) return null;
+        ImageCanvas canvas = imp.getCanvas();
+        if (canvas == null || !canvas.isShowing()) return null;
+        try {
+            Point origin = canvas.getLocationOnScreen(); Dimension size = canvas.getSize();
+            Rectangle src = canvas.getSrcRect();
+            return new Geometry.View(origin.x, origin.y, size.width, size.height, src == null ? new Rectangle(0, 0, imp.getWidth(), imp.getHeight()) : new Rectangle(src), canvas.getMagnification());
+        } catch (RuntimeException error) { return null; }
+    }
+    static Map<String, Object> viewerJson(ImagePlus imp) { var view = view(imp); return view == null ? null : view.json(); }
+
+    /** Highlight for ROIs on the image; empty map when the image is not on screen. Never throws. */
+    static Map<String, Object> roiHighlight(ImagePlus imp, List<Roi> rois, String label, int limit) {
+        try {
+            var view = view(imp); if (view == null) return Map.of();
+            var bounds = new ArrayList<Rectangle>(); var ellipses = new ArrayList<Boolean>(); var ids = new ArrayList<String>();
+            for (var roi : rois) { if (roi == null) continue; bounds.add(roi.getBounds()); ellipses.add(roi.getType() == Roi.OVAL); ids.add(roi.getName()); }
+            return Geometry.payload(label, bounds.size(), Geometry.targets(view, bounds, ellipses, ids, limit), view);
+        } catch (RuntimeException error) { return Map.of(); }
+    }
+    /** Highlight for image-pixel rectangles (e.g. particle bounds from the Results table). */
+    static Map<String, Object> rectHighlight(ImagePlus imp, List<Rectangle> bounds, String label, int limit, boolean ellipses) {
+        try {
+            var view = view(imp); if (view == null) return Map.of();
+            var shapes = new ArrayList<Boolean>(); for (int i = 0; i < bounds.size(); i++) shapes.add(ellipses);
+            return Geometry.payload(label, bounds.size(), Geometry.targets(view, bounds, shapes, null, limit), view);
+        } catch (RuntimeException error) { return Map.of(); }
+    }
+    static Map<String, Object> imageHighlight(ImagePlus imp, String label) {
+        return rectHighlight(imp, List.of(new Rectangle(0, 0, imp.getWidth(), imp.getHeight())), label, 1, false);
+    }
+    /** Highlight for a visible AWT component. */
+    static Map<String, Object> componentHighlight(java.awt.Component component, String label) {
+        try {
+            if (!component.isShowing()) return Map.of();
+            Point p = component.getLocationOnScreen(); Dimension d = component.getSize();
+            var target = new java.util.LinkedHashMap<String, Object>(); target.put("x", (double) p.x); target.put("y", (double) p.y); target.put("width", (double) d.width); target.put("height", (double) d.height); target.put("shape", "rect");
+            var result = new java.util.LinkedHashMap<String, Object>();
+            result.put("label", label.length() > 80 ? label.substring(0, 80) : label); result.put("total", 1); result.put("shown", 1); result.put("truncated", false); result.put("kind", "control");
+            result.put("targets", List.of(target)); result.put("pointer", Map.of("screenX", p.x + d.width / 2.0, "screenY", p.y + d.height / 2.0)); result.put("coordinateSystem", "screen-top-left");
+            return result;
+        } catch (RuntimeException error) { return Map.of(); }
+    }
+
+    /** Zooms so the rectangle fills the window when it would otherwise be invisible. Returns true when the view moved. */
+    static boolean follow(ImagePlus imp, Rectangle target) {
+        var view = view(imp);
+        if (view == null || target == null) return false;
+        if (!Geometry.tinyOrOffscreen(view, target.x, target.y, target.width, target.height)) return false;
+        zoomTo(imp, target);
+        return true;
+    }
+
+    /** Same algorithm as ImageJ's Image>Zoom>To Selection, for an arbitrary rectangle padded by 30%: unzoom, then zoom in at the centre while it still fits. */
+    static void zoomTo(ImagePlus imp, Rectangle target) {
+        ImageCanvas ic = imp.getCanvas(); ImageWindow win = imp.getWindow();
+        if (ic == null || win == null) throw new IllegalStateException("The image has no window to zoom.");
+        ic.unzoom();
+        double mag = ic.getMagnification(); Rectangle w = win.getBounds();
+        int marginw = (int) (w.width - mag * imp.getWidth()), marginh = (int) (w.height - mag * imp.getHeight());
+        int cx = target.x + target.width / 2, cy = target.y + target.height / 2;
+        double pw = Math.max(8, target.width) * 1.3, ph = Math.max(8, target.height) * 1.3;
+        mag = ImageCanvas.getHigherZoomLevel(mag);
+        for (int guard = 0; guard < 24 && pw * mag < w.width - marginw && ph * mag < w.height - marginh; guard++) {
+            ic.zoomIn(ic.screenX(cx), ic.screenY(cy));
+            double current = ic.getMagnification();
+            if (current >= 32.0) break;
+            mag = ImageCanvas.getHigherZoomLevel(current);
+            w = win.getBounds();
+        }
+        centre(imp, cx, cy);
+    }
+    /** Centres the displayed region on an image point when the image is larger than the canvas. */
+    static void centre(ImagePlus imp, int cx, int cy) {
+        ImageCanvas ic = imp.getCanvas(); if (ic == null) return;
+        Rectangle src = ic.getSrcRect();
+        if (src.width >= imp.getWidth() && src.height >= imp.getHeight()) return;
+        ic.setSourceRect(new Rectangle(cx - src.width / 2, cy - src.height / 2, src.width, src.height));
+        ic.repaint();
+    }
+    static void fit(ImagePlus imp) {
+        ImageCanvas ic = imp.getCanvas(); if (ic == null || imp.getWindow() == null) throw new IllegalStateException("The image has no window to zoom.");
+        ic.unzoom();
+    }
+    static void step(ImagePlus imp, boolean in, Integer x, Integer y) {
+        ImageCanvas ic = imp.getCanvas(); if (ic == null) throw new IllegalStateException("The image has no window to zoom.");
+        Rectangle src = ic.getSrcRect();
+        int ix = x == null ? src.x + src.width / 2 : x, iy = y == null ? src.y + src.height / 2 : y;
+        if (in) ic.zoomIn(ic.screenX(ix), ic.screenY(iy)); else ic.zoomOut(ic.screenX(ix), ic.screenY(iy));
+    }
+    /** Sets an exact magnification (clamped to ImageJ's 1/72–32 range) centred on an image point. */
+    static void magnify(ImagePlus imp, double magnification, Integer x, Integer y) {
+        ImageCanvas ic = imp.getCanvas(); ImageWindow win = imp.getWindow();
+        if (ic == null || win == null) throw new IllegalStateException("The image has no window to zoom.");
+        double m = Math.max(1 / 72.0, Math.min(32.0, magnification));
+        Rectangle src = ic.getSrcRect();
+        int cx = x == null ? src.x + src.width / 2 : x, cy = y == null ? src.y + src.height / 2 : y;
+        int w = (int) (imp.getWidth() * m), h = (int) (imp.getHeight() * m);
+        Dimension screen = IJ.getScreenSize();
+        if (w <= screen.width * 0.85 && h <= screen.height * 0.8) {
+            ic.setSourceRect(new Rectangle(0, 0, imp.getWidth(), imp.getHeight()));
+            ic.setMagnification(m); ic.setSize(w, h); win.pack();
+        } else {
+            Dimension d = ic.getSize();
+            int sw = (int) Math.max(1, d.width / m), sh = (int) Math.max(1, d.height / m);
+            ic.setMagnification(m);
+            ic.setSourceRect(new Rectangle(cx - sw / 2, cy - sh / 2, sw, sh));
+        }
+        ic.repaint();
+    }
+}
