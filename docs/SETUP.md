@@ -81,6 +81,8 @@ Alternatively run `npm run mcp` from the repo root. The MCP exposes tools, a `qu
 
 Run `npm run doctor` for read-only setup, source-pin, running-schema and connection diagnostics. It prints no tokens or image names, installs nothing and returns a nonzero status when a core check fails. Voice readiness remains false under the current funding policy. File checks confirm existence, not a fresh build.
 
+The doctor also compares the loaded Java extension's cached source identity and declared operations with `.local/bridge-build.json` and the completed JAR hash. It can therefore distinguish a reachable old bridge from the current built extension, independently of gateway schema agreement. A mismatch never closes QuPath: save/quit it normally, rebuild if needed, then relaunch and restart Luma after gateway changes. `adapterReadiness` is also included in new context responses. It compares completed build outputs, not unbuilt source edits; build explicitly after changing Java. Manual builds without the generated stamp remain usable but unverified by this diagnostic.
+
 Run `npm run smoke` to test a real MCP client through the gateway and active QuPath session. This smoke test is read-only.
 
 ## Local command-line inspection

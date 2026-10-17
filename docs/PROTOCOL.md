@@ -42,6 +42,8 @@ A failed operation can have partial effects. Inspect QuPath and the checkpoint b
 
 ## Bridge HTTP
 
+Authenticated `GET /health` reports the original QuPath version, adapter version and startup-cached adapter identity. The same `adapter` object is in context even without an open image. Protocol 1 includes `sourceSha256` and declared operation IDs. New gateway context responses add `adapterReadiness` from the local completed-build manifest/JAR. These fields diagnose loaded-code mismatches; they neither grant execution permission nor trigger a restart. Low-level operation IDs can differ from MCP tool names (for example `detect` / `qupath_detect_cells`).
+
 Authenticated `POST /execute` accepts:
 
 ```json

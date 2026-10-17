@@ -16,6 +16,7 @@ The same tool list feeds MCP and the realtime transport. Do not duplicate provid
 ## Validation layers
 
 - `npm run doctor`: read-only setup/connection diagnostics; it does not replace an MCP or analysis test.
+- Bridge identity contracts compare declared Java operation IDs with current gateway definitions and distinguish legacy/older/missing/corrupt build identities without repair. Actual-library contracts verify the packaged startup-cached identity. Builder fixtures prove snapshot inputs survive concurrent source edits and failed builds preserve the previous artifact/manifest.
 - `npm run verify:qupath`: installed stock-bundle comparison against the pinned package, separate-launcher checks and clean upstream pins. Temporary extraction only; no restart, provider call or repair. Requires the default macOS local installation.
 - `python3 script/test-verify-qupath.py -v`: portable synthetic filesystem contracts for mutation, deletion, injection, symlink changes, overlap refusal and preservation on failure.
 - `python3 script/test-build-bridge.py -v`: portable disposable build fixture; failed compilation preserves the previous JAR and successful packaging replaces it from fresh classes.

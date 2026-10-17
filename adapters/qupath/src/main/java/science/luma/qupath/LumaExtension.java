@@ -52,6 +52,7 @@ public final class LumaExtension implements QuPathExtension {
     private QuPathGUI qupath;
     private HttpServer server;
     private String token;
+    private final Map<String,Object> bridgeIdentity=BridgeIdentity.description();
     private final WeakHashMap<Node,String> nodeIds = new WeakHashMap<>();
     private final Map<String,WeakReference<Node>> uiNodes = new HashMap<>();
     private final AtomicBoolean analysisRunning = new AtomicBoolean();
@@ -64,7 +65,7 @@ public final class LumaExtension implements QuPathExtension {
     @Override public String getName() { return "Luma scientific companion"; }
     @Override public String getDescription() { return "Authenticated local application context and actions for the Luma MCP/voice companion."; }
     @Override public Version getQuPathVersion() { return Version.parse("0.7.0"); }
-    @Override public Version getVersion() { return Version.parse("0.1.0"); }
+    @Override public Version getVersion() { return Version.parse(BridgeIdentity.VERSION); }
 
     @Override public void installExtension(QuPathGUI app) {
         qupath = app;
@@ -95,7 +96,7 @@ public final class LumaExtension implements QuPathExtension {
             }
             var path = exchange.getRequestURI().getPath();
             if ("GET".equals(exchange.getRequestMethod()) && "/health".equals(path)) {
-                respond(exchange, 200, Map.of("application", "QuPath", "version", "0.7.0", "adapterVersion", "0.1.0")); return;
+                respond(exchange, 200, Map.of("application", "QuPath", "version", "0.7.0", "adapterVersion", BridgeIdentity.VERSION, "adapter", bridgeIdentity)); return;
             }
             if (!"POST".equals(exchange.getRequestMethod()) || !"/execute".equals(path)) { respond(exchange, 404, Map.of("error", "Not found")); return; }
             byte[] bytes = exchange.getRequestBody().readNBytes(MAX_BODY + 1);
@@ -193,6 +194,7 @@ public final class LumaExtension implements QuPathExtension {
     private Map<String, Object> context() {
         var result = new LinkedHashMap<String, Object>();
         result.put("application", "QuPath"); result.put("version", "0.7.0");
+        result.put("adapter",bridgeIdentity);
         result.put("lastDispatch",lastDispatch);
         var project = qupath.getProject();
         result.put("project",project == null ? null : Map.of("name",project.getName(),"uri",Objects.toString(project.getURI(),"")));

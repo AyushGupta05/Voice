@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Arguments } from './tools.js';
+import {bridgeReadiness} from './bridge-readiness.js';
 export type Context = { contextKey: string; image?: { name: string }; [key: string]: unknown };
 export interface Adapter {
   execute(operation: string, args?: Arguments, options?: { expectedContext?: string; approved?: boolean; expectedControl?: unknown }): Promise<unknown>;
@@ -20,6 +21,8 @@ export class QuPathAdapter implements Adapter {
     } catch { throw new Error('Cannot reach QuPath. Start it with ./script/run-qupath.sh. A timed-out operation may still be running; inspect the application before retrying.'); }
     const body = await response.json() as { result?: unknown; error?: string };
     if (!response.ok) throw new Error(body.error ?? `QuPath returned ${response.status}`);
+    if(operation==='context'&&body.result&&typeof body.result==='object')
+      return{...body.result,adapterReadiness:await bridgeReadiness(this.root,body.result)};
     return body.result;
   }
 }

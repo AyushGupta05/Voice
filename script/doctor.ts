@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { tools } from '../packages/gateway/src/tools.js';
 import { Knowledge } from '../packages/gateway/src/knowledge.js';
+import {bridgeReadiness} from '../packages/gateway/src/bridge-readiness.js';
 
 type Check = { name: string; status: 'pass' | 'fail' | 'note'; detail: string };
 const root=resolve(process.env.LUMA_ROOT??fileURLToPath(new URL('..',import.meta.url)));
@@ -31,6 +32,8 @@ try {
   const health=await healthResponse.json() as {application?:unknown;bridgeError?:unknown;context?:{image?:unknown};voice?:{enabled?:unknown}};
   add('gateway',health.application==='Luma','Authenticated Luma gateway is reachable.','Unexpected service on the gateway port.');
   add('QuPath bridge',!health.bridgeError&&!!health.context,'Real application context is reachable.','Bridge unavailable or busy. Start QuPath with ./script/run-qupath.sh and inspect local logs.');
+  const loadedBridge=await bridgeReadiness(root,health.context);
+  add('loaded QuPath build',loadedBridge.status==='matches_build',loadedBridge.message,loadedBridge.message);
   if(health.context&&!health.context.image)checks.push({name:'active image',status:'note',detail:'Open an image and select a region for scientific tools.'});
   const schemaResponse=await fetch('http://127.0.0.1:49555/tools',{headers,signal:AbortSignal.timeout(2000)});
   if(!schemaResponse.ok)throw new Error('Tool schema request failed.');

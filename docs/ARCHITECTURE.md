@@ -41,6 +41,10 @@ The separate researcher-text route uses the implemented AWS-credit Bedrock adapt
 
 ## Extensibility
 
+The Java extension reports a startup-cached adapter version, protocol, source-input digest and declared low-level operations. Bridge builds compile from a regular-file snapshot of main sources/resources and record the completed JAR hash in `.local/bridge-build.json`. This separates code on disk from classes already loaded by QuPath. Context observations include a read-only `adapterReadiness` comparison, and the doctor checks it independently even when the running gateway is older. Missing/inconsistent metadata cannot be certified current; an older loaded source identity reports the normal save/quit/relaunch step. Nothing is restarted automatically.
+
+This is a source/build diagnostic, not attestation of the exact loaded binary, unbuilt working-tree edits, every declared operation's behavior or scientific validity. The local JAR hash checks the completed artifact; declared operations are checked against the gateway's required operation names. A same-source rebuild can remain compatible. Custom app/JDK overrides still need their own trusted baseline. The metadata contains no file/project paths or credentials.
+
 Application adapters implement capability discovery, context observation and tool execution. QuPath-specific APIs remain in the adapter. Knowledge is Markdown with source references and version notes. Add a narrow structured operation before resorting to general scripting.
 
 The native companion supervises a project-local Node child when no authenticated gateway is available. It reuses external development gateways and terminates only a child it owns. The launcher records the resolved Node executable in the local app bundle. No login item or system service is installed. Quitting the companion does not roll back or cancel QuPath work already underway.
