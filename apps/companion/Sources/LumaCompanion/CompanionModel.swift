@@ -31,6 +31,10 @@ final class CompanionModel: ObservableObject {
     @Published var knowledgeQuery = ""
     @Published var knowledgeResults: [[String: Any]] = []
     @Published var selectedTab = 0
+    @Published var expanded = false
+    @Published var detailsHeight: CGFloat = 600
+    @Published var runningActionIDs = Set<String>()
+    @Published var decidingActionIDs = Set<String>()
     @Published var busy = false
     @Published var microphoneLevel: Float = 0
     @Published var measurementReport: MeasurementReport?
@@ -113,7 +117,10 @@ final class CompanionModel: ObservableObject {
             if selectionCount == 0 { selectionLabel = "Select a region in QuPath" }
             else if selectionCount == 1 && !selected.isEmpty { selectionLabel = selected[0]["name"] as? String ?? "1 \(selected[0]["kind"] as? String ?? "object") selected" }
             else { selectionLabel = "\(selectionCount) objects selected" }
-            approvals = (health["actions"] as? [[String: Any]] ?? []).filter { $0["status"] as? String == "pending" }
+            let actions = health["actions"] as? [[String: Any]] ?? []
+            approvals = actions.filter { $0["status"] as? String == "pending" }
+            runningActionIDs = Set(actions.filter { $0["status"] as? String == "running" }.compactMap { $0["id"] as? String })
+            if !approvals.isEmpty && !expanded { selectedTab = 1; expanded = true }
         } catch {
             // HTTP polling can fail while the task's WebSocket is still alive; retain Stop.
             connected = false; bridgeConnected = false; textReady = false
@@ -178,7 +185,11 @@ final class CompanionModel: ObservableObject {
             activities = Array(activities.prefix(40))
             Task { await refresh() }
         case "action":
-            if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { selectedTab = 1 }
+            if let action = event["action"] as? [String: Any], let id = action["id"] as? String {
+                if action["status"] as? String == "running" { runningActionIDs.insert(id) }
+                else { runningActionIDs.remove(id) }
+            }
+            if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { selectedTab = 1; expanded = true }
             if let action = event["action"] as? [String: Any], let status = action["status"] as? String, ["failed", "denied", "completed", "expired"].contains(status) {
                 let detail = action["error"] as? String ?? friendly(action["tool"] as? String ?? "Action")
                 let warning = action["auditWarning"] as? String
@@ -222,6 +233,9 @@ final class CompanionModel: ObservableObject {
         } catch { activities.insert(Activity(title: "Couldn’t complete action", detail: error.localizedDescription, isError: true), at: 0) }
     }
     func decide(_ id: String, approved: Bool) async {
+        guard !decidingActionIDs.contains(id) else { return }
+        decidingActionIDs.insert(id)
+        defer { decidingActionIDs.remove(id) }
         do { _ = try await request("/approvals/\(id)", body: ["approved": approved]); await refresh() }
         catch { activities.insert(Activity(title: "Action needs review", detail: error.localizedDescription, isError: true), at: 0); await refresh() }
     }
@@ -280,6 +294,10 @@ final class CompanionModel: ObservableObject {
     func toggleVoice() {
         if voiceActive { send(["type": "stop_voice"]); audio.stop(); voiceActive = false }
         else { send(["type": "start_voice"]) }
+    }
+    func toggleDetails() {
+        if !approvals.isEmpty { selectedTab = 1; expanded = true }
+        else { expanded.toggle() }
     }
     private func send(_ event: [String: Any]) {
         guard let socket, let data = try? JSONSerialization.data(withJSONObject: event), let text = String(data: data, encoding: .utf8) else { return }

@@ -48,6 +48,8 @@ Evidence is written to `.local/evidence/voice-protocol.json`. Never present this
 
 ## Remaining activation work
 
+The user is considering a separately disclosed AWS speech route: Transcribe for live recognition, the existing OpenAI Bedrock agent for tool use, and Polly for spoken output. Read-only checks confirmed eligible service credits and regional speech rates; the explicit provider decision and implementation/hardware test are still pending. This route must not be presented as GPT-Live. See [the funding investigation](FUNDING.md#morning-read-only-voice-route-investigation).
+
 A verified credit-covered provider factory, native capture/playback wiring, supported backend model configuration, real usage accounting and a bounded live public-slide session are still required. The native `AudioIO` component uses a separately tested PCM codec: signed little-endian samples, clipping, non-finite input, bounded complete chunks and RMS metering have four offline PCM tests (`./script/test-audio.sh`). Four additional hardware-free capture-lifecycle tests cover Stop while permission is pending, stale permission after a newer owner, task cancellation, denial and device-start cleanup/retry. Native capture/playback ownership is serialized on MainActor; the permission lifecycle prevents a late grant from starting capture after Stop. Capture startup failure removes its tap. These checks do not exercise a microphone, speakers, echo handling, playback queue recovery or a funded end-to-end hardware session. Do not turn local protocol success into a claim that voice is ready or that every scientific result is validated.
 
 Sources reviewed on 17 October 2026:

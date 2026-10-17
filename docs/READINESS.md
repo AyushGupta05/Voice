@@ -1,6 +1,6 @@
 # Readiness and safe next steps
 
-Snapshot: 17 October 2026, 07:35 BST. The [build journal](BUILD-JOURNAL.md) records later changes; run the diagnostic commands below for the current machine.
+Snapshot: 17 October 2026, 10:10 BST. The [build journal](BUILD-JOURNAL.md) records later changes; run the diagnostic commands below for the current machine.
 
 Luma operates the existing QuPath application through a separate extension, local gateway, MCP and floating companion. The downloaded original application and upstream source stay intact. The agent has no human approval credential.
 
@@ -11,14 +11,17 @@ Luma operates the existing QuPath application through a separate extension, loca
 | Original QuPath | All 553 stock bundle entries / 389 files matched fresh extraction of the verified official package; original signature and clean source pins passed | Separate external-JDK/extension launcher is a development bundle, not a notarized standalone release |
 | Scientific execution | Actual QuPath watershed detection, measured classification, comparison and empty hierarchy restoration | 899 cells/49 Positive/850 Negative describe one chosen public fixture, not validated segmentation or biology |
 | Actual OpenAI agent | Fixed public scientific workflow completed in 21.5 s / eight requests; prior stopped attempt is retained | Five approvals were simulated only under explicit fixture authorization; ordinary approvals stay human |
-| MCP and application awareness | Actual read-only SDK smoke matched 23 running tools, native menus, image context and knowledge | Source implements 32 tools; newer gateway/Java features require normal reload and their own real-app checks |
+| MCP and application awareness | Normal application safely reloaded; actual stdio SDK smoke matches all 32 running schemas and loaded Java build identity; 67 knowledge documents | Each scientific/UI operation still needs its own outcome verification |
 | GeoJSON import | Isolated actual QuPathGUI → MCP test passes exact UUIDs/classes/geometry/planes/scores, changed-file/duplicate rejection, comparison and empty baseline restoration | Test-only socket wiring; native file opening, normal extension bootstrap and foreground controls remain unverified |
-| Reliability | 102 offline gateway tests, native compilation/signing, four PCM and four capture-lifecycle tests pass; focused reviews clean after accepted fixes | Offline/native builds do not establish foreground interaction or microphone/speaker quality |
+| Reliability | 102 offline gateway tests and 14 native tests pass, with native build/signing and clean focused review after accepted fixes | Native tests include four PCM, four capture-lifecycle and six status/layout contracts; no hardware audio proof |
+| Compact bar | Actual native bar and expandable conversation inspected; real typed request reached OpenAI and prepared the exact image-opening proposal | The human opening decision and resulting image are still pending; plots and audio remain unverified |
 | Pitch | Seven editable slides, actual app images, final package checks and every slide visually inspected | Live voice is visibly disclosed as pending |
 
-The actual read-only MCP smoke reports source agreement separately; success must not be interpreted as all source features loaded. The doctor currently fails its loaded-build/schema checks for the older running processes. Preserve that failure until the processes genuinely load the new code.
+The actual read-only MCP smoke reports source agreement separately. It now reports true with 32 source/running tools after the normal save/quit/reload. The doctor passes loaded-build/schema checks and local readiness, while correctly reporting voice unready.
 
-## Resume the real application safely
+## Reload the real application safely
+
+The user confirmed the Mac was unlocked this morning. The prior public OS-2 state was saved through QuPath's native save dialog to a separate private recovery file before normal quit; the source slide was not overwritten. The new normal QuPath and companion-owned gateway loaded successfully. Use these steps again for future updates:
 
 1. Manually unlock the Mac. Finish, save or explicitly discard work through QuPath's normal interface; resolve any pending/running scientific actions. Do not force-close an app to update an extension.
 2. Quit this development instance of QuPath and Luma normally. Luma stops only a gateway it owns. An externally started gateway must be handled by its owner after its work has finished.
@@ -34,7 +37,7 @@ npm run smoke
 
 The diagnostic/smoke commands are read-only and make no model call. Check the actual loaded adapter identity, schema agreement and desired open image before requesting an operation. New Java classes are loaded at QuPath startup; replacing a JAR on disk does not update a running application. Current launcher settings use QuPath's supported separate preference node; earlier running instances did not establish that isolation. See [preservation details](ARCHITECTURE.md#preserving-qupath).
 
-Then inspect the new native text/Stop controls, measurement plots and exact approval details in the foreground. Image/project navigation and new dialog flows still need their own real-app outcome verification. The separately authorized synthetic import test passed at 07:34 BST in its own disposable QuPathGUI instance with two fixture-only decisions; it restored the empty baseline and stopped safely. The normal older QuPath/gateway processes were not restarted, and ordinary production approvals are unchanged. See [import test boundaries](SYNTHETIC-IMPORT-TEST.md) and [task coverage](SOFTWARE-COVERAGE.md).
+The compact bar and native text submission have now been inspected in the foreground. A real typed opening request produced the exact public-slide proposal, awaiting the human's click in Luma. The resulting image, measurement plots, navigation and dialogs still need outcome checks. The separately authorized synthetic import test passed at 07:34 BST in its own disposable QuPathGUI instance with two fixture-only decisions; it restored the empty baseline and stopped safely. Ordinary production approvals are unchanged. See [foreground demo](LIVE-DEMO.md), [import test boundaries](SYNTHETIC-IMPORT-TEST.md) and [task coverage](SOFTWARE-COVERAGE.md).
 
 ## Finish live voice
 

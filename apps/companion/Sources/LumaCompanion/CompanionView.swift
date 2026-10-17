@@ -7,6 +7,7 @@ private let hairline = Color.white.opacity(0.08)
 
 struct CompanionView: View {
     @ObservedObject var model: CompanionModel
+    var height: CGFloat = 600
     @State private var showingFunding = false
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +27,7 @@ struct CompanionView: View {
             }.padding(.horizontal, 22).padding(.top, 8)
             footer
         }
-        .frame(width: 420, height: 600)
+        .frame(width: 420, height: height)
         .background(Color(red: 0.075, green: 0.085, blue: 0.09))
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(hairline, lineWidth: 1))

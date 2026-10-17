@@ -14,6 +14,16 @@ The text/reference fixtures, focused viewer follow-up and two fixed scientific-a
 
 ## Enforced behavior
 
+### Morning read-only voice-route investigation
+
+After the user confirmed the Mac was unlocked, fresh Billing/STS/Pricing checks confirmed active eligible credits for Amazon Transcribe and Amazon Polly, alongside the existing OpenAI Bedrock text route. The account's OpenAI Bedrock model catalog listed text/image inputs and text outputs; no audio model was listed in this region. This is a scoped account/region observation, not a claim about every region or future release.
+
+The regional price catalog lists standard Transcribe streaming (`transcribe`, `USE1-StreamingAudio`, `StreamingAudio`) at $0.0001667 per second and Polly Neural (`AmazonPolly`, `USE1-SynthesizeSpeechNeural-Characters`) at $0.000016 per character. The first query used the wrong Transcribe service code and returned no products; the official AWS offer index resolved its actual lowercase code before rates were recorded. No speech request was made. Private read-only evidence remains in `.local/evidence/morning-speech-funding.json`.
+
+The proposed route is **Amazon Transcribe → OpenAI on Bedrock → Amazon Polly**. This changes the originally requested OpenAI-only voice frontend, so the explicit user choice is still pending. It is not GPT-Live. Before activation it still needs validated current-price/credit parsing, conservative durable reservations, bounded capture/session duration, interruption and ownership handling, native wiring, and a real microphone/playback test. A 180-second transcription plus 1,000 Neural characters would be about $0.046 at those observed speech rates, excluding reasoning; this is an estimate, not reconciled billing or an implemented spend guard. The existing $200 lifetime guard must remain intact.
+
+Official service references: [Transcribe streaming](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html), [Polly speech synthesis](https://docs.aws.amazon.com/polly/latest/dg/getting-started.html), [Transcribe pricing](https://aws.amazon.com/transcribe/pricing/). Actual eligible-service checks and current regional API rates remain prerequisites for each paid route.
+
 `packages/gateway/src/funding.ts` fails closed. The server's voice-start handler reports the blocker and never opens an upstream model connection. There is no fallback to a personal OpenAI API key, no environment switch that silently authorizes cash billing, and no pretend live voice result.
 
 The standalone Realtime transport and the separate GPT-Live client-delegation transport/backend have local protocol tests. Neither is activated in the production server. The scripted voice-protocol smoke uses only loopback connections and display operations; it is not live AI or microphone verification. See VOICE.md.
