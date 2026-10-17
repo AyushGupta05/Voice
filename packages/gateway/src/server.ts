@@ -7,6 +7,10 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { QuPathAdapter } from './bridge.js';
 import { Knowledge } from './knowledge.js';
 import { Runtime } from './runtime.js';
+import { TextConversation } from './text-session.js';
+import { BedrockBackendClient, loadTextConfig } from './bedrock-client.js';
+import { BEDROCK_MODEL } from './aws-credit-proof.js';
+import type { BackendClient } from './backend.js';
 import { tools, type Arguments } from './tools.js';
 import { fundingStatus } from './funding.js';
 
@@ -24,11 +28,14 @@ async function body(req:IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string,unknown>;
 }
 function json(res:ServerResponse,status:number,value:unknown) {res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
-export async function startServer(root:string,port=49555) {
+export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string };
+export async function startServer(root:string,port=49555,options:ServerOptions={}) {
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
   const knowledge=new Knowledge();await knowledge.load(root);
-  const runtime=new Runtime(new QuPathAdapter(root),knowledge,state);
+  const runtime=options.runtime??new Runtime(new QuPathAdapter(root),knowledge,state);
+  const textClient=options.textClient??new BedrockBackendClient(state);
+  const conversations=new Map<WebSocket,TextConversation>();
   const peers=new Set<WebSocket>();
   const emit=(event:Record<string,unknown>)=>{for(const peer of peers) if(peer.readyState===WebSocket.OPEN)peer.send(JSON.stringify(event));};
   runtime.on('action',action=>emit({type:'action',action}));
@@ -41,7 +48,7 @@ export async function startServer(root:string,port=49555) {
       const companion=equal(req.headers.authorization,companionToken);
       if(!companion&&!equal(req.headers.authorization,gatewayToken)){json(res,401,{error:'Unauthorized'});return;}
       const url=new URL(req.url??'/','http://127.0.0.1');
-      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}json(res,200,{application:'Luma',tools:tools.length,voice:await fundingStatus(root),context,bridgeError,actions:[...runtime.actions.values()].slice(-30)});return;}
+      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}let text;try{await loadTextConfig(state);text={configured:true,model:BEDROCK_MODEL,reason:'AWS-credit text configured; credit eligibility is rechecked before every request.'};}catch{text={configured:false,reason:'Text needs verified AWS credits. See docs/AWS-TEXT.md.'};}json(res,200,{application:'Luma',tools:tools.length,voice:await fundingStatus(root),text,context,bridgeError,actions:[...runtime.actions.values()].slice(-30)});return;}
       if(req.method==='GET'&&url.pathname==='/tools'){json(res,200,{tools});return;}
       if(req.method==='POST'&&url.pathname==='/tools/call'){const request=await body(req);if(typeof request.name!=='string'||!request.arguments||typeof request.arguments!=='object'||Array.isArray(request.arguments))throw new Error('Expected name and arguments object.');json(res,200,{result:await runtime.call(request.name,request.arguments as Arguments)});return;}
       if(req.method==='POST'&&/^\/approvals\/[a-f0-9-]+$/.test(url.pathname)){
@@ -59,19 +66,23 @@ export async function startServer(root:string,port=49555) {
   });
   wss.on('connection',ws=>{
     peers.add(ws);
+    const conversation=new TextConversation(runtime,textClient,options.textModel??BEDROCK_MODEL,event=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));});
+    conversations.set(ws,conversation);
     ws.on('message',raw=>{
       void (async()=>{
         const event=JSON.parse(raw.toString());
         if(event.type==='start_voice') ws.send(JSON.stringify({type:'error',message:(await fundingStatus(root)).reason}));
-        else if(event.type==='text')ws.send(JSON.stringify({type:'error',message:'Conversational execution needs a funded voice/model connection. Quick actions and MCP tools work locally.'}));
+        else if(event.type==='text')await conversation.submit(event.text);
+        else if(event.type==='stop_task')conversation.stop();
         else if(event.type==='stop_voice')ws.send(JSON.stringify({type:'voice_state',state:'idle'}));
       })().catch(error=>ws.send(JSON.stringify({type:'error',message:error.message})));
     });
-    ws.on('error',()=>peers.delete(ws));ws.on('close',()=>peers.delete(ws));
+    const disconnected=()=>{conversation.stop();conversations.delete(ws);peers.delete(ws);};
+    ws.on('error',disconnected);ws.on('close',disconnected);
     ws.send(JSON.stringify({type:'connected',tools:tools.length}));
   });
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve());});
-  return {server,runtime,close:async()=>{for(const peer of peers)peer.close();wss.close();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
+  return {server,runtime,close:async()=>{for(const conversation of conversations.values())conversation.stop();for(const peer of peers)peer.close();wss.close();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
   const root=resolve(process.env.LUMA_ROOT??process.cwd());

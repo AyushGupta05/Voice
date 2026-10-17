@@ -29,3 +29,25 @@ test('loopback gateway separates model tools from human approval and blocks brow
     ws.close();await once(ws,'close');
   }finally{await gateway.close();await rm(root,{recursive:true,force:true});}
 });
+
+test('authenticated companion text uses the shared Runtime and returns its actual view result over WebSocket',async()=>{
+  const {Runtime}=await import('../src/runtime.js');const {Knowledge}=await import('../src/knowledge.js');
+  const root=await mkdtemp(join(tmpdir(),'luma-text-server-'));let modelCalls=0;let focused=false;
+  const runtime=new Runtime({execute:async operation=>operation==='context'?{contextKey:'fixture',image:{name:'Synthetic'}}:(focused=true,{x:10,y:20})},new Knowledge(),join(root,'.local/state'));
+  const gateway=await startServer(root,0,{runtime,textModel:'synthetic',textClient:{complete:async request=>{
+    assert.equal(request.model,'synthetic');
+    if(++modelCalls===1)return{output:[{type:'function_call',call_id:'focus',name:'qupath_focus',arguments:'{"x":10,"y":20}'}]};
+    assert(focused);const result=request.input.find(item=>item.type==='function_call_output')!;
+    assert.deepEqual(JSON.parse(String(result.output)),{x:10,y:20});
+    return{output:[],output_text:'The actual synthetic view result is ready.'};
+  }}});
+  const address=gateway.server.address();assert(address&&typeof address==='object');
+  const human=(await readFile(join(root,'.local/state/companion-token'),'utf8')).trim();
+  const ws=new WebSocket(`ws://127.0.0.1:${address.port}/events`,{headers:{Authorization:`Bearer ${human}`}});const events:any[]=[];ws.on('message',raw=>events.push(JSON.parse(raw.toString())));
+  try{
+    await once(ws,'open');ws.send(JSON.stringify({type:'text',text:'Focus this synthetic view.',model:'untrusted-provider-choice'}));
+    const deadline=Date.now()+2000;while(!events.some(event=>event.type==='text_result')){assert(Date.now()<deadline);await new Promise(resolve=>setTimeout(resolve,5));}
+    assert.equal(events.find(event=>event.type==='text_result').text,'The actual synthetic view result is ready.');assert.equal(modelCalls,2);assert.equal(runtime.actions.size,0);
+    ws.close();await once(ws,'close');
+  }finally{ws.terminate();await gateway.close();await rm(root,{recursive:true,force:true});}
+});

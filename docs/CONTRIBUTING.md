@@ -49,3 +49,5 @@ For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `n
 CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
 
 The AWS text-adapter tests use only synthetic credit/price records, mocked inference and intercepted SDK requests. `npm run check` never enables funding or invokes a real model. `npm run enable:text` and `npm run smoke:text -- --public-fixture` are explicit, separate commands; read [AWS-TEXT.md](AWS-TEXT.md) before using them. The latter consumes verified AWS credits and is not a generic CI/setup check.
+
+`npm run smoke:companion-text -- --public-fixture` separately tests actual credit-funded text through an authenticated loopback server using production conversation routing and the restricted public-slide Runtime. It does not click the native controls, activate voice, approve a proposal or permit scientific mutations. Ordinary text-conversation/Stop tests in `npm run check` use an injected synthetic client and never invoke AWS.

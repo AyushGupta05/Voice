@@ -17,7 +17,8 @@
     "docs:check": "tsx script/tool-reference.ts --check",
     "doctor": "tsx script/doctor.ts",
     "enable:text": "tsx script/enable-text.ts",
-    "smoke:text": "tsx script/text-smoke.ts"
+    "smoke:text": "tsx script/text-smoke.ts",
+    "smoke:companion-text": "tsx script/companion-text-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1152.0",

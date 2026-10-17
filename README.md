@@ -18,7 +18,7 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 
 Those counts verify software operation for the fixture. They do not validate segmentation or biological interpretation. See [data provenance](docs/DATASETS.md).
 
-**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. A separate AWS-credit OpenAI text test successfully focused real QuPath, with $0.0014 estimated token usage and $3 conservatively reserved; it is not wired to the companion yet. No direct cash-billed OpenAI route or cloud infrastructure was used. [Funding decision](docs/FUNDING.md)
+**Production voice is not yet enabled.** The user requires AWS credits only. No credit-covered OpenAI realtime/GPT-Live endpoint has been verified. The separate Realtime and GPT-Live transports and injected backend have local protocol tests, but provider/native capture wiring and live verification remain. Production activation stays disabled. The companion now has an AWS-credit OpenAI text path with follow-ups and Stop. Its real authenticated message-route test focused QuPath correctly; the new native controls compile, with foreground visual checks pending manual unlock. Across two real text tests, token usage estimates total $0.0028011 and $6 is conservatively reserved; AWS billing settlement remains unreconciled. No direct cash-billed OpenAI route or cloud infrastructure was used. [Funding decision](docs/FUNDING.md)
 
 ## Start locally
 

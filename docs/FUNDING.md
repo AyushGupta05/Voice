@@ -8,7 +8,7 @@ The signed-in AWS Billing Credits UI showed an active hackathon promotional cred
 
 Official documentation lists supported OpenAI models on Bedrock and Responses/Chat Completions endpoints. It did not establish a Bedrock endpoint for OpenAI Realtime or GPT-Live. OpenAI's direct realtime service uses its own API authentication and billing.
 
-The separate AWS-credit text test later made **three real model requests**, with an estimated token cost of **$0.00140025** and **$3 retained as conservative attempt reserves**. Fresh account/credit/access/price checks preceded each call. No direct cash-billed OpenAI route, new subscription or project cloud infrastructure was used. AWS invoice/credit settlement is not reconciled; these figures do not describe unrelated existing account usage.
+Two separate AWS-credit text fixtures later made **six real model requests** in total, with estimated token usage of **$0.0028011** and **$6 retained as conservative attempt reserves**. Fresh account/credit/access/price checks preceded each call. No direct cash-billed OpenAI route, new subscription or project cloud infrastructure was used. AWS invoice/credit settlement is not reconciled; these figures do not describe unrelated existing account usage.
 
 ## Enforced behavior
 
@@ -33,4 +33,4 @@ Account balances, account IDs and credit IDs remain in the private console/local
 
 ## Separate credit-verified text adapter
 
-A later read-only API check verified current eligible credits, existing GPT-OSS-120B access and exact regional token prices. The native Bedrock text adapter and durable $200 attempt reserve are implemented under offline tests. They do not establish GPT-Live funding. See [AWS-TEXT.md](AWS-TEXT.md) for activation, the deliberately separate real-inference smoke command and proof boundaries. The bounded real public-slide inference test passed with unchanged scientific objects; the production text handler is not wired to this adapter yet.
+A later read-only API check verified current eligible credits, existing GPT-OSS-120B access and exact regional token prices. The native Bedrock text adapter and durable $200 attempt reserve are implemented under offline tests. They do not establish GPT-Live funding. See [AWS-TEXT.md](AWS-TEXT.md) for activation, the deliberately separate real-inference smoke command and proof boundaries. Both the direct backend test and authenticated companion message-route fixture passed with unchanged scientific objects. The native text/Stop controls compile; their foreground visual inspection still needs manual unlock.

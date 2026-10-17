@@ -20,6 +20,7 @@ There are 23 MCP tools. Breadth comes from structured scientific operations, the
 | JavaFX control action | Fire, edit text, select exact combo option | Yes | Image-type dialog toggle and Apply verified; bound to reviewed dialog fingerprint and revalidated at dispatch; password fields excluded |
 | Groovy execution | Full QuPath scripting context | Yes | Requires open project + image; full local privileges; exact-source review; external effects not recoverable |
 | Knowledge | Authored guides + pinned official documentation | No | 66 documents indexed in the current local checkout |
+| AWS-credit OpenAI text | Per-peer follow-ups, full answers, Stop, same Runtime and real human approvals | Data actions: yes | Real authenticated WebSocket → GPT-OSS-120B → exact QuPath focus passed; text-only, no viewer vision; native controls compile, foreground checks pending |
 | Native companion | Floating panel, action history, approvals, knowledge search | N/A | Builds, launches and visually inspected on this Mac |
 | Realtime voice transport | Continuous PCM protocol, VAD, function calls, interruption events | Funding gate | Local protocol fixture passes; no live provider session; production activation intentionally absent |
 | GPT-Live client delegation | Separate transport and provider-injected backend, timestamped conversation, actual Runtime tools, human-decision waits | Funding gate | Local protocol/backend tests and a scripted display-only real-QuPath integration; no live model, microphone or provider session |

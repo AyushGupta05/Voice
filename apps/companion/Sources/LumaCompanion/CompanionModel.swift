@@ -8,6 +8,7 @@ struct Activity: Identifiable {
     let detail: String
     let time = Date()
     var isError = false
+    var icon = "checkmark.circle.fill"
 }
 
 @MainActor
@@ -21,6 +22,11 @@ final class CompanionModel: ObservableObject {
     @Published var context: [String: Any] = [:]
     @Published var voiceReason = "Checking voice connection…"
     @Published var voiceActive = false
+    @Published var textReady = false
+    @Published var textBusy = false
+    @Published var eventsReady = false
+    @Published var textSending = false
+    @Published var textReason = "Text needs verified AWS credits."
     @Published var input = ""
     @Published var knowledgeQuery = ""
     @Published var knowledgeResults: [[String: Any]] = []
@@ -60,6 +66,8 @@ final class CompanionModel: ObservableObject {
     }
     func stop() {
         stopping = true
+        textBusy = false
+        eventsReady = false
         polling?.cancel(); receiving?.cancel(); reconnect?.cancel()
         socket?.cancel(with: .goingAway, reason: nil)
         audio.stop()
@@ -89,6 +97,9 @@ final class CompanionModel: ObservableObject {
             connected = true
             bridgeConnected = health["bridgeError"] == nil
             voiceReason = (health["voice"] as? [String: Any])?["reason"] as? String ?? "Voice funding has not been verified."
+            let text = health["text"] as? [String: Any] ?? [:]
+            textReady = text["configured"] as? Bool ?? false
+            textReason = text["reason"] as? String ?? "Text needs verified AWS credits."
             context = health["context"] as? [String: Any] ?? [:]
             if let dispatch = context["lastDispatch"] as? [String: Any], dispatch["status"] as? String == "failed",
                let id = dispatch["id"] as? String, id != lastDispatchFailure {
@@ -103,7 +114,8 @@ final class CompanionModel: ObservableObject {
             else { selectionLabel = "\(selectionCount) objects selected" }
             approvals = (health["actions"] as? [[String: Any]] ?? []).filter { $0["status"] as? String == "pending" }
         } catch {
-            connected = false; bridgeConnected = false
+            // HTTP polling can fail while the task's WebSocket is still alive; retain Stop.
+            connected = false; bridgeConnected = false; textReady = false
             voiceReason = "Starting the local gateway…"
             if !stopping {
                 do { try gateway?.ensureRunning() }
@@ -113,11 +125,14 @@ final class CompanionModel: ObservableObject {
     }
     private func connectEvents() {
         guard !stopping else { return }
+        eventsReady = false
         do {
             try loadToken()
             var request = URLRequest(url: URL(string: "ws://127.0.0.1:49555/events")!)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let connection = session.webSocketTask(with: request)
+            receiving?.cancel()
+            socket?.cancel(with: .goingAway, reason: nil)
             socket = connection
             connection.resume()
             receiving = Task { [weak self] in
@@ -126,9 +141,13 @@ final class CompanionModel: ObservableObject {
                         let message = try await connection.receive()
                         let data: Data
                         switch message { case .string(let text): data = Data(text.utf8); case .data(let bytes): data = bytes; @unknown default: continue }
-                        if let event = try JSONSerialization.jsonObject(with: data) as? [String: Any] { self?.receive(event) }
+                        guard let self, self.socket === connection else { return }
+                        if let event = try JSONSerialization.jsonObject(with: data) as? [String: Any] { self.receive(event) }
                     }
-                } catch { self?.scheduleReconnect() }
+                } catch {
+                    guard let self, self.socket === connection else { return }
+                    self.eventsReady = false; self.textBusy = false; self.scheduleReconnect()
+                }
             }
         } catch { scheduleReconnect() }
     }
@@ -143,8 +162,10 @@ final class CompanionModel: ObservableObject {
     }
     private func receive(_ event: [String: Any]) {
         switch event["type"] as? String {
+        case "connected": eventsReady = true
         case "tool":
             let name = event["name"] as? String ?? "Action"
+            if name == "qupath_context" { Task { await refresh() }; return }
             let result = event["result"] as? [String: Any] ?? [:]
             let nested = result["result"] as? [String: Any] ?? result
             activities.insert(Activity(title: friendly(name), detail: summary(nested)), at: 0)
@@ -160,6 +181,20 @@ final class CompanionModel: ObservableObject {
         case "error":
             activities.insert(Activity(title: "Needs attention", detail: event["message"] as? String ?? "Unknown error", isError: true), at: 0)
             voiceActive = false; audio.stop()
+        case "text_result":
+            if let text = event["text"] as? String {
+                activities.insert(Activity(title: "Luma", detail: text, icon: "sparkle"), at: 0)
+                activities = Array(activities.prefix(40))
+            }
+        case "text_progress":
+            if let text = event["text"] as? String {
+                activities.insert(Activity(title: "Luma", detail: text, icon: "clock"), at: 0)
+                activities = Array(activities.prefix(40))
+            }
+        case "text_error":
+            textBusy = false
+            activities.insert(Activity(title: "Text task stopped", detail: event["message"] as? String ?? "Inspect the application before retrying.", isError: true), at: 0)
+        case "task_state": textBusy = event["state"] as? String == "working"
         case "audio":
             if let base64 = event["audio"] as? String, let data = Data(base64Encoded: base64) { audio.play(pcm: data) }
         case "interrupted": audio.interruptPlayback()
@@ -190,10 +225,40 @@ final class CompanionModel: ObservableObject {
         } catch { activities.insert(Activity(title: "Search unavailable", detail: error.localizedDescription, isError: true), at: 0) }
     }
     func sendText() {
-        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = input
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        input = ""
-        send(["type": "text", "text": text])
+        guard !textSending else { return }
+        guard text.utf16.count <= 4000 else {
+            activities.insert(Activity(title: "Message too long", detail: "Use a message of up to 4000 characters.", isError: true), at: 0)
+            return
+        }
+        guard textReady else {
+            activities.insert(Activity(title: "Text setup needed", detail: textReason, isError: true), at: 0)
+            return
+        }
+        guard eventsReady, let connection = socket else {
+            activities.insert(Activity(title: "Reconnecting", detail: "Your draft is kept. Wait for the conversation connection.", isError: true), at: 0)
+            return
+        }
+        textSending = true
+        Task {
+            defer { textSending = false }
+            do {
+                let data = try JSONSerialization.data(withJSONObject: ["type": "text", "text": text])
+                try await connection.send(.string(String(decoding: data, as: UTF8.self)))
+                if input == draft { input = "" }
+                selectedTab = 0
+                activities.insert(Activity(title: "You", detail: text, icon: "bubble.right"), at: 0)
+                activities = Array(activities.prefix(40))
+            } catch {
+                activities.insert(Activity(title: "Delivery unconfirmed", detail: "Your draft is kept. Inspect the session before retrying.", isError: true), at: 0)
+            }
+        }
+    }
+    func stopTextTask() {
+        send(["type": "stop_task"])
+        textBusy = false
     }
     func toggleVoice() {
         if voiceActive { send(["type": "stop_voice"]); audio.stop(); voiceActive = false }

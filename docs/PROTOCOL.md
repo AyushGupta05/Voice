@@ -65,3 +65,12 @@ A region scope tests object centroids inside the selected ROI on the same plane.
 Implement `Adapter.execute(operation, arguments, options)`. Start with observation, capability discovery, a reversible view action, and one scientifically useful operation. Keep application-specific APIs in the adapter. Add knowledge with version/source provenance. Reuse the gateway's validation, approvals and action events. Do not let a new voice provider or MCP transport invent a parallel approval path.
 
 Detection is an exception to synchronous JavaFX dispatch: preparation and final observations run on JavaFX, while plugin orchestration runs on the request worker using a captured immutable list of approved parent objects. Other gateway mutations reject while detection is running. The native progress dialog provides cancellation. A client timeout can still leave an analysis running, so inspect that dialog before retrying. Detection results explicitly distinguish plugin execution from verified segmentation completion.
+
+
+## Researcher text conversation
+
+Authenticated companion `/events` peers may send `{ "type": "text", "text": "..." }` (1–4000 characters) or `{ "type": "stop_task" }`. A text request creates backend work only through the configured AWS-credit adapter. It cannot select a provider/model or enable voice. Responses include `task_state`, `text_progress`, `text_result` and `text_error`; full results stay separate from concise progress. Existing `tool` and `action` events report real operations and human decisions.
+
+Each peer owns a bounded conversation and backend result history. A new message aborts its older task; Stop/disconnect cancels unstarted/cooperative work and suppresses late answers. Already executed operations and pending human proposals remain. Human approval still requires the companion HTTP decision route; text such as “yes” is never an approval token. The production entry point always uses the credit-checked Bedrock client. Programmatic server options exist for synthetic/restricted test fixtures, not as an HTTP or environment provider bypass.
+
+`/health.text.configured` reports a valid local configuration, not current credit availability or model success; fresh funding checks occur on each request. The voice status remains independently disabled.

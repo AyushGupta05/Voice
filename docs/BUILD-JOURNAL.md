@@ -126,3 +126,13 @@ Three review findings were accepted and fixed, plus an independently found expir
 After that review, explicitly activated local text configuration and ran the bounded real public-slide smoke. Three real OpenAI model requests focused QuPath at the exact requested (51100, 27100), downsample 3, and confirmed the actual result. Hierarchy stayed empty, no proposal/data tool was permitted, and no voice/vision was used. Token charges estimate $0.00140025; the ledger holds $3. Invoice/credit settlement is not reconciled. No project infrastructure, new model agreement or API key was created. Evidence is docs/pitch/text-model-evidence.json.
 
 Next: connect the reviewed adapter to researcher text messages in the companion with interruption and full-result display, then test that path. Production GPT-Live remains funding-blocked. Native foreground visual inspection still needs manual unlock.
+
+## 17 October 2026, 03:58 BST — companion text path reviewed and real-tested
+
+Connected researcher text messages to the reviewed AWS-credit backend through one conversation per authenticated companion WebSocket. Full answers, follow-up context, progress and Stop use the existing Runtime; data proposals still await real human decisions. Superseding/aborted tasks cannot publish late answers or clear the new task's busy state. Native controls expose readiness separately from HTTP health, retain typed drafts through reconnect/send failure and preserve Stop during a failed health poll.
+
+Structured review found three accepted defects across its passes; all were verified and fixed. Its final run exited 0 clean. Gateway checks passed 60 tests and documentation consistency; the native build and four PCM tests passed. The separate actual companion-route fixture then made three credit-checked OpenAI requests, focused real QuPath at exactly (51100, 27100), downsample 3, and confirmed the returned center. No scientific objects changed and no proposals were generated. Evidence is docs/pitch/companion-text-evidence.json.
+
+A normal scoped development restart loaded the new native app/gateway after verifying no pending or running actions. Its health now reports text configured and voice disabled, with the public hierarchy still empty. This is process/protocol verification: the locked Mac still prevents foreground inspection of the new native controls. No attempt was made to unlock or bypass the lock.
+
+Cumulative local receipts now show six real model requests and $0.0028011 estimated token usage. The durable ledger retains all $6 reserves under its unchanged $200 cap; billing settlement is not reconciled. Production GPT-Live funding remains unresolved and activation disabled. The next useful verification is native text/Stop interaction after manual unlock.

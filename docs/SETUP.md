@@ -32,6 +32,12 @@ The default QuPath runtime does not include `jdk.httpserver`, which this extensi
 
 Open an image in QuPath. The image-type prompt is part of the real application; choose the interpretation appropriate to the dataset. Luma then follows the active image and selection. The quick actions focus, change detection display and save hierarchy checkpoints.
 
+## Optional AWS-credit text control
+
+The local quick actions/MCP need no model account. For text-agent control, read [AWS-TEXT.md](AWS-TEXT.md), authenticate an existing AWS profile with eligible credits and existing model access, then run `npm run enable:text`. Rebuild/restart Luma with `./script/build_and_run.sh --verify`. Type a request in the companion; risky scientific changes still wait for an exact human approval. Stop cancels unstarted work; it does not roll back completed operations or decide pending proposals. GPT-Live voice remains separately funding-blocked.
+
+The configuration expires after 24 hours. Re-running activation rechecks funding for the same account and preserves all budget reservations. Do not delete the ledger to reset usage.
+
 ## Rebuild after changes
 
 ```sh

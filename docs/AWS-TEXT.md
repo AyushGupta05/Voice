@@ -2,7 +2,7 @@
 
 This adapter is separate from GPT-Live voice. It uses the already-enabled OpenAI GPT-OSS-120B model through Amazon Bedrock `InvokeModel` in `us-east-1`. It is text-only: application context and measured values are available, while viewer vision is excluded. All 23 MCP tools remain available to compatible external clients; this text backend omits the viewer-image tool.
 
-The adapter passed a bounded real model-to-QuPath test on 17 October 2026: three actual model requests focused the public viewer at (51100, 27100), with no object changes or approval proposals. Token usage estimates total $0.00140025; $3 remains reserved conservatively, and the AWS invoice is not reconciled. The production companion text route has not been connected to it yet, and production GPT-Live remains disabled. See [the model evidence](pitch/text-model-evidence.json).
+The adapter passed a bounded real model-to-QuPath test on 17 October 2026: three actual model requests focused the public viewer at (51100, 27100), with no object changes or approval proposals. Token usage estimates total $0.00140025; $3 remains reserved conservatively, and the AWS invoice is not reconciled. The companion text/Stop route also passed its actual authenticated WebSocket → model → QuPath fixture in 6079 ms, with three further requests. Across both fixtures, token usage estimates total $0.0028011 and $6 is retained as reserves. The native controls compile; foreground visual checks remain pending manual unlock. Production GPT-Live remains disabled. See [the direct model evidence](pitch/text-model-evidence.json) and [companion-route evidence](pitch/companion-text-evidence.json).
 
 ## Why this route
 
@@ -52,3 +52,9 @@ Sources checked on 17 October 2026:
 - [Native OpenAI request/response format](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-openai.html)
 - [Price-list GetProducts](https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_pricing_GetProducts.html)
 - [AWS login credential provider](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/Package/-aws-sdk-credential-providers/)
+
+## Companion path
+
+After local activation, rebuild/restart Luma through its normal launcher. The text field sends researcher messages to the same gateway Runtime as MCP. New requests supersede older work, and Stop cancels unstarted work while preserving completed actions and human-review proposals. Full answers are selectable in session history; internal context reads do not clutter the visible history. The native interface still shows the separate voice funding gate.
+
+`npm run smoke:companion-text -- --public-fixture` makes real credit-checked requests through an isolated authenticated WebSocket server using production conversation routing and the restricted public-fixture Runtime. It is separate from offline CI and does not click or visually inspect the native interface.

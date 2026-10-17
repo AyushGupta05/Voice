@@ -37,7 +37,7 @@ struct CompanionView: View {
                 Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(mint)
                 Text("Voice connection").font(.system(size: 24, weight: .semibold))
                 Text(model.voiceReason).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text("You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
+                Text(model.textReady ? "Type in Luma to operate QuPath while voice setup is pending." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
                 Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
             }.padding(28).frame(width: 360)
         }
@@ -86,16 +86,16 @@ struct CompanionView: View {
                 HStack {
                     Text("IN THIS SESSION").font(.system(size: 9, weight: .semibold)).tracking(1.4).foregroundStyle(secondaryText)
                     Spacer()
-                    if model.busy { ProgressView().controlSize(.mini) }
+                    if model.busy || model.textBusy { ProgressView().controlSize(.mini) }
                 }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(model.activities) { activity in
                             HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: activity.isError ? "exclamationmark.circle" : "checkmark.circle.fill").foregroundStyle(activity.isError ? Color.orange : mint).font(.system(size: 13)).padding(.top, 2)
+                                Image(systemName: activity.isError ? "exclamationmark.circle" : activity.icon).foregroundStyle(activity.isError ? Color.orange : mint).font(.system(size: 13)).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(activity.title).font(.system(size: 12, weight: .medium))
-                                    Text(activity.detail).font(.system(size: 11)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
+                                    Text(activity.detail).textSelection(.enabled).font(.system(size: 11)).foregroundStyle(secondaryText).fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -178,10 +178,13 @@ struct CompanionView: View {
             Divider().overlay(hairline)
             HStack(spacing: 10) {
                 TextField("Ask Luma to do something…", text: $model.input).font(.system(size: 12)).textFieldStyle(.plain).onSubmit { model.sendText() }
-                Button { model.sendText() } label: { Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).disabled(model.input.isEmpty).help("Send message")
+                if model.textBusy {
+                    Button { model.stopTextTask() } label: { Image(systemName: "stop.fill").font(.system(size: 10)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).help("Stop unstarted work; completed actions and human decisions remain")
+                }
+                Button { model.sendText() } label: { Image(systemName: "arrow.up").font(.system(size: 12, weight: .semibold)).frame(width: 25, height: 25).background(Color.white.opacity(0.08), in: Circle()) }.buttonStyle(.plain).disabled(model.input.isEmpty || !model.textReady || !model.connected || !model.eventsReady || model.textSending).help(model.textReady ? "Send message using verified AWS credits" : model.textReason)
             }.padding(.horizontal, 13).padding(.vertical, 10).background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Button { showingFunding = true } label: { HStack(spacing: 5) { Circle().fill(Color.orange).frame(width: 4, height: 4); Text("Voice setup needed").font(.system(size: 10)) }.foregroundStyle(secondaryText) }.buttonStyle(.plain).help(model.voiceReason)
+                Button { showingFunding = true } label: { HStack(spacing: 5) { Circle().fill(Color.orange).frame(width: 4, height: 4); Text(model.textReady ? "Text ready · Voice setup" : "Voice setup needed").font(.system(size: 10)) }.foregroundStyle(secondaryText) }.buttonStyle(.plain).help(model.voiceReason)
                 Spacer()
                 Button { model.toggleVoice() } label: {
                     HStack(spacing: 7) { Image(systemName: model.voiceActive ? "stop.fill" : "waveform"); Text(model.voiceActive ? "Stop voice" : "Start voice") }.font(.system(size: 11, weight: .semibold)).padding(.horizontal, 15).padding(.vertical, 10).background(mint, in: Capsule()).foregroundStyle(Color.black.opacity(0.85))

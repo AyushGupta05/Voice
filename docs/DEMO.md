@@ -9,7 +9,7 @@ A researcher knows what they want to do. Luma reads the actual selected region a
 1. Follow SETUP.md and launch the real QuPath instance and companion.
 2. Open the public OS-2 Ki-67 slide. Choose H-DAB image type based on its known source.
 3. Select a small region of tissue. Keep the application's image and the companion visible.
-4. Connect an MCP client using the provided prompt/skill. The MCP path is usable without a live voice provider.
+4. Connect an MCP client using the provided prompt/skill, or explicitly activate the AWS-credit text adapter following AWS-TEXT.md and type in Luma. The text model can use application metadata and measurements, but cannot see viewer images. The native text controls still need foreground verification before presenting.
 5. If live voice is still funding-blocked, state that clearly and demonstrate semantic tool control. Do not play a canned response as if it were live inference.
 
 ## Suggested live requests
