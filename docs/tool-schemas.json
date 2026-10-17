@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "application": "QuPath",
+  "app": "qupath",
   "toolCount": 57,
   "tools": [
     {

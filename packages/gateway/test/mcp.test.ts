@@ -91,3 +91,38 @@ test('MCP gateway accepts only valid loopback port numbers and fails clearly whe
   } finally { await f.close(); }
   await assert.rejects(f.gateway.catalog());
 });
+
+test('MCP serves the Fiji profile: fiji_* catalog, guide resource and prompt named after the application', async () => {
+  const { profiles } = await import('../src/apps/index.js');
+  const root = await mkdtemp(join(tmpdir(), 'luma-mcp-fiji-'));
+  await mkdir(join(root, '.local/state'), { recursive: true }); await mkdir(join(root, 'skills/fiji'), { recursive: true });
+  await writeFile(join(root, '.local/state/gateway-token'), 'agent-only'); await writeFile(join(root, 'skills/fiji/SKILL.md'), 'Fiji fixture guide');
+  const catalog: Tool[] = [{ name: 'fiji_zoom', description: 'Zoom', risk: 'view', inputSchema: { type: 'object', properties: { fit: { type: 'boolean' } }, additionalProperties: false } }, { name: 'fiji_checkpoint', description: 'Snapshot', risk: 'data', inputSchema: { type: 'object' } }];
+  const http = createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    res.setHeader('Content-Type', 'application/json');
+    if (req.headers.authorization !== 'Bearer agent-only') { res.statusCode = 401; res.end('{"error":"Unauthorized"}'); return; }
+    if (req.url === '/tools') { res.end(JSON.stringify({ tools: catalog })); return; }
+    if (req.url === '/tools/call') { const value = JSON.parse(raw); res.end(JSON.stringify({ result: { echoed: value.name, arguments: value.arguments } })); return; }
+    res.statusCode = 404; res.end('{}');
+  });
+  http.listen(0, '127.0.0.1'); await once(http, 'listening');
+  const address = http.address(); assert(address && typeof address !== 'string');
+  const server = createMCPServer(root, new MCPGateway(root, address.port), profiles.fiji); const client = new Client({ name: 'fiji-contract', version: '1' });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport); await client.connect(clientTransport);
+  try {
+    const inventory = await client.listTools();
+    assert.deepEqual(inventory.tools.map(tool => tool.name), ['fiji_zoom', 'fiji_checkpoint']);
+    assert.equal(inventory.tools[0].annotations?.readOnlyHint, false); assert.equal(inventory.tools[1].annotations?.destructiveHint, true);
+    const result = await client.callTool({ name: 'fiji_zoom', arguments: { fit: true } });
+    assert.deepEqual(result.content, [{ type: 'text', text: '{"echoed":"fiji_zoom","arguments":{"fit":true}}' }]);
+    const resources = await client.listResources(); assert.deepEqual(resources.resources.map(resource => resource.uri), ['fiji://guide']);
+    assert.match(JSON.stringify(await client.readResource({ uri: 'fiji://guide' })), /Refresh fiji_context[\s\S]*Fiji fixture guide/);
+    await assert.rejects(client.readResource({ uri: 'qupath://guide' }), /Unknown resource/);
+    assert.match(JSON.stringify(await client.getPrompt({ name: 'fiji-researcher' })), /Fiji fixture guide/);
+    assert.deepEqual((await client.listPrompts()).prompts.map(prompt => prompt.name), ['fiji-researcher']);
+  } finally {
+    await client.close(); await server.close(); http.closeAllConnections(); await new Promise<void>((resolve, reject) => http.close(error => error ? reject(error) : resolve())); await rm(root, { recursive: true, force: true });
+  }
+});

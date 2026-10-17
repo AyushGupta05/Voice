@@ -1,10 +1,10 @@
-# MCP tool reference
+# MCP tool reference (QuPath)
 
-Generated from `packages/gateway/src/tools.ts`. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](tool-schemas.json) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions.
+Generated from `packages/gateway/src/apps/qupath-tools.ts`; this profile is active when `LUMA_APP=qupath` (the default). Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](tool-schemas.json) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions. Other applications: [Fiji](TOOL-REFERENCE-FIJI.md).
 
-All inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately; data and code tools create human-review proposals. The approval control is absent from the MCP tool list.
+All inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately. Data and code tools go through the recorded decision path: executed at once under the default `LUMA_APPROVALS=auto` policy, shown as human review cards under `review`. The approval control is absent from the MCP tool list.
 
-| Tool | Risk | Human approval |
+| Tool | Risk | Decision path |
 |---|---|---|
 | [`qupath_context`](#qupath-context) | read | No |
 | [`qupath_objects`](#qupath-objects) | read | No |
@@ -13,10 +13,10 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_analysis_catalog`](#qupath-analysis-catalog) | read | No |
 | [`qupath_project_images`](#qupath-project-images) | read | No |
 | [`qupath_find_images`](#qupath-find-images) | read | No |
-| [`qupath_open_path`](#qupath-open-path) | code | Required |
-| [`qupath_open_project_image`](#qupath-open-project-image) | code | Required |
+| [`qupath_open_path`](#qupath-open-path) | code | Yes |
+| [`qupath_open_project_image`](#qupath-open-project-image) | code | Yes |
 | [`qupath_inspect_import`](#qupath-inspect-import) | read | No |
-| [`qupath_import_annotations`](#qupath-import-annotations) | data | Required |
+| [`qupath_import_annotations`](#qupath-import-annotations) | data | Yes |
 | [`qupath_select`](#qupath-select) | view | No |
 | [`qupath_focus`](#qupath-focus) | view | No |
 | [`qupath_highlight`](#qupath-highlight) | view | No |
@@ -24,45 +24,45 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`qupath_snapshot`](#qupath-snapshot) | read | No |
 | [`qupath_commands`](#qupath-commands) | read | No |
 | [`qupath_ui`](#qupath-ui) | read | No |
-| [`qupath_ui_action`](#qupath-ui-action) | code | Required |
-| [`qupath_annotate`](#qupath-annotate) | data | Required |
+| [`qupath_ui_action`](#qupath-ui-action) | code | Yes |
+| [`qupath_annotate`](#qupath-annotate) | data | Yes |
 | [`qupath_class_summary`](#qupath-class-summary) | read | No |
 | [`qupath_workflow_steps`](#qupath-workflow-steps) | read | No |
-| [`qupath_save_workflow`](#qupath-save-workflow) | code | Required |
-| [`qupath_detect_cells`](#qupath-detect-cells) | data | Required |
-| [`qupath_classify`](#qupath-classify) | data | Required |
-| [`qupath_image_type`](#qupath-image-type) | data | Required |
+| [`qupath_save_workflow`](#qupath-save-workflow) | code | Yes |
+| [`qupath_detect_cells`](#qupath-detect-cells) | data | Yes |
+| [`qupath_classify`](#qupath-classify) | data | Yes |
+| [`qupath_image_type`](#qupath-image-type) | data | Yes |
 | [`qupath_checkpoint`](#qupath-checkpoint) | read | No |
 | [`qupath_checkpoints`](#qupath-checkpoints) | read | No |
 | [`qupath_compare`](#qupath-compare) | read | No |
-| [`qupath_restore`](#qupath-restore) | data | Required |
-| [`qupath_delete_selected`](#qupath-delete-selected) | data | Required |
-| [`qupath_delete_objects`](#qupath-delete-objects) | data | Required |
-| [`qupath_edit_objects`](#qupath-edit-objects) | data | Required |
-| [`qupath_export_measurements`](#qupath-export-measurements) | data | Required |
-| [`qupath_export_annotations`](#qupath-export-annotations) | data | Required |
-| [`qupath_export_image`](#qupath-export-image) | data | Required |
-| [`qupath_set_stains`](#qupath-set-stains) | data | Required |
-| [`qupath_estimate_stains`](#qupath-estimate-stains) | data | Required |
+| [`qupath_restore`](#qupath-restore) | data | Yes |
+| [`qupath_delete_selected`](#qupath-delete-selected) | data | Yes |
+| [`qupath_delete_objects`](#qupath-delete-objects) | data | Yes |
+| [`qupath_edit_objects`](#qupath-edit-objects) | data | Yes |
+| [`qupath_export_measurements`](#qupath-export-measurements) | data | Yes |
+| [`qupath_export_annotations`](#qupath-export-annotations) | data | Yes |
+| [`qupath_export_image`](#qupath-export-image) | data | Yes |
+| [`qupath_set_stains`](#qupath-set-stains) | data | Yes |
+| [`qupath_estimate_stains`](#qupath-estimate-stains) | data | Yes |
 | [`qupath_display`](#qupath-display) | view | No |
 | [`qupath_plugins`](#qupath-plugins) | read | No |
-| [`qupath_run_plugin`](#qupath-run-plugin) | data | Required |
-| [`qupath_detect_positive_cells`](#qupath-detect-positive-cells) | data | Required |
+| [`qupath_run_plugin`](#qupath-run-plugin) | data | Yes |
+| [`qupath_detect_positive_cells`](#qupath-detect-positive-cells) | data | Yes |
 | [`qupath_classifiers`](#qupath-classifiers) | read | No |
-| [`qupath_apply_object_classifier`](#qupath-apply-object-classifier) | data | Required |
-| [`qupath_apply_pixel_classifier`](#qupath-apply-pixel-classifier) | data | Required |
-| [`qupath_save`](#qupath-save) | code | Required |
-| [`qupath_run_command`](#qupath-run-command) | code | Required |
-| [`qupath_run_script`](#qupath-run-script) | code | Required |
+| [`qupath_apply_object_classifier`](#qupath-apply-object-classifier) | data | Yes |
+| [`qupath_apply_pixel_classifier`](#qupath-apply-pixel-classifier) | data | Yes |
+| [`qupath_save`](#qupath-save) | code | Yes |
+| [`qupath_run_command`](#qupath-run-command) | code | Yes |
+| [`qupath_run_script`](#qupath-run-script) | code | Yes |
 | [`qupath_knowledge`](#qupath-knowledge) | read | No |
 | [`qupath_api_search`](#qupath-api-search) | read | No |
 | [`qupath_api_read`](#qupath-api-read) | read | No |
 | [`qupath_action_status`](#qupath-action-status) | read | No |
 | [`qupath_desktop_inspect`](#qupath-desktop-inspect) | read | No |
-| [`qupath_desktop_act`](#qupath-desktop-act) | code | Required |
-| [`qupath_desktop_type`](#qupath-desktop-type) | code | Required |
-| [`qupath_desktop_key`](#qupath-desktop-key) | code | Required |
-| [`qupath_desktop_click`](#qupath-desktop-click) | code | Required |
+| [`qupath_desktop_act`](#qupath-desktop-act) | code | Yes |
+| [`qupath_desktop_type`](#qupath-desktop-type) | code | Yes |
+| [`qupath_desktop_key`](#qupath-desktop-key) | code | Yes |
+| [`qupath_desktop_click`](#qupath-desktop-click) | code | Yes |
 
 <a id="qupath-context"></a>
 
@@ -561,7 +561,7 @@ Brightness/contrast and channels (display only): pick a channel by name or index
 
 | Parameter | Required | Accepted value |
 |---|---|---|
-| `channel` | No | value |
+| `channel` | No | string or integer; min 0 |
 | `min` | No | number |
 | `max` | No | number |
 | `auto` | No | boolean |

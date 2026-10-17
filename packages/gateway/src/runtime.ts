@@ -6,6 +6,7 @@ import type { Adapter, Context } from './bridge.js';
 import { validateTool, type Arguments, type Tool } from './tools.js';
 import type { Knowledge } from './knowledge.js';
 import { findLocalImages } from './local-images.js';
+import { activeProfile, type AppProfile } from './apps/index.js';
 
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
@@ -13,7 +14,7 @@ export type Action = {
 };
 /** Approval policy. The researcher asked for a fully agentic companion, so the default executes data/code actions
  * immediately; hierarchy checkpoints, the audit journal and Stop remain. LUMA_APPROVALS=review restores human review cards. */
-export type RuntimeOptions = { autoApprove?: boolean };
+export type RuntimeOptions = { autoApprove?: boolean; /** Application profile; defaults to the LUMA_APP selection. */ profile?: AppProfile };
 export const approvalPolicy = (setting = process.env.LUMA_APPROVALS): 'auto' | 'review' => {
   if (setting === undefined || setting === '' || setting === 'auto') return 'auto';
   if (setting === 'review') return 'review';
@@ -22,19 +23,23 @@ export const approvalPolicy = (setting = process.env.LUMA_APPROVALS): 'auto' | '
 export class Runtime extends EventEmitter {
   readonly actions = new Map<string, Action>();
   readonly autoApprove: boolean;
+  /** The application this runtime drives: its tools, dialogs and pre-dispatch checks. */
+  readonly profile: AppProfile;
   private operationQueue: Promise<unknown> = Promise.resolve();
   private readonly expirations = new Map<string, Promise<void>>();
-  constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string, options: RuntimeOptions = {}) { super(); this.autoApprove = options.autoApprove === true; }
+  constructor(readonly adapter: Adapter, readonly knowledge: Knowledge, private stateDirectory: string, options: RuntimeOptions = {}) { super(); this.autoApprove = options.autoApprove === true; this.profile = options.profile ?? activeProfile(); }
   async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
     signal?.throwIfAborted(); beforeDispatch?.();
-    const spec = validateTool(name, args);
+    const spec = validateTool(name, args, this.profile);
     // Own the request before asynchronous observations/previews can yield.
     args=structuredClone(args);
-    if (name === 'qupath_knowledge') return this.knowledge.search(args.query as string);
-    if (name === 'qupath_find_images') return findLocalImages(join(this.stateDirectory, '..', '..'), (args.query as string | undefined) ?? '', (args.limit as number | undefined) ?? 20);
-    if (name === 'qupath_api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
-    if (name === 'qupath_api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
-    if (name === 'qupath_action_status') {
+    // Tools without a bridge operation are answered here, whatever the application prefix.
+    const local = spec.operation ? undefined : name.slice(this.profile.toolPrefix.length + 1);
+    if (local === 'knowledge') return this.knowledge.search(args.query as string);
+    if (local === 'find_images') return findLocalImages(join(this.stateDirectory, '..', '..'), (args.query as string | undefined) ?? '', (args.limit as number | undefined) ?? 20);
+    if (local === 'api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
+    if (local === 'api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
+    if (local === 'action_status') {
       await this.expirePending();
       const action = this.actions.get(args.actionId as string);
       if (!action) throw new Error('Action not found (history is scoped to the running gateway).');
@@ -43,41 +48,8 @@ export class Runtime extends EventEmitter {
     if (spec.risk === 'data' || spec.risk === 'code') {
       const context = await this.adapter.execute('context') as Context;
       signal?.throwIfAborted(); beforeDispatch?.(context);
-      if (name === 'qupath_ui_action') {
-        const ui = await this.adapter.execute('ui') as { windows: Array<{ title: string; fingerprint: string; controls: Array<Record<string,unknown>> }> };
-        signal?.throwIfAborted(); beforeDispatch?.(context);
-        const window = ui.windows.find(window => window.controls.some(control => control.id === args.nodeId));
-        const control = window?.controls.find(control => control.id === args.nodeId);
-        if (!control || control.disabled) throw new Error('Target control is absent or disabled. Inspect QuPath UI again.');
-        context.reviewTarget = { window: window!.title, windowFingerprint: window!.fingerprint, ...control };
-      }
-      if (name === 'qupath_import_annotations') {
-        const preview = await this.adapter.execute('inspect_import',{path:args.path},{expectedContext:context.contextKey}) as Record<string,unknown>;
-        signal?.throwIfAborted(); beforeDispatch?.(context);
-        if (preview.sha256 !== args.sha256) throw new Error('Import file changed since inspection. Inspect and review again.');
-        context.reviewTarget = { type:'GeoJSON annotations',text:`${preview.annotations} annotations in full-resolution image pixels`,...preview };
-      }
-      if (name === 'qupath_classify') {
-        const filter:Arguments={kind:args.kind==='cell'?'cell':'detection',limit:1};
-        for(const key of ['scope','classification','ids'])if(args[key]!==undefined)filter[key]=args[key];
-        const candidates=await this.adapter.execute('objects',filter,{expectedContext:context.contextKey}) as {total?:unknown};
-        signal?.throwIfAborted();beforeDispatch?.(context);
-        if(!Number.isSafeInteger(candidates.total)||Number(candidates.total)<0)throw new Error('Cannot verify the matching detection count. Inspect the scope before classification.');
-        const count=Number(candidates.total);
-        if(count===0)throw new Error(args.classification
-          ?'No detections match this existing-class filter. classification filters CURRENT labels; omit it only if the researcher requested thresholding all matching detections. No action was prepared.'
-          :'No detections match the requested scope. Inspect the selected region and existing detections before classification. No action was prepared.');
-        context.reviewTarget={type:'Threshold classification',candidateCount:count,measurement:args.measurement,threshold:args.threshold,
-          existingClassFilter:args.classification||null,assignedClasses:['Positive','Negative'],
-          text:`${count} matching detection${count===1?'':'s'}${args.classification?` (current class: ${args.classification})`:''}; assign Positive / Negative`};
-      }
-      if (name === 'qupath_open_project_image') {
-        const listing = await this.adapter.execute('project_images',{entryId:args.entryId},{expectedContext:context.contextKey}) as {images:Array<Record<string,unknown>>};
-        signal?.throwIfAborted(); beforeDispatch?.(context);
-        const entry=listing.images.find(entry=>entry.id===args.entryId);
-        if (!entry || entry.fingerprint!==args.entryFingerprint) throw new Error('Project entry changed. Refresh project_images and review again.');
-        context.reviewTarget={type:'Project image',text:entry.name,...entry};
-      }
+      // Application-specific binding of the proposal to what is observed now (dialog control, import file, candidates, project entry).
+      await this.profile.prepareAction?.({ name, args, context, adapter: this.adapter, check: () => { signal?.throwIfAborted(); beforeDispatch?.(context); } });
       const action: Action = {
         id: randomUUID(), tool: name, arguments: structuredClone(args), risk: spec.risk, status: 'pending',
         createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+5*60_000).toISOString(), context,
@@ -100,9 +72,9 @@ export class Runtime extends EventEmitter {
       if (this.autoApprove) {
         // Same recorded decision path as a human click, taken by policy; no pending card is shown.
         const settled = await this.decide(action.id, true, 'policy');
-        const dialog = settled.status === 'completed' && (name === 'qupath_open_path' || name === 'qupath_open_project_image') ? await this.settleImageTypeDialog(signal) : undefined;
+        const dialog = settled.status === 'completed' ? await this.profile.settleDialogs?.(this, name, args, signal) : undefined;
         return { status: settled.status, actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
-          ...(dialog ? { imageTypeDialog: dialog } : {}),
+          ...(dialog ?? {}),
           recovery: 'Hierarchy changes can be restored from the checkpoint; files, image settings and script effects cannot.' };
       }
       this.emit('action', action);
@@ -121,32 +93,6 @@ export class Runtime extends EventEmitter {
       this.emit('tool', { name, arguments: args, result });
       return result;
     });
-  }
-  /** After opening an image, QuPath may ask for the image type. Accept its own preselected stain so the
-   * researcher is never left looking at a modal, and tell the model what happened. */
-  private async settleImageTypeDialog(signal?: AbortSignal): Promise<string | undefined> {
-    type Control = { id?: string; type?: string; text?: string; selected?: boolean; disabled?: boolean };
-    type Ui = { windows?: Array<{ title?: string; controls?: Control[] }> };
-    for (let attempt = 0; attempt < 12; attempt++) {
-      if (signal?.aborted) return undefined;
-      await new Promise(resolve => setTimeout(resolve, 500));
-      let ui: Ui | undefined;
-      try { ui = await this.adapter.execute('ui') as Ui; } catch { return undefined; }
-      const dialog = ui?.windows?.find(window => window.title === 'Set image type');
-      if (!dialog) {
-        // Give the reader a moment to raise the dialog before deciding none is coming.
-        if (attempt >= 3) return undefined;
-        continue;
-      }
-      const chosen = dialog.controls?.find(control => control.type === 'ToggleButton' && control.selected)?.text?.replace(/\s+/g, ' ');
-      const apply = dialog.controls?.find(control => control.type === 'Button' && control.text === 'Apply' && !control.disabled);
-      if (!apply?.id) return 'A "Set image type" dialog is open but has no enabled Apply button; inspect it with qupath_ui.';
-      try {
-        const outcome = await this.call('qupath_ui_action', { nodeId: apply.id, action: 'fire' }, signal) as { status?: unknown };
-        return outcome?.status === 'completed' ? `Applied QuPath's preselected image type${chosen ? ` (${chosen})` : ''}.` : 'Could not apply the image type; inspect the dialog with qupath_ui.';
-      } catch (error) { return `Image type dialog is open; applying failed: ${error instanceof Error ? error.message : String(error)}`; }
-    }
-    return undefined;
   }
   async decide(id: string, approved: boolean, decidedBy: 'human' | 'policy' = 'human') {
     const action = this.actions.get(id);
@@ -167,7 +113,7 @@ export class Runtime extends EventEmitter {
     }
     return this.serial(async () => {
       try {
-        const spec = validateTool(action.tool, action.arguments);
+        const spec = validateTool(action.tool, action.arguments, this.profile);
         action.result = await this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget });
         action.status = 'completed';
         this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
@@ -191,7 +137,7 @@ export class Runtime extends EventEmitter {
     await this.expirePending();
     return [...this.actions.values()].slice(-30);
   }
-  private readonly auditWarning='Local audit update could not be recorded. Use the actual status/result below; no operation was retried. Inspect QuPath before any new action. Persistence is unconfirmed.';
+  private get auditWarning(){return `Local audit update could not be recorded. Use the actual status/result below; no operation was retried. Inspect ${this.profile.displayName} before any new action. Persistence is unconfirmed.`;}
   private async terminal(action:Action) {
     try { await this.audit(action); } catch { action.auditWarning=this.auditWarning; }
     // Recording failure cannot erase a completed operation or strand its waiter.

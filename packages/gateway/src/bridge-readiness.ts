@@ -2,11 +2,13 @@ import {open} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {tools} from './tools.js';
+import {activeProfile,type AppProfile} from './apps/index.js';
 
 export type BridgeReadiness={status:'matches_build'|'restart_required'|'build_unverified'|'unavailable';message:string;missingOperations?:string[]};
 // desktop_* operations are served by the companion's Accessibility layer, not the Java extension.
-export const requiredBridgeOperations=[...new Set(tools.flatMap(tool=>tool.operation&&!tool.operation.startsWith('desktop_')?[tool.operation]:[]))].sort();
+export const requiredOperationsFor=(profile:AppProfile)=>[...new Set(profile.tools.flatMap(tool=>tool.operation&&!tool.operation.startsWith('desktop_')?[tool.operation]:[]))].sort();
+/** The active application's required bridge operations. */
+export const requiredBridgeOperations=requiredOperationsFor(activeProfile());
 const sha=(value:unknown):value is string=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 async function readBoundedFile(path:string,maximum:number):Promise<Buffer>{
   // Nonblocking open lets us reject FIFOs/devices before reading. A descriptor
@@ -30,24 +32,25 @@ async function readBoundedFile(path:string,maximum:number):Promise<Buffer>{
 /** Read-only comparison of startup-cached identity with the latest completed artifact.
  * It does not establish source freshness, tested behavior, or permission to restart.
  */
-export async function bridgeReadiness(root:string,context:unknown):Promise<BridgeReadiness>{
-  if(!context||typeof context!=='object')return{status:'unavailable',message:'The running QuPath context is unavailable.'};
+export async function bridgeReadiness(root:string,context:unknown,profile:AppProfile=activeProfile()):Promise<BridgeReadiness>{
+  const app=profile.displayName;const required=requiredOperationsFor(profile);
+  if(!context||typeof context!=='object')return{status:'unavailable',message:`The running ${app} context is unavailable.`};
   let built:{version?:unknown;protocolVersion?:unknown;sourceSha256?:unknown;jarSha256?:unknown};
   try{
-    built=JSON.parse((await readBoundedFile(join(root,'.local/bridge-build.json'),4096)).toString('utf8'));
+    built=JSON.parse((await readBoundedFile(join(root,profile.buildManifest),4096)).toString('utf8'));
     if(!built||built.version!==1||built.protocolVersion!==1||!sha(built.sourceSha256)||!sha(built.jarSha256))throw new Error('Invalid build manifest');
-    const jar=await readBoundedFile(join(root,'dist/luma-qupath-bridge.jar'),16*1024*1024);
+    const jar=await readBoundedFile(join(root,profile.bridgeJar),16*1024*1024);
     if(createHash('sha256').update(jar).digest('hex')!==built.jarSha256)throw new Error('Built artifact differs');
-  }catch{return{status:'build_unverified',message:'The local bridge build identity is absent or inconsistent. Rebuild with script/build-bridge.sh; no application was changed.'};}
+  }catch{return{status:'build_unverified',message:`The local ${app} bridge build identity is absent or inconsistent. Rebuild with ${profile.buildScript}; no application was changed.`};}
   const loaded=(context as {adapter?:Record<string,unknown>}).adapter;
-  if(!loaded)return{status:'restart_required',message:'The running QuPath bridge predates build identity. Save work and quit/relaunch QuPath normally to load the built extension.'};
+  if(!loaded)return{status:'restart_required',message:`The running ${app} bridge predates build identity. Save work and quit/relaunch ${app} normally to load the built extension.`};
   if(loaded.protocolVersion!==1||!sha(loaded.sourceSha256)||!Array.isArray(loaded.operations)
       ||loaded.operations.length>64||loaded.operations.some(value=>typeof value!=='string'||!/^[a-z][a-z0-9_]{0,63}$/.test(value))
       ||new Set(loaded.operations).size!==loaded.operations.length)
     return{status:'build_unverified',message:'The loaded bridge identity/protocol cannot be verified. Inspect compatibility before using new capabilities.'};
   const operations=loaded.operations as string[];
-  const missing=requiredBridgeOperations.filter(operation=>!operations.includes(operation));
+  const missing=required.filter(operation=>!operations.includes(operation));
   if(loaded.sourceSha256!==built.sourceSha256||missing.length)return{status:'restart_required',missingOperations:missing,
-    message:'The running QuPath extension differs from the completed build or lacks declared operations. Save work and quit/relaunch QuPath normally; no automatic restart was attempted.'};
-  return{status:'matches_build',message:`The loaded extension reports the completed build's source identity and all ${requiredBridgeOperations.length} required operations. Behavior and scientific validity require separate checks.`};
+    message:`The running ${app} extension differs from the completed build or lacks declared operations. Save work and quit/relaunch ${app} normally; no automatic restart was attempted.`};
+  return{status:'matches_build',message:`The loaded extension reports the completed build's source identity and all ${required.length} required operations. Behavior and scientific validity require separate checks.`};
 }

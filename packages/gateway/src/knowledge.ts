@@ -1,13 +1,16 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { ApiSource } from './api-source.js';
+import { activeProfile, type AppProfile } from './apps/index.js';
 type Document = { title: string; source: string; text: string };
 export class Knowledge {
   private documents: Document[] = [];
   readonly api = new ApiSource();
+  constructor(readonly profile: AppProfile = activeProfile()) {}
+  /** Index the profile's authored skill folder and downloaded official documentation (Markdown/RST, data not instructions). */
   async load(root: string) {
     this.documents = [];
-    for (const directory of ['skills/qupath', '.local/upstream/qupath-docs/docs']) {
+    for (const directory of this.profile.knowledgeSources) {
       const walk = async (path: string): Promise<void> => {
         let entries;
         try { entries = await readdir(path, { withFileTypes: true }); } catch { return; }
@@ -23,7 +26,7 @@ export class Knowledge {
       };
       await walk(join(root, directory));
     }
-    await this.api.load(root);
+    if (this.profile.apiSource) await this.api.load(root);
   }
   search(query: string) {
     const terms = query.toLowerCase().match(/[a-z0-9_]+/g) ?? [];

@@ -566,3 +566,26 @@ test('local sentences cover restore, exports, saves and positive-cell detection 
   assert.equal(localSentenceFor('qupath_detect_positive_cells',{},{status:'completed',result:{result:{counts:{cells:200,'class:Positive':50}}}}),'Detected 200 cells, 50 positive (25%).');
   assert.equal(localSentenceFor('qupath_restore',{},{status:'failed',error:'nope'}),undefined);
 });
+
+test('a data call the model already completed in this task is not executed again',async()=>{
+  const {nearlyIdenticalArguments}=await import('../src/backend.js');
+  assert.equal(nearlyIdenticalArguments({x:1000,y:1000,width:1500,height:1500},{x:1020,y:990,width:1500,height:1500}),true);
+  assert.equal(nearlyIdenticalArguments({x:1000,y:1000,width:1000},{x:1000,y:1000,width:1500}),false);
+  assert.equal(nearlyIdenticalArguments({x:1,classification:'Tumor'},{x:1,classification:'Stroma'}),false);
+  const f=await runtimeFixture();const t=task();let modelCalls=0;const outputs:Array<Record<string,unknown>>=[];
+  const client:BackendClient={complete:async request=>{
+    modelCalls++;outputs.length=0;
+    for(const item of request.input)if(item.type==='function_call_output')outputs.push(JSON.parse(String(item.output)));
+    if(modelCalls===1)return {output:[{type:'function_call',call_id:'first',name:'qupath_annotate',arguments:JSON.stringify({x:1000,y:1000,width:1500,height:1500})}]};
+    if(modelCalls===2)return {output:[{type:'function_call',call_id:'again',name:'qupath_annotate',arguments:JSON.stringify({x:1010,y:1000,width:1500,height:1500})}]};
+    return {output:[],output_text:'The region exists.'};
+  }};
+  try{
+    f.runtime.actions.clear();
+    const runtime=new (await import('../src/runtime.js')).Runtime(f.runtime.adapter,f.runtime.knowledge,f.directory,{autoApprove:true});
+    await new ResponsesBackend(runtime,client,'test-model',()=>{}).run(t.value);
+    assert.equal(f.mutations(),1,'the second, near-identical annotate is not dispatched');assert.equal(modelCalls,3);
+    assert.equal(outputs[0].status,'completed');assert.equal(outputs[1].status,'duplicate');
+    assert.equal(outputs[1].note,'Already done in this request; continue with the next step.');assert.deepEqual((outputs[1].previous as {status:string}).status,'completed');
+  }finally{await f.clean();}
+});

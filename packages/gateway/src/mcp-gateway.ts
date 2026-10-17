@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Tool } from './tools.js';
+import { appIds } from './apps/index.js';
+const toolName = new RegExp(`^(?:${appIds.join('|')})_[a-z_]+$`);
 
 /** Uses only the agent credential. Human approval routes are deliberately absent. */
 export class MCPGateway {
@@ -26,7 +28,7 @@ export class MCPGateway {
     if (!Array.isArray(value?.tools) || value.tools.length > 256) throw new Error('Invalid running gateway tool catalog.');
     const names = new Set<string>();
     for (const tool of value.tools) {
-      if (!tool || typeof tool !== 'object' || typeof tool.name !== 'string' || !/^qupath_[a-z_]+$/.test(tool.name) ||
+      if (!tool || typeof tool !== 'object' || typeof tool.name !== 'string' || !toolName.test(tool.name) ||
           names.has(tool.name) || typeof tool.description !== 'string' || !['read', 'view', 'data', 'code'].includes(tool.risk) ||
           !tool.inputSchema || typeof tool.inputSchema !== 'object' || tool.inputSchema.type !== 'object')
         throw new Error('Invalid running gateway tool catalog.');

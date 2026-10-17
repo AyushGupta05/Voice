@@ -4,14 +4,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
-import { QuPathAdapter } from './bridge.js';
+import { BridgeAdapter } from './bridge.js';
 import { Knowledge } from './knowledge.js';
 import { Runtime } from './runtime.js';
 import { TextConversation } from './text-session.js';
 import { BedrockBackendClient, loadTextConfig } from './bedrock-client.js';
 import { BEDROCK_MODEL } from './aws-credit-proof.js';
 import type { BackendClient } from './backend.js';
-import { tools, type Arguments } from './tools.js';
+import type { Arguments } from './tools.js';
+import { activeProfile, type AppProfile } from './apps/index.js';
 import { fundingStatus } from './funding.js';
 import { approvalPolicy } from './runtime.js';
 import { DesktopBridge, withDesktop } from './desktop-bridge.js';
@@ -32,7 +33,7 @@ async function body(req:IncomingMessage) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string,unknown>;
 }
 /** Result fields the companion renders; anything else is dropped once a tool event would exceed the broadcast bound. */
-const RENDERED_RESULT_FIELDS=['status','error','highlight','pointer','summary','workflow','counts','positive','negative','total','label','imported','dispatched','completionVerified','classification','shown','truncated'];
+const RENDERED_RESULT_FIELDS=['status','error','highlight','pointer','summary','workflow','counts','positive','negative','total','label','imported','dispatched','completionVerified','classification','shown','truncated','count','averageSize','lower','upper','dialog','image'];
 export const MAX_TOOL_EVENT_BYTES=64*1024;
 function pickRendered(value:unknown):unknown{
   if(!value||typeof value!=='object'||Array.isArray(value))return value;
@@ -52,16 +53,18 @@ export function compactToolEvent(event:Record<string,unknown>):Record<string,unk
   return size(minimal)<=MAX_TOOL_EVENT_BYTES?minimal:{type:event.type,name:event.name,truncated:true,result:{omitted:'Result and arguments exceeded the companion event bound.'}};
 }
 function json(res:ServerResponse,status:number,value:unknown) {res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
-export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string; speechProvider?:SpeechProvider; /** How long a client-identified conversation survives a dropped socket. */ detachedGraceMs?: number };
+export type ServerOptions = { runtime?: Runtime; textClient?: BackendClient; textModel?: string; speechProvider?:SpeechProvider; /** How long a client-identified conversation survives a dropped socket. */ detachedGraceMs?: number; /** Application profile when no runtime is injected; defaults to the LUMA_APP selection. */ profile?: AppProfile };
 /** Conversation events buffered for a detached companion, newest kept. */
 export const DETACHED_EVENT_LIMIT=200;
 export async function startServer(root:string,port=49555,options:ServerOptions={}) {
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
-  const knowledge=new Knowledge();await knowledge.load(root);
-  // Desktop (Accessibility) operations are answered by the connected companion; everything else goes to the QuPath extension.
+  const profile=options.runtime?.profile??options.profile??activeProfile();
+  const knowledge=new Knowledge(profile);await knowledge.load(root);
+  // Desktop (Accessibility) operations are answered by the connected companion; everything else goes to the application's bridge.
   const desktop=new DesktopBridge();
-  const runtime=options.runtime??new Runtime(withDesktop(new QuPathAdapter(root),desktop),knowledge,state,{autoApprove:approvalPolicy()==='auto'});
+  const runtime=options.runtime??new Runtime(withDesktop(new BridgeAdapter(root,profile),desktop,profile.bundleId),knowledge,state,{autoApprove:approvalPolicy()==='auto',profile});
+  const {tools}=profile;const app={id:profile.id,displayName:profile.displayName,bundleId:profile.bundleId,launcherHint:profile.launcherScript};
   const textClient=options.textClient??new BedrockBackendClient(state);
     const peers=new Set<WebSocket>();
   const voiceSessions=new Map<WebSocket,SpeechSession>();let voiceOwner:{peer:WebSocket;requestId:string}|undefined;
@@ -76,7 +79,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
       const companion=equal(req.headers.authorization,companionToken);
       if(!companion&&!equal(req.headers.authorization,gatewayToken)){json(res,401,{error:'Unauthorized'});return;}
       const url=new URL(req.url??'/','http://127.0.0.1');
-      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}let text;try{await loadTextConfig(state);text={configured:true,model:BEDROCK_MODEL,reason:'AWS-credit text configured; credit eligibility is rechecked before every request.'};}catch{text={configured:false,reason:'Text needs verified AWS credits. See docs/AWS-TEXT.md.'};}json(res,200,{application:'Luma',tools:tools.length,approvals:runtime.autoApprove?'auto':'review',voice:await fundingStatus(root),text,context,bridgeError,actions:await runtime.recentActions()});return;}
+      if(req.method==='GET'&&url.pathname==='/health') {let context;let bridgeError;try{context=await runtime.adapter.execute('context');}catch(error){bridgeError=String(error);}let text;try{await loadTextConfig(state);text={configured:true,model:BEDROCK_MODEL,reason:'AWS-credit text configured; credit eligibility is rechecked before every request.'};}catch{text={configured:false,reason:'Text needs verified AWS credits. See docs/AWS-TEXT.md.'};}json(res,200,{application:'Luma',app,tools:tools.length,approvals:runtime.autoApprove?'auto':'review',voice:await fundingStatus(root),text,context,bridgeError,actions:await runtime.recentActions()});return;}
       if(req.method==='GET'&&url.pathname==='/tools'){json(res,200,{tools});return;}
       if(req.method==='POST'&&url.pathname==='/tools/call'){const request=await body(req);if(typeof request.name!=='string'||!request.arguments||typeof request.arguments!=='object'||Array.isArray(request.arguments))throw new Error('Expected name and arguments object.');json(res,200,{result:await runtime.call(request.name,request.arguments as Arguments)});return;}
       if(req.method==='POST'&&/^\/approvals\/[a-f0-9-]+$/.test(url.pathname)){
@@ -175,5 +178,5 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
   const root=resolve(process.env.LUMA_ROOT??process.cwd());
-  startServer(root).then(()=>console.log('Luma gateway listening on http://127.0.0.1:49555 (authenticated, local only)')).catch(error=>{console.error(error.message);process.exitCode=1;});
+  startServer(root).then(()=>console.log(`Luma gateway for ${activeProfile().displayName} listening on http://127.0.0.1:49555 (authenticated, local only)`)).catch(error=>{console.error(error.message);process.exitCode=1;});
 }

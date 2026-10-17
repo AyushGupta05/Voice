@@ -3,7 +3,6 @@ import { ResponsesBackend, type BackendClient } from './backend.js';
 import type { Runtime } from './runtime.js';
 import type { Context } from './bridge.js';
 import type { TranscriptFragment } from './live.js';
-import { fastRoute } from './fast-path.js';
 
 type Active = { id: string; controller: AbortController; answered: boolean };
 /** One researcher-owned text conversation. No provider requests occur until submit. */
@@ -29,15 +28,19 @@ export class TextConversation {
   const active:Active={id:randomUUID(),controller:new AbortController(),answered:false};this.active=active;
   this.append('user',text.trim());this.emit({type:'task_state',state:'working',taskId:active.id});
   try{
-   const context=await this.runtime.call('qupath_context',{},active.controller.signal) as Context;
+   const {profile}=this.runtime;
+   const context=await this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal) as Context;
    active.controller.signal.throwIfAborted();
-   // Spoken display-only commands with one unambiguous meaning skip the model entirely.
-   const route=spoken?fastRoute(text,context):undefined;
+   // Spoken display-only commands with one unambiguous meaning skip the model entirely; a data route (undo) only
+   // when policy executes it at once, since a review card needs the model's conversation to carry it.
+   let route=spoken?profile.fastRoute(text,context):undefined;
+   if(route&&!this.runtime.autoApprove){const risk=profile.tools.find(tool=>tool.name===route!.tool)?.risk;if(risk==='data'||risk==='code')route=undefined;}
    if(route){
     const result=await this.runtime.call(route.tool,route.arguments,active.controller.signal) as Record<string,unknown>|undefined;
     active.controller.signal.throwIfAborted();
-    const failed=!result||typeof result!=='object'||'error' in result;
-    const reply=failed?'That did not work; check QuPath.':route.reply;
+    // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
+    const failed=!result||typeof result!=='object'||result.error!=null||('status' in result&&result.status!=='completed');
+    const reply=failed?`That did not work; check ${profile.displayName}.`:route.reply;
     active.answered=true;this.append('assistant',`${reply} (${route.tool} ${JSON.stringify(route.arguments)})`);
     this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});
     return;

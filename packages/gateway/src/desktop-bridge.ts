@@ -52,7 +52,7 @@ export class DesktopBridge {
     if (!DESKTOP_OPS.includes(op)) return Promise.reject(new DesktopBridgeError(`Unknown desktop operation "${op}".`, 'invalid'));
     if (signal?.aborted) return Promise.reject(new DesktopBridgeError('Desktop request cancelled.', 'aborted'));
     const peer = [...this.peers].reverse().find(peer => peer.readyState === OPEN);
-    if (!peer) return Promise.reject(new DesktopBridgeError('No Luma companion is connected, so nothing can operate the desktop. Open the Luma app (dist/Luma.app) and try again; in-app qupath_ui/qupath_ui_action do not need it.', 'no_companion'));
+    if (!peer) return Promise.reject(new DesktopBridgeError('No Luma companion is connected, so nothing can operate the desktop. Open the Luma app (dist/Luma.app) and try again; the in-app ui/ui_action tools do not need it.', 'no_companion'));
     const requestId = randomUUID();
     const timeoutMs = DESKTOP_TIMEOUTS_MS[op];
     return new Promise<unknown>((resolve, reject) => {
@@ -81,14 +81,19 @@ export function parseDesktopOperation(operation: string): DesktopOp | undefined 
 }
 
 /**
- * Wraps the QuPath adapter so `desktop_*` operations go to the companion while everything else, including the
+ * Wraps the application adapter so `desktop_*` operations go to the companion while everything else, including the
  * `context` observation and audit path every data/code tool already takes, keeps going to the in-app bridge.
+ * `defaultApp` (the profile's bundle id) fills in which application to bring forward when the model names none.
  */
-export function withDesktop(inner: Adapter, bridge: DesktopBridge): Adapter {
+export function withDesktop(inner: Adapter, bridge: DesktopBridge, defaultApp?: string): Adapter {
   return {
     async execute(operation, args = {}, options) {
       const op = parseDesktopOperation(operation);
       if (!op) return inner.execute(operation, args, options);
+      if (defaultApp) {
+        if (op === 'inspect' && args.apps === undefined) args = { ...args, apps: [defaultApp] };
+        else if (op !== 'inspect' && op !== 'act' && args.app === undefined) args = { ...args, app: defaultApp };
+      }
       const result = await bridge.request(op, args) as Record<string, unknown> | null;
       // A missing permission is a clear, non-exceptional answer the model must relay, not a silent failure.
       if (result && typeof result === 'object' && result.trusted === false) throw new Error(String(result.error ?? 'Luma is not trusted for Accessibility.'));

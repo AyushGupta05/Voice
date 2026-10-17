@@ -8,7 +8,7 @@ test('instructions make the agent action-first and never ask for inferable param
  for(const phrase of['action-first','Never ask for coordinates, sizes, thresholds','one short question','at most 20 words','Never stop halfway'])assert.ok(instructions.includes(phrase),phrase);
 });
 test('instructions resolve places from the live viewer',()=>{
- for(const phrase of['"this/here" = the selected annotation','viewer centre','viewer.visibleImageRect','a third of it','1500-2500 full-res px','image.width','Clamp to the image','qupath_find_images','never ask for a folder','Set image type'])assert.ok(instructions.includes(phrase),phrase);
+ for(const phrase of['"this/here" = the selected annotation','viewer centre','viewer.visibleImageRect','a third of the visible rect at request time','1000-2500 full-res px','independent of zoom','Clamp to the image','never recreate or resize it','qupath_find_images','never ask for a folder','Set image type'])assert.ok(instructions.includes(phrase),phrase);
 });
 test('instructions encode the demo recipes',()=>{
  for(const phrase of['qupath_annotate with classification "Tumor"','qupath_detect_cells','qupath_classify on "Nucleus: DAB OD mean" >= 0.2','qupath_class_summary','N cells, P positive (X%)','qupath_highlight {classification:"Positive"','qupath_overlays','never arithmetic on truncated lists','threshold x1.5 or /1.5','qupath_checkpoints, then qupath_restore','qupath_compare','qupath_save_workflow','how many steps'])assert.ok(instructions.includes(phrase),phrase);

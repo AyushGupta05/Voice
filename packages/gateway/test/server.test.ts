@@ -139,3 +139,21 @@ test('an unidentified companion still loses its conversation on disconnect and a
     late.close();await once(late,'close');
   }finally{release();await gateway.close();await rm(root,{recursive:true,force:true});}
 });
+
+test('health reports the application profile and /tools lists that profile\'s tools',async()=>{
+  const {Runtime}=await import('../src/runtime.js');const {Knowledge}=await import('../src/knowledge.js');const {profiles}=await import('../src/apps/index.js');
+  for(const profile of [profiles.qupath,profiles.fiji]){
+    const root=await mkdtemp(join(tmpdir(),`luma-health-${profile.id}-`));
+    const runtime=new Runtime({execute:async operation=>operation==='context'?{contextKey:'fixture',application:profile.displayName}:{}},new Knowledge(profile),join(root,'.local/state'),{profile});
+    const gateway=await startServer(root,0,{runtime});
+    const address=gateway.server.address();assert(address&&typeof address==='object');
+    try{
+      const token=(await readFile(join(root,'.local/state/gateway-token'),'utf8')).trim();
+      const health=await(await fetch(`http://127.0.0.1:${address.port}/health`,{headers:{Authorization:`Bearer ${token}`}})).json();
+      assert.deepEqual(health.app,{id:profile.id,displayName:profile.displayName,bundleId:profile.bundleId,launcherHint:profile.launcherScript});
+      assert.equal(health.tools,profile.tools.length);assert.equal(health.context.application,profile.displayName);
+      const listed=await(await fetch(`http://127.0.0.1:${address.port}/tools`,{headers:{Authorization:`Bearer ${token}`}})).json();
+      assert.deepEqual(listed.tools.map((tool:{name:string})=>tool.name),profile.tools.map(tool=>tool.name));
+    }finally{await gateway.close();await rm(root,{recursive:true,force:true});}
+  }
+});
