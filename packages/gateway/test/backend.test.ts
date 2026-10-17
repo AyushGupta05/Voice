@@ -261,3 +261,17 @@ test('guarded display dispatch binds the observed application context at the ada
   const client:BackendClient={complete:async()=>++requests===1?{output:[{type:'function_call',call_id:'current',name:'qupath_select',arguments:'{"ids":["current-object"]}'}]}:{output:[],output_text:'Selected the requested object.'}};
   try{await new ResponsesBackend(f.runtime,client,'test-model',()=>{}).run(task().value);assert.equal(operations,1);}finally{await f.clean();}
 });
+
+
+test('a text-only backend cannot request viewer vision or receive image input',async()=>{
+  const f=await runtimeFixture();let calls=0;
+  const client:BackendClient={supportsVision:false,complete:async request=>{
+    assert(!request.tools.some(tool=>tool.name==='qupath_snapshot'));
+    if(++calls===1)return {output:[{type:'function_call',call_id:'unsupported-viewer',name:'qupath_snapshot',arguments:'{}'}]};
+    const result=request.input.find(item=>item.type==='function_call_output')!;
+    assert.match(String(result.output),/vision is unavailable/);
+    assert(!request.input.flatMap(item=>Array.isArray(item.content)?item.content:[]).some(part=>part.type==='input_image'));
+    return {output:[],output_text:'I can use the measured metadata and focus the real viewer, but this backend has no image input.'};
+  }};
+  try{await new ResponsesBackend(f.runtime,client,'text-only',()=>{},4096).run(task().value);assert.equal(f.mutations(),0);}finally{await f.clean();}
+});

@@ -15,10 +15,21 @@
     "smoke:voice": "tsx script/voice-smoke.ts",
     "docs:generate": "tsx script/tool-reference.ts",
     "docs:check": "tsx script/tool-reference.ts --check",
-    "doctor": "tsx script/doctor.ts"
+    "doctor": "tsx script/doctor.ts",
+    "enable:text": "tsx script/enable-text.ts",
+    "smoke:text": "tsx script/text-smoke.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.1152.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
+    "@aws-sdk/client-billing": "^3.1152.0",
+    "@aws-sdk/client-pricing": "^3.1152.0",
+    "@aws-sdk/client-sts": "^3.1152.0",
+    "@aws-sdk/core": "^3.978.3",
+    "@aws-sdk/credential-providers": "^3.1152.0",
+    "@aws-sdk/types": "^3.974.6",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@smithy/types": "^4.19.0",
     "ajv": "^8.0.0",
     "ws": "^8.0.0"
   },

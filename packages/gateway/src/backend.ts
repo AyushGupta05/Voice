@@ -17,7 +17,7 @@ export type BackendRequest = {
 };
 export type BackendResponse = { output: InputItem[]; output_text?: string };
 /** Inject an authorized provider adapter later. No SDK/client/credentials are created here. */
-export interface BackendClient { complete(request: BackendRequest, signal: AbortSignal): Promise<BackendResponse> }
+export interface BackendClient { readonly supportsVision?: boolean; complete(request: BackendRequest, signal: AbortSignal): Promise<BackendResponse> }
 
 function abortable<T>(signal: AbortSignal, work: () => Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -100,8 +100,9 @@ export class ResponsesBackend implements DelegationBackend {
     this.memories.length = 0; this.historyTruncated = false;
   }
   constructor(private runtime: Runtime, private client: BackendClient, private model: string,
-    private display: (delegationId: string, text: string) => void) {
+    private display: (delegationId: string, text: string) => void, private maxOutputTokens = 600) {
     if (!model.trim()) throw new Error('An explicitly selected backend model is required.');
+    if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 4096) throw new Error('Invalid backend output limit.');
   }
   async run(task: DelegatedTask) {
     if (this.memories.filter(memory => memory.status === 'running').length >= 4) throw new Error('Finish or interrupt an existing backend task before starting more work.');
@@ -128,8 +129,8 @@ export class ResponsesBackend implements DelegationBackend {
           { type: 'input_text', text: `Historical viewer image from task ${prior.image.taskId}, call ${prior.image.callId}; not necessarily the current viewer.` },
           { type: 'input_image', image_url: prior.image.url, detail: 'auto' },
         ] }] : [])]),
-        tools: tools.map(tool => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: false })),
-        store: false, parallel_tool_calls: false, max_output_tokens: 600,
+        tools: tools.filter(tool => this.client.supportsVision !== false || tool.name !== 'qupath_snapshot').map(tool => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: false })),
+        store: false, parallel_tool_calls: false, max_output_tokens: this.maxOutputTokens,
       }, task.signal));
       task.signal.throwIfAborted();
       if (revision !== this.userRevision(task)) {
@@ -169,6 +170,7 @@ export class ResponsesBackend implements DelegationBackend {
         memory.calls.push(remembered); this.trimMemory();
         let result: unknown;
         try {
+          if (this.client.supportsVision === false && call.name === 'qupath_snapshot') throw new Error('Viewer vision is unavailable in the configured text-only model. Focus the real viewer and use measured metadata.');
           result = await this.runtime.call(call.name as string, JSON.parse(call.arguments as string), task.signal, current => {
             if (revision !== this.userRevision(task)) throw new ConversationChanged('User input changed before dispatch.');
             if (current && current.contextKey !== (context as {contextKey: string}).contextKey) throw new ConversationChanged('Application context changed before dispatch.');
