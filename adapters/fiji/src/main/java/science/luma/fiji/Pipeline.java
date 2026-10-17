@@ -221,6 +221,16 @@ public final class Pipeline {
             java.awt.Point chosen = null;
             for (var c : candidates) if (screen.contains(new java.awt.Rectangle(c.x, c.y, w, h))) { chosen = c; break; }
             if (chosen == null) {
+                // No full-size free side: shrink into the widest free column beside the image (charts and tables reflow).
+                int right = screen.x + screen.width - (b.x + b.width + gap), left = b.x - gap - screen.x;
+                int room = Math.max(right, left);
+                if (room >= 260) {
+                    int width = Math.min(w, room), height = Math.max(160, h * width / Math.max(1, w));
+                    window.setSize(width, height);
+                    chosen = new java.awt.Point(right >= left ? b.x + b.width + gap : b.x - gap - width, Math.max(screen.y, Math.min(b.y, screen.y + screen.height - height)));
+                }
+            }
+            if (chosen == null) {
                 // No free side: the screen corner farthest from the image, overlapping it as little as possible.
                 java.awt.Point[] corners = { new java.awt.Point(screen.x + screen.width - w, screen.y + screen.height - h), new java.awt.Point(screen.x, screen.y + screen.height - h),
                     new java.awt.Point(screen.x + screen.width - w, screen.y), new java.awt.Point(screen.x, screen.y) };

@@ -385,6 +385,9 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     return { tool: 'fiji_apply_analysis', arguments: {}, reply: 'Running it on the whole folder.', ...(named ? { folderQuery: named } : {}) };
   }
   if (objects > 0 && /^(?:show (?:me )?(?:the )?(?:workflow|steps|parameters|analysis)|what (?:did you do|steps|parameters)\b)/.test(said)) return { tool: 'fiji_analysis_workflow', arguments: {}, reply: 'Here is the workflow.' };
+  // "What is the mean intensity of the nuclei?" measures the existing (corrected) objects; re-segmenting would discard corrections.
+  if (objects > 0 && /\b(intensit\w*|brightness|how bright|signal)\b/.test(said) && /\b(nuclei|nucleus|cells?|objects?|them|those|each)\b/.test(said) && !/\b(over time|frame|change|channel \w+|green|red|blue|positive|threshold)\b/.test(said))
+    return { tool: 'fiji_measure', arguments: { scope: 'manager', measurements: ['area', 'mean', 'min', 'max', 'integrated'] }, reply: 'Measuring them.' };
   if (objects > 0 && !/\b(and then|then|after that|channels?)\b/.test(said)) {
     if (/\b(remove|drop|delete|get rid of|filter out|exclude|ignore|lose)\b.*\b(tiny|small|little|specks?|debris|dots?|noise|junk|fragments?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' };
     if (/\b(remove|drop|delete|get rid of|filter out|exclude)\b.*\b(huge|big|giant|large|clumps?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'huge' }, reply: 'Removing the big ones.' };

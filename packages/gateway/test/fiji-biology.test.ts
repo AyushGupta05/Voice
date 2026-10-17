@@ -278,3 +278,11 @@ test('an exact open-image title or stem wins over an earlier loose mask match', 
 test('very large pixel areas are spoken in millions', () => {
   assert.equal(fiji.localSentenceFor!('fiji_tumor_region', {}, { status: 'completed', result: { areaFraction: 0.63, areaFractionOf: 'tissue', area: 3457728, regions: 3, unit: 'pixel' } }), '3 regions cover 63% of the section, 3.5 million square pixels.');
 });
+
+test('intensity of the existing nuclei is measured, never re-segmented', () => {
+  const ctx = { image: { slices: 1 }, counts: { roiManager: 4 } };
+  assert.deepEqual(fiji.fastRoute!('What is the mean intensity of the nuclei?', ctx)?.arguments, { scope: 'manager', measurements: ['area', 'mean', 'min', 'max', 'integrated'] });
+  assert.equal(fiji.fastRoute!('How bright are the cells?', ctx)?.tool, 'fiji_measure');
+  assert.equal(fiji.fastRoute!('What is the mean intensity of the nuclei?', { image: { slices: 1 }, counts: { roiManager: 0 } }), undefined);
+  assert.equal(fiji.fastRoute!('show the brightness over time of the cells', ctx), undefined);
+});
