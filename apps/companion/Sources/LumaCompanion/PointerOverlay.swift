@@ -186,6 +186,9 @@ final class PointerOverlay: ObservableObject {
         let pids = Set(appPIDs())
         let clip = HighlightClipper.clip(viewer: viewer.offsetBy(dx: currentOffset.dx, dy: currentOffset.dy), windows: windows,
                                          appPIDs: pids, ownPID: ProcessInfo.processInfo.processIdentifier, holderNumber: holderNumber)
+        if first {
+            Logger(subsystem: "science.luma.companion", category: "cursor").info("Canvas \(clip.holder == nil ? "not on this screen" : "in window \(clip.holder!.number)"), \(Int(clip.visibleFraction * 100))% visible, \(pids.count) app processes")
+        }
         guard let holder = clip.holder else {
             // Not on screen (minimised, hidden, another Space): nothing may be drawn over whatever is there instead.
             clipRects = []; pointHidden = true
