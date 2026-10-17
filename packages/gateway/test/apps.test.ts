@@ -125,7 +125,7 @@ test('Fiji fast routes cover zoom, fit, overlay, slices and undo, and nothing el
   assert.deepEqual(fiji.fastRoute('Undo', context), { tool: 'fiji_undo', arguments: {}, reply: 'Undoing.' });
   assert.deepEqual(fiji.fastRoute('go back', context)?.tool, 'fiji_undo');
   assert.equal(fiji.fastRoute('next slice', { image: { slices: 1, position: { slice: 1 } } }), undefined, 'a single-plane image has no next slice');
-  for (const other of ['zoom in on the cells', 'show the overlay and count them', 'undo the threshold', 'hide the cells', 'segment the cells', 'fit']) assert.equal(fiji.fastRoute(other, context), undefined, other);
+  for (const other of ['zoom in on the cells', 'show the overlay and count them', 'undo the threshold', 'hide the cells', 'segment the cells and measure their intensity', 'fit']) assert.equal(fiji.fastRoute(other, context), undefined, other);
   assert.equal(fiji.fastRoute('zoom in', {}), undefined, 'no image, no route');
   // Corrections and counts act on the ROI Manager instantly, and only while it holds objects.
   const segmented = { ...context, counts: { roiManager: 67 } };

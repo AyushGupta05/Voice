@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
-const IMAGE_EXTENSIONS = new Set(['.ndpi', '.svs', '.tif', '.tiff', '.czi', '.scn', '.mrxs', '.vsi', '.bif', '.qptiff', '.ome.tif', '.ome.tiff', '.qpproj', '.jpg', '.jpeg', '.png']);
+const IMAGE_EXTENSIONS = new Set(['.ndpi', '.svs', '.tif', '.tiff', '.czi', '.scn', '.mrxs', '.vsi', '.bif', '.qptiff', '.ome.tif', '.ome.tiff', '.qpproj', '.jpg', '.jpeg', '.png', '.gif', '.lsm', '.nd2', '.lif', '.oib', '.oif', '.ims']);
 export type LocalImage = { path: string; name: string; sizeBytes: number; kind: 'image' | 'project' };
 
 function extension(name: string) {
@@ -20,6 +20,26 @@ export function imageNameMatches(name: string, query: string) {
   const target = normalise(name);
   const words = query.toLowerCase().split(/[\s,]+/).filter(Boolean).map(normalise);
   return words.length === 0 || words.every(word => target.includes(word));
+}
+/** Edit distance between a spoken word and the closest same-length window of a file name ("gala" vs "hela-cells" = 2). */
+export function nameDistance(name: string, word: string) {
+  const target = name.toLowerCase().replace(/[\s_\-.]+/g, ''), w = word.toLowerCase();
+  if (target.includes(w)) return 0;
+  let best = Infinity;
+  for (let start = 0; start + w.length <= target.length; start++) {
+    const window = target.slice(start, start + w.length); let d = 0;
+    for (let i = 0; i < w.length; i++) if (window[i] !== w[i]) d++;
+    best = Math.min(best, d);
+  }
+  return best;
+}
+/** Misheard names ("Gala cells" for HeLa cells): every word must match exactly or within half its letters, and at least one word exactly. */
+export function fuzzyNameScore(name: string, query: string): number | undefined {
+  const words = query.toLowerCase().split(/[\s,]+/).filter(word => word.length >= 3 && !/^(the|image|picture|file|one|open)$/.test(word));
+  if (!words.length) return undefined;
+  let total = 0, exact = 0;
+  for (const word of words) { const d = nameDistance(name, word); if (d === 0) exact++; else if (word.length < 4 || d > Math.ceil(word.length / 2)) return undefined; total += d; }
+  return exact > 0 ? total : undefined;
 }
 /** Where a researcher's slides usually are: the project's data folder first, then common user folders, two levels deep. */
 export function searchRoots(root: string, home = homedir()) {
@@ -47,6 +67,26 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
     }
   }
   for (const directory of roots) await visit(directory, 0);
+  if (!matches.length && query.trim()) {
+    // Nothing matched exactly: retry with misheard-word tolerance and return the closest names first.
+    const scored: Array<LocalImage & { score: number }> = [];
+    async function fuzzy(directory: string, depth: number) {
+      let entries; try { entries = await readdir(directory, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) { if (depth < 2) await fuzzy(path, depth + 1); continue; }
+        const ext = extension(entry.name); if (!entry.isFile() || !IMAGE_EXTENSIONS.has(ext) || seen.has(path)) continue;
+        const score = fuzzyNameScore(entry.name, query); if (score === undefined) continue;
+        let size = 0; try { size = (await stat(path)).size; } catch { continue; }
+        seen.add(path); scored.push({ path, name: basename(entry.name), sizeBytes: size, kind: ext === '.qpproj' ? 'project' : 'image', score });
+      }
+    }
+    for (const directory of roots) await fuzzy(directory, 0);
+    scored.sort((a, b) => a.score - b.score || b.sizeBytes - a.sizeBytes);
+    for (const { score: _score, ...match } of scored.slice(0, limit)) matches.push(match);
+    if (matches.length) return { matches, searched: roots, truncated: scored.length > limit };
+  }
   // Spotlight covers the rest of the home folder (any depth) for slides the researcher saved elsewhere.
   for (const path of useSpotlight ? await spotlightImages(query) : []) {
     if (seen.has(path) || matches.length >= limit) { if (!seen.has(path)) truncated = true; continue; }

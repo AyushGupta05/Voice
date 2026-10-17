@@ -5,8 +5,8 @@
 // @param channelB = 2 | second channel, 1-based
 // @param randomisations = 10 | Costes significance randomisations (0 = skip the test)
 // @param psf = 3 | point-spread-function size for the Costes test, px
-// @output The full Coloc 2 report in the Log window. Uses the active area selection as the region when there is one. Correlation is not interaction.
-// @say Coloc 2: Pearson {pearson} above Costes thresholds, Manders tM1 {tM1}, tM2 {tM2}.
+// @output The full Coloc 2 report (thresholds, Pearson with/without threshold, Manders M1/M2 and tM1/tM2, Spearman, Kendall, Li ICQ, Costes P) printed to the Log. Uses the active area selection as the region when there is one. Correlation is not interaction.
+// @say Coloc 2: Pearson {pearson}, Manders tM1 {tM1} and tM2 {tM2} above the Costes thresholds, Costes P {costesP}.
 channelA = parseFloat(pennyParam("channelA", "1"));
 channelB = parseFloat(pennyParam("channelB", "2"));
 randomisations = parseFloat(pennyParam("randomisations", "10"));
@@ -18,40 +18,47 @@ wasBatch = is("batch mode"); setBatchMode(true);
 getDimensions(w, h, channels, slices, frames);
 if (channels < 2) { if (!wasBatch) setBatchMode("exit and display"); print("RESULT error=needs_two_channels"); exit; }
 area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
-roi = "<None>";
-if (area) { getSelectionCoordinates(rx, ry); roi = "ROI(s) in channel 1"; }
+if (area) getSelectionCoordinates(rx, ry);
 run("Select None");
 run("Duplicate...", "title=penny-coloc-a duplicate channels=" + channelA);
 if (area) makeSelection("polygon", rx, ry);
 selectImage(orig); run("Select None");
 run("Duplicate...", "title=penny-coloc-b duplicate channels=" + channelB);
-selectImage(orig); if (area) makeSelection("polygon", rx, ry);
-logStart = lengthOf(getInfo("log"));
-options = "channel_1=penny-coloc-a channel_2=penny-coloc-b roi_or_mask=[" + roi + "] threshold_regression=Costes li_histogram_channel_1 li_histogram_channel_2 li_icq spearman's_rank_correlation manders'_correlation kendall's_tau_rank_correlation 2d_instensity_histogram psf=" + psf + " costes_randomisations=" + maxOf(randomisations, 1);
-if (randomisations > 0) options = options + " costes'_significance_test";
-// Coloc 2 writes its full report to the Log instead of a separate result window while java.awt.headless reads true;
-// the JVM itself stays a normal windowed session (the AWT headless state is fixed at startup), so dialogs still work.
-previous = eval("js", "var p = java.lang.System.getProperty('java.awt.headless'); java.lang.System.setProperty('java.awt.headless', 'true'); '' + p;");
-run("Coloc 2", options);
-if (previous == "null") eval("js", "java.lang.System.clearProperty('java.awt.headless'); ''");
-else eval("js", "java.lang.System.setProperty('java.awt.headless', '" + previous + "'); ''");
-colocLog = substring(getInfo("log"), logStart);
-pearson = colocValue(colocLog, "Pearson's R value (above threshold)");
-pearsonAll = colocValue(colocLog, "Pearson's R value (no threshold)");
-tM1 = colocValue(colocLog, "Manders' tM1 (Above autothreshold of Ch2)");
-tM2 = colocValue(colocLog, "Manders' tM2 (Above autothreshold of Ch1)");
-spearman = colocValue(colocLog, "Spearman's rank correlation value");
-icq = colocValue(colocLog, "Li's ICQ value");
-costesP = colocValue(colocLog, "Costes P-Value");
+mask = 0; if (area) mask = 1;
+costes = "false"; if (randomisations > 0) costes = "true";
+// Coloc 2 is driven through its own API: the menu command opens a separate result window and keeps the numbers there.
+// java.awt.headless reads true only while it runs so it adds no window; the JVM stays a normal session.
+js = "var C = Packages.sc.fiji.coloc.Coloc_2, W = Packages.ij.WindowManager, S = java.lang.System;"
+  + "var impA = W.getImage('penny-coloc-a'), impB = W.getImage('penny-coloc-b'), c = new C(), previous = S.getProperty('java.awt.headless'), out = '';"
+  + "S.setProperty('java.awt.headless', 'true');"
+  + "try { if (!c.initializeSettings(impA, impB, " + mask + ", 0, false, false, false, true, true, true, true, true, true, false, " + costes + ", " + psf + ", " + maxOf(randomisations, 1) + ")) throw 'Coloc 2 rejected the settings';"
+  + "var field = function (o, name) { var f = o.getClass().getDeclaredField(name); f.setAccessible(true); return f.get(o); };"
+  + "var mi = field(c, 'masks').get(0), values = c.colocalise(field(c, 'img1'), field(c, 'img2'), field(mi, 'roi'), field(mi, 'mask'), null).values();"
+  + "for (var i = 0; i < values.size(); i++) { var v = values.get(i); out += v.name + '\\t' + (v.isNumber ? v.number : v.value) + '\\n'; }"
+  + "} finally { if (previous == null) S.clearProperty('java.awt.headless'); else S.setProperty('java.awt.headless', previous); } out;";
+report = eval("js", js);
+print("Coloc 2 report (" + title + ", channel " + channelA + " vs " + channelB + "):");
+print(report);
+pearson = colocValue(report, "Pearson's R value (no threshold)");
+pearsonAbove = colocValue(report, "Pearson's R value (above threshold)");
+tM1 = colocValue(report, "Manders' tM1 (Above autothreshold of Ch2)");
+tM2 = colocValue(report, "Manders' tM2 (Above autothreshold of Ch1)");
+spearman = colocValue(report, "Spearman's rank correlation value");
+kendall = colocValue(report, "Kendall's Tau-b rank correlation value");
+icq = colocValue(report, "Li's ICQ value");
+costesP = colocValue(report, "Costes P-Value");
+thresholdA = colocValue(report, "Ch1 Max Threshold");
+thresholdB = colocValue(report, "Ch2 Max Threshold");
 close("penny-coloc-a"); close("penny-coloc-b");
 selectImage(orig);
+if (area) makeSelection("polygon", rx, ry);
 if (!wasBatch) setBatchMode("exit and display");
-print("RESULT pearson=" + pearson + " pearsonNoThreshold=" + pearsonAll + " tM1=" + tM1 + " tM2=" + tM2 + " spearman=" + spearman + " icq=" + icq + " costesP=" + costesP + " channelA=" + channelA + " channelB=" + channelB);
+print("RESULT pearson=" + pearson + " pearsonAboveThreshold=" + pearsonAbove + " tM1=" + tM1 + " tM2=" + tM2 + " spearman=" + spearman + " kendall=" + kendall + " icq=" + icq + " costesP=" + costesP + " thresholdA=" + thresholdA + " thresholdB=" + thresholdB + " channelA=" + channelA + " channelB=" + channelB);
 
-/** Coloc 2 logs "<name>, <value>" lines; returns the value as text, or NaN when the line is absent. */
+/** The report has "<name><tab><value>" lines; returns the value rounded to 4 decimals, or NaN when it is absent. */
 function colocValue(text, name) {
   lines = split(text, "\n");
-  for (k = 0; k < lines.length; k++) if (startsWith(lines[k], name + ", ")) return String.trim(substring(lines[k], lengthOf(name) + 2));
+  for (k = 0; k < lines.length; k++) if (startsWith(lines[k], name + "\t")) return d2s(parseFloat(substring(lines[k], lengthOf(name) + 1)), 4);
   return "NaN";
 }
 function pennyParam(key, fallback) { a = " " + getArgument() + " "; i = indexOf(a, " " + key + "="); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, "[")) return substring(v, 1, indexOf(v, "]")); return substring(v, 0, indexOf(v, " ")); }

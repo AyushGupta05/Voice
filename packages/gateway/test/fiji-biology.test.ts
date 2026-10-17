@@ -167,3 +167,17 @@ test('the Hey Fiji closing lines route to the corrected pipeline', () => {
   assert.equal(fiji.localSentenceFor!('fiji_apply_analysis', {}, { status: 'completed', result: { notReplayed: ['merged 2 objects by hand'], run: { processed: 3, failed: [], perImage: [{ resultsRows: 10 }, { resultsRows: 10 }, { resultsRows: 10 }], csv: '/x/analysis-1.csv' } } }),
     'Ran the corrected analysis on 3 images, 10 cells each on average; results in analysis-1.csv. 1 hand edit not replayed.');
 });
+
+test('misheard image names still find the sample, and "find all the nuclei" is instant', async () => {
+  const { fuzzyNameScore, findLocalImages } = await import('../src/local-images.js');
+  assert.equal(fuzzyNameScore('hela-cells.tif', 'gala cells'), 2);
+  assert.equal(fuzzyNameScore('blobs.gif', 'gala cells'), undefined);
+  const { mkdtemp, mkdir, writeFile } = await import('node:fs/promises'); const { join } = await import('node:path'); const { tmpdir } = await import('node:os');
+  const root = await mkdtemp(join(tmpdir(), 'penny-find-')); await mkdir(join(root, 'samples'), { recursive: true });
+  await writeFile(join(root, 'samples', 'hela-cells.tif'), 'x'); await writeFile(join(root, 'samples', 'FluorescentCells.tif'), 'xx');
+  const found = await findLocalImages(root, 'Gala cells', 5, [root], false);
+  assert.equal(found.matches[0]?.name, 'hela-cells.tif');
+  const ctx = { image: { slices: 1 }, counts: { roiManager: 0 } };
+  assert.deepEqual(fiji.fastRoute!('Hey Fiji, find all the nuclei.', ctx), { tool: 'fiji_segment_cells', arguments: {}, reply: 'Finding the nuclei.' });
+  assert.equal(fiji.fastRoute!('Find all the nuclei and tell me which are Ki67 positive', ctx), undefined);
+});

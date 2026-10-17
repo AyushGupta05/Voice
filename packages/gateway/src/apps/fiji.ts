@@ -63,7 +63,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     return `Thresholded at ${round(lower)}–${round(upper)}${method}.`;
   }
   if (name === 'fiji_open_path') {
-    const image = inner?.image as { title?: unknown; width?: unknown; height?: unknown } | undefined;
+    // An import that went through a confirmed dialog reports its image at the envelope level (settleDialogs), not inside.
+    const image = (inner?.image ?? (result as { image?: unknown }).image) as { title?: unknown; width?: unknown; height?: unknown } | undefined;
     const title = typeof image?.title === 'string' ? image.title : undefined, width = finite(image?.width), height = finite(image?.height);
     if (!title || width === undefined || height === undefined) return undefined;
     return `Opened ${title}, ${width}×${height}.`;
@@ -279,6 +280,8 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
     // "How many are left?" reads the ROI Manager; re-segmenting would discard the researcher's corrections.
     if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said)) return { tool: 'fiji_object_stats', arguments: { plot: false }, reply: 'Counting.' };
   }
+  // "Find all the nuclei" is the whole request: the bridge picks the nuclear channel and respects a selection.
+  if (/^(?:hey fiji |penny |okay |ok |now |please |can you |could you )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: (?:here|in this (?:area|region|selection)|in the selection|please))?$/.test(said)) return { tool: 'fiji_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
   const overlay = said.match(/^(show|hide) (?:the )?(?:overlay|outlines)$/);
   if (overlay) return { tool: 'fiji_overlay', arguments: { show: overlay[1] === 'show' }, reply: overlay[1] === 'show' ? 'Showing the overlay.' : 'Hiding the overlay.' };
   const slice = said.match(/^(next|previous|prev|last) slice$/);
@@ -342,7 +345,19 @@ export const fiji: AppProfile = {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.
     const importing = name === 'fiji_open_path' || (name === 'fiji_run_command' && /import|^open\b/i.test(String(args.name ?? '')));
     if (!importing) return undefined;
+    type Ctx = { image?: { id?: unknown; title?: unknown; width?: unknown; height?: unknown } | null };
+    let before: unknown;
+    try { before = ((await runtime.adapter.execute('context')) as Ctx)?.image?.id; } catch { before = undefined; }
     const dialog = await settleOpenDialog(runtime, signal);
-    return dialog ? { dialog } : undefined;
+    if (!dialog) return undefined;
+    // The worker-thread import shows its image after the last dialog closes; wait for it so the reply can name it.
+    for (let attempt = 0; attempt < 30; attempt++) {
+      if (signal?.aborted) break;
+      let image: Ctx['image'];
+      try { image = ((await runtime.adapter.execute('context')) as Ctx)?.image; } catch { break; }
+      if (image && image.id !== before && typeof image.title === 'string') return { dialog, image: { id: image.id, title: image.title, width: image.width, height: image.height } };
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return { dialog };
   },
 };
