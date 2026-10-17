@@ -26,9 +26,9 @@ try {
   return JSON.parse(content.find(item=>item.type==='text')!.text!);
  };
  const context=await read(`${p}_context`);assert.equal(context.application,profile.displayName);
- const commands=await read(`${p}_commands`,{query:'measure'});assert(commands.length>0);
+ const commands=await read(`${p}_commands`,{query:'measure'});const commandList=Array.isArray(commands)?commands:commands.commands;assert(Array.isArray(commandList)&&commandList.length>0);
  const knowledge=await read(`${p}_knowledge`,{query:profile.id==='qupath'?'cell detection':'threshold particles'});assert(knowledge.documentCount>=4);assert(knowledge.results.length>0);
  const resources=await client.listResources();assert(resources.resources.some(resource=>resource.uri===`${profile.id}://guide`));
  const guide=await client.readResource({uri:`${profile.id}://guide`});assert(guide.contents.length===1);
- console.log(JSON.stringify({mcp:'passed',app:profile.id,tools:inventory.tools.length,sourceTools:toolDefinitions.length,sourceSchemaMatch,image:context.image,menuMatches:commands.length,knowledgeDocuments:knowledge.documentCount,resources:resources.resources.length},null,2));
+ console.log(JSON.stringify({mcp:'passed',app:profile.id,tools:inventory.tools.length,sourceTools:toolDefinitions.length,sourceSchemaMatch,image:context.image,menuMatches:commandList.length,knowledgeDocuments:knowledge.documentCount,resources:resources.resources.length},null,2));
 }finally{await client.close();}
