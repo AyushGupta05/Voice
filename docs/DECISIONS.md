@@ -11,7 +11,7 @@ Status vocabulary:
 
 | ID | Decision | Stage | Status | Basis / owner action | Links |
 |---|---|---|---|---|---|
-| DEC-001 | Use the neutral working title "Fiji Modernisation Project" in new planning docs. Rename nothing (repo, remote, `fidelis` package, UI) until a name is chosen. | 00 | **Accepted** for the working title (brief §1.1). The final product name is **Open**. | Owner to choose a name: Click-to-Batch, Fidelis, Mikra or another | F01 |
+| DEC-001 | Product name: **Fidelis**. The canonical repository is `Sleep-On-It/Fidelis` (transferred from `reverez/click-to-batch` with full history, 2026-10-17). Planning documents written before this decision use the working title "Fiji Modernisation Project". That title refers to the same project and is not rewritten retroactively. | 00 | **Accepted** (owner instruction, 2026-10-17; it supersedes the earlier working-title-only acceptance) | — | F01, README |
 | DEC-002 | Documentation-stage Git workflow: branch `docs/analysis-design`; commit 1 (`08a1433`) snapshots the prototype as found; documentation commits per phase; no push or merge. | 00 | **Accepted** (owner answer, 2026-10-17) | — | F04 §8 |
 | DEC-003 | Pin upstream source analysis to tags matching the installed jars. Keep the research cache outside the repository at `C:\Users\arnav\Documents\dev\fiji-research-cache`. Vendor no upstream source. | 00 | **Accepted** (owner answer, 2026-10-17) | — | F03 |
 | DEC-004 | Treat the existing prototype as experimental evidence, not the approved architecture. Preserve it unmodified. | 00 | **Accepted** (brief §1.2) | — | F02 |

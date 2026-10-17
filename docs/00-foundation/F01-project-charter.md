@@ -17,7 +17,7 @@ approval: Awaiting approval
 
 Modernise the **Fiji/ImageJ desktop experience**: its interface, organisation, interactivity, accessibility and workflow support. The scientific functionality, macro language, plugin ecosystem and interaction semantics developed by the Fiji/ImageJ community are preserved and reused. Typed natural-language and spoken instructions are added as further ways to drive the *same* operations, with the user remaining in control.
 
-Working title: **Fiji Modernisation Project**. Candidate names are Click-to-Batch, Fidelis and Mikra. The name is undecided (DEC-001).
+Product name: **Fidelis** (DEC-001, accepted 2026-10-17). Documents written before that decision use the working title **Fiji Modernisation Project** for the same project. Earlier candidate names were Click-to-Batch and Mikra.
 
 Origin: the *Reinvent the Wheel: A Tools for Science Hack*, London, 16–18 October 2026.
 
@@ -73,3 +73,7 @@ Product scope, goals and non-goals are defined in **A01**. Delivery tiers (MVP /
 4. Every decision the owner must take is listed in `DECISIONS.md` with status *Proposed — awaiting approval*.
 
 Product success criteria are in A01 §6.
+
+## Change log
+
+- 2026-10-17: DEC-001 accepted. The product name is Fidelis, and the canonical repository is Sleep-On-It/Fidelis.

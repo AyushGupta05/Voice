@@ -1,0 +1,27 @@
+name: docs-check
+
+on:
+  pull_request:
+    paths: ["docs/**", ".github/workflows/docs-check.yml"]
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Documentation consistency (IDs, links, acceptance criteria, decision hygiene)
+        run: python -I docs/tools/check_docs.py
+      - name: Traceability has no gaps
+        run: |
+          python -I docs/tools/build_traceability.py | tee trace.out
+          grep -q "gaps: \[\]" trace.out
+          git diff --exit-code -- docs/data/traceability.csv || (echo "traceability.csv is stale: regenerate with docs/tools/build_traceability.py" && exit 1)

@@ -15,7 +15,7 @@ approval: Awaiting approval
 
 ## Executive Summary
 
-These are the conventions every document, data file and future agent-assisted change in this repository must follow. They exist so that requirements, decisions and evidence stay traceable, and so that a later coding session can locate the single authoritative statement of any fact. Working title for all new planning documents: **Fiji Modernisation Project** (DEC-001). Existing names (`click-to-batch` repository, `fidelis` Python package, "Fidelis" UI label) are left unchanged until a naming decision is approved.
+These are the conventions every document, data file and future agent-assisted change in this repository must follow. They exist so that requirements, decisions and evidence stay traceable, and so that a later coding session can locate the single authoritative statement of any fact. Product name: **Fidelis** (DEC-001, accepted 2026-10-17; repository `Sleep-On-It/Fidelis`). Documents written before that decision use the working title "Fiji Modernisation Project". Treat both as the same project; new documents use "Fidelis".
 
 ## 1. Evidence classes
 
@@ -172,3 +172,4 @@ Writing rules:
 
 - 2026-10-17: Initial version.
 - 2026-10-17: Phase 8 review fixes (findings #26).
+- 2026-10-17: DEC-001 accepted. The product name is Fidelis, and the canonical repository is Sleep-On-It/Fidelis.
