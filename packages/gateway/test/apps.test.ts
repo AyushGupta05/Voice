@@ -31,6 +31,7 @@ const protocol: Record<string, 'read' | 'view' | 'data' | 'code'> = {
 
 test('LUMA_APP selects the profile, QuPath by default, and refuses unknown applications', () => {
   const empty = join(tmpdir(), 'luma-no-app-file');
+  assert.equal(selectApp(undefined, undefined), 'qupath', 'without LUMA_ROOT no state file is consulted');
   assert.equal(selectApp(undefined, empty), 'qupath'); assert.equal(selectApp('', empty), 'qupath'); assert.equal(selectApp('fiji', empty), 'fiji'); assert.equal(selectApp('qupath', empty), 'qupath');
   assert.throws(() => selectApp('imagej', empty), /LUMA_APP must be one of "qupath", "fiji"/);
   assert.deepEqual(appIds, ['qupath', 'fiji']);
