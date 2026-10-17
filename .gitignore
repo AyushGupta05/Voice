@@ -24,3 +24,7 @@ Thumbs.db
 # Documentation-stage catalogues and probe evidence (DEC-006)
 !docs/data/
 !docs/01-analysis/references/probes/*.log
+
+# Fidelis Java application (fidelis-app): build outputs and fetched test runner
+fidelis-app/build/
+fidelis-app/lib/*.jar
