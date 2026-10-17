@@ -134,3 +134,44 @@ test('a numeric-looking fast result cannot mask its recorded failure',async()=>{
   assert(!String(final?.text).includes('10 cells'));
  }finally{f.conversation.stop();await f.clean();}
 });
+
+async function objectWordsFixture(){
+ const root=await mkdtemp(join(tmpdir(),'penny-object-words-'));const events:Record<string,unknown>[]=[];
+ let image={id:1,title:'Image A',channels:1,calibration:{unit:'pixel'}},segmentationFails=false;
+ const profile:AppProfile={...fiji,settleDialogs:undefined,localTool:input=>input.name==='find_images'?Promise.resolve({matches:[{kind:'image',path:'/synthetic/hela-cells.tif'}]}):fiji.localTool?.(input)};
+ const runtime=new Runtime({execute:async operation=>{
+  if(operation==='context')return{contextKey:`image-${image.id}`,image,counts:{roiManager:12,roiManagerForImage:12}};
+  if(operation==='segment_cells'){if(segmentationFails)throw new Error('No nuclear signal.');return{count:12};}
+  if(operation==='object_stats')return{n:4};
+  if(operation==='open_path'){image={...image,id:3,title:'hela-cells.tif'};return{image:{...image,width:672,height:512}};}
+  throw new Error(`Unexpected operation ${operation}.`);
+ }},new Knowledge(profile),root,{autoApprove:true,profile});
+ const conversation=new TextConversation(runtime,{complete:async()=>{throw new Error('No model round expected.');}},'synthetic',event=>events.push(event));
+ return{conversation,events,setImage:(id:number)=>{image={...image,id,title:`Image ${id}`};},failSegmentation:()=>{segmentationFails=true;},last:()=>events.filter(event=>event.type==='text_result').at(-1),clean:async()=>{conversation.stop();await rm(root,{recursive:true,force:true});}};
+}
+
+test('nuclei terminology follows the image that was segmented and resets after an independent image switch',async()=>{
+ const f=await objectWordsFixture();
+ try{
+  await f.conversation.submit('Find all the nuclei.',true);assert.equal(f.last()?.text,'Found 12 nuclei.');
+  await f.conversation.submit('How many are left?',true);assert.equal(f.last()?.text,'4 nuclei.');
+  f.setImage(2);await f.conversation.submit('How many are left?',true);assert.equal(f.last()?.text,'4 objects.');
+ }finally{await f.clean();}
+});
+
+test('a failed nuclei request cannot rename the current image objects in later answers',async()=>{
+ const f=await objectWordsFixture();
+ try{
+  f.failSegmentation();await f.conversation.submit('Find all the nuclei.',true);assert.equal(f.last()?.outcome,'failed');
+  await f.conversation.submit('How many are left?',true);assert.equal(f.last()?.text,'4 objects.');
+ }finally{await f.clean();}
+});
+
+test('opening another image preserves its real friendly name and resets the previous object terminology',async()=>{
+ const f=await objectWordsFixture();
+ try{
+  await f.conversation.submit('Find all the nuclei.',true);
+  await f.conversation.submit('Open the nuclei image.',true);assert.equal(f.last()?.text,'Opened hela cells, 672 by 512.');
+  await f.conversation.submit('How many are left?',true);assert.equal(f.last()?.text,'4 objects.');
+ }finally{await f.clean();}
+});

@@ -14,6 +14,7 @@ export class TextConversation {
  private truncated=false;
  /** The researcher's word for the current objects ("nuclei" after "find the nuclei"), echoed in later instant answers. */
  private objectWord:'cells'|'nuclei'='cells';
+ private objectImage?:string;
  private readonly startedAt=Date.now();
  constructor(private runtime:Runtime, client:BackendClient, model:string,private emit:(event:Record<string,unknown>)=>void){
   this.backend=new ResponsesBackend(runtime,client,model,(id,text,outcome?:'failed')=>{
@@ -34,6 +35,10 @@ export class TextConversation {
    const {profile}=this.runtime;
    const context=await toolTask.run(active.id,()=>this.runtime.call(`${profile.toolPrefix}_context`,{},active.controller.signal)) as Context;
    active.controller.signal.throwIfAborted();
+   const image=context.image as {id?:unknown;path?:unknown;name?:unknown;title?:unknown}|undefined;
+   const identity=image?['id','path','name','title'].map(key=>[key,image[key as keyof typeof image]] as const).find(([,value])=>typeof value==='string'||typeof value==='number'):undefined;
+   const imageKey=identity?`${profile.id}:${identity[0]}:${String(identity[1])}`:undefined;
+   if(imageKey!==this.objectImage){this.objectWord='cells';this.objectImage=imageKey;}
    // Spoken display-only commands with one unambiguous meaning skip the model entirely; a data route (undo) only
    // when policy executes it at once, since a review card needs the model's conversation to carry it.
    let route=spoken?profile.fastRoute(text,context):undefined;
@@ -76,9 +81,6 @@ export class TextConversation {
     active.controller.signal.throwIfAborted();
     // View tools answer with the bridge payload; data tools with a Runtime envelope whose status must be completed.
     const failed=!result||typeof result!=='object'||result.error!=null||result.ok===false||('status' in result&&result.status!=='completed');
-    // Echo the researcher's word: "Finding the nuclei." is answered with nuclei, not cells.
-    if(/\b(?:segment|find|detect|count)/i.test(text)||route.tool.endsWith('_segment_cells'))this.objectWord=/\bnucle/i.test(text)||/\bnuclei\b/i.test(route.reply)?'nuclei':'cells';
-    const echo=(sentence:string)=>this.objectWord==='nuclei'||/\bnucle(?:i|us|ar)\b/i.test(text)?sentence.replace(/\b(?:cells|objects)\b/g,'nuclei').replace(/\b(?:cell|object)\b/g,'nucleus'):sentence;
     // A data route says why it did not work ("This image has no folder on disk") or that it achieved nothing (an undo
     // with no checkpoint), never its success phrase.
     const reason=failureReason(profile,route.tool,route.arguments,result);
@@ -87,6 +89,14 @@ export class TextConversation {
      this.emit({type:'text_result',taskId:active.id,text:failureSentence(reason),outcome:'failed',fastPath:true});
      return;
     }
+    // Object terminology belongs to this image and a successful request. Opening another image must also
+    // preserve its real name, e.g. "hela cells" must never be spoken as "hela nuclei".
+    if(!failed){
+     if(/_(?:open_path|activate_image)$/.test(route.tool))this.objectWord='cells';
+     else if(/\b(?:segment|find|detect|count)/i.test(text)||route.tool.endsWith('_segment_cells'))this.objectWord=/\bnucle/i.test(text)||/\bnuclei\b/i.test(route.reply)?'nuclei':'cells';
+    }
+    const echoObjects=!/_(?:open_path|activate_image|context)$/.test(route.tool);
+    const echo=(sentence:string)=>echoObjects&&(this.objectWord==='nuclei'||/\bnucle(?:i|us|ar)\b/i.test(text))?sentence.replace(/\b(?:cells|objects)\b/g,'nuclei').replace(/\b(?:cell|object)\b/g,'nucleus'):sentence;
     // An instant route still reports the real outcome (e.g. the new cell count) when the profile can phrase it.
     const phrased=failed?'':echo(profile.localSentenceFor?.(route.tool,route.arguments,result)??'');
     // Long-running routes already spoke the action start; their final sentence carries only the real result.

@@ -249,3 +249,17 @@ test('opening an image that is already open switches to it instantly', () => {
   assert.deepEqual(fiji.fastRoute!('Open the hela cells image', ctx), { tool: 'fiji_activate_image', arguments: { id: -3 }, reply: 'Switched to hela cells.' });
   assert.deepEqual(fiji.fastRoute!('open the blobs image', ctx), { tool: 'fiji_context', arguments: {}, reply: 'Blobs is already open.' });
 });
+
+test('already-open image matching retains spoken channel and slice numbers instead of activating a different field', () => {
+  const context = { images: [
+    { id: 2, title: 'BBBC008_slice2_channel2.tif', active: false },
+    { id: 10, title: 'BBBC008_slice2_channel10.tif', active: false },
+    { id: 11, title: 'BBBC008_slice1_channel1.tif', active: false },
+    { id: 1, title: 'BBBC008_slice2_channel1.tif', active: false },
+  ] };
+  for (const request of ['Open BBBC 008 slice two channel one image', 'Open BBBC008 slice 2 channel 1 image'])
+    assert.deepEqual(fiji.fastRoute(request, context)?.arguments, { id: 1 }, request);
+  const onlyOtherChannels = { images: context.images.slice(0, 2) };
+  const fallback = fiji.fastRoute('Open BBBC008 channel one image', onlyOtherChannels);
+  assert.equal(fallback?.tool, 'fiji_open_path');assert.equal(fallback?.imageQuery, 'bbbc008 channel one');
+});

@@ -4,6 +4,7 @@ import { fijiTools, FIJI_BUNDLE_ID } from './fiji-tools.js';
 import { fijiInstructions } from './fiji-instructions.js';
 import { finalizeRecipeDecision, recipeTool } from './fiji-recipes.js';
 import { areaCorrection, imageObjectCount, regionCount } from './fiji-intents.js';
+import { imageNameMatches, queryWords } from '../local-images.js';
 import type { Runtime } from '../runtime.js';
 
 /** Spoken at once when the model's first call is one of these (docs/FIJI-PROTOCOL.md, "Voice specifics"). */
@@ -323,10 +324,12 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const opening = raw.match(/^(?:(?:hey )?(?:fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
   if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:a|an|new)\b/.test(opening[1]) && opening[1].length >= 2) {
     // Already open: switch to it (or say so) instead of opening a second copy.
-    const words = opening[1].split(' ').filter(word => word.length > 2 && !/^(?:the|image|picture|file|movie|stack|sample|one)$/.test(word));
+    const words = queryWords(opening[1]);
     const open = Array.isArray((context as { images?: unknown } | undefined)?.images) ? (context as { images: Array<{ id?: unknown; title?: unknown; active?: unknown }> }).images : [];
     const squash = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    const hit = words.length ? open.find(entry => typeof entry.title === 'string' && words.every(word => squash(entry.title as string).includes(squash(word)))) : undefined;
+    const hit = words.length ? open.find(entry => typeof entry.title === 'string' && imageNameMatches(entry.title, opening[1])
+      // Explicit numeric selectors stay exact: channel one means channel1, never channel2 or channel10.
+      && words.filter(word => /\d$/.test(word)).every(word => new RegExp(`${squash(word)}(?!\\d)`).test(squash(entry.title as string)))) : undefined;
     if (hit && typeof hit.title === 'string') {
       const name = friendlyName(hit.title);
       if (hit.active === true) return { tool: 'fiji_context', arguments: {}, reply: `${name.charAt(0).toUpperCase()}${name.slice(1)} is already open.` };
