@@ -22,11 +22,11 @@ A restarted session reads this file first; keep it short, factual and current.
 |---|---|
 | Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator access on reverez/Voice requested in #2; `permissions.push` was `false` on 17 Oct 16:00) |
 | Branch | `feat/alex-ui` (local clone of reverez/Voice, remote `origin`) |
-| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15), `da1a4d6` + `ff6cbaa` (#16), `088f7e2` (#19) not yet pushed (no push permission) |
-| Current issue | #15, #16 and #19 implemented and tested locally, all three PRs drafted and pending push access; #17 contract proposal posted, waiting for Arnav; #6 waits for the engine contract; #18 blocked (#11/#12) |
+| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15), `da1a4d6` + `ff6cbaa` (#16), `088f7e2` (#19), `7f078d4` (#20) not yet pushed (no push permission) |
+| Current issue | #15, #16, #19 and #20 implemented and tested locally, PR bodies posted on the issues, all pending push access; #17 contract proposal posted, waiting for Arnav; #6 waits for the engine contract; #18 blocked (#11/#12) |
 | Machine | Windows 11, 1920x1200 at 125 % (`dpiScale=1.25`, logical desktop 1536x960); `FIDELIS_FIJI_DIR=C:\Users\al3xk\dev\Fiji` (archive 20261013-1517, SHA-256 `9201287a…794c54`, 1379 files match `external/fiji.lock.json`); Python 3.11 via `py -3.11 -I` |
 | Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`); `WorkspaceDisposeTest` 1/1 and `WorkspaceShortcutTest` 1/1 at `da1a4d6`; `WorkspaceU2Test` 20 consecutive runs, 20 × `4 tests finished, 0 failed` |
-| Last full-suite result on this branch | `[fidelis-tests] 384 tests finished, 0 failed` at `088f7e2` (17 Oct, `FIDELIS_PYTHON` = Python 3.11) (previous: `382 tests finished, 0 failed` at `da1a4d6`) | <!-- older:  `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment | -->
+| Last full-suite result on this branch | `[fidelis-tests] 385 tests finished, 0 failed` at `7f078d4` (17 Oct); previously `[fidelis-tests] 384 tests finished, 0 failed` at `088f7e2` (17 Oct, `FIDELIS_PYTHON` = Python 3.11) (previous: `382 tests finished, 0 failed` at `da1a4d6`) | <!-- older:  `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment | -->
 | FX-001 baseline diff | regenerated here with the pinned Fiji: numbers and hashes identical, only the lead's absolute clone paths and `seconds` differ (restored with `git checkout -- verification`; details in the #3 comment) |
 | Open PRs | none yet (push blocked) |
 
@@ -64,14 +64,18 @@ A restarted session reads this file first; keep it short, factual and current.
   `WorkspaceMacroEditorTest` runs the macro generated from a real J-12 in the editor: nothing before confirmation, decline runs
   nothing, confirm -> 71 Results rows + 71 ROIs (ROI Manager), CODE step + 11 observed child steps in history; print line in
   the console; long macro cancelled -> CANCELLED. Screenshot `docs/03-development/screenshots/j12-editor-1500x940.png`.
+- #20 polish, safe slice (`7f078d4`): `--theme dark` launch/screenshot option (Workspace > Theme toggle existed), the Macro editor
+  re-applies its RSyntaxTextArea theme on a switch, dark variants of the History provenance badge colours; opt-in
+  Workspace > Labelled tools (`--tool-labels`), icon-only palette stays the default; header metadata is IJ1's own subtitle.
+  `WorkspaceLayoutTest.darkThemeKeepsTheDemoLayout`. Screenshots `j12-dark-1500x940.png`, `j12-labelled-tools-1500x940.png`.
 
 ## Next steps
 
 1. When push access lands: `git push origin feat/alex-ui`, open the #15 PR (body drafted in the #15 comments), `READY FOR REVIEW:`.
 2. (see 3)
-3. Open the three PRs: the PR bodies are posted as "PR BODY DRAFT" comments on #15, #16 and #19 (one PR per issue, or one PR with all three if the integrator prefers).
+3. Open the PRs: the PR bodies are posted as "PR BODY DRAFT" comments on #15, #16, #19 and #20 (one PR per issue, or one PR with all three if the integrator prefers).
 4. #17 channels strip once Arnav acknowledges the contract comment (SET_COMPOSITE_MODE / SET_ACTIVE_CHANNELS) and lands the
-   engine side; #6 adoption once the `previewMacroLines` contract merges; #20 polish only if time remains.
+   engine side; #6 adoption once the `previewMacroLines` contract merges.
 
 ## Blockers and open questions
 
