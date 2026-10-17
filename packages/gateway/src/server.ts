@@ -149,7 +149,8 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
           }catch(error){if(voiceOwner===owner)voiceOwner=undefined;throw error;}
         }
         else if(event.type==='audio'){const voice=voiceSessions.get(ws);if(voice&&event.sessionId===voice.id){try{voice.acceptAudio(event.audio);}catch(error){voice.stop('Invalid microphone stream.');throw error;}}}
-        else if(event.type==='text'){voiceSessions.get(ws)?.interrupt();await conversation.submit(event.text);}
+        // spoken:true lets a typed request run exactly like a voice turn (acknowledgments, local finish) for test harnesses.
+        else if(event.type==='text'){voiceSessions.get(ws)?.interrupt();await conversation.submit(event.text,event.spoken===true);}
         else if(event.type==='stop_task'){conversation.stop();voiceSessions.get(ws)?.interrupt();}
         else if(event.type==='stop_voice'){
           if(voiceOwner?.peer===ws&&voiceOwner.requestId===event.requestId){voiceSessions.get(ws)?.stop();if(!voiceSessions.has(ws))voiceOwner=undefined;send({type:'voice_state',state:'idle',requestId:event.requestId});}

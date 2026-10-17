@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import os
 
 /// One outlined target in global screen points, top-left origin (JavaFX/CoreGraphics convention).
 struct HighlightTarget: Identifiable, Equatable {
@@ -76,6 +77,7 @@ final class PointerOverlay: ObservableObject {
 
     private func present(point: CGPoint, label: String, targets: [HighlightTarget], hold: Double) {
         hideTask?.cancel(); hideTask = nil
+        Logger(subsystem: "science.luma.companion", category: "cursor").info("Cursor flies to (\(Int(point.x)), \(Int(point.y))) '\(label)' with \(targets.count) outlines")
         let movedScreen = ensurePanel(for: point)
         let local = CGPoint(x: point.x - screenBounds.minX, y: point.y - screenBounds.minY)
         self.targets = targets.map { HighlightTarget(id: $0.id, rect: $0.rect.offsetBy(dx: -screenBounds.minX, dy: -screenBounds.minY), ellipse: $0.ellipse) }
