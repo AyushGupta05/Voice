@@ -6,6 +6,8 @@ The measured analysis fixture is recorded in [integration-evidence.json](integra
 
 Later source milestones retain their own evidence: [original-app preservation](qupath-preservation-evidence.json) and [the same-request text follow-up](companion-text-fresh-context-evidence.json). The latter took two model requests / 4665 ms in one run; it is not a voice latency benchmark. Deck v6's dated presenter notes describe its earlier milestone; current funding totals and remaining work are in [FUNDING.md](../FUNDING.md) and the [build journal](../BUILD-JOURNAL.md).
 
+The later [actual scientific-agent run](analysis-model-evidence.json) completed the fixed 899-cell analysis/classification/comparison/restoration sequence. Its [test guide](../SCIENTIFIC-AGENT-TEST.md) explains the narrow preauthorized simulated approvals and preserves the initial safely stopped attempt. It does not establish live voice or unrestricted autonomous science.
+
 All slide text is editable in PowerPoint. [build.mjs](build.mjs) is the authoring source; it uses the Codex bundled `@oai/artifact-tool` runtime rather than a public npm dependency. It makes no provider calls. The source locates repository images through its own path, and keeps drafts, renders and validation reports under `.local/pitch-build-v6`.
 
 To rebuild in an environment with that bundled runtime, obtain Node, node_modules and Python paths from `load_workspace_dependencies`, then supply them along with the installed presentation skill directory:

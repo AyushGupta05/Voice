@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T04:53:43.787Z",
+  "model": "openai.gpt-oss-120b-1:0",
+  "flow": "Actual AWS-credit OpenAI backend -> shared Runtime -> fixed public QuPath analysis -> comparison -> empty hierarchy restore",
+  "authorization": "Only the explicitly authorized fixed disposable OS-2 sequence; approvals simulated solely in this private fixture Runtime. Ordinary production approvals are unchanged.",
+  "toolSequence": [
+    "qupath_image_type",
+    "qupath_annotate",
+    "qupath_detect_cells",
+    "qupath_classify",
+    "qupath_compare",
+    "qupath_restore"
+  ],
+  "attemptedSteps": [
+    "qupath_image_type",
+    "qupath_annotate",
+    "qupath_detect_cells",
+    "qupath_classify",
+    "qupath_compare",
+    "qupath_restore"
+  ],
+  "counts": {
+    "image_type": {},
+    "annotate": {
+      "annotations": 1
+    },
+    "detect": {
+      "annotations": 1,
+      "cells": 899
+    },
+    "classify": {
+      "annotations": 1,
+      "cells": 899,
+      "class:Negative": 850,
+      "class:Positive": 49
+    },
+    "compare": {
+      "annotations": 1,
+      "cells": 899,
+      "class:Negative": 850,
+      "class:Positive": 49
+    },
+    "restore": {}
+  },
+  "answer": "{\n  \"detectedCells\": 899,\n  \"positiveCells\": 49,\n  \"negativeCells\": 850,\n  \"baselineRestored\": true\n}",
+  "baselineRestoration": {
+    "restored": true,
+    "alreadyEmpty": true
+  },
+  "simulatedApprovals": 5,
+  "backendCompletions": 8,
+  "projectAttemptReserveDeltaUSD": 8,
+  "estimatedTokenCostUSD": 0.00921045,
+  "billingReconciled": false,
+  "elapsedMs": 21471,
+  "scientificValidity": "Not established; fixed-fixture counts do not validate segmentation or biological interpretation.",
+  "nativeUI": "No foreground interaction or hardware audio verified.",
+  "voice": "Not used; production GPT-Live disabled."
+}

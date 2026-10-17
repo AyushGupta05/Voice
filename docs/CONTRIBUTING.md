@@ -57,3 +57,5 @@ The AWS text-adapter tests use only synthetic credit/price records, mocked infer
 `npm run smoke:companion-text -- --public-fixture` separately tests actual credit-funded text through an authenticated loopback server using production conversation routing and the restricted public-slide Runtime. It does not click the native controls, activate voice, approve a proposal or permit scientific mutations. Ordinary text-conversation/Stop tests in `npm run check` use an injected synthetic client and never invoke AWS.
 
 `npm run smoke:api` verifies actual pinned API-source lookup without touching QuPath or calling a provider. Source-reference tests use temporary Git fixtures; lookup reads verified committed Java blobs, not arbitrary filesystem paths. See [API-LOOKUP.md](API-LOOKUP.md).
+
+The separately authorized fixed scientific-model fixture is documented in [SCIENTIFIC-AGENT-TEST.md](SCIENTIFIC-AGENT-TEST.md). Its real command can perform the exact preapproved OS-2 mutations with test-only simulated decisions. It is never a general approval mechanism or a CI/install step; the ordinary test suite uses synthetic adapters only.
