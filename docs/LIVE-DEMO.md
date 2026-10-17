@@ -1,32 +1,31 @@
 # Foreground demo
 
-Luma keeps QuPath as the scientific application. Its default companion surface is a 420 × 56 pixel bar at the top of the screen. Click the status or chevron to type a request, read results or inspect measurements. Pending approvals expand the details and stay visible until decided. Stop cancels unstarted agent work; completed actions remain.
+Luma keeps QuPath as the scientific application. Its companion surface is a 420 × 56 px Dynamic-Island-style bar at the top of the screen with four phases:
 
-The bar uses short factual states: Connecting, Open QuPath, Reconnecting, Working in QuPath, Review action and Listening. Listening requires active voice state; the current funding gate keeps production voice off. A microphone icon or a successful text request is not evidence of a working live audio session.
+| Phase | What you see | Driven by |
+|---|---|---|
+| Idle | Mic glyph, "Hey Luma · tap to talk" (or the connection/setup reason when not ready) | voice off |
+| Listening | Animated waveform from your microphone level and the live partial transcript; the mic glyph becomes Stop | `voice_state: listening`, `voice_transcript` |
+| Executing | The phrase Luma is saying while it acts ("Detecting cells.") with a shimmer, then the one-sentence result for a few seconds | `text_ack`, `task_state`, `text_result` |
+| Speaking | Small animated dots while the reply plays | `voice_speaking` |
+
+Click the status or chevron to expand the details panel: conversation, measured results and action history. Workflow scripts render as monospaced blocks with Copy; class summaries render as a count/percent table. Stop cancels unstarted agent work; completed actions remain. Luma's own cursor flies to what it talks about and outlines matched cells or controls.
+
+Actions execute immediately by default (`LUMA_APPROVALS=auto`); every action is journaled and hierarchy changes take a checkpoint first. `LUMA_APPROVALS=review` restores approval cards.
 
 ## Load the latest version safely
 
-1. Save current work and quit QuPath normally. Keep recovery copies separate from source images.
+1. Save or discard current work and quit QuPath normally. Replacing the extension JAR does not update a running QuPath.
 2. Run `./script/build-bridge.sh` and `./script/run-qupath.sh`.
-3. Run `./script/build_and_run.sh --verify`. This restarts only this project's companion; its owned gateway exits through normal shutdown. An externally owned gateway must be handled separately after its work completes.
-4. Run `npm run doctor` and `npm run smoke`. The loaded bridge identity and running schemas must match the current source before testing new operations.
+3. Run `./script/build_and_run.sh --verify`. This restarts only this project's companion and its owned gateway.
+4. Run `npm run doctor` and `npm run smoke`. The loaded bridge identity and running schemas must match the current source (`/health` → `context.adapterReadiness.status: matches_build`) before testing new operations.
 
 ## Opening an image end to end
 
-Expand Luma and ask it to open an exact existing local image path. For the downloaded public fixture:
+Say or type: "Open the OS-2 slide" (or give the exact path). QuPath's native image-type dialog may appear; Luma points at the right choice and Apply. Verify the window title and `context.image` before calling it done.
 
-> Open the image /Users/ayush/dev/Voice/.local/data/OS-2.ndpi in QuPath. Do not change image settings or scientific objects. Keep the reply short and verify the resulting active image.
+Then try: "Zoom in a little" (instant route), "Highlight the middle of this slide", "Add a tumor annotation on the right".
 
-The agent prepares `qupath_open_path`. Review the exact path in Luma and approve it yourself. Native QuPath reader dialogs may need attention. A `dispatched` response is only a request sent to QuPath: verify the window title, actual image metadata, `context.lastDispatch` and visible viewer before calling it successful. An unsaved current image must be saved before switching.
+## Voice
 
-Then try a view-only request:
-
-> Focus the viewer at image pixels x=51100, y=27100, downsample=3. Confirm the returned center.
-
-Full analysis changes still require human approvals. The previously authorized automated OS-2 and synthetic-import fixtures remain narrowly scoped test workflows; this demo guide grants no automatic approval power.
-
-## Voice boundary
-
-OpenAI on Bedrock currently provides the verified reasoning path. GPT-Live is a separate voice connection whose AWS credit coverage has not been established. The proposed alternative is Amazon Transcribe → OpenAI on Bedrock → Amazon Polly; it requires an explicit provider choice, verified service credit eligibility/prices, bounded reservations and actual microphone/playback testing before activation. Do not label text-only or synthetic audio tests as end-to-end live voice.
-
-Foreground results and any provider decision belong in the build journal and readiness guide after actual verification.
+Voice is live on the AWS speech route (Transcribe → OpenAI on Bedrock → Polly), credits only. See [AWS-SPEECH.md](AWS-SPEECH.md) for the latency design and [DEMO.md](DEMO.md) for the verified demo script. Do not label text-only or synthetic-audio tests as live microphone sessions; the user's own mic sessions are confirmed through the `science.luma.companion` audio log category.

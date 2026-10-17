@@ -221,7 +221,12 @@ public final class LumaExtension implements QuPathExtension {
         result.put("selectionTruncated",selection.size() > 100);
         result.put("selection",selection.stream().limit(100).map(this::describe).toList());
         var viewer = qupath.getViewer();
-        result.put("viewer", Map.of("centerX", viewer.getCenterPixelX(), "centerY", viewer.getCenterPixelY(), "downsample", viewer.getDownsampleFactor(), "z", viewer.getImagePlane().getZ(), "t", viewer.getImagePlane().getT()));
+        var view = viewer.getView();
+        double downsample = viewer.getDownsampleFactor();
+        // Screen size and the visible image-pixel rectangle, so "the right side" or "a third of the view" can be resolved exactly.
+        result.put("viewer", Map.of("centerX", viewer.getCenterPixelX(), "centerY", viewer.getCenterPixelY(), "downsample", downsample, "z", viewer.getImagePlane().getZ(), "t", viewer.getImagePlane().getT(),
+            "width", view.getWidth(), "height", view.getHeight(),
+            "visibleImageRect", Map.of("x", viewer.getCenterPixelX() - view.getWidth() * downsample / 2, "y", viewer.getCenterPixelY() - view.getHeight() * downsample / 2, "width", view.getWidth() * downsample, "height", view.getHeight() * downsample)));
         result.put("measurementNames", image.getHierarchy().getDetectionObjects().stream().limit(100).flatMap(o -> o.getMeasurementList().getNames().stream()).distinct().limit(100).toList());
         result.put("checkpoints", checkpointList());
         result.put("contextKey", contextKey());
