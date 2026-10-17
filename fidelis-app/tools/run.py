@@ -50,7 +50,7 @@ def main() -> None:
         if not sep or not key.strip() or any(c.isspace() for c in key):
             sys.exit("[run] --prop takes KEY=VALUE (no spaces in KEY)")
         props[key] = value
-    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props)
+    args = env.jvm_flags(heap=heap, user_home=home, extra_props=props, background=smoke)
     args += ["-cp", env.CLASSPATH_SEPARATOR.join(cp), "sc.fidelis.Main"] + app_args
     argfile = env.write_argfile(env.BUILD / "run.args", args)
     print(f"[run] {env.jdk_bin('java')} @{argfile.name} (heap {heap}{', isolated home' if home else ''})")

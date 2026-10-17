@@ -88,7 +88,7 @@ def fiji_classpath(fiji: Path | None = None) -> list[str]:
 
 
 def jvm_flags(fiji: Path | None = None, heap: str = "4g", user_home: Path | None = None,
-              extra_props: dict[str, str] | None = None) -> list[str]:
+              extra_props: dict[str, str] | None = None, background: bool = False) -> list[str]:
     """JVM options matching Fiji's launcher dry-run (docs/01-analysis/references/probes/P40), plus ours."""
     fiji = fiji or fiji_dir()
     f = str(fiji)
@@ -114,6 +114,9 @@ def jvm_flags(fiji: Path | None = None, heap: str = "4g", user_home: Path | None
     if MACOS:
         # AWT on macOS: menus in the window (Fiji's own menu bar is hidden by Fidelis) and a proper app name in the Dock.
         flags += ["-Dapple.laf.useScreenMenuBar=false", "-Dapple.awt.application.name=Fidelis", "-Xdock:name=Fidelis"]
+        if background:
+            # Test and smoke JVMs: no Dock icon and no self-activation, so a suite never pops windows over the researcher's work.
+            flags.append("-Dapple.awt.UIElement=true")
     if user_home is not None:
         flags.append(f"-Duser.home={user_home}")
     for k, v in (extra_props or {}).items():
