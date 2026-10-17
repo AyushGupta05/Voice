@@ -136,3 +136,9 @@ Structured review found three accepted defects across its passes; all were verif
 A normal scoped development restart loaded the new native app/gateway after verifying no pending or running actions. Its health now reports text configured and voice disabled, with the public hierarchy still empty. This is process/protocol verification: the locked Mac still prevents foreground inspection of the new native controls. No attempt was made to unlock or bypass the lock.
 
 Cumulative local receipts now show six real model requests and $0.0028011 estimated token usage. The durable ledger retains all $6 reserves under its unchanged $200 cap; billing settlement is not reconciled. Production GPT-Live funding remains unresolved and activation disabled. The next useful verification is native text/Stop interaction after manual unlock.
+
+## 17 October 2026, 04:02 BST — pitch refresh and reproducible source
+
+Published the reviewed companion increment as 476c5b4; both public Linux and macOS CI jobs passed (run 38996982324). The seven-slide editable pitch now has a v4 revision reflecting actual AWS-credit OpenAI text while stating the GPT-Live blocker. Previous v3 is retained. Source/provenance notes distinguish the real message-route fixture from native foreground verification.
+
+Added docs/pitch/build.mjs with repository-relative assets and explicit bundled-runtime inputs, plus rebuild instructions. Actual offline authoring and finalization passed package/layout/font/import checks, and all seven rendered slides were visually inspected. Final v4 SHA256 is a4d9a65a43a8529264392a0a5fa8b03024edeef3c43e604ec7869c587887e21e. Node syntax checking, 52 repository-relative documentation links and diff whitespace checks passed. The required source autoreview exited 0 clean without actionable findings. Validation reports/drafts remain private under .local; no new inference was needed.
