@@ -1,0 +1,203 @@
+{
+  "schema": "fidelis-fixture-manifest/1",
+  "catalogue": "docs/data/datasets.csv (authoritative)",
+  "note": "SHA-256 values are pinned by `python verification/fetch_fixtures.py --pin` after a deliberate first fetch; verification never pins. expected_reference_outputs points at verification/baselines/<fixture>/<lockhash>/ once generated.",
+  "fixtures": [
+    {
+      "id": "FX-001",
+      "name": "two-squares.png (repo)",
+      "source_url": "fixtures/two-squares.png",
+      "licence": "Original project work; licence follows DEC-005 (undecided)",
+      "image_type": "8-bit grey, 64x64, 1 plane, uncalibrated",
+      "scientific_purpose": "Smallest analytic oracle: 256 px=100, 256 px=200, 3584 px=0; mean 18.75; inverted mean 236.25",
+      "requirements": [
+        "FR-PROC-001",
+        "FR-MEAS-001",
+        "FR-HIST-002"
+      ],
+      "download_policy": "in repo (committed)",
+      "local_path": "fixtures/two-squares.png",
+      "files": [
+        {
+          "name": "two-squares.png",
+          "url": null,
+          "size_bytes": 133,
+          "sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493"
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 133,
+      "sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493"
+    },
+    {
+      "id": "FX-003",
+      "name": "Blobs",
+      "source_url": "https://imagej.net/ij/images/blobs.gif",
+      "licence": "UNKNOWN - no licence stated on imagej.net/ij/images (checked 2026-10-17); third-party contributed",
+      "image_type": "8-bit indexed (GIF palette; ImageJ opens with an inverting LUT), 256x254",
+      "scientific_purpose": "Canonical ImageJ teaching image for threshold and Analyze Particles; J-12 primary fixture",
+      "requirements": [
+        "FR-PROC-001",
+        "FR-PROC-003",
+        "FR-PROC-015",
+        "FR-PROC-016",
+        "FR-MEAS-001",
+        "FR-MEAS-002",
+        "FR-MEAS-003",
+        "FR-MEAS-004",
+        "FR-HIST-002"
+      ],
+      "download_policy": "cache only (git-ignored); SHA-256 pinned on first fetch; never commit or redistribute",
+      "files": [
+        {
+          "name": "blobs.gif",
+          "url": "https://imagej.net/ij/images/blobs.gif",
+          "size_bytes": 25765,
+          "sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271"
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 25765,
+      "sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271"
+    },
+    {
+      "id": "FX-004",
+      "name": "Fluorescent Cells",
+      "source_url": "https://imagej.net/ij/images/FluorescentCells.zip",
+      "licence": "UNKNOWN - no licence stated on imagej.net/ij/images (checked 2026-10-17); third-party contributed; Molecular Probes demo slide",
+      "image_type": "ZIP containing an ImageJ TIFF, 512x512 8-bit, 3 channels composite",
+      "scientific_purpose": "Multichannel composite display and per-channel measurement",
+      "requirements": [
+        "FR-IMG-001",
+        "FR-IMG-002",
+        "FR-VIEW-001"
+      ],
+      "download_policy": "cache only (git-ignored); SHA-256 pinned on first fetch",
+      "files": [
+        {
+          "name": "FluorescentCells.zip",
+          "url": "https://imagej.net/ij/images/FluorescentCells.zip",
+          "size_bytes": 436133,
+          "sha256": "38507fab9787016fad6204239fb0e56437e7513f57d362cec644cd363faadda7",
+          "extract": true
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 436133,
+      "sha256": "38507fab9787016fad6204239fb0e56437e7513f57d362cec644cd363faadda7"
+    },
+    {
+      "id": "FX-005",
+      "name": "HeLa Cells (48-bit RGB)",
+      "source_url": "https://imagej.net/ij/images/hela-cells.zip",
+      "licence": "UNKNOWN - no licence stated on imagej.net/ij/images (checked 2026-10-17); third-party contributed",
+      "image_type": "ZIP containing a TIFF, 672x512 16-bit, 3 channels; unit=um, 19.42 px/um (sample note says not accurate)",
+      "scientific_purpose": "16-bit multichannel with calibration",
+      "requirements": [
+        "FR-IMG-001",
+        "FR-IMG-002"
+      ],
+      "download_policy": "cache only (git-ignored); SHA-256 pinned on first fetch",
+      "files": [
+        {
+          "name": "hela-cells.zip",
+          "url": "https://imagej.net/ij/images/hela-cells.zip",
+          "size_bytes": 1374676,
+          "sha256": "9d121c922be1dedad61c7a9902be7384a5c1e1d27ff21bd4a74f554b5574e181",
+          "extract": true
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 1374676,
+      "sha256": "9d121c922be1dedad61c7a9902be7384a5c1e1d27ff21bd4a74f554b5574e181"
+    },
+    {
+      "id": "FX-030",
+      "name": "BBBC001 v1 (human HT29 colon cancer cells; TIFF images and manual counts)",
+      "source_url": "https://bbbc.broadinstitute.org/BBBC001",
+      "licence": "CC BY-NC-SA 3.0 (David Root, Anne Carpenter; Broad Bioimage Benchmark Collection). Cite Ljosa et al. 2012, Nat Methods 9:637",
+      "image_type": "6 images, 512x512 8-bit TIFF (Hoechst-stained nuclei); two manual counts per image",
+      "scientific_purpose": "Cell-counting plausibility (E9, reported not pass/fail); J-12 second fixture (A03f00d0: manual counts 350 and 362)",
+      "requirements": [
+        "FR-MEAS-003",
+        "FR-PROC-003",
+        "FR-PROC-015"
+      ],
+      "download_policy": "cache only; NEVER committed, never in a release (non-commercial, share-alike); zip is 832 kB so it is downloaded",
+      "files": [
+        {
+          "name": "BBBC001_v1_images_tif.zip",
+          "url": "https://data.broadinstitute.org/bbbc/BBBC001/BBBC001_v1_images_tif.zip",
+          "size_bytes": 854168,
+          "sha256": "d6d4ad4743dc8dfdec23d6c769cbbfe495563221e37353f272617838bfddcd48",
+          "extract": true
+        },
+        {
+          "name": "BBBC001_v1_counts.txt",
+          "url": "https://data.broadinstitute.org/bbbc/BBBC001/BBBC001_v1_counts.txt",
+          "size_bytes": 303,
+          "sha256": "b24671230222f889b63ac287599bfa4a8b009e458a465bfd13cf82ef966b12af"
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 854471,
+      "sha256": "d6d4ad4743dc8dfdec23d6c769cbbfe495563221e37353f272617838bfddcd48"
+    },
+    {
+      "id": "FX-031",
+      "name": "BBBC004 v1 (synthetic nuclei, SIMCEP), overlap 0.00 subset",
+      "source_url": "https://bbbc.broadinstitute.org/BBBC004",
+      "licence": "CC BY-NC-SA 3.0 (Pekka Ruusuvuori; Broad Bioimage Benchmark Collection). Cite Ruusuvuori et al. 2008 and Ljosa et al. 2012",
+      "image_type": "20 synthetic images at overlap 0.00 (images zip ~13 MB) plus binary foreground masks (~469 kB); 300 objects per image",
+      "scientific_purpose": "Counting and segmentation plausibility under zero clustering (E9, reported only); exact ground-truth count 300",
+      "requirements": [
+        "FR-MEAS-003",
+        "FR-PROC-003"
+      ],
+      "download_policy": "cache only; NEVER committed; only the lowest-overlap (000) images and foreground zips (13.5 MB total, below the 50 MB cache limit)",
+      "files": [
+        {
+          "name": "BBBC004_v1_000_images.zip",
+          "url": "https://data.broadinstitute.org/bbbc/BBBC004/BBBC004_v1_000_images.zip",
+          "size_bytes": 13034200,
+          "sha256": "9156756acddba4888f2bfa7097fe1fc5286bc84f7ad9dcf2b7cde6024856aec7",
+          "extract": true
+        },
+        {
+          "name": "BBBC004_v1_000_foreground.zip",
+          "url": "https://data.broadinstitute.org/bbbc/BBBC004/BBBC004_v1_000_foreground.zip",
+          "size_bytes": 479591,
+          "sha256": "cdc55860766a4bbe2c8af0d267f51bace9dc14d73bf39cf1419741b06c872d32",
+          "extract": true
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 13513791,
+      "sha256": "9156756acddba4888f2bfa7097fe1fc5286bc84f7ad9dcf2b7cde6024856aec7"
+    },
+    {
+      "id": "FX-040",
+      "name": "OME-TIFF bioformats-artificial single-channel",
+      "source_url": "https://downloads.openmicroscopy.org/images/OME-TIFF/2016-06/bioformats-artificial/single-channel.ome.tif",
+      "licence": "CC BY 4.0 (OME Consortium; readme.txt and COPYING in the folder). Attribution: Open Microscopy Environment",
+      "image_type": "OME-TIFF, 439x167 int8 (SampleFormat 2, signed 8-bit), Z=C=T=1",
+      "scientific_purpose": "Minimal OME-TIFF and signed 8-bit import through Bio-Formats",
+      "requirements": [
+        "FR-IMG-001",
+        "FR-IMG-002"
+      ],
+      "download_policy": "cache only until DEC-005 decides attribution handling; SHA-256 pinned on first fetch",
+      "files": [
+        {
+          "name": "single-channel.ome.tif",
+          "url": "https://downloads.openmicroscopy.org/images/OME-TIFF/2016-06/bioformats-artificial/single-channel.ome.tif",
+          "size_bytes": 76095,
+          "sha256": "8188f23c90bbdebcac5f0788596ccad5e524cfa6f20a87682882421c94be7175"
+        }
+      ],
+      "expected_reference_outputs": null,
+      "size_bytes": 76095,
+      "sha256": "8188f23c90bbdebcac5f0788596ccad5e524cfa6f20a87682882421c94be7175"
+    }
+  ]
+}

@@ -28,3 +28,8 @@ Thumbs.db
 # Fidelis Java application (fidelis-app): build outputs and fetched test runner
 fidelis-app/build/
 fidelis-app/lib/*.jar
+
+# Verification harness: fixture cache (licence-restricted downloads) and large baseline dumps
+fixtures/cache/
+verification/baselines/**/raw/
+verification/runs/
