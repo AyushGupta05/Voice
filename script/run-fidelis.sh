@@ -9,16 +9,17 @@ ARGFILE="$PWD/fidelis-app/build/run.args"
 # Refuse while any Fidelis runs: tools/run.py starts `java @<checkout>/fidelis-app/build/run.args`, so a live JVM naming a
 # Fidelis argfile is a running Fidelis (this checkout's or another worktree's, which would hold the same bridge port).
 RUNNING="$(python3 -I - "$ARGFILE" <<'PY'
-import subprocess, sys
+import re, subprocess, sys
 mine = sys.argv[1]
+# ps joins arguments with spaces, so the argfile argument is matched whole: checkout paths may contain spaces.
+argfile = re.compile(r'(?:^|\s)@(\S.*?/fidelis-app/build/run\.args)(?=\s|$)')
 for line in subprocess.check_output(['/bin/ps', '-ww', '-axo', 'pid=,stat=,command='], text=True).splitlines():
     fields = line.split(None, 2)
     if len(fields) != 3 or 'Z' in fields[1]:
         continue
-    for word in fields[2].split(' '):
-        if word.startswith('@') and word.endswith('fidelis-app/build/run.args'):
-            print(fields[0], 'this' if word[1:] == mine else 'other', word[1:])
-            break
+    match = argfile.search(fields[2])
+    if match:
+        print(fields[0], 'this' if match.group(1) == mine else 'other', match.group(1))
 PY
 )"
 if [[ -n "$RUNNING" ]]; then

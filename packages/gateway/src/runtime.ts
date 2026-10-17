@@ -12,6 +12,9 @@ import { conversationEnvelope, withConversation, type ConversationEnvelope } fro
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
   createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string; decidedBy?: 'human' | 'policy';
+  /** The bridge accepted the request but ran nothing yet: its plan waits for the researcher (Fidelis `awaiting_confirmation`).
+   * `status` stays `completed` (the request itself completed); readers must not report the action as run. */
+  outcome?: 'awaiting_confirmation';
 };
 /** Approval policy. The researcher asked for a fully agentic companion, so the default executes data/code actions
  * immediately; hierarchy checkpoints, the audit journal and Stop remain. LUMA_APPROVALS=review restores human review cards. */
@@ -83,7 +86,7 @@ export class Runtime extends EventEmitter {
         // Same recorded decision path as a human click, taken by policy; no pending card is shown.
         const settled = await this.decide(action.id, true, 'policy');
         const dialog = settled.status === 'completed' ? await this.profile.settleDialogs?.(this, name, args, signal) : undefined;
-        return { status: settled.status, actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
+        return { status: settled.status, ...(settled.outcome ? { outcome: settled.outcome } : {}), actionId: settled.id, tool: name, arguments: args, autoApproved: true, result: settled.result, error: settled.error, auditWarning: settled.auditWarning,
           ...(dialog ?? {}),
           recovery: 'Hierarchy changes can be restored from the checkpoint; files, image settings and script effects cannot.' };
       }
@@ -126,6 +129,8 @@ export class Runtime extends EventEmitter {
         const spec = validateTool(action.tool, action.arguments, this.profile);
         action.result = await withConversation(this.origins.get(action.id), () => this.adapter.execute(spec.operation!, action.arguments, { expectedContext: action.context.contextKey, approved: true, expectedControl: action.context.reviewTarget }));
         action.status = 'completed';
+        // A plan that waits for confirmation is recorded (audit, action status, envelope) as not run.
+        if (this.profile.pausesRequest?.(action.tool, action.result)) action.outcome = 'awaiting_confirmation';
         this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
       } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); console.error(`[tool ${new Date().toISOString()}] ${action.tool} failed: ${action.error}`); }
       await this.terminal(action);

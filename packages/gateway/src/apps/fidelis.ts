@@ -103,10 +103,11 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   const inner = completedPayload(result);
   // Read and view operations return the bridge result itself, without a decision envelope.
   const raw = inner ?? record(result) ?? {};
-  if (name === 'fidelis_rois') { const total = finite(raw.total); return total === undefined ? undefined : total === 0 ? 'No objects outlined yet.' : `${plural(total, 'object')}.`; }
+  // A zero is a real answer and keeps its digit, so an instant route speaks it instead of its "Counting." placeholder.
+  if (name === 'fidelis_rois') { const total = finite(raw.total); return total === undefined ? undefined : total === 0 ? '0 objects in the ROI list.' : `${plural(total, 'object')}.`; }
   if (name === 'fidelis_object_stats') {
     const n = finite(raw.n); if (n === undefined) return undefined;
-    if (n === 0) return 'No measured objects yet.';
+    if (n === 0) return '0 measured objects.';
     const area = record(raw.area), mean = finite(area?.mean), median = finite(area?.median);
     return `${plural(n, 'object')}${mean !== undefined ? `, mean area ${spokenArea(mean, raw.unit)}` : ''}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}.`;
   }
@@ -229,8 +230,10 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
   if (objects && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here)?$/.test(said)) return { tool: 'fidelis_highlight', arguments: { rois: 'all', label: `${objects} objects` }, reply: 'Here they are.' };
-  // "What is the mean intensity of the nuclei?" measures the existing objects instead of re-segmenting.
-  if (objects && /\b(intensit\w*|brightness|how bright|signal)\b/.test(said) && /\b(nuclei|nucleus|cells?|objects?|them|those|each)\b/.test(said) && !/\b(over time|frame|change|channel \w+|green|red|blue|positive|threshold)\b/.test(said))
+  // "What is the mean intensity of the nuclei?" measures the existing objects instead of re-segmenting. Only the mean
+  // across them is answered here; another statistic or a per-object answer goes to the model.
+  if (objects && /\b(intensit\w*|brightness|how bright|signal)\b/.test(said) && /\b(nuclei|cells|objects|them|those)\b/.test(said)
+    && !/\b(over time|frame|change|channel \w+|green|red|blue|positive|threshold|median|max\w*|min\w*|standard|sd|deviation|variance|integrated|total|sum|range|distribution|histogram|each|every|per|individual|which|highest|lowest|brightest|dimmest|largest|smallest)\b/.test(said))
     return { tool: 'fidelis_measure', arguments: { scope: 'rois', measurements: ['area', 'mean', 'min', 'integrated'] }, reply: 'Measuring them.' };
   // Brightness is display-only: move the display range from the live values, never filter the pixels.
   const range = Array.isArray(doc.displayRange) ? doc.displayRange : [doc.display?.min, doc.display?.max];

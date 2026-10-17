@@ -129,7 +129,7 @@ export class ResponsesBackend implements DelegationBackend {
       // retained action ID so a later recording warning is not frozen out of history.
       if (!output || typeof output.actionId !== 'string') continue;
       const current = this.runtime.actions.get(output.actionId);
-      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, result: current.result, error: current.error, auditWarning: current.auditWarning };
+      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, ...(current.outcome ? { outcome: current.outcome } : {}), result: current.result, error: current.error, auditWarning: current.auditWarning };
     }
     this.trimMemory();
     const entries = this.memories.filter(memory => memory.id !== excludeId);
@@ -268,8 +268,9 @@ export class ResponsesBackend implements DelegationBackend {
             if (task.spoken && task.acknowledge) { spokenSoFar.push('Ready for your approval.'); task.acknowledge('Ready for your approval.'); }
             humanReviewed = true;
             const decision = await awaitHuman(this.runtime, String(result.actionId), task.signal);
-            if (task.spoken && task.acknowledge && decision.status === 'completed' && profile.longRunningTools.has(call.name as string)) { spokenSoFar.push('Running it now.'); task.acknowledge('Running it now.'); }
-            result = { actionId: decision.id, tool: decision.tool, status: decision.status, result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
+            // A reviewed plan that now waits for the researcher's confirmation did not run: no "Running it now.".
+            if (task.spoken && task.acknowledge && decision.status === 'completed' && !decision.outcome && profile.longRunningTools.has(call.name as string)) { spokenSoFar.push('Running it now.'); task.acknowledge('Running it now.'); }
+            result = { actionId: decision.id, tool: decision.tool, status: decision.status, ...(decision.outcome ? { outcome: decision.outcome } : {}), result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
             // A profile may finish a reviewed result the way it finishes an immediate one (e.g. a Fiji recipe's RESULT summary).
             result = profile.finalizeDecision?.(call.name as string, remembered.output, result) ?? result;
           }

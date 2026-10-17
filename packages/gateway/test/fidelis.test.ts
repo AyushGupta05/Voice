@@ -148,6 +148,8 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
   assert.deepEqual(route('what is the mean intensity of the nuclei', segmented), { tool: 'fidelis_measure', arguments: { scope: 'rois', measurements: ['area', 'mean', 'min', 'integrated'] }, reply: 'Measuring them.' });
+  for (const other of ['what is the median intensity of the nuclei', 'maximum intensity of each nucleus', 'which cells are brightest in intensity', 'the integrated intensity of the cells'])
+    assert.equal(route(other, segmented), undefined, `${other}: another statistic goes to the model`);
   // Brightness is display-only and needs the live display range; auto contrast does not.
   assert.equal(route('make it brighter'), undefined, 'no display range in the context, no guessed range');
   const ranged = { ...blobs, document: { ...blobs.document, displayRange: [8, 248] } };
@@ -202,9 +204,9 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_cancel_plan', { cancelled: true }), 'Cancelled; nothing ran.');
   // Reads answer with the bridge result itself.
   assert.equal(say('fidelis_rois', { total: 64, rois: [{ index: 0 }] }), '64 objects.');
-  assert.equal(say('fidelis_rois', { total: 0, rois: [] }), 'No objects outlined yet.');
+  assert.equal(say('fidelis_rois', { total: 0, rois: [] }), '0 objects in the ROI list.', 'a zero keeps its digit for the instant route');
   assert.equal(say('fidelis_object_stats', { n: 64, area: { mean: 351.4, median: 340, min: 20, max: 900 }, unit: 'pixel' }), '64 objects, mean area 351 square pixels, median 340 square pixels.');
-  assert.equal(say('fidelis_object_stats', { n: 0 }), 'No measured objects yet.');
+  assert.equal(say('fidelis_object_stats', { n: 0 }), '0 measured objects.');
   assert.equal(say('fidelis_history', { steps: [] }), undefined, 'open-ended reads go to the model');
   assert.equal(say('fidelis_zoom', { viewer: {} }), '', 'view tools finish silently after their acknowledgment');
   // Continuation: a waiting plan is the whole answer; otherwise the request decides.
@@ -337,6 +339,10 @@ test('a model-chosen macro waits for confirmation, stops the request there and i
     assert.equal(result()!.text, 'Ready to run 1 step; say yes to go ahead.');
     assert.deepEqual(events.find(event => event.type === 'text_ack')?.text, 'Preparing the macro.');
     assert.ok(!bridge.requests.some(request => request.operation === 'measure'), 'nothing later in the request ran');
+    const action = [...runtime.actions.values()].find(entry => entry.tool === 'fidelis_run_macro')!;
+    assert.equal(action.status, 'completed'); assert.equal(action.outcome, 'awaiting_confirmation', 'the action is recorded as not run');
+    assert.equal((await runtime.call('fidelis_action_status', { actionId: action.id }) as { outcome?: unknown }).outcome, 'awaiting_confirmation');
+    assert.match(await readFile(join(root, '.local/state/actions.jsonl'), 'utf8'), /"outcome":"awaiting_confirmation"/);
     const macro = bridge.requests.find(request => request.operation === 'run_macro')!;
     assert.equal(macro.utterance, 'Invert it with a macro and then measure the mean'); assert.equal(macro.spoken, true); assert.equal(macro.taskId, result()!.taskId); assert.equal(macro.approved, true);
     const tools = requests[0].tools.map(tool => tool.name);
@@ -391,4 +397,24 @@ test('a waiting plan ends a typed request too, and later calls in the same model
     assert.ok(!bridge.requests.some(request => request.operation === 'measure'), 'the measurement waits for the confirmed macro');
     assert.equal(bridge.requests.find(request => request.operation === 'run_macro')!.spoken, false, 'typed requests say so');
   } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('an empty ROI list is answered with its zero, and a reviewed plan that waits is never announced as running', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-zero-'));
+  const bridge = await fakeBridge(root, (request, state) => request.operation === 'rois' ? { total: 0, rois: [] } : engine({ explicitSegmentation: true })(request, state));
+  try {
+    const auto = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+    const first = conversation(auto);
+    await first.conversation.submit('How many nuclei are there?', true);
+    assert.equal(first.result()!.text, '0 nuclei in the ROI list.'); first.conversation.stop();
+    const review = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: false, profile: fidelis });
+    review.on('action', action => { if (action.status === 'pending') void review.decide(action.id, true); });
+    const client: BackendClient = { complete: async () => ({ output: [{ type: 'function_call', call_id: 'c1', name: 'fidelis_segment_cells', arguments: '{}' }] }) };
+    const second = conversation(review, client);
+    await second.conversation.submit('Find the nuclei.', true);
+    const acks = second.events.filter(event => event.type === 'text_ack').map(event => event.text);
+    assert.ok(acks.includes('Ready for your approval.')); assert.ok(!acks.includes('Running it now.'), `acks: ${acks.join(' | ')}`);
+    assert.equal(second.result()!.text, 'Ready to run 9 steps; say yes to go ahead.');
+    second.conversation.stop();
+  } finally { await bridge.close(); await rm(root, { recursive: true, force: true }); }
 });

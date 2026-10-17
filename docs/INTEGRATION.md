@@ -72,7 +72,11 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 - `fidelis_confirm` is bound to the plan observed at dispatch: the gateway fills `planId` from `context.pending.planId`,
   refuses with "Nothing is waiting for confirmation." when there is none, and refuses a `planId` that is no longer
   pending. The confirm result is spoken from what the plan returned (a count, measurement, threshold or step).
-- Acknowledgments never claim a waiting plan ran (`fidelis_run_macro` says "Preparing the macro.").
+- The gateway's decision record keeps `status: "completed"` (the request itself completed) and adds
+  `outcome: "awaiting_confirmation"` to the audit journal, `fidelis_action_status` and the tool envelope, so no reader
+  reports the plan as run.
+- Acknowledgments never claim a waiting plan ran (`fidelis_run_macro` says "Preparing the macro."; under
+  `LUMA_APPROVALS=review` the "Running it now." after approval is skipped when the plan waits).
 
 ### Instant routes (no model round)
 
@@ -85,9 +89,9 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 | "find / segment / count the nuclei" | `fidelis_segment_cells {}` |
 | "stricter / looser" | `fidelis_segment_cells {method: "Li" / "Huang"}` |
 | "zoom in / out", "fit to window", "zoom to the selection" | `fidelis_zoom` |
-| "how many (nuclei) are there" | `fidelis_rois {limit: 1}` (or `fidelis_object_stats` when the context has no ROI count) |
+| "how many (nuclei) are there" | `fidelis_rois {limit: 1}` (or `fidelis_object_stats` when the context has no ROI count); an empty list is answered "0 objects in the ROI list." |
 | "show me the nuclei" (ROIs present) | `fidelis_highlight {rois: "all"}` |
-| "mean intensity of the nuclei" (ROIs present) | `fidelis_measure {scope: "rois"}` |
+| "mean intensity of the nuclei" (ROIs present; not median, maximum, per-object or other statistics) | `fidelis_measure {scope: "rois"}` |
 | "brighter / darker" | `fidelis_display {min, max}` from the live display range, when the context reports one |
 | "auto contrast" | `fidelis_display {auto: true}` |
 | "next / previous slice" | `fidelis_stack {slice}`, when the context reports the current position |
