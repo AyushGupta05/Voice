@@ -45,6 +45,7 @@ final class AudioIO {
         // only let the converter change the sample rate.
         guard let monoSource = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: source.sampleRate, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: monoSource, to: target) else { throw CompanionError.message("Could not configure microphone audio.") }
+        var taps = 0
         input.installTap(onBus: 0, bufferSize: 2048, format: source) { [target] buffer, _ in
             let capacity = AVAudioFrameCount(Double(buffer.frameLength) * 24000 / source.sampleRate + 64)
             guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity),
@@ -52,6 +53,12 @@ final class AudioIO {
                   let firstChannel = buffer.floatChannelData?[0], let monoChannel = mono.floatChannelData?[0] else { return }
             mono.frameLength = buffer.frameLength
             monoChannel.update(from: firstChannel, count: Int(buffer.frameLength))
+            taps += 1
+            if taps % 100 == 1 {
+                var peak: Float = 0
+                for index in 0..<Int(buffer.frameLength) { peak = max(peak, abs(firstChannel[index])) }
+                audioLog.info("Raw microphone buffer \(taps): \(source.channelCount) ch @ \(source.sampleRate) Hz, \(buffer.frameLength) frames, channel-0 peak \(peak)")
+            }
             var consumed = false
             var error: NSError?
             converter.convert(to: output, error: &error) { _, status in
