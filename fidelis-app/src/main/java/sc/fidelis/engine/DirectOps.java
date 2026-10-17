@@ -61,6 +61,24 @@ final class DirectOps {
         boolean pixelsChanged = false;
         boolean dimsChanged = false;
         try {
+            if (ts.channel() != null || ts.slice() != null || ts.frame() != null) {
+                switch (name) {
+                    case Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD, Operations.SET_DISPLAY_RANGE -> {
+                        // plane-dependent operations act on the plane the request names, not on wherever the viewer is now
+                        int c = ts.channel() != null ? ts.channel() : imp.getChannel();
+                        int z = ts.slice() != null ? ts.slice() : imp.getSlice();
+                        int t = ts.frame() != null ? ts.frame() : imp.getFrame();
+                        if (c < 1 || c > imp.getNChannels() || z < 1 || z > imp.getNSlices() || t < 1 || t > imp.getNFrames())
+                            throw new Bad("the target plane " + c + "," + z + "," + t + " is outside the image");
+                        if (c != imp.getChannel() || z != imp.getSlice() || t != imp.getFrame()) {
+                            imp.setPosition(c, z, t);
+                            lines.add(imp.isHyperStack() || imp.getNChannels() > 1 || imp.getNFrames() > 1
+                                    ? "Stack.setPosition(" + c + ", " + z + ", " + t + ");" : "setSlice(" + z + ");");
+                        }
+                    }
+                    default -> { }
+                }
+            }
             switch (name) {
                 case Operations.SET_ROI -> {
                     Object g = r.params().get("roi");
@@ -162,12 +180,48 @@ final class DirectOps {
                     displayChanged = true;
                 }
                 case Operations.ROI_LIST_ADD -> {
-                    Roi roi = imp.getRoi();
-                    if (roi == null) throw new Bad("there is no active selection to add");
-                    eng.emitState(op, OperationState.RUNNING, null);
-                    synchronized (doc.roiList) {
-                        doc.roiList.add((Roi) roi.clone());
-                        params.put("index", doc.roiList.size() - 1);
+                    Object from = r.params().get("fromDocument");
+                    if (from != null) {
+                        // opt-in: copy another document's ROI list (objects segmented on a derived mask, kept on the original)
+                        Doc src = eng.registry.get(String.valueOf(from));
+                        if (src == null) throw new Bad("fromDocument " + from + " is not open");
+                        if (src == doc) throw new Bad("fromDocument is the target document");
+                        boolean replace = Boolean.TRUE.equals(r.params().get("replace"));
+                        List<Roi> copies = new ArrayList<>();
+                        synchronized (src.roiList) {
+                            for (Roi x : src.roiList) copies.add((Roi) x.clone());
+                        }
+                        // the plane the objects were found on, for a stack target ({c, z, t}; 0 = any)
+                        if (r.params().get("position") instanceof List<?> pl && pl.size() == 3 && imp.getStackSize() > 1) {
+                            int[] pos = new int[3];
+                            for (int k = 0; k < 3; k++) pos[k] = pl.get(k) instanceof Number n ? n.intValue() : 0;
+                            for (Roi x : copies) x.setPosition(pos[0], pos[1], pos[2]);
+                            params.put("position", List.of(pos[0], pos[1], pos[2]));
+                        }
+                        eng.emitState(op, OperationState.RUNNING, null);
+                        synchronized (doc.roiList) {
+                            if (replace) doc.roiList.clear();
+                            doc.roiList.addAll(copies);
+                            params.put("count", (long) copies.size());
+                            params.put("total", (long) doc.roiList.size());
+                        }
+                        params.put("fromDocument", src.id.value());
+                        params.put("replace", replace);
+                        if (replace) lines.add("roiManager(\"reset\");");
+                        for (Roi x : copies) {
+                            lines.addAll(RoiCodec.macroLines(RoiCodec.toGeometry(x)));
+                            lines.add("roiManager(\"add\");");
+                        }
+                        lines.add("run(\"Select None\");");
+                        exact = false; // Fidelis keeps one ROI list per document; the ROI Manager lines are its classic-Fiji equivalent
+                    } else {
+                        Roi roi = imp.getRoi();
+                        if (roi == null) throw new Bad("there is no active selection to add");
+                        eng.emitState(op, OperationState.RUNNING, null);
+                        synchronized (doc.roiList) {
+                            doc.roiList.add((Roi) roi.clone());
+                            params.put("index", doc.roiList.size() - 1);
+                        }
                     }
                 }
                 case Operations.ROI_LIST_SELECT -> {
