@@ -40,15 +40,23 @@ final class AudioIO {
         engine.connect(player, to: engine.mainMixerNode, format: target)
         let source = input.outputFormat(forBus: 0)
         guard source.sampleRate > 0, source.channelCount > 0 else { throw CompanionError.message("No microphone input is available.") }
-        guard let converter = AVAudioConverter(from: source, to: target) else { throw CompanionError.message("Could not configure microphone audio.") }
+        // AVAudioConverter silently outputs zeros when asked to downmix the multi-channel microphone
+        // (9 channels under voice processing, 3 plain) to mono. Take the first channel ourselves and
+        // only let the converter change the sample rate.
+        guard let monoSource = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: source.sampleRate, channels: 1, interleaved: false),
+              let converter = AVAudioConverter(from: monoSource, to: target) else { throw CompanionError.message("Could not configure microphone audio.") }
         input.installTap(onBus: 0, bufferSize: 2048, format: source) { [target] buffer, _ in
             let capacity = AVAudioFrameCount(Double(buffer.frameLength) * 24000 / source.sampleRate + 64)
-            guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
+            guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity),
+                  let mono = AVAudioPCMBuffer(pcmFormat: monoSource, frameCapacity: buffer.frameLength),
+                  let firstChannel = buffer.floatChannelData?[0], let monoChannel = mono.floatChannelData?[0] else { return }
+            mono.frameLength = buffer.frameLength
+            monoChannel.update(from: firstChannel, count: Int(buffer.frameLength))
             var consumed = false
             var error: NSError?
             converter.convert(to: output, error: &error) { _, status in
                 if consumed { status.pointee = .noDataNow; return nil }
-                consumed = true; status.pointee = .haveData; return buffer
+                consumed = true; status.pointee = .haveData; return mono
             }
             guard error == nil, let samples = output.floatChannelData?[0] else { return }
             guard let chunk = try? PCM16.encode(UnsafeBufferPointer(start: samples, count: Int(output.frameLength))) else { return }
