@@ -10,7 +10,7 @@ import { profiles, selectApp, profileForTool, appIds } from '../src/apps/index.j
 import { fidelisTools, FIDELIS_BUNDLE_ID } from '../src/apps/fidelis-tools.js';
 import { fidelisInstructions } from '../src/apps/fidelis-instructions.js';
 import { fijiInstructions } from '../src/apps/fiji-instructions.js';
-import { awaitingSentence, describeDocument, maskLikely } from '../src/apps/fidelis.js';
+import { awaitingSentence, describeDocument, maskLikely, researcherAssents } from '../src/apps/fidelis.js';
 import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/bridge-readiness.js';
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
@@ -243,6 +243,8 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(fidelis.acknowledgmentFor('fidelis_context', {}, {}), undefined);
   assert.equal(describeDocument({ document: { title: 'hela-cells.tif', width: 672, height: 512, channels: 3, slices: 1, frames: 1, bitDepth: 16, unit: 'micron', pixelWidth: 0.08, pixelHeight: 0.08 }, counts: { rois: 12 } }),
     'Hela cells: 672 by 512, 16-bit; 3 channels; 0.08 microns per pixel; 12 objects outlined.');
+  for (const yes of ['Yes.', 'yes please', 'Okay, go ahead and run it.', 'confirm', 'yeah do it']) assert.equal(researcherAssents(yes), true, yes);
+  for (const other of ['okay', 'no', "yes but don't", 'yes wait', 'invert it with a macro', '', undefined]) assert.equal(researcherAssents(other), false, String(other));
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', minSize: 40, watershed: false, channel: 2 }, 'find the nuclei'), {}, 'unrequested tuning is dropped');
   assert.deepEqual(fidelis.modelArguments!('fidelis_segment_cells', { method: 'Triangle', channel: 2 }, 'segment the green channel with triangle'), { method: 'Triangle', channel: 2 });
 });
@@ -380,15 +382,22 @@ test('confirm binds to the observed plan, and a reviewed action decided later ke
   const bridge = await fakeBridge(root, (request, state) => request.operation === 'filter' ? { step: { label: 'Gaussian Blur...' } } : engine()(request, state));
   try {
     const auto = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
-    await assert.rejects(auto.call('fidelis_confirm', {}), /Nothing is waiting for confirmation/);
+    const saying = <T>(words: string, work: () => Promise<T>) => toolTask.run('task-c', () => toolUtterance.run({ spoken: false, utterance: () => words }, work));
+    await assert.rejects(saying('yes', () => auto.call('fidelis_confirm', {})), /Nothing is waiting for confirmation/);
     bridge.state.context = { ...bridge.state.context, contextKey: 'k2', pending: { planId: 'plan-9', reasons: [] } };
-    await assert.rejects(auto.call('fidelis_confirm', { planId: 'plan-1' }), /no longer the one waiting/);
+    await assert.rejects(saying('yes', () => auto.call('fidelis_confirm', { planId: 'plan-1' })), /no longer the one waiting/);
+    // Only the researcher's own assent confirms: never a direct client, never the model on another request.
+    await assert.rejects(auto.call('fidelis_confirm', {}), /Only the researcher can confirm this plan/);
+    await assert.rejects(saying('invert it with a macro', () => auto.call('fidelis_confirm', {})), /Only the researcher can confirm/);
+    await assert.rejects(saying("yes, but don't run it yet", () => auto.call('fidelis_confirm', {})), /Only the researcher can confirm/);
     assert.ok(!bridge.requests.some(request => request.operation === 'confirm'), 'nothing was dispatched');
     const review = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: false, profile: fidelis });
+    const attributed: Array<string | undefined> = []; review.on('tool', () => attributed.push(toolTask.getStore()));
     const proposal = await toolTask.run('task-r', () => toolUtterance.run({ spoken: true, utterance: () => 'blur it a little' }, () => review.call('fidelis_filter', { name: 'gaussian', sigma: 1 }))) as { status: string; actionId: string };
     assert.equal(proposal.status, 'approval_required');
     const decided = await review.decide(proposal.actionId, true);
     assert.equal(decided.status, 'completed');
+    assert.deepEqual(attributed, ['task-r'], 'the reviewed action\'s tool event names its task');
     assert.deepEqual(bridge.requests.at(-1), { operation: 'filter', arguments: { name: 'gaussian', sigma: 1 }, expectedContext: 'k2', approved: true, spoken: true, utterance: 'blur it a little', taskId: 'task-r' });
     assert.equal(fidelis.localSentenceFor('fidelis_filter', {}, decided), 'Filter applied.');
     const audit = await readFile(join(root, '.local/state/actions.jsonl'), 'utf8');

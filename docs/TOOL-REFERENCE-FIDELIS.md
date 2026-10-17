@@ -329,7 +329,7 @@ Run ImageJ macro code in Fidelis. Always waits for the researcher’s confirmati
 
 ## fidelis_confirm
 
-Run the plan waiting for confirmation (context.pending) after the researcher said yes or pressed Confirm; planId defaults to the pending plan. Returns that plan’s result.
+Run the plan waiting for confirmation (context.pending) when the researcher’s latest words are “yes” / “go ahead”; refused otherwise, never confirm on your own. planId defaults to the pending plan. Returns that plan’s result.
 
 | Parameter | Required | Accepted value |
 |---|---|---|

@@ -69,6 +69,10 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 - With `context.pending` set, a whole-utterance "yes", "yes please", "go ahead", "do it", "run it" or "confirm" runs
   `fidelis_confirm {planId}` at once, and "no", "cancel", "stop that", "don't run it", "never mind" runs
   `fidelis_cancel_plan`. Without a pending plan these words go to the model. A bare "okay" never confirms.
+- Only the researcher confirms: `fidelis_confirm` is refused ("Only the researcher can confirm this plan: say "yes" or
+  press Confirm in Fidelis.") unless the latest words of the conversation task are an assent ("yes…", "go ahead…",
+  "confirm…", with no negation), so neither the model on its own nor a direct `/tools/call` or MCP client can confirm.
+  A typed "yes" reaches the model, which may then confirm; the Fidelis card's own Confirm never passes through Penny.
 - `fidelis_confirm` is bound to the plan observed at dispatch: the gateway fills `planId` from `context.pending.planId`,
   refuses with "Nothing is waiting for confirmation." when there is none, and refuses a `planId` that is no longer
   pending. The confirm result is spoken from what the plan returned (a count, measurement, threshold or step).

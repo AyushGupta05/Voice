@@ -131,7 +131,8 @@ export class Runtime extends EventEmitter {
         action.status = 'completed';
         // A plan that waits for confirmation is recorded (audit, action status, envelope) as not run.
         if (this.profile.pausesRequest?.(action.tool, action.result)) action.outcome = 'awaiting_confirmation';
-        this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
+        // A decision taken outside the task (a review click) still attributes its tool event to that task.
+        withConversation(this.origins.get(action.id), () => this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result}));
       } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); console.error(`[tool ${new Date().toISOString()}] ${action.tool} failed: ${action.error}`); }
       await this.terminal(action);
       return action;

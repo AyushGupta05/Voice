@@ -4,6 +4,7 @@ import { fidelisTools, FIDELIS_BUNDLE_ID } from './fidelis-tools.js';
 import { fidelisInstructions } from './fidelis-instructions.js';
 import { friendlyName } from './fiji.js';
 import { imageNameMatches, queryWords } from '../local-images.js';
+import { conversationEnvelope } from '../tool-request.js';
 
 /** The parts of the bridge's `context` result (docs/FIDELIS-PROTOCOL.md) the instant routes and sentences read. */
 type FidelisDocument = { id?: unknown; title?: unknown; width?: unknown; height?: unknown; channels?: unknown; slices?: unknown; frames?: unknown; bitDepth?: unknown;
@@ -301,10 +302,19 @@ function modelArguments(name: string, args: Record<string, unknown>, utterance: 
   }
   return kept;
 }
-/** `fidelis_confirm` is bound to the plan observed now: the pending planId is filled in (or checked), so a plan that
- * replaced it in the meantime is never run by an earlier "yes". */
+/** The researcher's own latest words assent to a plan ("yes", "go ahead, run it"); a negation anywhere refuses. */
+export function researcherAssents(utterance: string | undefined): boolean {
+  const said = cleanUtterance(utterance ?? '');
+  return /^(?:yes|yeah|yep|yup|sure|go ahead|go for it|do it|run it|confirm|confirmed|proceed)\b/.test(said)
+    && !/\b(?:no|not|don't|do not|cancel|stop|wait|never|hold on)\b/.test(said);
+}
+/** `fidelis_confirm` runs an explicit plan, which only the researcher may approve (docs/FIDELIS-PROTOCOL.md,
+ * Confirmation): it is refused unless the latest words of the conversation task are the researcher's assent, so neither
+ * the model on its own nor a direct tool client can confirm. It is also bound to the plan observed now: the pending
+ * planId is filled in (or checked), so a plan that replaced it in the meantime is never run by an earlier "yes". */
 async function prepareAction(input: PrepareInput) {
   if (input.name !== 'fidelis_confirm') return;
+  if (!researcherAssents(conversationEnvelope().utterance)) throw new Error('Only the researcher can confirm this plan: say "yes" or press Confirm in Fidelis.');
   const pending = record((input.context as FidelisContext).pending);
   const planId = text(pending?.planId);
   if (!planId) throw new Error('Nothing is waiting for confirmation.');
