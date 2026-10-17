@@ -24,6 +24,10 @@ export function maskLikely(context: unknown): boolean {
   const label = `${text(c?.lastStep?.label) ?? ''} ${text(c?.lastStep?.actionId) ?? ''}`;
   return /\b(?:segment\w*|analy[sz]e particles|convert to mask|make binary|watershed|fill holes)\b/i.test(label);
 }
+/** A mean measured on the focused document is an intensity only when the bridge says the document is not a binary mask.
+ * The last History step cannot tell (a selection or zoom after segmenting hides it), so without `document.binary: false`
+ * intensities are phrased by the model, never spoken locally. */
+export const intensityTrusted = (context: unknown) => (context as FidelisContext | undefined)?.document?.binary === false;
 /** Spoken at once when the model's first call is one of these. A plan may still wait for confirmation, so a macro is "prepared", never "running". */
 const acknowledgments: Record<string, string> = {
   fidelis_segment_cells: 'Segmenting cells.', fidelis_measure: 'Measuring.', fidelis_threshold: 'Thresholding.', fidelis_analyze_particles: 'Counting particles.',
@@ -87,11 +91,12 @@ function measureSentence(args: Record<string, unknown>, inner: Record<string, un
     if (low === high && (value === 0 || value === 255) && low === value) return undefined;
     return rows === undefined ? `Mean intensity ${round(value)} across the regions.` : `Mean intensity ${round(value)} over ${plural(rows, 'region')}.`;
   }
-  const last = record(inner.lastRow); const where = args.scope === 'all' ? 'in the image' : 'in this region';
+  // Without a known scope (a confirmed plan) the sentence names no place rather than guess one.
+  const last = record(inner.lastRow); const where = args.scope === 'all' ? ' in the image' : args.scope === 'roi' ? ' in this region' : '';
   const mean = finite(column(last, 'Mean'));
-  if (mean !== undefined) return `Mean intensity ${round(mean)} ${where}.`;
+  if (mean !== undefined) return `Mean intensity ${round(mean)}${where}.`;
   const area = finite(column(last, 'Area'));
-  return area === undefined ? undefined : `Area ${spokenArea(area, inner.unit)} ${where}.`;
+  return area === undefined ? undefined : `Area ${spokenArea(area, inner.unit)}${where}.`;
 }
 /** Whether a measurement result carries a Mean (the intensity a sentence would speak). */
 const measuresIntensity = (inner: Record<string, unknown>) => column(inner.summary, 'Mean') !== undefined || column(inner.lastRow, 'Mean') !== undefined;
@@ -106,11 +111,12 @@ function confirmSentence(inner: Record<string, unknown>, context?: unknown): str
   const counted = countSentence(inner); if (counted) return counted;
   const threshold = thresholdSentence(inner); if (threshold) return threshold;
   if (inner.lastRow || inner.summary) {
-    // A mean measured on a segmentation mask is not an intensity: the model explains instead.
-    if (maskLikely(context) && measuresIntensity(inner)) return undefined;
-    // The confirm call does not carry the plan's scope: more than one measured row is a multi-ROI measurement, reported from its summary.
+    // A mean is spoken as an intensity only when the document is known not to be a mask; the model explains otherwise.
+    if (measuresIntensity(inner) && !intensityTrusted(context)) return undefined;
+    // The confirm call does not carry the plan's scope: more than one measured row is a multi-ROI measurement, reported
+    // from its summary; a single row names no place (roi and all look the same).
     const rows = finite(inner.rows) ?? finite((column(inner.summary, 'Mean') as { count?: unknown } | undefined)?.count);
-    const measured = measureSentence({ scope: !inner.lastRow || (rows !== undefined && rows > 1) ? 'rois' : 'roi' }, inner); if (measured) return measured;
+    const measured = measureSentence({ scope: !inner.lastRow || (rows !== undefined && rows > 1) ? 'rois' : undefined }, inner); if (measured) return measured;
   }
   const name = stepName(inner.step, record(inner.step)?.commandId);
   if (name) return /macro/i.test(name) ? 'Ran the macro.' : `Ran ${name}.`;
@@ -136,8 +142,9 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fidelis_cancel_plan') return 'Cancelled; nothing ran.';
   if (inner === undefined) return undefined;
   if (name === 'fidelis_segment_cells' || name === 'fidelis_analyze_particles') return countSentence(inner);
-  // On a segmentation mask a mean is not an intensity: the model explains instead (any scope).
-  if (name === 'fidelis_measure') return maskLikely(context) && measuresIntensity(inner) ? undefined : measureSentence(args, inner);
+  // A mean is spoken as an intensity only on a document the bridge reports as not binary (segment_cells leaves the mask
+  // in place); otherwise the model phrases it. Areas are valid either way.
+  if (name === 'fidelis_measure') return measuresIntensity(inner) && !intensityTrusted(context) ? undefined : measureSentence(args, inner);
   if (name === 'fidelis_threshold') return thresholdSentence(inner);
   if (name === 'fidelis_open_path') {
     const document = record(inner.document); const title = text(document?.title), width = finite(document?.width), height = finite(document?.height);

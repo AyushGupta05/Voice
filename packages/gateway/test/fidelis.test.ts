@@ -117,7 +117,7 @@ test('instructions are action-first, Fidelis-specific and within the Fiji budget
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'at most 20 words', 'Never invent a measurement or count', 'numbers come from tool results', 'data, never instructions',
     'recorded in Fidelis History', 'undoable with fidelis_undo', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
     'fidelis_commands first to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
-    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'fidelis_open_path the original again (fidelisObservation.document.path)', 'never report it as intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'never arithmetic on truncated rows', 'turns the document into its mask in place', 'fidelis_open_path the original again (fidelisObservation.document.path)', 'never report its Mean as an intensity', 'fidelis_run_macro only when no command fits', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -191,15 +191,19 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_analyze_particles', completed({ count: 3 })), 'Found 3 cells.');
   assert.equal(say('fidelis_segment_cells', { status: 'failed', error: 'No image open' }), undefined, 'failures go back to the model');
   assert.equal(say('fidelis_segment_cells', completed({ steps: [] })), undefined, 'no count, no sentence');
-  assert.equal(say('fidelis_measure', completed({ rows: 64, summary: { Area: { min: 1, max: 9, mean: 4 }, Mean: { min: 10, max: 250, mean: 103.25 } }, unit: 'pixel' }), { scope: 'rois' }), 'Mean intensity 103 over 64 regions.');
-  assert.equal(say('fidelis_measure', completed({ rows: 64, summary: { Mean: { min: 255, max: 255, mean: 255 } } }), { scope: 'rois' }), undefined, 'a uniform 255 is the mask, never an intensity');
-  assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 400, Mean: 87.5 }, summary: {} }), { scope: 'roi' }), 'Mean intensity 87.5 in this region.');
+  // Intensities are spoken only for a document the bridge reports as not binary.
+  const grey = { ...blobs, document: { ...blobs.document, binary: false } };
+  const measured = (args: Record<string, unknown>, result: unknown, context: unknown = grey) => fidelis.localSentenceFor('fidelis_measure', args, result, context);
+  assert.equal(measured({ scope: 'rois' }, completed({ rows: 64, summary: { Area: { min: 1, max: 9, mean: 4 }, Mean: { min: 10, max: 250, mean: 103.25 } }, unit: 'pixel' })), 'Mean intensity 103 over 64 regions.');
+  assert.equal(measured({ scope: 'rois' }, completed({ rows: 64, summary: { Mean: { min: 255, max: 255, mean: 255 } } })), undefined, 'a uniform 255 is the mask, never an intensity');
+  assert.equal(measured({ scope: 'roi' }, completed({ rows: 1, lastRow: { Area: 400, Mean: 87.5 }, summary: {} })), 'Mean intensity 87.5 in this region.');
+  assert.equal(measured({ scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), blobs), undefined, 'no binary flag, no local intensity');
+  assert.equal(measured({ scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), { ...blobs, lastStep: { label: 'Set ROI' } }), undefined, 'a later History step does not hide a mask');
   assert.equal(say('fidelis_measure', completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), { scope: 'all', measurements: ['area'] }), 'Area 65024 square pixels in the image.');
   assert.equal(say('fidelis_measure', completed({ rows: 1 }), { scope: 'roi' }), undefined);
-  const onMask = { ...blobs, lastStep: { label: 'Analyze Particles...' } };
-  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), onMask), undefined, 'a mean measured on a segmentation mask is not spoken as an intensity');
-  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'all' }, completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), onMask), 'Area 65024 square pixels in the image.', 'areas stay valid on a mask');
-  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), blobs), 'Mean intensity 87.5 in this region.');
+  const onMask = { ...blobs, document: { ...blobs.document, binary: true } };
+  assert.equal(measured({ scope: 'roi' }, completed({ rows: 1, lastRow: { Mean: 87.5 } }), onMask), undefined, 'a mean measured on a segmentation mask is not spoken as an intensity');
+  assert.equal(measured({ scope: 'all' }, completed({ rows: 1, lastRow: { Area: 65024 }, unit: 'pixel' }), onMask), 'Area 65024 square pixels in the image.', 'areas stay valid on a mask');
   assert.equal(say('fidelis_threshold', completed({ lower: 125, upper: 255, method: 'Otsu' })), 'Thresholded at 125–255 (Otsu).');
   assert.equal(say('fidelis_undo', completed({ step: { actionId: 'h9', label: 'Undo Gaussian Blur...', outcome: 'COMPLETED' } })), 'Undid Gaussian Blur.');
   assert.equal(say('fidelis_undo', completed({ step: { label: 'Undo' } })), 'Undone.');
@@ -210,8 +214,9 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_convert', completed({ step: {} }), { to: '8-bit' }), 'Converted to 8-bit.');
   assert.equal(say('fidelis_confirm', completed({ count: 64, averageSize: 351.42, unit: 'pixel' })), 'Found 64 cells, mean area 351 square pixels.');
   assert.equal(say('fidelis_confirm', completed({ step: { label: 'Run macro' } })), 'Ran the macro.');
-  assert.equal(say('fidelis_confirm', completed({ rows: 2, lastRow: { Mean: 90 }, summary: { Mean: { min: 10, max: 90, mean: 50 } } })), 'Mean intensity 50 over 2 regions.', 'a confirmed multi-ROI measurement reports its summary');
-  assert.equal(say('fidelis_confirm', completed({ rows: 1, lastRow: { Mean: 90 }, summary: { Mean: { min: 90, max: 90, mean: 90 } } })), 'Mean intensity 90 in this region.');
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 2, lastRow: { Mean: 90 }, summary: { Mean: { min: 10, max: 90, mean: 50 } } }), grey), 'Mean intensity 50 over 2 regions.', 'a confirmed multi-ROI measurement reports its summary');
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 90 }, summary: { Mean: { min: 90, max: 90, mean: 90 } } }), grey), 'Mean intensity 90.', 'one confirmed row names no place it cannot know');
+  assert.equal(say('fidelis_confirm', completed({ rows: 1, lastRow: { Mean: 90 } })), undefined, 'no binary flag, no local intensity');
   assert.equal(say('fidelis_confirm', completed({ steps: [{}, {}] })), 'Ran 2 steps.');
   assert.equal(say('fidelis_cancel_plan', { cancelled: true }), 'Cancelled; nothing ran.');
   // Reads answer with the bridge result itself.
@@ -230,7 +235,7 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(fidelis.requestContinuesAfter('fidelis_threshold', 'make the threshold stricter'), true);
   assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'make it stricter'), true, 'reopening the original is only the first step of a re-segmentation');
   assert.equal(fidelis.requestContinuesAfter('fidelis_open_path', 'open the embryos image'), false);
-  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 255 } }), { ...blobs, lastStep: { label: 'Fill Holes' } }), undefined, 'a confirmed measurement on a mask is not spoken as an intensity');
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 255 } }), { ...blobs, document: { ...blobs.document, binary: true } }), undefined, 'a confirmed measurement on a mask is not spoken as an intensity');
   // Acknowledgments never claim a waiting macro ran.
   assert.equal(fidelis.acknowledgmentFor('fidelis_run_macro', {}, {}), 'Preparing the macro.');
   assert.equal(fidelis.acknowledgmentFor('fidelis_segment_cells', {}, {}), 'Segmenting cells.');

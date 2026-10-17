@@ -139,19 +139,20 @@ The bridge should match these readings of [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL
 4. An explicit plan answers HTTP 200 `{result: {status: "awaiting_confirmation", planId, reasons, steps}}` even though the
    request carried `approved: true`; `steps` is an array. While it waits, `context.pending` holds `{planId, reasons}` and
    `contextKey` may change. `confirm` with a `planId` that is not pending answers 409.
-5. Optional context fields the instant routes use when present: `document.displayRange: [min, max]` (or
-   `document.display: {min, max}`) for "brighter/darker", and `document.position: {channel, slice, frame}` for
-   "next/previous slice". Without them those phrases go to the model.
+5. Optional context fields the instant routes and sentences use when present: `document.displayRange: [min, max]` (or
+   `document.display: {min, max}`) for "brighter/darker", `document.position: {channel, slice, frame}` for
+   "next/previous slice", and `document.binary` (true for a binary mask) for spoken intensities. Without them those
+   phrases go to the model.
 6. `segment_cells` works in place (no Duplicate), which leaves two gaps the bridge should close:
    re-segmenting with another method needs the original pixels back (the model reopens `document.path`, which loses
    unsaved changes made before segmenting; one undoable History step per plan, or segmenting from the
    pre-segmentation state, would be better), and
    `measure {scope: "rois"}` right after segmenting reads the mask (0/255), not intensities (measure on the
    pre-segmentation pixels, for example by redirecting Set Measurements to a kept original). Until then the gateway has
-   no instant intensity route, never speaks a mean as an intensity locally when the document looks segmented (a
-   uniform 0/255 ROI mean, `document.binary: true`, or a last History step naming a segmentation stage such as Analyze
-   Particles, Convert to Mask, Watershed or Fill Holes), and does not repeat "find the nuclei" instantly on such a
-   document. Reporting `document.binary` in `context` would replace that heuristic.
+   no instant intensity route and speaks a mean as an intensity locally only when `context.document.binary` is `false`
+   (please report it, from `ImageProcessor.isBinary()`); without it, or with a uniform 0/255 ROI mean, the model phrases
+   the answer. "Find the nuclei" is not repeated instantly on a document that is binary, has ROIs, or whose last History
+   step names a segmentation stage (Analyze Particles, Convert to Mask, Watershed, Fill Holes).
 7. Results speak only what the bridge reports: `segment_cells`/`analyze_particles` `count`, `averageSize`, `unit`;
    `threshold` `lower`, `upper`, `method`; `undo`/`redo`/`command` `step.label`; `open_path` `document.{title,width,height}`;
    `rois` `total`; `object_stats` `n`, `area.{mean,median}`, `unit`.
