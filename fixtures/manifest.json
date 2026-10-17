@@ -25,7 +25,16 @@
           "sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493"
         }
       ],
-      "expected_reference_outputs": null,
+      "expected_reference_outputs": {
+        "journey": "J-12",
+        "lock16": "9403b6197ac4bf75",
+        "path": "verification/baselines/FX-001/9403b6197ac4bf75/",
+        "modes": [
+          "gui",
+          "headless"
+        ],
+        "opened_file": "two-squares.png"
+      },
       "size_bytes": 133,
       "sha256": "e251d96a332e33cf849825d6277ba4438282d59216ed0c410b91819ce5a0e493"
     },
@@ -56,7 +65,16 @@
           "sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271"
         }
       ],
-      "expected_reference_outputs": null,
+      "expected_reference_outputs": {
+        "journey": "J-12",
+        "lock16": "9403b6197ac4bf75",
+        "path": "verification/baselines/FX-003/9403b6197ac4bf75/",
+        "modes": [
+          "gui",
+          "headless"
+        ],
+        "opened_file": "blobs.gif"
+      },
       "size_bytes": 25765,
       "sha256": "507d168e317a6b80cd4a2e94f5ff483769779553b7d02b98cb94f790333d5271"
     },
@@ -139,7 +157,16 @@
           "sha256": "b24671230222f889b63ac287599bfa4a8b009e458a465bfd13cf82ef966b12af"
         }
       ],
-      "expected_reference_outputs": null,
+      "expected_reference_outputs": {
+        "journey": "J-12",
+        "lock16": "9403b6197ac4bf75",
+        "path": "verification/baselines/FX-030/9403b6197ac4bf75/",
+        "modes": [
+          "gui",
+          "headless"
+        ],
+        "opened_file": "A03f00d0.tif"
+      },
       "size_bytes": 854471,
       "sha256": "d6d4ad4743dc8dfdec23d6c769cbbfe495563221e37353f272617838bfddcd48"
     },
@@ -171,7 +198,16 @@
           "extract": true
         }
       ],
-      "expected_reference_outputs": null,
+      "expected_reference_outputs": {
+        "journey": "J-12",
+        "lock16": "9403b6197ac4bf75",
+        "path": "verification/baselines/FX-031/9403b6197ac4bf75/",
+        "modes": [
+          "gui",
+          "headless"
+        ],
+        "opened_file": "1GRAY.tif (synthetic_000_images)"
+      },
       "size_bytes": 13513791,
       "sha256": "9156756acddba4888f2bfa7097fe1fc5286bc84f7ad9dcf2b7cde6024856aec7"
     },

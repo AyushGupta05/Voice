@@ -33,15 +33,25 @@ BASELINES = ROOT / "verification" / "baselines"
 RUNS = ROOT / "verification" / "runs"
 MANIFEST = ROOT / "fixtures" / "manifest.json"
 
-FIXTURE_FILES = {"FX-001": "fixtures/two-squares.png", "FX-003": "fixtures/cache/FX-003/blobs.gif"}
+# fixture id -> (file the macro opens, file whose SHA-256 is pinned in the manifest)
+FIXTURE_FILES = {
+    "FX-001": ("fixtures/two-squares.png", "fixtures/two-squares.png"),
+    "FX-003": ("fixtures/cache/FX-003/blobs.gif", "fixtures/cache/FX-003/blobs.gif"),
+    # E9 reporting only (licence CC BY-NC-SA; derived numbers only are stored)
+    "FX-030": ("fixtures/cache/FX-030/extracted/human_ht29_colon_cancer_1_images/AS_09125_050118150001_A03f00d0.tif",
+               "fixtures/cache/FX-030/BBBC001_v1_images_tif.zip"),
+    "FX-031": ("fixtures/cache/FX-031/extracted/synthetic_000_images/1GRAY.tif",
+               "fixtures/cache/FX-031/BBBC004_v1_000_images.zip"),
+}
 
 
 def fixture_path(fixture_id: str) -> Path:
-    path = ROOT / FIXTURE_FILES[fixture_id]
+    opened, pinned_file = FIXTURE_FILES[fixture_id]
+    path = ROOT / opened
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     entry = next(f for f in manifest["fixtures"] if f["id"] == fixture_id)
     pinned = entry["files"][0]["sha256"]
-    actual = rr.sha256(path)
+    actual = rr.sha256(ROOT / pinned_file)
     if pinned and pinned != actual:
         raise RuntimeError(f"{fixture_id}: SHA-256 mismatch ({actual} != {pinned})")
     return path
@@ -99,6 +109,54 @@ def run_mode(fixture_id: str, mode: str, timeout: float) -> dict:
     return meta
 
 
+def column(table: dict | None, name: str) -> list[str] | None:
+    if not table or "columns" not in table:
+        return None
+    return next((c["values"] for c in table["columns"] if c["name"] == name), None)
+
+
+def write_summary(fixture_id: str) -> Path:
+    """Compact, reviewable summary of the stored modes for one fixture (hashes and numbers only)."""
+    base = BASELINES / fixture_id / lock16()
+    summary: dict = {"fixture": fixture_id, "lock16": lock16(), "modes": {}}
+    for mode in ("gui", "headless"):
+        folder = base / mode
+        if not (folder / "run.json").exists():
+            continue
+        run = json.loads((folder / "run.json").read_text())
+        steps = []
+        for tag in ["s00_globals"] + [st["tag"] for st in run["steps"]]:
+            dump = json.loads((folder / f"{tag}.json").read_text())
+            steps.append({
+                "tag": tag,
+                "images": [{"title": i["title"], "type": i["type"], "size": [i["width"], i["height"]],
+                            "allPlanesSha256": i["allPlanesSha256"], "invertedLut": i["invertedLut"],
+                            "threshold": i["threshold"]} for i in dump["images"]],
+                "resultsRows": (dump["results"] or {}).get("rows"),
+                "roiManagerCount": None if dump["roiManager"] is None else len(dump["roiManager"]),
+                "globals": dump["globals"],
+            })
+        measure = json.loads((folder / "s08_measure.json").read_text())
+        particles = json.loads((folder / "s09_analyze_particles.json").read_text())
+        summary_table = particles.get("summary")
+        summary["modes"][mode] = {
+            "reference_mode_rationale": ("authoritative: GUI because Open.../Threshold.../Watershed are not "
+                                         "headless_probe=pass and Analyze Particles... add fails headless")
+            if mode == "gui" else "cross-check: headless-safe prefix; Analyze Particles without `add`",
+            "run": {k: run[k] for k in ("exit_code", "seconds", "timed_out", "complete", "fixture_sha256",
+                                         "with_add", "saved_tiff_sha256", "saved_tiff_bytes") if k in run},
+            "measure_row": {c["name"]: c["values"][0] for c in measure["results"]["columns"]
+                            if c.get("values")},
+            "particle_count_results_rows": (particles["results"] or {}).get("rows"),
+            "particle_summary": None if not summary_table or "columns" not in summary_table else {
+                c["name"]: c["values"][0] for c in summary_table["columns"] if c.get("values")},
+            "steps": steps,
+        }
+    path = base / "summary.json"
+    path.write_text(json.dumps(summary, indent=1), encoding="utf-8")
+    return path
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", action="append", default=[])
@@ -114,6 +172,7 @@ def main() -> int:
             print(f"{fixture_id} {mode}: {'OK' if ok else 'FAILED'} in {time.monotonic() - t:.1f}s "
                   f"missing={meta['missing_steps']} notes={meta['notes']}")
             status |= 0 if ok else 1
+        write_summary(fixture_id)
     return status
 
 

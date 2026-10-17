@@ -1,0 +1,772 @@
+{
+ "fixture": "FX-031",
+ "lock16": "9403b6197ac4bf75",
+ "modes": {
+  "gui": {
+   "reference_mode_rationale": "authoritative: GUI because Open.../Threshold.../Watershed are not headless_probe=pass and Analyze Particles... add fails headless",
+   "run": {
+    "exit_code": 0,
+    "seconds": 5.88,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "79b859feae4a22471f9a486b44b233c51279dd162dbadee3487b1822da519746",
+    "with_add": true,
+    "saved_tiff_sha256": "87af887886b6ea1f0496d9d28d457a1a27838dea9ba325cf0be96bc9cd43ac84",
+    "saved_tiff_bytes": 1005852
+   },
+   "measure_row": {
+    "Area": "902500.0",
+    "Mean": "27.857584487534627",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "2.514147E7",
+    "RawIntDen": "2.514147E7"
+   },
+   "particle_count_results_rows": 300,
+   "particle_summary": {
+    "Slice": "NaN",
+    "Count": "300.0",
+    "Total Area": "98594.0",
+    "Average Size": "328.64666666666665",
+    "%Area": "10.92454293628809",
+    "Mean": "255.0",
+    "IntDen": "83804.9"
+   },
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "83edfdefe0966c193c4c527827501a31e98046599e7520a28f117bc1196c9408",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "17e3c2da785377f956de265c1677bfd8f7e7bceb3acb702fca65f4076787d026",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "9e34af9c446595f34955380a926e02c0739a169b9cdd519a87671c1ab3305ae2",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "9e34af9c446595f34955380a926e02c0739a169b9cdd519a87671c1ab3305ae2",
+       "invertedLut": false,
+       "threshold": [
+        "65.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "1d5a3c0c47ecac367576034650565a8403b5015676477a1c37666ce50df3aaf5",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of 1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 300,
+     "roiManagerCount": 300,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "1GRAY-mask.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of 1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 300,
+     "roiManagerCount": 300,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  },
+  "headless": {
+   "reference_mode_rationale": "cross-check: headless-safe prefix; Analyze Particles without `add`",
+   "run": {
+    "exit_code": 0,
+    "seconds": 5.5,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "79b859feae4a22471f9a486b44b233c51279dd162dbadee3487b1822da519746",
+    "with_add": false,
+    "saved_tiff_sha256": "ec126bb6160b57a5bd52e5b5b3dddf6726c40f96795282db7e837d546b744fa1",
+    "saved_tiff_bytes": 902660
+   },
+   "measure_row": {
+    "Area": "902500.0",
+    "Mean": "27.857584487534627",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "2.514147E7",
+    "RawIntDen": "2.514147E7"
+   },
+   "particle_count_results_rows": 300,
+   "particle_summary": null,
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "83edfdefe0966c193c4c527827501a31e98046599e7520a28f117bc1196c9408",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "17e3c2da785377f956de265c1677bfd8f7e7bceb3acb702fca65f4076787d026",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "9e34af9c446595f34955380a926e02c0739a169b9cdd519a87671c1ab3305ae2",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "9e34af9c446595f34955380a926e02c0739a169b9cdd519a87671c1ab3305ae2",
+       "invertedLut": false,
+       "threshold": [
+        "65.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "1d5a3c0c47ecac367576034650565a8403b5015676477a1c37666ce50df3aaf5",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of 1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 300,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "1GRAY-mask.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of 1GRAY.tif",
+       "type": 0,
+       "size": [
+        950,
+        950
+       ],
+       "allPlanesSha256": "4280c1b0a47e673449f803069c02b344272886a5ed29152d3fe589ecf7b086a9",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 300,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  }
+ }
+}

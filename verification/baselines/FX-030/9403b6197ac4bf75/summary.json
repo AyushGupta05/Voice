@@ -1,0 +1,772 @@
+{
+ "fixture": "FX-030",
+ "lock16": "9403b6197ac4bf75",
+ "modes": {
+  "gui": {
+   "reference_mode_rationale": "authoritative: GUI because Open.../Threshold.../Watershed are not headless_probe=pass and Analyze Particles... add fails headless",
+   "run": {
+    "exit_code": 0,
+    "seconds": 5.87,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "f71cd6ae30ba4f162671a420055dd71eec6be8cd011475fae930930cccbcf578",
+    "with_add": true,
+    "saved_tiff_sha256": "8efb7c00dec203215753c762dcb0556515e474e36ac21f94cc36685ad1483fab",
+    "saved_tiff_bytes": 352614
+   },
+   "measure_row": {
+    "Area": "262144.0",
+    "Mean": "40.20853042602539",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "1.0540425E7",
+    "RawIntDen": "1.0540425E7"
+   },
+   "particle_count_results_rows": 345,
+   "particle_summary": {
+    "Slice": "NaN",
+    "Count": "345.0",
+    "Total Area": "41297.0",
+    "Average Size": "119.70144927536232",
+    "%Area": "15.753555297851562",
+    "Mean": "255.0",
+    "IntDen": "30523.869565217392"
+   },
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "fd54dd3f33dc869e436e62081fe33f856430c5aab8197f970ba7d261de6e1c5f",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "0d3d0a31e348446429d7b3f5d7b134617a6553bdf747f71eb70075e6a7265a50",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "e584a2026e63cd52af15f1c22bcee12c99e9c777d53cb99b64f263146733adf2",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "e584a2026e63cd52af15f1c22bcee12c99e9c777d53cb99b64f263146733adf2",
+       "invertedLut": false,
+       "threshold": [
+        "23.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8c2a3d5b28ec3a4984713b68ab780f0b014a9e07f97ff9612a67db2a45697a8b",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8b87bec4835731e993dae9b373b993efbb372a81a5d900bce4f4d477a95af39f",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 345,
+     "roiManagerCount": 345,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0-mask.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8b87bec4835731e993dae9b373b993efbb372a81a5d900bce4f4d477a95af39f",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 345,
+     "roiManagerCount": 345,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  },
+  "headless": {
+   "reference_mode_rationale": "cross-check: headless-safe prefix; Analyze Particles without `add`",
+   "run": {
+    "exit_code": 0,
+    "seconds": 5.33,
+    "timed_out": false,
+    "complete": true,
+    "fixture_sha256": "f71cd6ae30ba4f162671a420055dd71eec6be8cd011475fae930930cccbcf578",
+    "with_add": false,
+    "saved_tiff_sha256": "fe8afd83cef63ab7fd5029b4e725aa13b287bb171d6ad6979591a5bde5a20d45",
+    "saved_tiff_bytes": 262304
+   },
+   "measure_row": {
+    "Area": "262144.0",
+    "Mean": "40.20853042602539",
+    "Min": "0.0",
+    "Max": "255.0",
+    "IntDen": "1.0540425E7",
+    "RawIntDen": "1.0540425E7"
+   },
+   "particle_count_results_rows": 345,
+   "particle_summary": null,
+   "steps": [
+    {
+     "tag": "s00_globals",
+     "images": [],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s01_open",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "fd54dd3f33dc869e436e62081fe33f856430c5aab8197f970ba7d261de6e1c5f",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s02_subtract_background",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "0d3d0a31e348446429d7b3f5d7b134617a6553bdf747f71eb70075e6a7265a50",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s03_gaussian_blur",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "e584a2026e63cd52af15f1c22bcee12c99e9c777d53cb99b64f263146733adf2",
+       "invertedLut": false,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s04_threshold",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "e584a2026e63cd52af15f1c22bcee12c99e9c777d53cb99b64f263146733adf2",
+       "invertedLut": false,
+       "threshold": [
+        "23.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s05_convert_to_mask",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8c2a3d5b28ec3a4984713b68ab780f0b014a9e07f97ff9612a67db2a45697a8b",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s06_watershed",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 19,
+      "precision": 3,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s07_set_measurements",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 0,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s08_measure",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      }
+     ],
+     "resultsRows": 1,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s09_analyze_particles",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8b87bec4835731e993dae9b373b993efbb372a81a5d900bce4f4d477a95af39f",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 345,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    },
+    {
+     "tag": "s10_save_tiff",
+     "images": [
+      {
+       "title": "AS_09125_050118150001_A03f00d0-mask.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "5446a5334230fefe1aec146d3a9619ba42fa5150d941c319891f1dc637b8aeda",
+       "invertedLut": false,
+       "threshold": [
+        "255.0",
+        "255.0"
+       ]
+      },
+      {
+       "title": "Mask of AS_09125_050118150001_A03f00d0.tif",
+       "type": 0,
+       "size": [
+        512,
+        512
+       ],
+       "allPlanesSha256": "8b87bec4835731e993dae9b373b993efbb372a81a5d900bce4f4d477a95af39f",
+       "invertedLut": true,
+       "threshold": [
+        "-808080.0",
+        "-808080.0"
+       ]
+      }
+     ],
+     "resultsRows": 345,
+     "roiManagerCount": null,
+     "globals": {
+      "blackBackground": true,
+      "measurements": 32787,
+      "precision": 9,
+      "doScaling": true,
+      "weightedColor": false,
+      "calibrateConversions": false,
+      "padEdges": false,
+      "useInvertingLut": false
+     }
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,25 @@
+{
+ "dumperVersion": 1,
+ "tag": "s00_globals",
+ "imagej": "1.54p99",
+ "java": "21.0.7",
+ "headlessAwt": false,
+ "currentImageTitle": null,
+ "images": [],
+ "results": {
+  "rows": 0,
+  "columns": []
+ },
+ "summary": null,
+ "roiManager": null,
+ "globals": {
+  "blackBackground": true,
+  "measurements": 19,
+  "precision": 3,
+  "doScaling": true,
+  "weightedColor": false,
+  "calibrateConversions": false,
+  "padEdges": false,
+  "useInvertingLut": false
+ }
+}
