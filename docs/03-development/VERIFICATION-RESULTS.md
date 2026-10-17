@@ -172,3 +172,49 @@ single planes only; FX-004, FX-005 and FX-040 are cached but have no baselines y
 `verification/dumper.js`, `verification/baselines/**` (JSON committed, raw planes and NC-licensed per-step data
 git-ignored), `fidelis-app/src/test/java/sc/fidelis/testkit/{Fixtures,PixelHash,IjState,HarnessSelfCheckEngine}.java`,
 `fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and baseline-raw lines).
+
+## 10. Follow-up T6 on the merged tree (2026-10-17, after merging `development/fidelis-workstation`)
+
+**GUI smoke, for real.** `python -I verification/gui_smoke.py --timeout 150` (launches `fidelis-app/tools/run.py
+--isolated-home -- --screenshot <png> --size 1280x800 --open fixtures/cache/FX-003/blobs.gif`): exit code 0,
+application exit 0 after 9.3 s, PNG `verification/runs/gui-smoke.png` (git-ignored), 1266×792, 52,350 B, luminance
+standard deviation 78.9, 377 distinct sampled colours, no problems. I looked at the image: the window shows the
+`blobs.gif` tab, the `two-squares.png` tab and the `synthetic-16bit` tab the debug run adds, the Parameters dock,
+the History table and "Engine: ready (development stub)". The screenshot is smoke evidence only; it is not used as
+scientific evidence (CR-A30-08). The robot capture was all black (no interactive session) and was not written.
+
+**UI-path parity, independent of A1.** `sc.fidelis.verification.WorkspaceJourneyTest` builds the workspace as the
+application does, around `EngineProvider.get(null)` (the UI's `StubEngine` until a product engine registers; the
+test switches to `engine.rois()` automatically when one is registered), submits the J-12 typed requests with the
+explicit option strings of section 3, and compares after every step with the GUI baseline: 2 passed (FX-001,
+FX-003), every step exact in E1 pixels, E3, E5 Results as doubles, E4 ROI vertices (read from the IJ1 ROI Manager,
+because the stub's `rois()` does not mirror it), E6 `blackBackground`. UI checks in the same run: the hosted IJ1
+canvas is inside the workspace frame, the viewer's `ImagePlus` pixel hash equals the baseline after open.
+Fallbacks (printed as notes by the test): the stub rejects `SET_AUTO_THRESHOLD` and `SAVE_AS` with
+UNSUPPORTED_IN_MODE, so those two steps run through `IJ.setAutoThreshold(imp, "Otsu dark")` and
+`IJ.saveAs(imp, "tiff", path)`, the calls a product engine uses. Convert to Mask is submitted with no options and
+`Prefs.blackBackground = true` set before the first step, exactly as the baseline macro does: the `black` key
+belongs to the stack path of `Thresholder`, and the baseline has none (commands-core-parameters.csv). The
+EngineParityTest and WorkspaceJourneyTest share `J12Session`, so the product engine is tested by the same code.
+
+**Results precision in the UI.** `ResultsPanel` has no public copy method: `tsv()` and `full()` are
+package-private (the copy button calls `tsv()`). The test finds the panel in the frame's component tree and calls
+`tsv()` reflectively on the EDT. After Measure the TSV (header `# Label Area Mean Min Max IntDen RawIntDen`) has
+1 row; after Analyze Particles it has 71 rows (Blobs) and 2 rows (two-squares); every cell parsed with
+`Double.parseDouble` equals the baseline double bit for bit (`doubleToLongBits`), including Mean
+155.9435746801181 and IntDen 10140075.
+
+**E7 macro replay.** `verification/replay.py` wraps a macro with the dumper, runs it in the pinned reference
+Fiji in GUI mode and writes `out/final.json`; `MacroReplayTest` has two tests. (1) After the J-12 session,
+`engine.exportMacro()` is replayed on a fresh copy of the fixture (paths rewritten to the copy and a replay-only
+Tiff) and compared with the live session (E1, E4, E5, E6): **skipped** (assumption) because the stub's export
+starts with "Development stub macro". (2) The machinery check feeds the independent reference macro through the
+same path: the replay finished in 4.8 s and its final state (2 images, 71 Results rows, 71 ROIs) equals the
+stored baseline step s10 exactly, and the cached fixture was not touched (the copy has the same SHA-256).
+Debugging note: my first replay hung for the full timeout on a modal "Macro Error" because a newline escape in
+`replay.py` split a string literal inside the macro; the runner's timeout and tree kill handled it, and the
+fix is in the same commit.
+
+**Suites after T6.** `python -I fidelis-app/tools/test.py` (merged tree, one live Fiji JVM): 170 tests run,
+0 failed, 2 skipped by assumption (`EngineParityTest`: no `Engines`; `exportedMacroReplaysTheLiveSession`: stub
+export). `build.py` is green. Python harness self-tests were not changed in this round (14 passed earlier).
