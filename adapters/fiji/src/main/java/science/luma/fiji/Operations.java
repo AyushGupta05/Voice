@@ -575,7 +575,7 @@ final class Operations {
                 // 12-bit-or-higher ceiling that is also the channel maximum. Flat objects below that are kept: real data can be flat too.
                 boolean flat = stats.stdDev <= 0.01 * range;
                 boolean saturated = !Double.isNaN(ceiling) && stats.max >= ceiling - 1 || imp.getBitDepth() == 16 && stats.max >= 4095 && stats.max >= globalMax;
-                isText = flat && saturated;
+                isText = flat && saturated || Pipeline.whiteAnnotation(imp, roi);
             }
             boolean isTiny = count >= 5 && area < 0.15 * median;
             if (isText) text++; else if (isTiny) tiny++; else keep.add(i);

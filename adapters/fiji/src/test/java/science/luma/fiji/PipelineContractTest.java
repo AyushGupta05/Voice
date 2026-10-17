@@ -143,6 +143,27 @@ public final class PipelineContractTest {
         var heRun = call("apply_analysis", heApply, true, null).getAsJsonObject("run");
         for (var image : heRun.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == heLive, "H&E replay reproduces " + heLive + ": " + image);
         System.out.println("PASS H&E hematoxylin nuclei: live " + heLive + " = folder replay on 2 images");
+        // Multichannel image with a burned-in white caption (equal in every channel): the letters are not nuclei.
+        Path caption = Files.createTempDirectory("penny-pipeline-caption");
+        var captionStack = new ij.ImageStack(220, 160);
+        for (int c = 1; c <= 3; c++) {
+            var ip = new ByteProcessor(220, 160); ip.setValue(c == 3 ? 10 : 30); ip.fill();
+            if (c == 3) { ip.setValue(200); for (int k = 0; k < 5; k++) ip.fill(new OvalRoi(15 + k * 40, 30, 24, 24)); }
+            else { ip.setValue(60); for (int k = 0; k < 5; k++) ip.fill(new OvalRoi(15 + k * 40, 30, 24, 24)); }
+            ip.setValue(230); for (int k = 0; k < 8; k++) ip.fill(new ij.gui.Roi(20 + k * 12, 130, 7, 11)); // white glyphs
+            captionStack.addSlice(ip);
+        }
+        var composite = new ImagePlus("caption-cells.tif", captionStack); composite.setDimensions(3, 1, 1);
+        composite = new ij.CompositeImage(composite, ij.CompositeImage.COMPOSITE);
+        expect(new FileSaver(composite).saveAsTiff(caption.resolve("caption-cells.tif").toString()), "caption fixture saved");
+        ImagePlus captioned = IJ.openImage(caption.resolve("caption-cells.tif").toString());
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(captioned));
+        var withCaption = call("segment_cells", new JsonObject(), true, null);
+        expect(withCaption.get("count").getAsInt() == 5 && withCaption.getAsJsonObject("excluded").get("text").getAsInt() == 8, "5 nuclei, 8 caption letters excluded: " + withCaption.get("count") + " " + withCaption.get("excluded"));
+        var captionApply = new JsonObject(); captionApply.addProperty("name", "pipeline caption");
+        var captionRun = call("apply_analysis", captionApply, true, null).getAsJsonObject("run");
+        for (var image : captionRun.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == 5, "caption replay keeps 5: " + image);
+        System.out.println("PASS white caption letters excluded live and in replay: 5 nuclei");
         Path channels = Files.createTempDirectory("penny-pipeline-channels");
         for (int i = 1; i <= 2; i++) {
             var nuclear = nuclei("nuclear"); var unrelated = new ByteProcessor(240, 160); unrelated.setValue(33); unrelated.fill();

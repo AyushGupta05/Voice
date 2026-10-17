@@ -191,7 +191,7 @@ public final class Pipeline {
             boolean flat = stats.stdDev <= 0.01 * range;
             boolean saturated = !Double.isNaN(ceiling) && stats.max >= ceiling - 1 || imp.getBitDepth() == 16 && stats.max >= 4095 && stats.max >= globalMax;
             boolean tiny = rois.length >= 5 && px[i] < 0.15 * median;
-            if (!(flat && saturated) && !tiny) keep.add(rois[i]);
+            if (!(flat && saturated) && !whiteAnnotation(imp, rois[i]) && !tiny) keep.add(rois[i]);
         }
         return keep.toArray(new Roi[0]);
     }
@@ -288,6 +288,21 @@ public final class Pipeline {
         var manager = RoiManager.getInstance();
         if (manager != null) ij.plugin.filter.ParticleAnalyzer.setRoiManager(manager);
         return String.valueOf(mask.getID());
+    }
+    /**
+     * Burned-in captions in multichannel images ("Press 'I' for information", scale-bar text) are white: equally bright in
+     * every channel, while a stained structure is bright in its own channel only. Flags objects whose dimmest channel mean is at
+     * least 75% of the brightest and whose brightest channel is in the upper half of that channel's range.
+     */
+    static boolean whiteAnnotation(ImagePlus imp, Roi roi) {
+        int channels = imp.getNChannels(); if (channels < 2 || roi == null) return false;
+        double low = Double.POSITIVE_INFINITY, high = 0, highRange = 1;
+        for (int c = 1; c <= channels; c++) {
+            ImageProcessor ip = imp.getStack().getProcessor(imp.getStackIndex(c, imp.getZ(), imp.getT()));
+            var whole = ip.getStats(); ip.setRoi(roi); double mean = ip.getStats().mean; ip.resetRoi();
+            if (mean < low) low = mean; if (mean > high) { high = mean; highRange = Math.max(1, whole.max - whole.min); }
+        }
+        return high > 0 && low / high >= 0.75 && high >= 0.5 * highRange;
     }
     /** Macro entry point: split oversized objects, then apply the area/circularity filter, on the macro's ROI Manager. */
     public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) { return refine(factor, tolerance, minArea, maxArea, minCircularity, "false", "1"); }
