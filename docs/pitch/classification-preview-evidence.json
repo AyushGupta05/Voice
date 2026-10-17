@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T05:04:34.413Z",
+  "flow": "Current Runtime -> actual QuPath context and matching-object preflight",
+  "fixture": "Empty public OS-2 image, H-DAB, no project, empty selection/hierarchy",
+  "matchingCandidates": 0,
+  "approvalProposals": 0,
+  "contextKeyUnchanged": true,
+  "providerCalls": 0,
+  "scientificMutationExecuted": false,
+  "boundary": "Actual empty-scope refusal only; nonempty preview/binding tested with synthetic adapters. No native foreground review or live voice."
+}

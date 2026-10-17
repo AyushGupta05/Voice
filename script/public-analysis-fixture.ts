@@ -106,6 +106,14 @@ export class PublicAnalysisAdapter implements Adapter {
   private async executeChecked(operation:string,args:Arguments,options:NonNullable<Parameters<Adapter['execute']>[2]>):Promise<unknown> {
     const before=await this.current();
     if(operation==='context')return this.publicContext(before);
+    if(operation==='objects') {
+      if(this.phase!==3 || options.expectedContext!==this.key || !isDeepStrictEqual(args,{kind:'cell',limit:1,scope:'region'}))
+        throw new Error('Only the exact read-only classification preflight is permitted.');
+      const observed=await this.raw.execute(operation,args,options) as {total?:unknown};
+      await this.current();
+      if(observed.total!==899)throw new Error('Classification preflight candidate count differs.');
+      return {total:observed.total};
+    }
     const step=this.cleanup?this.steps[5]:this.steps[this.phase];
     if(!step || step.operation!==operation)throw new Error('Operation is outside the fixed fixture sequence.');
     this.assertTool(step.name,args);

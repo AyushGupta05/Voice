@@ -36,6 +36,8 @@ The executor claims an action before awaiting work, preventing duplicate approva
 
 For JavaFX control actions, the proposal includes the window/control label and reviewed dialog fingerprint. Execution rejects changed control values, disabled or vanished targets and actions behind another modal dialog. A dispatched menu or button may still open a dialog, so the result explicitly does not claim completion.
 
+Threshold classification proposals include the actual eligible-detection count, measurement, threshold, optional existing-class filter and fixed output labels. The preflight reads the same scoped detection set with the captured context; empty or unverifiable candidates produce no approval proposal. `classification` means an existing-label filter, never an output-class selector. Request arguments are copied before asynchronous observations so caller edits cannot change a pending preview's meaning. Execution still checks the approved application context.
+
 A failed operation can have partial effects. Inspect QuPath and the checkpoint before retrying. Network timeouts do not prove the operation stopped.
 
 ## Bridge HTTP

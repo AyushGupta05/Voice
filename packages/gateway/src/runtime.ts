@@ -17,6 +17,8 @@ export class Runtime extends EventEmitter {
   async call(name: string, args: Arguments, signal?: AbortSignal, beforeDispatch?: (context?: Context) => void) {
     signal?.throwIfAborted(); beforeDispatch?.();
     const spec = validateTool(name, args);
+    // Own the request before asynchronous observations/previews can yield.
+    args=structuredClone(args);
     if (name === 'qupath_knowledge') return this.knowledge.search(args.query as string);
     if (name === 'qupath_api_search') return this.knowledge.api.search(args.query as string,args.limit as number|undefined);
     if (name === 'qupath_api_read') return this.knowledge.api.read(args.source as string,args.startLine as number|undefined,args.lineCount as number|undefined);
@@ -41,6 +43,20 @@ export class Runtime extends EventEmitter {
         signal?.throwIfAborted(); beforeDispatch?.(context);
         if (preview.sha256 !== args.sha256) throw new Error('Import file changed since inspection. Inspect and review again.');
         context.reviewTarget = { type:'GeoJSON annotations',text:`${preview.annotations} annotations in full-resolution image pixels`,...preview };
+      }
+      if (name === 'qupath_classify') {
+        const filter:Arguments={kind:args.kind==='cell'?'cell':'detection',limit:1};
+        for(const key of ['scope','classification','ids'])if(args[key]!==undefined)filter[key]=args[key];
+        const candidates=await this.adapter.execute('objects',filter,{expectedContext:context.contextKey}) as {total?:unknown};
+        signal?.throwIfAborted();beforeDispatch?.(context);
+        if(!Number.isSafeInteger(candidates.total)||Number(candidates.total)<0)throw new Error('Cannot verify the matching detection count. Inspect the scope before classification.');
+        const count=Number(candidates.total);
+        if(count===0)throw new Error(args.classification
+          ?'No detections match this existing-class filter. classification filters CURRENT labels; omit it only if the researcher requested thresholding all matching detections. No action was prepared.'
+          :'No detections match the requested scope. Inspect the selected region and existing detections before classification. No action was prepared.');
+        context.reviewTarget={type:'Threshold classification',candidateCount:count,measurement:args.measurement,threshold:args.threshold,
+          existingClassFilter:args.classification||null,assignedClasses:['Positive','Negative'],
+          text:`${count} matching detection${count===1?'':'s'}${args.classification?` (current class: ${args.classification})`:''}; assign Positive / Negative`};
       }
       if (name === 'qupath_open_project_image') {
         const listing = await this.adapter.execute('project_images',{entryId:args.entryId},{expectedContext:context.contextKey}) as {images:Array<Record<string,unknown>>};

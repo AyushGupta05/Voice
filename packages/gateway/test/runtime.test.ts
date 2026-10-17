@@ -166,3 +166,61 @@ test('project navigation reviews the discovered source fingerprint and rejects c
     assert.throws(()=>validateTool('qupath_measurement_summary',{measurements:['Score','Score']}),/Invalid arguments/);
   }finally{await rm(directory,{recursive:true,force:true});}
 });
+
+test('classification refuses empty or unverifiable candidate sets before publishing an approval',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-classify-empty-'));
+  try{
+    for(const total of [0,-1,NaN,'899',undefined]) {
+      let mutations=0;
+      const runtime=new Runtime({execute:async(operation,_args,options)=>{
+        if(operation==='context')return{contextKey:'image-a'};
+        if(operation==='objects'){assert.equal(options?.expectedContext,'image-a');return{total};}
+        mutations++;return{};
+      }},new Knowledge(),directory);
+      await assert.rejects(runtime.call('qupath_classify',{scope:'region',kind:'cell',classification:'Positive',measurement:'DAB',threshold:0.2}),
+        total===0?/classification filters CURRENT labels/:/Cannot verify/);
+      assert.equal(runtime.actions.size,0);assert.equal(mutations,0);
+    }
+    assert.throws(()=>validateTool('qupath_classify',{kind:'annotation',measurement:'DAB',threshold:0.2}),/Invalid arguments/);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('classification previews the actual eligible detections and still requires a bound human decision',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-classify-preview-'));let key='image-a';let mutations=0;let observed:unknown;
+  const runtime=new Runtime({execute:async(operation,args,options)=>{
+    if(operation==='context')return{contextKey:key,image:{name:'Synthetic'}};
+    if(options?.expectedContext!==key)throw new Error('Context changed.');
+    if(operation==='objects'){observed=args;return{total:42};}
+    assert.equal(operation,'classify');assert.equal(options?.approved,true);mutations++;return{classified:42};
+  }},new Knowledge(),directory);
+  try{
+    const pending=await runtime.call('qupath_classify',{scope:'region',measurement:'DAB',threshold:0.2}) as {actionId:string};
+    assert.equal(mutations,0);assert.deepEqual(observed,{kind:'detection',limit:1,scope:'region'},'Native classification excludes annotations even when kind is omitted');
+    const target=runtime.actions.get(pending.actionId)!.context.reviewTarget as Record<string,unknown>;
+    assert.equal(target.candidateCount,42);assert.equal(target.existingClassFilter,null);assert.deepEqual(target.assignedClasses,['Positive','Negative']);
+    assert.equal((await runtime.decide(pending.actionId,true)).status,'completed');assert.equal(mutations,1);
+    const stale=await runtime.call('qupath_classify',{scope:'region',kind:'cell',classification:'Existing',measurement:'DAB',threshold:0.2}) as {actionId:string};
+    assert.equal((runtime.actions.get(stale.actionId)!.context.reviewTarget as any).existingClassFilter,'Existing');
+    key='different-image';assert.equal((await runtime.decide(stale.actionId,true)).status,'failed');assert.equal(mutations,1);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('classification owns arguments before a pending preview can yield to caller edits',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-classify-immutable-'));
+  let release!:()=>void;let entered!:()=>void;let observed:unknown;
+  const gate=new Promise<void>(resolve=>{release=resolve;});const started=new Promise<void>(resolve=>{entered=resolve;});
+  const runtime=new Runtime({execute:async(operation,args)=>{
+    if(operation==='context')return{contextKey:'image-a'};
+    assert.equal(operation,'objects');observed=structuredClone(args);entered();await gate;return{total:49};
+  }},new Knowledge(),directory);
+  try{
+    const args={scope:'region',kind:'cell',classification:'Existing',measurement:'DAB',threshold:0.2};
+    const preparing=runtime.call('qupath_classify',args);await started;
+    args.classification='Changed';args.threshold=0.7;release();
+    const proposal=await preparing as {actionId:string};const action=runtime.actions.get(proposal.actionId)!;
+    assert.equal(action.arguments.classification,'Existing');assert.equal(action.arguments.threshold,0.2);
+    assert.deepEqual(observed,{kind:'cell',limit:1,scope:'region',classification:'Existing'});
+    assert.equal((action.context.reviewTarget as any).candidateCount,49);assert.equal((action.context.reviewTarget as any).existingClassFilter,'Existing');
+    await runtime.decide(proposal.actionId,false);
+  }finally{release();await rm(directory,{recursive:true,force:true});}
+});

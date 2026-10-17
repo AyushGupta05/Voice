@@ -21,7 +21,8 @@
     "smoke:text": "tsx script/text-smoke.ts",
     "smoke:companion-text": "tsx script/companion-text-smoke.ts",
     "smoke:api": "tsx script/smoke-api.ts",
-    "smoke:api-model": "tsx script/api-model-smoke.ts"
+    "smoke:api-model": "tsx script/api-model-smoke.ts",
+    "smoke:classification": "tsx script/classification-preview-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1152.0",

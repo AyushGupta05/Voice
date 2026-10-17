@@ -59,3 +59,5 @@ The AWS text-adapter tests use only synthetic credit/price records, mocked infer
 `npm run smoke:api` verifies actual pinned API-source lookup without touching QuPath or calling a provider. Source-reference tests use temporary Git fixtures; lookup reads verified committed Java blobs, not arbitrary filesystem paths. See [API-LOOKUP.md](API-LOOKUP.md).
 
 The separately authorized fixed scientific-model fixture is documented in [SCIENTIFIC-AGENT-TEST.md](SCIENTIFIC-AGENT-TEST.md). Its real command can perform the exact preapproved OS-2 mutations with test-only simulated decisions. It is never a general approval mechanism or a CI/install step; the ordinary test suite uses synthetic adapters only.
+
+`npm run smoke:classification -- --public-fixture` is a separate read-only actual-app check on the empty public OS-2 baseline. It verifies that an empty existing-class filter creates no proposal and leaves context unchanged. It never approves, invokes a provider or performs a scientific mutation; positive candidate previews and stale-scope decisions have synthetic contract coverage.

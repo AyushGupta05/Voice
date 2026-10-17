@@ -14,7 +14,7 @@ There are 32 MCP tools. See [task coverage](SOFTWARE-COVERAGE.md) for import, an
 | Overlays | Detections, annotations, fills, opacity and exact class filter | No | Display-only; does not change counts |
 | Annotation creation | Rectangle/ellipse on active z/t plane | Yes | Tested on disposable H&E slide through native approval |
 | Cell detection | QuPath watershed plugin, explicit calibrated/pixel parameters | Yes | Real OS-2 fixture detected 899 cells with explicit Hematoxylin OD parameters |
-| Threshold classification | Existing measurement >= threshold | Yes | Real fixture yielded 49 Positive / 850 Negative at nuclear DAB OD mean >= 0.2; not a diagnosis |
+| Threshold classification | Existing measurement >= threshold; current-label filter is separate from assigned Positive/Negative labels | Yes; candidate count preview | Real fixture yielded 49 Positive / 850 Negative at nuclear DAB OD mean >= 0.2; empty scopes now refused before proposal; candidate/binding contracts pass; not a diagnosis |
 | Hierarchy checkpoints, comparison and restore | Bounded in-memory hierarchy snapshots | Restore: yes | Real fixture compared counts and restored the empty baseline; max 6, 200k objects/64 MiB each |
 | Image type | Explicit QuPath interpretation | Yes | Native approval tested; not restored by hierarchy checkpoints |
 | Deletion | Selected objects only, retain children | Yes | Checkpoint before mutation; selection cleared; TMA cores refused in favor of grid-aware commands |

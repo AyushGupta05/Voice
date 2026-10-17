@@ -19,6 +19,7 @@ class SyntheticPublicAdapter implements Adapter {
     if(operation==='context'){if(this.failContext)throw new Error('PRIVATE_CONTEXT_PATH');return structuredClone(this.context);}
     if(this.changeDuringDispatch){this.changeDuringDispatch=false;this.context.contextKey='independent-dispatch';this.context.counts.annotations=2;}
     assert.equal(options?.expectedContext,this.context.contextKey);
+    if(operation==='objects')return{total:this.context.counts.cells??0,objects:[{secret:'PRIVATE_OBJECT_DETAILS'}]};
     if(operation==='compare')return{baseline:{},current:structuredClone(this.context.counts),delta:structuredClone(this.context.counts)};
     assert.equal(options?.approved,true);this.mutations++;
     let result:any={result:{}};

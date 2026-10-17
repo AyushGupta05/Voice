@@ -12,6 +12,8 @@ Other parameters include backgroundByReconstruction, maxBackground, watershedPos
 
 Read measurement names and values first. Select a real measurement such as a DAB optical density measurement only when it exists. The structured classifier marks value >= threshold Positive and below Negative, replacing current classes within scope. Missing or non-finite measurements fail the action. Preserve the measurement name, threshold, scope and counts in the result.
 
+`classification` filters **existing** object labels; it never selects the output class. To threshold all cells in the selected region, use `scope: region`, `kind: cell`, the actual measurement and threshold, and omit `classification`. Add it only when the researcher explicitly wants a subset with that current label. The gateway previews the actual eligible-detection count before approval and refuses an empty scope; never silently remove an intentional filter to make an analysis run. The output labels remain Positive/Negative. Annotation objects are outside this structured detection classifier.
+
 Use trained object or pixel classifiers via discovered commands and approved scripts when appropriate. Classifier files must already exist or be explicitly created; never claim a model is trained because a dialog opened.
 
 ## Quantification

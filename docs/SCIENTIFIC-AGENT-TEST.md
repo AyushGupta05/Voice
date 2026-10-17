@@ -8,6 +8,8 @@ The user explicitly authorized this disposable sequence: H-DAB, a 2200 × 2200 p
 
 The model receives only the fixed tools and sanitized public-image context/results. Project metadata, unrelated checkpoints, dispatch diagnostics, file paths, viewer pixels and credentials are excluded. It has no approval tool. The trusted harness simulates decisions through the same Runtime only for this fixed test; normal application approvals are unchanged.
 
+The production Runtime's classification preflight may read the exact selected-region cell count through the adapter. This internal read is restricted and redacted to the count; it does not expose another model tool or widen the scientific mutation scope.
+
 Prerequisites are the dedicated public OS-2 fixture, H-DAB already selected, no project, empty hierarchy/selection, no running analysis or researcher actions, plane z=0/t=0 and no checkpoints belonging to other images. Do not edit that disposable instance concurrently. Image/state changes reject further work. A local exclusive lock prevents concurrent copies of this test; it is never silently reset.
 
 ## Run only with the explicit test authorization

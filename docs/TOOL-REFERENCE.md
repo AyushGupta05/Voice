@@ -290,12 +290,12 @@ Allowed `parameters` properties (all optional unless listed as required):
 
 ## qupath_classify
 
-Classify detections Positive when the named existing measurement is >= threshold, Negative otherwise. Exact scope is shown for human approval. This replaces existing object classes, not a biological diagnosis.
+Assign fixed output classes Positive (measurement >= threshold) and Negative to matching detections. classification is ONLY a filter on existing labels: omit it when thresholding all matching cells; do not set it to Positive to choose the output. A real matching-candidate count is shown for human approval; empty scopes fail before a proposal. Replaces existing classes; not a biological diagnosis.
 
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "annotation", "cell", "detection" |
+| `kind` | No | "all", "cell", "detection" |
 | `classification` | No | string |
 | `ids` | No | array of string; max 1000 items |
 | `measurement` | Yes | string |
