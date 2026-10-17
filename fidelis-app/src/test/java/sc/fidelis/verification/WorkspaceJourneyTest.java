@@ -49,6 +49,13 @@ class WorkspaceJourneyTest {
         IjState.reset();
     }
 
+    @org.junit.jupiter.api.Test
+    void statusBarReadsEngineReadyNotTheStub() throws Exception {
+        String text = JourneyScenario.statusEngineText();
+        System.out.println("[journey] status bar engine label: \"" + text + "\"");
+        assertEquals("Engine: ready", text);
+    }
+
     @ParameterizedTest(name = "J-12 on {0} through the workspace: engine, UI and Results panel equal the baseline")
     @ValueSource(strings = {"FX-001", "FX-003"})
     void j12ThroughTheWorkspace(String fixtureId, @TempDir Path tmp) throws Exception {
