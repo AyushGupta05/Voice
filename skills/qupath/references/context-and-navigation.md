@@ -16,7 +16,7 @@ Never ask for pixel coordinates. Derive them from `qupathObservation`:
 
 | Spoken | Resolution |
 | --- | --- |
-| “this”, “here” | `selection[0].roi`; with no selection, the viewer centre |
+| “this”, “here” | `selection[0].roi`; with no selection, a quarter of the visible area centred on the viewer centre, max ~3000 px per side; the whole view only for “everything visible” |
 | visible area | `viewer.centerX/centerY ± (1600 × downsample)/2` by `(900 × downsample)/2`, unless the context gives the viewer's width/height |
 | “the right side”, “top-left”, “a section on the right” | a rectangle a third of the visible width and height, offset toward that side inside the visible area |
 | “a small region” | about 1500–2500 full-resolution px per side on a typical slide; roughly `image.width / 40`, clamped 500–4000 |

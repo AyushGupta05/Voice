@@ -21,7 +21,7 @@ mv -f "$TEMP_EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/LumaCompanion"
 python3 - "$APP_BUNDLE/Contents/Info.plist" "$ROOT_DIR" "$NODE_EXECUTABLE" <<'PY'
 import plistlib,sys
 with open(sys.argv[1],'wb') as file:
-    plistlib.dump({'CFBundleExecutable':'LumaCompanion','CFBundleIdentifier':'science.luma.companion','CFBundleName':'Luma','CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'14.0','LSUIElement':True,'NSPrincipalClass':'NSApplication','NSMicrophoneUsageDescription':'Luma uses your microphone for continuous conversation with your scientific software.','LumaRoot':sys.argv[2],'LumaNode':sys.argv[3]},file)
+    plistlib.dump({'CFBundleExecutable':'LumaCompanion','CFBundleIdentifier':'science.luma.companion','CFBundleName':'Luma','CFBundlePackageType':'APPL','CFBundleVersion':'1','CFBundleShortVersionString':'0.1.0','LSMinimumSystemVersion':'14.0','LSUIElement':True,'NSPrincipalClass':'NSApplication','NSMicrophoneUsageDescription':'Luma uses your microphone for continuous conversation with your scientific software.','NSAccessibilityUsageDescription':'Luma uses Accessibility to operate QuPath windows, plugin dialogs and file choosers on your behalf while its cursor shows you what it is doing.','LumaRoot':sys.argv[2],'LumaNode':sys.argv[3]},file)
 PY
 # A stable designated requirement keeps the microphone permission across rebuilds; ad-hoc cdhash requirements change every build.
 codesign --force --sign - --identifier science.luma.companion -r='designated => identifier "science.luma.companion"' "$APP_BUNDLE"

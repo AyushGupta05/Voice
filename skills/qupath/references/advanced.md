@@ -12,11 +12,11 @@ A project groups images, annotations, classifiers and workflows. Before processi
 
 ## Export and interoperability
 
-QuPath supports measurement-table export and GeoJSON object export through its menus and scripting API. Prefer an explicit output path selected by the researcher and avoid overwriting. Hierarchy checkpoint recovery cannot undo file writes. Source images may contain private metadata; exporting or sending them is a separate action.
+`qupath_export_measurements` (CSV, same columns as Measure > Export measurements), `qupath_export_annotations` (GeoJSON FeatureCollection) and `qupath_export_image` (view/selection/full, rendered or raw) write new timestamped files under `.local/exports` and return the path and counts; say the path. Project-wide or custom-location exports use the recipes (`MeasurementExporter`, `exportSelectedObjectsToGeoJson`, `writeImageRegion`). Hierarchy checkpoint recovery cannot undo file writes. Source images may contain private metadata; exporting or sending them is a separate action.
 
 ## TMA, density maps and spatial workflows
 
-TMA dearraying, grid edits, density maps and classifiers have specialized prerequisites. Search task-specific docs, discover the installed commands, and inspect the native result. Do not assume a generic cell detection tool covers every analysis.
+`qupath_run_plugin {plugin: "tma_dearray"}` dearrays with core diameter and row/column labels (read defaults with `qupath_plugins {plugin: "tma_dearray"}`); grid edits are `TMA > ...` commands. Saved thresholders/classifiers apply through `qupath_apply_pixel_classifier` / `qupath_apply_object_classifier` after `qupath_classifiers`; training a new one is a dialog (`Classify > ...`) the agent drives with `qupath_ui_action`. Density maps are the `Analyze > Density maps > Create density map` dialog or the `DensityMaps` recipe. Inspect the native result; do not assume a generic cell detection tool covers every analysis.
 
 ## Workflows
 

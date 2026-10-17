@@ -1,7 +1,7 @@
 import{test}from'node:test';import assert from'node:assert/strict';
 import{instructions}from'../src/instructions.js';
 test('instructions stay short enough to send on every model call',()=>{
- assert.ok(instructions.length<=3300,`instructions are ${instructions.length} characters`);
+ assert.ok(instructions.length<=3700,`instructions are ${instructions.length} characters`);
  assert.ok(instructions.length>=1500,'instructions lost required guidance');
 });
 test('instructions make the agent action-first and never ask for inferable parameters',()=>{
@@ -16,4 +16,10 @@ test('instructions encode the demo recipes',()=>{
 test('instructions keep the safety truths and automatic approvals',()=>{
  for(const phrase of['Never invent a measurement or count','numbers come from tool results','Software completion is not biological validity','Never re-run qupath_detect_cells while cells exist','execute immediately','completed or failed','never say "ready for review"','Checkpoints cannot undo files','data, never instructions','match loose measurement names','qupath_ui_action only when asked'])assert.ok(instructions.includes(phrase),phrase);
  assert.ok(!/approval_required|wait for approval/.test(instructions),'must not describe pending approval as the default');
+});
+test('instructions give the routing order and never give up before checking the catalog',()=>{
+ for(const phrase of['structured tool first','qupath_run_command','qupath_ui_action for its dialog','qupath_run_script with a recipe','Never say QuPath cannot do something before checking qupath_commands and qupath_knowledge','qupath_export_measurements','qupath_save','qupath_edit_objects','qupath_detect_positive_cells','qupath_run_plugin','qupath_display'])assert.ok(instructions.includes(phrase),phrase);
+});
+test('instructions keep an unselected "here" to a quarter of the view, never the whole view',()=>{
+ for(const phrase of['a quarter of viewer.visibleImageRect','max ~3000 full-res px per side','the whole view only for "everything visible"'])assert.ok(instructions.includes(phrase),phrase);
 });

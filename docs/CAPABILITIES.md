@@ -1,6 +1,6 @@
 # Capability matrix
 
-There are 33 MCP tools. The Approval column describes `LUMA_APPROVALS=review`; the default `auto` policy executes those actions immediately through the same recorded decision path (see [DEMO.md](DEMO.md)). See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
+There are 52 MCP tools (46 adapter operations). The Approval column describes `LUMA_APPROVALS=review`; the default `auto` policy executes those actions immediately through the same recorded decision path (see [DEMO.md](DEMO.md)). See [task coverage](SOFTWARE-COVERAGE.md) for import, analysis and navigation routes. Breadth comes from structured scientific operations, the installed menu catalog, visible JavaFX dialog controls, task knowledge and reviewed Groovy execution. This is not a claim that every QuPath command or third-party plugin has been tested.
 
 | Surface | Behavior | Approval | Evidence / limit |
 |---|---|---|---|
@@ -19,6 +19,16 @@ There are 33 MCP tools. The Approval column describes `LUMA_APPROVALS=review`; t
 | Hierarchy checkpoints, comparison and restore | Bounded in-memory hierarchy snapshots | Restore: yes | Real fixture compared counts and restored the empty baseline; max 6, 200k objects/64 MiB each |
 | Image type | Explicit QuPath interpretation | Yes | Native approval tested; not restored by hierarchy checkpoints |
 | Deletion | Selected objects only, retain children | Yes | Checkpoint before mutation; selection cleared; TMA cores refused in favor of grid-aware commands |
+| Object deletion and editing | Delete by scope/kind/class/IDs; merge, split, lock, set class, rename, duplicate, fill holes, expand with QuPath's object tools | Yes | Workflow contract test on a synthetic hierarchy; not yet run in the live app |
+| Exports | CSV measurement table, GeoJSON FeatureCollection, rendered/raw image region, all into `.local/exports` | Yes | Contract test checks real rows/columns and folder confinement; live app pending |
+| Stains | Preset/explicit stain vectors; QuPath's automatic estimation on the selected or visible region | Yes | Parsing contract-tested; estimation compiled against pinned API, live pending; not restored by checkpoints |
+| Display | Channel min/max/auto/visibility, gamma, grayscale, inverted background, rotation, measurement map; extra overlay toggles | No | Compiles against pinned API; live pending |
+| Plugins | Allow-listed QuPath plugins (tiles, superpixels, tissue, TMA dearray, features, membrane/subcellular/positive cell detection, annotation refinements) with validated parameters and count deltas | Yes | Every allow-listed class resolves and describes parameters in the contract test; execution live pending |
+| Classifiers | List project classifiers; apply object classifiers; apply pixel classifiers/thresholders as annotations, detections, measurements or centroid classification | Yes | Compiles against pinned API; needs a saved classifier in a real project |
+| Intensity classes | `thresholds` [t1,t2,t3] → Negative/1+/2+/3+ keeping the base class | Yes | Compiles; live pending |
+| Save | Save image data into the project entry | Yes | Compiles; live pending |
+| Cursor | Every targeting operation returns `highlight` (objects, region or control) so the companion cursor moves; `qupath_highlight` zooms to fit off-screen targets | No | Compiles; live pending |
+| Lenient read scopes | `region`/`selection` on objects, measurements, summaries fall back to the whole image with `scopeUsed` | No | Compiles; live pending |
 | Menu catalog | Live exact paths and enabled state | No | Real measurement commands discovered through MCP |
 | Menu invocation | Dispatch exact discovered command | Yes | May open modal dialog; dispatched is not completed |
 | JavaFX UI | Observe visible windows, controls, labels and options | No | Real image-type dialog inspected; OS-owned dialogs excluded |

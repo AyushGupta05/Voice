@@ -5,7 +5,8 @@ import {createHash} from 'node:crypto';
 import {tools} from './tools.js';
 
 export type BridgeReadiness={status:'matches_build'|'restart_required'|'build_unverified'|'unavailable';message:string;missingOperations?:string[]};
-export const requiredBridgeOperations=[...new Set(tools.flatMap(tool=>tool.operation?[tool.operation]:[]))].sort();
+// desktop_* operations are served by the companion's Accessibility layer, not the Java extension.
+export const requiredBridgeOperations=[...new Set(tools.flatMap(tool=>tool.operation&&!tool.operation.startsWith('desktop_')?[tool.operation]:[]))].sort();
 const sha=(value:unknown):value is string=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 async function readBoundedFile(path:string,maximum:number):Promise<Buffer>{
   // Nonblocking open lets us reject FIFOs/devices before reading. A descriptor

@@ -33,6 +33,25 @@ import qupath.lib.plugins.parameters.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import qupath.imagej.detect.cells.WatershedCellDetection;
+import qupath.lib.analysis.algorithms.EstimateStainVectors;
+import qupath.lib.classifiers.object.ObjectClassifier;
+import qupath.lib.classifiers.object.ObjectClassifiers;
+import qupath.lib.classifiers.pixel.PixelClassifier;
+import qupath.lib.color.ColorDeconvolutionStains;
+import qupath.lib.color.ColorMaps;
+import qupath.lib.display.ChannelDisplayInfo;
+import qupath.lib.gui.images.servers.RenderedImageServer;
+import qupath.lib.gui.prefs.PathPrefs;
+import qupath.lib.gui.tools.MeasurementMapper;
+import qupath.lib.gui.viewer.OverlayOptions;
+import qupath.lib.images.servers.ImageServer;
+import qupath.lib.images.writers.ImageWriterTools;
+import qupath.lib.plugins.PathInteractivePlugin;
+import qupath.lib.plugins.PathPlugin;
+import qupath.lib.plugins.workflow.DefaultScriptableWorkflowStep;
+import qupath.lib.regions.RegionRequest;
+import qupath.opencv.ml.pixel.PixelClassifierTools;
+import qupath.opencv.ml.pixel.PixelClassifiers;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -118,6 +137,11 @@ public final class LumaExtension implements QuPathExtension {
                 case "inspect_import" -> inspectImport(args,request);
                 case "import_annotations" -> importAnnotations(args,request);
                 case "measurement_summary" -> measurementSummary(args,request);
+                case "run_plugin" -> runPlugin(args,request,null);
+                case "detect_positive" -> runPlugin(args,request,"positive_cell_detection");
+                case "apply_pixel_classifier" -> applyPixelClassifier(args,request);
+                case "estimate_stains" -> estimateStains(args,request);
+                case "export_image" -> exportImage(args,request);
                 default -> fx(() -> execute(operation,args,request));
             };
             respond(exchange, 200, Map.of("result", result == null ? Map.of() : result));
@@ -174,7 +198,7 @@ public final class LumaExtension implements QuPathExtension {
         catch (java.security.NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
     private Object execute(String operation, JsonObject args, JsonObject request) throws Exception {
-        if (analysisRunning.get() && !Set.of("context","objects","measurements","measurement_summary","analysis_catalog","project_images","commands","ui","snapshot","checkpoints","compare","class_summary","workflow_steps").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
+        if (analysisRunning.get() && !Set.of("context","objects","measurements","measurement_summary","analysis_catalog","project_images","commands","ui","snapshot","checkpoints","compare","class_summary","workflow_steps","plugins","classifiers").contains(operation)) throw new IllegalStateException("An analysis or script is running. Wait for it or use its native cancellation controls before starting another action.");
         if (request.has("expectedContext") && !contextKey().equals(request.get("expectedContext").getAsString())) throw new IllegalStateException("QuPath image, selection or results changed. Review the action again.");
         return switch (operation) {
             case "context" -> context();
@@ -192,13 +216,17 @@ public final class LumaExtension implements QuPathExtension {
                 yield saveWorkflow(args);
             }
             case "overlays" -> overlays(args);
+            case "display" -> display(args);
+            case "plugins" -> plugins(args);
+            case "classifiers" -> classifiers();
             case "snapshot" -> snapshot();
             case "commands" -> commands(args);
             case "ui" -> ui();
             case "checkpoints" -> checkpointList();
             case "checkpoint" -> checkpoint(string(args, "label", "Researcher checkpoint"));
             case "compare" -> compare(args);
-            case "annotate", "classify", "delete", "restore", "command", "script", "image_type", "detect", "ui_action", "open_path", "open_project_image" -> {
+            case "annotate", "classify", "delete", "restore", "command", "script", "image_type", "detect", "ui_action", "open_path", "open_project_image",
+                 "export_measurements", "export_objects", "set_stains", "edit_objects", "apply_object_classifier", "save" -> {
                 if (!request.has("approved") || !request.get("approved").getAsBoolean()) throw new IllegalStateException("This operation requires explicit human approval through the companion.");
                 if (!request.has("expectedContext")) throw new IllegalStateException("An approved operation must be bound to application context.");
                 yield mutate(operation, args, request);
@@ -218,7 +246,10 @@ public final class LumaExtension implements QuPathExtension {
         observe(image);
         var metadata = image.getServer().getMetadata();
         var calibration = image.getServer().getPixelCalibration();
-        result.put("image", Map.of("name",Objects.toString(ServerTools.getDisplayableImageName(image.getServer()),"Unnamed image"), "width", image.getServer().getWidth(), "height", image.getServer().getHeight(), "channels", metadata.getChannels().stream().map(c -> c.getName()).toList(), "zSlices", image.getServer().nZSlices(), "timepoints", image.getServer().nTimepoints(), "type", image.getImageType().name(), "pixelSizeMicrons", finite(calibration.getAveragedPixelSizeMicrons())));
+        var imageInfo = new LinkedHashMap<String,Object>(Map.of("name",Objects.toString(ServerTools.getDisplayableImageName(image.getServer()),"Unnamed image"), "width", image.getServer().getWidth(), "height", image.getServer().getHeight(), "channels", metadata.getChannels().stream().map(c -> c.getName()).toList(), "zSlices", image.getServer().nZSlices(), "timepoints", image.getServer().nTimepoints(), "type", image.getImageType().name(), "pixelSizeMicrons", finite(calibration.getAveragedPixelSizeMicrons())));
+        imageInfo.put("stains", image.isBrightfield() ? Workflows.describeStains(image.getColorDeconvolutionStains()) : null);
+        imageInfo.put("inProject", project != null && project.getEntry(image) != null);
+        result.put("image", imageInfo);
         result.put("counts", counts(image.getHierarchy()));
         result.put("unsavedChanges",image.isChanged());
         result.put("analysisRunning", analysisRunning.get());
@@ -275,20 +306,35 @@ public final class LumaExtension implements QuPathExtension {
         if (args.has("ids")) args.getAsJsonArray("ids").forEach(id -> ids.add(id.getAsString()));
         return values.stream().filter(o -> !o.isRootObject()).filter(o -> kind.equals("all") || kind.equals("annotation") && o.isAnnotation() || kind.equals("cell") && o.isCell() || kind.equals("detection") && o.isDetection()).filter(o -> classification.isEmpty() || o.getPathClass() != null && o.getPathClass().toString().equals(classification)).filter(o -> ids.isEmpty() || ids.contains(o.getID().toString())).toList();
     }
+    private record Scoped(List<PathObject> objects, String scopeUsed, String note) {}
+    /** Read-only scopes fall back to the whole image when nothing is selected, instead of failing. Mutations keep the strict scope. */
+    private Scoped matchingLenient(JsonObject args) {
+        String scope = string(args, "scope", "all"); var hierarchy = image().getHierarchy();
+        var selected = hierarchy.getSelectionModel().getSelectedObject();
+        boolean fallback = scope.equals("selection") && hierarchy.getSelectionModel().getSelectedObjects().isEmpty() || scope.equals("region") && (selected == null || selected.getROI() == null);
+        if (!fallback) return new Scoped(matching(args), scope, "");
+        var copy = args.deepCopy(); copy.addProperty("scope", "all");
+        return new Scoped(matching(copy), "all", "Nothing is selected, so the whole image was used instead of scope '" + scope + "'.");
+    }
     private Object objects(JsonObject args) {
-        var matches = matching(args);
+        var scoped = matchingLenient(args); var matches = scoped.objects();
         int offset = integer(args, "offset", 0, 0, Integer.MAX_VALUE), limit = integer(args, "limit", 100, 1, 500);
-        return Map.of("total", matches.size(), "offset", offset, "objects", matches.stream().skip(offset).limit(limit).map(this::describe).toList());
+        var result = new LinkedHashMap<String, Object>();
+        result.put("total", matches.size()); result.put("offset", offset); result.put("objects", matches.stream().skip(offset).limit(limit).map(this::describe).toList());
+        result.put("scopeUsed", scoped.scopeUsed()); result.put("note", scoped.note());
+        return result;
     }
     private Object measurements(JsonObject args) {
-        var matches = matching(args);
+        var scoped = matchingLenient(args); var matches = scoped.objects();
         int limit = integer(args, "limit", 50, 1, 200);
         var rows = matches.stream().limit(limit).map(o -> {
             var values = new LinkedHashMap<String, Object>();
             o.getMeasurementList().getNames().forEach(name -> values.put(name, finite(o.getMeasurementList().get(name))));
             return Map.of("object", describe(o), "measurements", values);
         }).toList();
-        return Map.of("total", matches.size(), "rows", rows, "truncated", matches.size() > limit);
+        var result = new LinkedHashMap<String, Object>();
+        result.put("total", matches.size()); result.put("rows", rows); result.put("truncated", matches.size() > limit); result.put("scopeUsed", scoped.scopeUsed()); result.put("note", scoped.note());
+        return result;
     }
     private Object measurementSummary(JsonObject args,JsonObject request) throws Exception {
         var names = args.getAsJsonArray("measurements").asList().stream().map(JsonElement::getAsString).toList();
@@ -297,13 +343,13 @@ public final class LumaExtension implements QuPathExtension {
             if(analysisRunning.get())throw new IllegalStateException("Wait for the current analysis before summarizing measurements.");
             String key=contextKey();
             if(request.has("expectedContext")&&!key.equals(request.get("expectedContext").getAsString()))throw new IllegalStateException("Application context changed. Request a fresh summary.");
-            var captured=MeasurementSummary.capture(matching(args),names);
+            var scoped=matchingLenient(args);var captured=MeasurementSummary.capture(scoped.objects(),names);
             if(!key.equals(contextKey()))throw new IllegalStateException("Objects changed while reading measurements. Request a fresh summary.");
-            return new Observation(captured,Objects.toString(ServerTools.getDisplayableImageName(image().getServer()),"Unnamed image"),key);
+            return new Observation(captured,Objects.toString(ServerTools.getDisplayableImageName(image().getServer()),"Unnamed image"),key+"|"+scoped.scopeUsed());
         });
         // Only the immutable numeric snapshot leaves JavaFX; plots and arithmetic do not block the UI.
         var result=MeasurementSummary.summarize(observed.data(),integer(args,"histogramBins",10,1,50),args.has("groupByClass")&&args.get("groupByClass").getAsBoolean());
-        result.put("imageName",observed.imageName());result.put("contextKey",observed.key());result.put("scope",args.deepCopy());return result;
+        result.put("imageName",observed.imageName());result.put("contextKey",observed.key().substring(0,observed.key().indexOf('|')));result.put("scopeUsed",observed.key().substring(observed.key().indexOf('|')+1));result.put("scope",args.deepCopy());return result;
     }
     private Object analysisCatalog() {
         var image=image(); var objects=image.getHierarchy().getFlattenedObjectList(null);
@@ -351,7 +397,7 @@ public final class LumaExtension implements QuPathExtension {
     private Object select(JsonObject args) {
         var matches = matching(args);
         image().getHierarchy().getSelectionModel().setSelectedObjects(matches, matches.isEmpty() ? null : matches.getFirst());
-        return Map.of("selected", matches.size(), "contextKey", contextKey());
+        return Map.of("selected", matches.size(), "contextKey", contextKey(), "highlight", actionHighlight(matches, matches.size() + " selected"));
     }
     private PathObject findObject(String id) {
         return image().getHierarchy().getFlattenedObjectList(null).stream().filter(o -> o.getID().toString().equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Object no longer exists: " + id));
@@ -374,37 +420,90 @@ public final class LumaExtension implements QuPathExtension {
         if (args.has("nodeId")) {
             var reference = uiNodes.get(args.get("nodeId").getAsString()); var node = reference == null ? null : reference.get();
             if (node == null || node.getScene() == null || !node.isVisible()) throw new IllegalStateException("Control is no longer visible. Inspect UI again.");
-            var b = node.localToScreen(node.getBoundsInLocal());
-            if (b == null) throw new IllegalStateException("Control is not on screen.");
-            return Map.of("highlight", Map.of("label", label, "total", 1, "shown", 1, "truncated", false, "kind", "control",
-                "targets", List.of(Map.of("x", b.getMinX(), "y", b.getMinY(), "width", b.getWidth(), "height", b.getHeight(), "shape", "rect")),
-                "pointer", Map.of("screenX", b.getMinX() + b.getWidth() / 2, "screenY", b.getMinY() + b.getHeight() / 2), "coordinateSystem", "javafx-screen-top-left"));
+            var result = controlHighlight(node, label);
+            if (result == null) throw new IllegalStateException("Control is not on screen.");
+            return Map.of("highlight", result);
         }
         var viewer = qupath.getViewer(); var hierarchy = image().getHierarchy();
-        var view = viewer.getView(); var viewBounds = view.localToScreen(view.getBoundsInLocal());
-        if (viewBounds == null) throw new IllegalStateException("The QuPath viewer is not on screen.");
-        var targets = new ArrayList<Map<String, Object>>();
-        int total;
         if (args.has("width") && args.has("height")) {
             double x = number(args, "x", 0), y = number(args, "y", 0), w = number(args, "width", 0), h = number(args, "height", 0);
             if (w <= 0 || h <= 0) throw new IllegalArgumentException("Region width and height must be positive.");
-            total = 1; var rect = screenRect(x, y, x + w, y + h, viewBounds);
-            if (rect != null) { rect.put("shape", "rect"); targets.add(rect); }
-        } else {
-            var plane = viewer.getImagePlane();
-            var matches = matching(args).stream().filter(o -> o.getROI() != null && o.getROI().getZ() == plane.getZ() && o.getROI().getT() == plane.getT()).toList();
-            total = matches.size();
-            for (var object : matches) {
-                if (targets.size() >= limit) break;
-                var roi = object.getROI();
-                var rect = screenRect(roi.getBoundsX(), roi.getBoundsY(), roi.getBoundsX() + roi.getBoundsWidth(), roi.getBoundsY() + roi.getBoundsHeight(), viewBounds);
-                if (rect == null) continue;
-                rect.put("shape", object.isCell() || object.isDetection() || roi.getRoiName().toLowerCase(Locale.ROOT).contains("ellipse") ? "ellipse" : "rect");
-                rect.put("id", object.getID().toString());
-                targets.add(rect);
-            }
-            if (args.has("select") && args.get("select").getAsBoolean()) hierarchy.getSelectionModel().setSelectedObjects(matches, matches.isEmpty() ? null : matches.getFirst());
+            boolean focused = false;
+            if (args.has("focus") && args.get("focus").getAsBoolean()) { fitView(x, y, w, h, viewer.getImagePlane()); focused = true; }
+            var result = regionHighlight(x, y, w, h, label);
+            if (result == null) throw new IllegalStateException("The QuPath viewer is not on screen.");
+            result.put("focused", focused);
+            return Map.of("highlight", result);
         }
+        var all = matching(args).stream().filter(o -> o.getROI() != null).toList();
+        var plane = viewer.getImagePlane();
+        var matches = all.stream().filter(o -> o.getROI().getZ() == plane.getZ() && o.getROI().getT() == plane.getT()).toList();
+        boolean focused = false;
+        if (!all.isEmpty()) {
+            long visible = matches.stream().limit(400).filter(o -> screenRect(o.getROI().getBoundsX(), o.getROI().getBoundsY(), o.getROI().getBoundsX() + o.getROI().getBoundsWidth(), o.getROI().getBoundsY() + o.getROI().getBoundsHeight(), viewerBounds()) != null).count();
+            boolean focus = args.has("focus") ? args.get("focus").getAsBoolean() : visible * 2 < Math.min(400, matches.size()) || matches.isEmpty();
+            if (focus) {
+                var target = matches.isEmpty() ? all : matches;
+                var first = target.getFirst().getROI();
+                if (matches.isEmpty()) { viewer.setZPosition(first.getZ()); viewer.setTPosition(first.getT()); matches = all.stream().filter(o -> o.getROI().getZ() == first.getZ() && o.getROI().getT() == first.getT()).toList(); target = matches; }
+                double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
+                for (var object : target) { var roi = object.getROI(); minX = Math.min(minX, roi.getBoundsX()); minY = Math.min(minY, roi.getBoundsY()); maxX = Math.max(maxX, roi.getBoundsX() + roi.getBoundsWidth()); maxY = Math.max(maxY, roi.getBoundsY() + roi.getBoundsHeight()); }
+                fitView(minX, minY, maxX - minX, maxY - minY, viewer.getImagePlane());
+                focused = true;
+            }
+        }
+        if (args.has("select") && args.get("select").getAsBoolean()) hierarchy.getSelectionModel().setSelectedObjects(matches, matches.isEmpty() ? null : matches.getFirst());
+        var result = objectHighlight(matches, label, limit);
+        if (result == null) throw new IllegalStateException("The QuPath viewer is not on screen.");
+        result.put("focused", focused);
+        return Map.of("highlight", result);
+    }
+    /** Centre and zoom the viewer so an image-pixel rectangle (padded 15%) fills the view; downsample clamped to 0.05–256. */
+    private void fitView(double x, double y, double w, double h, ImagePlane plane) {
+        var viewer = qupath.getViewer(); var view = viewer.getView();
+        double padW = Math.max(w, 8) * 1.3, padH = Math.max(h, 8) * 1.3;
+        double downsample = Math.max(padW / Math.max(1, view.getWidth()), padH / Math.max(1, view.getHeight()));
+        viewer.setDownsampleFactor(Math.max(0.05, Math.min(256, downsample)), -1, -1);
+        viewer.setCenterPixelLocation(x + w / 2, y + h / 2);
+    }
+    private javafx.geometry.Bounds viewerBounds() { var view = qupath.getViewer().getView(); return view.localToScreen(view.getBoundsInLocal()); }
+    /** Highlight payload for a visible JavaFX control; null when it is not on screen. */
+    private Map<String, Object> controlHighlight(Node node, String label) {
+        var b = node.localToScreen(node.getBoundsInLocal());
+        if (b == null) return null;
+        var result = new LinkedHashMap<String, Object>();
+        result.put("label", label); result.put("total", 1); result.put("shown", 1); result.put("truncated", false); result.put("kind", "control");
+        result.put("targets", List.of(Map.of("x", b.getMinX(), "y", b.getMinY(), "width", b.getWidth(), "height", b.getHeight(), "shape", "rect")));
+        result.put("pointer", Map.of("screenX", b.getMinX() + b.getWidth() / 2, "screenY", b.getMinY() + b.getHeight() / 2)); result.put("coordinateSystem", "javafx-screen-top-left");
+        return result;
+    }
+    /** Highlight payload for an image-pixel rectangle; null when the viewer is not on screen. */
+    private Map<String, Object> regionHighlight(double x, double y, double w, double h, String label) {
+        var viewBounds = viewerBounds(); if (viewBounds == null) return null;
+        var targets = new ArrayList<Map<String, Object>>();
+        var rect = screenRect(x, y, x + w, y + h, viewBounds);
+        if (rect != null) { rect.put("shape", "rect"); targets.add(rect); }
+        return highlightPayload(label, 1, targets, viewBounds);
+    }
+    /** Highlight payload for objects on the current plane; null when the viewer is not on screen. Safe to embed in any result. */
+    private Map<String, Object> objectHighlight(Collection<PathObject> objects, String label, int limit) {
+        var viewBounds = viewerBounds(); if (viewBounds == null) return null;
+        var plane = qupath.getViewer().getImagePlane();
+        var targets = new ArrayList<Map<String, Object>>(); int total = 0;
+        for (var object : objects) {
+            var roi = object.getROI();
+            if (roi == null || roi.getZ() != plane.getZ() || roi.getT() != plane.getT()) continue;
+            total++;
+            if (targets.size() >= limit) continue;
+            var rect = screenRect(roi.getBoundsX(), roi.getBoundsY(), roi.getBoundsX() + roi.getBoundsWidth(), roi.getBoundsY() + roi.getBoundsHeight(), viewBounds);
+            if (rect == null) continue;
+            rect.put("shape", object.isCell() || object.isDetection() || roi.getRoiName().toLowerCase(Locale.ROOT).contains("ellipse") ? "ellipse" : "rect");
+            rect.put("id", object.getID().toString());
+            targets.add(rect);
+        }
+        return highlightPayload(label, total, targets, viewBounds);
+    }
+    private Map<String, Object> highlightPayload(String label, int total, List<Map<String, Object>> targets, javafx.geometry.Bounds viewBounds) {
         Map<String, Object> pointer = Map.of();
         if (!targets.isEmpty()) {
             double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
@@ -417,7 +516,27 @@ public final class LumaExtension implements QuPathExtension {
         result.put("viewer", Map.of("x", viewBounds.getMinX(), "y", viewBounds.getMinY(), "width", viewBounds.getWidth(), "height", viewBounds.getHeight()));
         result.put("coordinateSystem", "javafx-screen-top-left");
         result.put("note", targets.size() < total ? "Only objects visible in the current viewer are outlined; zoom or focus to see others." : "");
-        return Map.of("highlight", result);
+        return result;
+    }
+    /** Best visible target for an action: the selected region if there is one, otherwise the given objects. Never throws. */
+    private Map<String, Object> actionHighlight(Collection<PathObject> objects, String label) {
+        try {
+            if (Platform.isFxApplicationThread() && qupath.getImageData() != null) {
+                var result = objectHighlight(objects, label.length() > 80 ? label.substring(0, 80) : label, 40);
+                if (result != null) return result;
+            }
+        } catch (RuntimeException ignored) { /* display only */ }
+        return Map.of();
+    }
+    /** Selected region for region/selection scopes, otherwise the affected objects. */
+    private Map<String, Object> scopeHighlight(JsonObject args, Collection<PathObject> objects, String label) {
+        String scope = string(args, "scope", "all");
+        var highlight = scope.equals("region") || scope.equals("selection") ? selectionHighlight(label) : Map.<String, Object>of();
+        return highlight.isEmpty() ? actionHighlight(objects, label) : highlight;
+    }
+    private Map<String, Object> selectionHighlight(String label) {
+        var selected = qupath.getImageData() == null ? null : qupath.getImageData().getHierarchy().getSelectionModel().getSelectedObject();
+        return selected == null ? Map.of() : actionHighlight(List.of(selected), label);
     }
     /** Image-pixel rectangle to screen rectangle, clipped to the visible viewer; null when fully off screen. Minimum 8 px so tiny cells stay visible. */
     private Map<String, Object> screenRect(double x0, double y0, double x1, double y1, javafx.geometry.Bounds view) {
@@ -437,7 +556,7 @@ public final class LumaExtension implements QuPathExtension {
     }
     /** Per-class counts and percentages computed here, so spoken numbers never come from the model's arithmetic. */
     private Object classSummary(JsonObject args) {
-        var matches = matching(args);
+        var scoped = matchingLenient(args); var matches = scoped.objects();
         var counts = new TreeMap<String, Integer>();
         for (var object : matches) counts.merge(object.getPathClass() == null ? "Unclassified" : object.getPathClass().toString(), 1, Integer::sum);
         int total = matches.size();
@@ -445,9 +564,12 @@ public final class LumaExtension implements QuPathExtension {
         for (var entry : counts.entrySet()) classes.add(Map.of("classification", entry.getKey(), "count", entry.getValue(), "percent", total == 0 ? 0.0 : Math.round(entry.getValue() * 10000.0 / total) / 100.0));
         var selected = image().getHierarchy().getSelectionModel().getSelectedObject();
         var result = new LinkedHashMap<String, Object>();
-        result.put("summary", Map.of("scope", string(args, "scope", "all"), "kind", string(args, "kind", "all"), "total", total, "classes", classes,
-            "region", selected == null ? null : Objects.toString(selected.getName(), "Selected region"),
-            "note", "Counts of QuPath objects by current class. A class is a software label from the applied threshold or classifier, not a validated biological finding."));
+        var summary = new LinkedHashMap<String, Object>();
+        summary.put("scope", string(args, "scope", "all")); summary.put("scopeUsed", scoped.scopeUsed()); summary.put("kind", string(args, "kind", "all")); summary.put("total", total); summary.put("classes", classes);
+        summary.put("region", selected == null || !scoped.scopeUsed().equals(string(args, "scope", "all")) ? null : Objects.toString(selected.getName(), "Selected region"));
+        summary.put("note", (scoped.note().isEmpty() ? "" : scoped.note() + " ") + "Counts of QuPath objects by current class. A class is a software label from the applied threshold or classifier, not a validated biological finding.");
+        result.put("summary", summary);
+        result.put("highlight", scoped.scopeUsed().equals("all") ? actionHighlight(matches, total + " objects counted") : selectionHighlight(total + " objects here"));
         return result;
     }
     /** QuPath's own history of applied steps, and the Groovy it would generate, without writing anything. */
@@ -502,11 +624,101 @@ public final class LumaExtension implements QuPathExtension {
         if (args.has("annotations")) options.setShowAnnotations(args.get("annotations").getAsBoolean());
         if (args.has("fill")) options.setFillDetections(args.get("fill").getAsBoolean());
         if (args.has("opacity")) { double opacity = number(args,"opacity",1); if (opacity < 0 || opacity > 1) throw new IllegalArgumentException("opacity must be 0–1"); options.setOpacity((float)opacity); }
+        if (args.has("fillAnnotations")) options.setFillAnnotations(args.get("fillAnnotations").getAsBoolean());
+        if (args.has("names")) options.setShowNames(args.get("names").getAsBoolean());
+        if (args.has("grid")) options.setShowGrid(args.get("grid").getAsBoolean());
+        if (args.has("tmaGrid")) options.setShowTMAGrid(args.get("tmaGrid").getAsBoolean());
+        if (args.has("pixelClassification")) options.setShowPixelClassification(args.get("pixelClassification").getAsBoolean());
+        if (args.has("detectionMode")) {
+            options.setDetectionDisplayMode(switch (string(args,"detectionMode","")) {
+                case "nuclei" -> OverlayOptions.DetectionDisplayMode.NUCLEI_ONLY;
+                case "boundaries" -> OverlayOptions.DetectionDisplayMode.BOUNDARIES_ONLY;
+                case "centroids" -> OverlayOptions.DetectionDisplayMode.CENTROIDS;
+                case "both" -> OverlayOptions.DetectionDisplayMode.NUCLEI_AND_BOUNDARIES;
+                default -> throw new IllegalArgumentException("detectionMode must be nuclei, boundaries, both or centroids");
+            });
+        }
         if (args.has("classification")) {
             String filter = args.get("classification").getAsString();
             options.setShowObjectPredicate(filter.isEmpty() ? null : o -> o.isAnnotation() || o.getPathClass() != null && o.getPathClass().toString().equals(filter));
         }
-        return Map.of("updated", true);
+        return Map.of("updated", true, "overlays", Map.of("detections", options.getShowDetections(), "annotations", options.getShowAnnotations(), "fill", options.getFillDetections(), "fillAnnotations", options.getFillAnnotations(), "names", options.getShowNames(), "grid", options.getShowGrid(), "tmaGrid", options.getShowTMAGrid(), "opacity", options.getOpacity(), "detectionMode", options.getDetectionDisplayMode().name()));
+    }
+    /** Brightness/contrast, channel visibility, gamma, grayscale, rotation and measurement maps: display only. */
+    private Object display(JsonObject args) {
+        var image = image(); var viewer = qupath.getViewer(); var display = viewer.getImageDisplay();
+        if (display == null) throw new IllegalStateException("The viewer has no image display yet.");
+        var available = display.availableChannels(); boolean repaint = false;
+        if (args.has("channel")) {
+            var requested = args.get("channel");
+            ChannelDisplayInfo info = null;
+            if (requested.isJsonPrimitive() && requested.getAsJsonPrimitive().isNumber()) { int index = requested.getAsInt(); if (index < 0 || index >= available.size()) throw new IllegalArgumentException("channel index must be 0–" + (available.size()-1)); info = available.get(index); }
+            else { String name = requested.getAsString(); var matches = available.stream().filter(c -> c.getName().equalsIgnoreCase(name)).toList(); if (matches.isEmpty()) matches = available.stream().filter(c -> c.getName().toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT))).toList(); if (matches.size() != 1) throw new IllegalArgumentException("Channel not found or ambiguous: " + name + ". Available: " + available.stream().map(ChannelDisplayInfo::getName).toList()); info = matches.getFirst(); }
+            if (args.has("auto") && args.get("auto").getAsBoolean()) display.autoSetDisplayRange(info);
+            if (args.has("min") || args.has("max")) {
+                float min = (float) number(args,"min",info.getMinDisplay()), max = (float) number(args,"max",info.getMaxDisplay());
+                if (min >= max) throw new IllegalArgumentException("min must be below max");
+                display.setMinMaxDisplay(info,min,max);
+            }
+            if (args.has("visible")) display.setChannelSelected(info,args.get("visible").getAsBoolean());
+            repaint = true;
+        }
+        if (args.has("gamma")) { double gamma = number(args,"gamma",1); if (gamma < 0.1 || gamma > 10) throw new IllegalArgumentException("gamma must be 0.1–10"); PathPrefs.viewerGammaProperty().set(gamma); }
+        if (args.has("grayscale")) { display.setUseGrayscaleLuts(args.get("grayscale").getAsBoolean()); repaint = true; }
+        if (args.has("invertBackground")) { display.setUseInvertedBackground(args.get("invertBackground").getAsBoolean()); repaint = true; }
+        if (args.has("rotationDegrees")) viewer.setRotation(Math.toRadians(number(args,"rotationDegrees",0)));
+        if (args.has("measurementMap")) {
+            String measurement = args.get("measurementMap").getAsString();
+            if (measurement.isEmpty()) viewer.getOverlayOptions().setMeasurementMapper(null);
+            else {
+                var detections = image.getHierarchy().getDetectionObjects();
+                if (detections.stream().noneMatch(o -> Double.isFinite(o.getMeasurementList().get(measurement)))) throw new IllegalArgumentException("No detection has a finite value for measurement: " + measurement);
+                viewer.getOverlayOptions().setMeasurementMapper(new MeasurementMapper(ColorMaps.getDefaultColorMap(),measurement,detections));
+            }
+        }
+        if (repaint) viewer.repaintEntireImage();
+        var channels = new ArrayList<Map<String,Object>>();
+        for (int index = 0; index < available.size(); index++) {
+            var channel = available.get(index); var row = new LinkedHashMap<String,Object>();
+            row.put("index",index); row.put("name",channel.getName()); row.put("visible",display.selectedChannels().contains(channel)); row.put("min",channel.getMinDisplay()); row.put("max",channel.getMaxDisplay()); row.put("minAllowed",channel.getMinAllowed()); row.put("maxAllowed",channel.getMaxAllowed());
+            var color = channel.getColor(); row.put("color",color == null ? null : String.format("#%06x",color & 0xFFFFFF));
+            channels.add(row);
+        }
+        var mapper = viewer.getOverlayOptions().getMeasurementMapper();
+        var result = new LinkedHashMap<String,Object>();
+        result.put("channels",channels); result.put("gamma",PathPrefs.viewerGammaProperty().get()); result.put("grayscale",display.useGrayscaleLuts()); result.put("invertBackground",display.useInvertedBackground());
+        result.put("rotationDegrees",Math.toDegrees(viewer.getRotation())); result.put("measurementMap",mapper == null ? null : Map.of("active",mapper.isValid(),"min",mapper.getDisplayMinValue(),"max",mapper.getDisplayMaxValue()));
+        result.put("note","Display settings only; measurements and objects are unchanged. Channel ranges are saved with the image's display properties.");
+        return result;
+    }
+    private Object plugins(JsonObject args) {
+        if (args.has("plugin")) return Workflows.describePlugin(string(args,"plugin",""),image());
+        var list = new ArrayList<Map<String,Object>>();
+        for (var entry : Workflows.PLUGINS.entrySet()) {
+            try { var plugin = Workflows.plugin(entry.getKey()); list.add(Map.of("plugin",entry.getKey(),"className",entry.getValue(),"name",plugin.getName(),"description",Objects.toString(plugin.getDescription(),""))); }
+            catch (IllegalStateException unavailable) { list.add(Map.of("plugin",entry.getKey(),"className",entry.getValue(),"available",false)); }
+        }
+        return Map.of("plugins",list,"note","Pass plugin to read its parameters for the current image, then qupath_run_plugin with explicit parameters. Most plugins work inside the selected annotation(s).");
+    }
+    private Object classifiers() {
+        var project = qupath.getProject();
+        if (project == null) return Map.of("open",false,"objectClassifiers",List.of(),"pixelClassifiers",List.of(),"note","Open a project to list saved classifiers; absolute .json classifier paths also work.");
+        try { return Map.of("open",true,"project",project.getName(),"objectClassifiers",new ArrayList<>(project.getObjectClassifiers().getNames()),"pixelClassifiers",new ArrayList<>(project.getPixelClassifiers().getNames())); }
+        catch (IOException error) { throw new IllegalStateException("Cannot read project classifiers: " + error.getMessage()); }
+    }
+    private ObjectClassifier<BufferedImage> loadObjectClassifier(String name) throws IOException {
+        var project = qupath.getProject();
+        if (project != null && project.getObjectClassifiers().getNames().contains(name)) return project.getObjectClassifiers().get(name);
+        var path = Path.of(name);
+        if (path.isAbsolute() && Files.isRegularFile(path)) return ObjectClassifiers.readClassifier(path);
+        throw new IllegalArgumentException("Object classifier not found: " + name + ". Use qupath_classifiers to list saved names, or train one with Classify > Object classification > Train object classifier.");
+    }
+    private PixelClassifier loadPixelClassifier(String name) throws IOException {
+        var project = qupath.getProject();
+        if (project != null && project.getPixelClassifiers().getNames().contains(name)) return project.getPixelClassifiers().get(name);
+        var path = Path.of(name);
+        if (path.isAbsolute() && Files.isRegularFile(path)) return PixelClassifiers.readClassifier(path);
+        throw new IllegalArgumentException("Pixel classifier not found: " + name + ". Use qupath_classifiers to list saved names, or create one with Classify > Pixel classification > Create thresholder / Train pixel classifier and save it in the project.");
     }
     private Object snapshot() throws IOException {
         image(); var view = qupath.getViewer().getView();
@@ -669,6 +881,8 @@ public final class LumaExtension implements QuPathExtension {
     private Object uiAction(JsonObject args, JsonObject expected, String expectedContext) {
         var node = reviewedControl(args,expected);
         String action=string(args,"action","");
+        String controlText = node instanceof Labeled labeled ? Objects.toString(labeled.getText(),"") : node instanceof TextInputControl input ? Objects.toString(input.getText(),"") : node.getClass().getSimpleName();
+        var highlight = controlHighlight(node, controlText.isBlank() ? action : controlText.length() > 40 ? controlText.substring(0,40) : controlText);
         switch (action) {
             case "fire" -> {
                 if (!(node instanceof ButtonBase button)) throw new IllegalArgumentException("Target is not a button.");
@@ -681,7 +895,7 @@ public final class LumaExtension implements QuPathExtension {
             case "select" -> selectControlOption(node,string(args,"value",""));
             default -> throw new IllegalArgumentException("Unknown UI action");
         }
-        return Map.of("dispatched",true,"completionVerified",false,"note","Inspect UI and scientific state after dispatch.");
+        return Map.of("dispatched",true,"completionVerified",false,"note","Inspect UI and scientific state after dispatch.","highlight",highlight == null ? Map.of() : highlight);
     }
     @SuppressWarnings({"rawtypes","unchecked"})
     static void selectControlOption(Node node,String requested) {
@@ -730,7 +944,7 @@ public final class LumaExtension implements QuPathExtension {
             });
         }finally{analysisRunning.set(false);}
     }
-    private record DetectionPlan(ImageData<BufferedImage> image,List<PathObject> parents,JsonObject parameters,ApprovedCellDetection plugin,Object checkpoint) {}
+    private record DetectionPlan(ImageData<BufferedImage> image,List<PathObject> parents,JsonObject parameters,ApprovedCellDetection plugin,Object checkpoint,Map<String,Object> highlight) {}
     private Object detect(JsonObject args,JsonObject request) throws Exception {
         if (!analysisRunning.compareAndSet(false,true)) throw new IllegalStateException("An analysis or script is already running.");
         try {
@@ -743,7 +957,7 @@ public final class LumaExtension implements QuPathExtension {
                 var parameters = args.has("parameters") ? args.getAsJsonObject("parameters").deepCopy() : new JsonObject();
                 var plugin = new ApprovedCellDetection(parents);
                 plugin.validateParameters(image,parameters);
-                return new DetectionPlan(image,List.copyOf(parents),parameters,plugin,checkpoint("Before detect"));
+                return new DetectionPlan(image,List.copyOf(parents),parameters,plugin,checkpoint("Before detect"),actionHighlight(parents,"Detecting cells here"));
             });
             // Capture the approved parent set: a later primary/selection change cannot retarget the plugin.
             var plugin = plan.plugin();
@@ -753,8 +967,147 @@ public final class LumaExtension implements QuPathExtension {
             return fx(() -> {
                 var hierarchy = plan.image().getHierarchy();
                 if (!hierarchy.getFlattenedObjectList(null).containsAll(plan.parents())) throw new IllegalStateException("An approved target region was removed during detection. Inspect the saved checkpoint and results before retrying.");
-                return Map.of("result",Map.of("executionFinished",true,"completionVerified",false,"counts",counts(hierarchy),"activeImageChanged",qupath.getImageData()!=plan.image(),"verification","QuPath can log per-tile failures without propagating them. Inspect segmentation and QuPath logs before accepting the analysis."),"checkpoint",plan.checkpoint(),"contextKey",contextKey());
+                return Map.of("result",Map.of("executionFinished",true,"completionVerified",false,"counts",counts(hierarchy),"activeImageChanged",qupath.getImageData()!=plan.image(),"verification","QuPath can log per-tile failures without propagating them. Inspect segmentation and QuPath logs before accepting the analysis.","highlight",plan.highlight()),"checkpoint",plan.checkpoint(),"contextKey",contextKey());
             });
+        } finally { analysisRunning.set(false); }
+    }
+    private void requireApproved(JsonObject request, String what) {
+        if (!request.has("approved") || !request.get("approved").getAsBoolean() || !request.has("expectedContext")) throw new IllegalStateException(what + " requires an approved, context-bound invocation.");
+        if (!contextKey().equals(request.get("expectedContext").getAsString())) throw new IllegalStateException("Image, selection or results changed. Review the action again.");
+    }
+    private record PluginPlan(ImageData<BufferedImage> image,PathPlugin<BufferedImage> plugin,String key,String arguments,Object checkpoint,Map<String,Long> before,Map<String,Object> highlight) {}
+    /** Allow-listed QuPath plugin with validated explicit parameters; runs off JavaFX like native plugin dialogs. */
+    @SuppressWarnings("unchecked")
+    private Object runPlugin(JsonObject args,JsonObject request,String forcedKey) throws Exception {
+        if (!analysisRunning.compareAndSet(false,true)) throw new IllegalStateException("An analysis or script is already running.");
+        try {
+            var plan = fx(() -> {
+                requireApproved(request,"Running a plugin");
+                var image = image();
+                String key = forcedKey != null ? forcedKey : string(args,"plugin","");
+                var plugin = Workflows.plugin(key);
+                var parameters = args.has("parameters") ? args.getAsJsonObject("parameters") : new JsonObject();
+                if (plugin instanceof PathInteractivePlugin<?> interactive) Workflows.validateParameters(((PathInteractivePlugin<BufferedImage>) interactive).getDefaultParameterList(image),parameters);
+                else if (parameters.size() > 0) throw new IllegalArgumentException("This plugin takes no parameters.");
+                var selected = new ArrayList<>(image.getHierarchy().getSelectionModel().getSelectedObjects());
+                return new PluginPlan(image,plugin,key,Workflows.normalizeArguments(parameters),checkpoint("Before " + plugin.getName()),counts(image.getHierarchy()),actionHighlight(selected,plugin.getName()));
+            });
+            var runner = new TaskRunnerFX(qupath);
+            boolean finished = plan.plugin().runPlugin(runner,plan.image(),plan.arguments());
+            if (!finished || runner.isCancelled()) throw new IllegalStateException(plan.plugin().getName() + " was cancelled or had nothing to run: most plugins need a selected annotation (or TMA cores/detections). Inspect QuPath and the checkpoint.");
+            return fx(() -> {
+                var after = counts(plan.image().getHierarchy()); var delta = new TreeMap<String,Long>();
+                var keys = new TreeSet<>(after.keySet()); keys.addAll(plan.before().keySet());
+                keys.forEach(k -> delta.put(k,after.getOrDefault(k,0L) - plan.before().getOrDefault(k,0L)));
+                var result = new LinkedHashMap<String,Object>();
+                result.put("plugin",plan.key()); result.put("name",plan.plugin().getName()); result.put("executionFinished",true); result.put("completionVerified",false);
+                result.put("lastResults",Objects.toString(plan.plugin().getLastResultsDescription(),"")); result.put("counts",after); result.put("delta",delta); result.put("activeImageChanged",qupath.getImageData() != plan.image()); result.put("highlight",plan.highlight());
+                return Map.of("result",result,"checkpoint",plan.checkpoint(),"contextKey",contextKey());
+            });
+        } finally { analysisRunning.set(false); }
+    }
+    private record PixelPlan(ImageData<BufferedImage> image,PixelClassifier classifier,String name,String mode,Object checkpoint,Map<String,Long> before,Map<String,Object> highlight) {}
+    private Object applyPixelClassifier(JsonObject args,JsonObject request) throws Exception {
+        if (!analysisRunning.compareAndSet(false,true)) throw new IllegalStateException("An analysis or script is already running.");
+        try {
+            var plan = fx(() -> {
+                requireApproved(request,"Applying a pixel classifier");
+                var image = image(); String name = string(args,"name",""); String mode = string(args,"mode","annotations");
+                if (!Set.of("annotations","detections","measurements","classify_detections").contains(mode)) throw new IllegalArgumentException("mode must be annotations, detections, measurements or classify_detections");
+                if (mode.equals("measurements") && image.getHierarchy().getSelectionModel().getSelectedObjects().isEmpty()) throw new IllegalStateException("Select the annotations to measure first.");
+                return new PixelPlan(image,loadPixelClassifier(name),name,mode,checkpoint("Before pixel classifier"),counts(image.getHierarchy()),actionHighlight(new ArrayList<>(image.getHierarchy().getSelectionModel().getSelectedObjects()),"Pixel classifier " + name));
+            });
+            double minArea = number(args,"minArea",0), minHoleArea = number(args,"minHoleArea",0);
+            var options = new ArrayList<PixelClassifierTools.CreateObjectOptions>();
+            if (args.has("deleteExisting") && args.get("deleteExisting").getAsBoolean()) options.add(PixelClassifierTools.CreateObjectOptions.DELETE_EXISTING);
+            if (args.has("split") && args.get("split").getAsBoolean()) options.add(PixelClassifierTools.CreateObjectOptions.SPLIT);
+            if (args.has("includeIgnored") && args.get("includeIgnored").getAsBoolean()) options.add(PixelClassifierTools.CreateObjectOptions.INCLUDE_IGNORED);
+            String measurementId = string(args,"measurementId",plan.name());
+            String optionText = options.stream().map(o -> ", \"" + o.name() + "\"").reduce("",String::concat);
+            String script = switch (plan.mode()) {
+                case "annotations" -> { PixelClassifierTools.createAnnotationsFromPixelClassifier(plan.image(),plan.classifier(),minArea,minHoleArea,options.toArray(PixelClassifierTools.CreateObjectOptions[]::new)); yield String.format("createAnnotationsFromPixelClassifier(\"%s\", %s, %s%s)",plan.name(),minArea,minHoleArea,optionText); }
+                case "detections" -> { PixelClassifierTools.createDetectionsFromPixelClassifier(plan.image(),plan.classifier(),minArea,minHoleArea,options.toArray(PixelClassifierTools.CreateObjectOptions[]::new)); yield String.format("createDetectionsFromPixelClassifier(\"%s\", %s, %s%s)",plan.name(),minArea,minHoleArea,optionText); }
+                case "measurements" -> { PixelClassifierTools.addMeasurementsToSelectedObjects(plan.image(),plan.classifier(),measurementId); yield String.format("addPixelClassifierMeasurements(\"%s\", \"%s\")",plan.name(),measurementId); }
+                default -> { PixelClassifierTools.classifyDetectionsByCentroid(plan.image(),plan.classifier()); yield String.format("classifyDetectionsByCentroid(\"%s\")",plan.name()); }
+            };
+            return fx(() -> {
+                plan.image().getHistoryWorkflow().addStep(new DefaultScriptableWorkflowStep("Pixel classifier: " + plan.mode(),script));
+                var after = counts(plan.image().getHierarchy()); var delta = new TreeMap<String,Long>();
+                var keys = new TreeSet<>(after.keySet()); keys.addAll(plan.before().keySet());
+                keys.forEach(k -> delta.put(k,after.getOrDefault(k,0L) - plan.before().getOrDefault(k,0L)));
+                var result = new LinkedHashMap<String,Object>(Map.of("classifier",plan.name(),"mode",plan.mode(),"executionFinished",true,"completionVerified",false,"counts",after,"delta",delta,"script",script,"activeImageChanged",qupath.getImageData() != plan.image()));
+                result.put("highlight",plan.highlight());
+                return Map.of("result",result,"checkpoint",plan.checkpoint(),"contextKey",contextKey());
+            });
+        } finally { analysisRunning.set(false); }
+    }
+    private record StainPlan(ImageData<BufferedImage> image,ColorDeconvolutionStains before,RegionRequest region,boolean checkColors,Map<String,Object> highlight) {}
+    /** QuPath's own stain-vector estimation (Analyze > Estimate stain vectors "Auto") on the selected region or the visible area. */
+    private Object estimateStains(JsonObject args,JsonObject request) throws Exception {
+        if (!analysisRunning.compareAndSet(false,true)) throw new IllegalStateException("An analysis or script is already running.");
+        try {
+            var plan = fx(() -> {
+                requireApproved(request,"Estimating stain vectors");
+                var image = image(); var server = image.getServer();
+                if (!image.isBrightfield() || image.getColorDeconvolutionStains() == null) throw new IllegalStateException("Set a brightfield image type (H&E or H-DAB) before estimating stains.");
+                var selected = image.getHierarchy().getSelectionModel().getSelectedObject(); var viewer = qupath.getViewer();
+                double x, y, w, h; int z = viewer.getImagePlane().getZ(), t = viewer.getImagePlane().getT();
+                if (selected != null && selected.getROI() != null && selected.getROI().isArea()) { var roi = selected.getROI(); x = roi.getBoundsX(); y = roi.getBoundsY(); w = roi.getBoundsWidth(); h = roi.getBoundsHeight(); z = roi.getZ(); t = roi.getT(); }
+                else { var view = viewer.getView(); double d = viewer.getDownsampleFactor(); w = view.getWidth() * d; h = view.getHeight() * d; x = viewer.getCenterPixelX() - w / 2; y = viewer.getCenterPixelY() - h / 2; }
+                x = Math.max(0,x); y = Math.max(0,y); w = Math.min(w,server.getWidth() - x); h = Math.min(h,server.getHeight() - y);
+                if (w < 8 || h < 8) throw new IllegalStateException("The region is too small to estimate stains.");
+                double downsample = Math.max(1,Math.sqrt(w * h / 1_000_000.0));
+                var region = RegionRequest.createInstance(server.getPath(),downsample,(int) x,(int) y,(int) Math.ceil(w),(int) Math.ceil(h),z,t);
+                boolean checkColors = args.has("excludeUnrecognisedColors") && args.get("excludeUnrecognisedColors").getAsBoolean() && image.getColorDeconvolutionStains().isH_E();
+                var highlight = regionHighlight(x,y,w,h,"Estimating stains here");
+                return new StainPlan(image,image.getColorDeconvolutionStains(),region,checkColors,highlight == null ? Map.of() : highlight);
+            });
+            var pixels = plan.image().getServer().readRegion(plan.region());
+            var estimated = EstimateStainVectors.estimateStains(pixels,plan.before(),number(args,"minStainOD",0.05),number(args,"maxStainOD",1.0),number(args,"ignorePercentage",1.0),plan.checkColors());
+            return fx(() -> {
+                if (qupath.getImageData() != plan.image()) throw new IllegalStateException("The active image changed during estimation; nothing was applied.");
+                boolean apply = !args.has("apply") || args.get("apply").getAsBoolean();
+                if (apply) plan.image().setColorDeconvolutionStains(estimated);
+                var result = new LinkedHashMap<String,Object>();
+                result.put("applied",apply); result.put("before",Workflows.describeStains(plan.before())); result.put("after",Workflows.describeStains(estimated)); result.put("angleDegrees",Workflows.stainAngles(plan.before(),estimated));
+                result.put("region",Map.of("x",plan.region().getX(),"y",plan.region().getY(),"width",plan.region().getWidth(),"height",plan.region().getHeight(),"downsample",plan.region().getDownsample()));
+                result.put("warning","Stain vectors are image settings: hierarchy checkpoints do not restore them. Re-run with the previous vectors via qupath_set_stains to revert."); result.put("highlight",plan.highlight());
+                return Map.of("result",result,"contextKey",contextKey());
+            });
+        } finally { analysisRunning.set(false); }
+    }
+    private record ImagePlan(ImageServer<BufferedImage> server,RegionRequest region,Path path,boolean rendered,Map<String,Object> highlight) {}
+    /** Write the visible view, the selected region or the whole image (rendered with overlays, or raw pixels) into Luma's export folder. */
+    private Object exportImage(JsonObject args,JsonObject request) throws Exception {
+        if (!analysisRunning.compareAndSet(false,true)) throw new IllegalStateException("An analysis or script is already running.");
+        try {
+            var plan = fx(() -> {
+                requireApproved(request,"Exporting an image");
+                var image = image(); var server = image.getServer(); var viewer = qupath.getViewer();
+                String regionKind = string(args,"region","view"); boolean rendered = !args.has("rendered") || args.get("rendered").getAsBoolean();
+                double x, y, w, h; int z = viewer.getImagePlane().getZ(), t = viewer.getImagePlane().getT();
+                switch (regionKind) {
+                    case "selection" -> { var selected = image.getHierarchy().getSelectionModel().getSelectedObject(); if (selected == null || selected.getROI() == null) throw new IllegalStateException("Select a region first."); var roi = selected.getROI(); x = roi.getBoundsX(); y = roi.getBoundsY(); w = roi.getBoundsWidth(); h = roi.getBoundsHeight(); z = roi.getZ(); t = roi.getT(); }
+                    case "full" -> { x = 0; y = 0; w = server.getWidth(); h = server.getHeight(); }
+                    case "view" -> { var view = viewer.getView(); double d = viewer.getDownsampleFactor(); w = view.getWidth() * d; h = view.getHeight() * d; x = viewer.getCenterPixelX() - w / 2; y = viewer.getCenterPixelY() - h / 2; }
+                    default -> throw new IllegalArgumentException("region must be view, selection or full");
+                }
+                x = Math.max(0,x); y = Math.max(0,y); w = Math.min(w,server.getWidth() - x); h = Math.min(h,server.getHeight() - y);
+                if (w < 1 || h < 1) throw new IllegalStateException("The region lies outside the image.");
+                double downsample = args.has("downsample") ? number(args,"downsample",1) : Math.max(1,Math.max(w,h) / 4096.0);
+                if (downsample < 1 || w * h / (downsample * downsample) > 30_000_000) throw new IllegalArgumentException("Choose a downsample of at least 1 that keeps the output under 30 megapixels.");
+                var region = RegionRequest.createInstance(server.getPath(),downsample,(int) x,(int) y,(int) Math.ceil(w),(int) Math.ceil(h),z,t);
+                boolean png = rendered || server.isRGB();
+                var path = Workflows.exportPath(image,regionKind + (rendered ? "-rendered" : "-raw"),png ? "png" : "ome.tif");
+                var highlight = regionHighlight(x,y,w,h,"Exporting this " + regionKind);
+                return new ImagePlan(rendered ? RenderedImageServer.createRenderedServer(viewer) : server,region,path,rendered,highlight == null ? Map.of() : highlight);
+            });
+            ImageWriterTools.writeImageRegion(plan.server(),plan.region(),plan.path().toString());
+            var result = new LinkedHashMap<String,Object>();
+            result.put("path",plan.path().toString()); result.put("rendered",plan.rendered()); result.put("bytes",Files.size(plan.path()));
+            result.put("region",Map.of("x",plan.region().getX(),"y",plan.region().getY(),"width",plan.region().getWidth(),"height",plan.region().getHeight(),"downsample",plan.region().getDownsample()));
+            result.put("outputWidth",(int) (plan.region().getWidth() / plan.region().getDownsample())); result.put("outputHeight",(int) (plan.region().getHeight() / plan.region().getDownsample())); result.put("highlight",plan.highlight());
+            return Map.of("result",result);
         } finally { analysisRunning.set(false); }
     }
     private record ScriptPlan(ScriptParameters parameters,ImageData<BufferedImage> image,Object checkpoint) {}
@@ -832,6 +1185,28 @@ public final class LumaExtension implements QuPathExtension {
             return Map.of("dispatched",true,"completionVerified",false,"checkpoint",backup,"note","A native dialog may need interaction. File/plugin side effects are not reversed by a hierarchy checkpoint.");
         }
         var image = image(); var hierarchy = image.getHierarchy();
+        if (operation.equals("save")) {
+            var project = qupath.getProject(); var entry = project == null ? null : project.getEntry(image);
+            if (entry == null) throw new IllegalStateException(project == null ? "No project is open. Use qupath_run_command \"File > Save As\" to choose a .qpdata file, or add the image to a project." : "The image is not an entry of the open project; use File > Project... > Add images first.");
+            try { entry.saveImageData(image); project.syncChanges(); }
+            catch (IOException error) { throw new IllegalStateException("QuPath could not save the image data: " + error.getMessage()); }
+            return Map.of("result",Map.of("saved",true,"entryId",entry.getID(),"entryPath",Objects.toString(entry.getEntryPath(),""),"project",project.getName(),"counts",counts(hierarchy)),"contextKey",contextKey());
+        }
+        if (operation.equals("export_measurements") || operation.equals("export_objects")) {
+            var matches = matching(args); String kind = string(args,"kind","all");
+            var columns = new ArrayList<String>(); if (args.has("columns")) args.getAsJsonArray("columns").forEach(column -> columns.add(column.getAsString()));
+            try {
+                var exported = operation.equals("export_measurements") ? Workflows.exportMeasurements(image,matches,kind + "-measurements",columns) : Workflows.exportGeoJson(image,matches,kind + "-objects",args.has("excludeMeasurements") && args.get("excludeMeasurements").getAsBoolean());
+                exported.put("highlight",actionHighlight(matches,"Exporting " + matches.size() + " objects"));
+                return Map.of("result",exported,"contextKey",contextKey());
+            } catch (IOException error) { throw new IllegalStateException("Export failed: " + error.getMessage()); }
+        }
+        if (operation.equals("set_stains")) {
+            if (!image.isBrightfield()) throw new IllegalStateException("Stain vectors apply to brightfield images only; set the image type first (qupath_image_type).");
+            var before = Workflows.describeStains(image.getColorDeconvolutionStains());
+            image.setColorDeconvolutionStains(Workflows.parseStains(args));
+            return Map.of("result",Map.of("before",before == null ? Map.of() : before,"after",Workflows.describeStains(image.getColorDeconvolutionStains()),"warning","Stain vectors are image settings: hierarchy checkpoints do not restore them."),"contextKey",contextKey());
+        }
         if (operation.equals("restore")) {
             var target = requireCheckpoint(string(args,"checkpointId",""));
             var restored = HierarchySnapshot.restore(target.hierarchy());
@@ -853,25 +1228,58 @@ public final class LumaExtension implements QuPathExtension {
                 String classification = string(args,"classification","").trim();
                 if (!classification.isEmpty()) object.setPathClass(PathClass.fromString(classification));
                 hierarchy.addObject(object); qupath.getViewer().setSelectedObject(object);
-                result = describe(object);
+                var described = describe(object); described.put("highlight", actionHighlight(List.of(object), classification.isEmpty() ? object.getName() : classification + " region"));
+                result = described;
             }
             case "classify" -> {
-                String measurement = string(args,"measurement",""); double threshold = number(args,"threshold",0);
+                String measurement = string(args,"measurement","");
                 var matches = matching(args).stream().filter(PathObject::isDetection).toList();
                 if (matches.isEmpty()) throw new IllegalStateException("No detections in scope.");
                 if (matches.stream().anyMatch(o -> !Double.isFinite(o.getMeasurementList().get(measurement)))) throw new IllegalArgumentException("Every target must have a finite value for the named measurement.");
+                if (args.has("thresholds")) {
+                    var values = args.getAsJsonArray("thresholds"); double[] thresholds = new double[values.size()];
+                    for (int i = 0; i < thresholds.length; i++) { thresholds[i] = values.get(i).getAsDouble(); if (!Double.isFinite(thresholds[i]) || i > 0 && thresholds[i] <= thresholds[i-1]) throw new IllegalArgumentException("thresholds must be finite and increasing"); }
+                    if (thresholds.length != 1 && thresholds.length != 3) throw new IllegalArgumentException("Give one threshold (Positive/Negative) or three (Negative/1+/2+/3+).");
+                    PathObjectTools.setIntensityClassifications(matches,measurement,thresholds);
+                    hierarchy.fireObjectClassificationsChangedEvent(this,matches);
+                    var byClass = new TreeMap<String,Integer>(); for (var object : matches) byClass.merge(object.getPathClass() == null ? "Unclassified" : object.getPathClass().toString(),1,Integer::sum);
+                    result = Map.of("classified",matches.size(),"measurement",measurement,"thresholds",values,"counts",byClass,"note","Intensity classes keep each object's base class (e.g. Tumor: Positive), as QuPath's Set cell intensity classifications does.","highlight",scopeHighlight(args,matches,matches.size() + " cells classified"));
+                    break;
+                }
+                double threshold = number(args,"threshold",0);
                 int positive = 0;
                 for (var object : matches) { boolean above = object.getMeasurementList().get(measurement) >= threshold; object.setPathClass(PathClass.fromString(above ? "Positive" : "Negative")); if (above) positive++; }
                 hierarchy.fireObjectClassificationsChangedEvent(this,matches);
-                result = Map.of("positive",positive,"negative",matches.size()-positive,"measurement",measurement,"threshold",threshold);
+                result = Map.of("positive",positive,"negative",matches.size()-positive,"measurement",measurement,"threshold",threshold,"highlight",scopeHighlight(args,matches,positive + " positive of " + matches.size()));
             }
             case "delete" -> {
+                if (!args.has("scope")) args.addProperty("scope","selection");
                 var matches = List.copyOf(matching(args));
-                if (!string(args,"scope","").equals("selection")) throw new IllegalArgumentException("Deletion is restricted to the current selection.");
+                if (matches.isEmpty()) throw new IllegalStateException("No objects match the requested scope; nothing was deleted.");
                 if (matches.stream().anyMatch(PathObject::isTMACore)) throw new IllegalArgumentException("TMA cores require QuPath's grid-aware TMA commands; ordinary deletion is refused.");
-                hierarchy.removeObjects(matches,true);
+                boolean keepChildren = !args.has("keepChildren") || args.get("keepChildren").getAsBoolean();
+                var highlight = actionHighlight(matches, "Removing " + matches.size() + " objects");
+                hierarchy.removeObjects(matches,keepChildren);
                 hierarchy.getSelectionModel().clearSelection();
-                result = Map.of("removed", matches.size());
+                result = Map.of("removed", matches.size(), "keptChildren", keepChildren, "counts", counts(hierarchy), "highlight", highlight);
+            }
+            case "edit_objects" -> {
+                if (!args.has("scope")) args.addProperty("scope","selection");
+                var edited = Workflows.editObjects(hierarchy,List.copyOf(matching(args)),string(args,"action",""),args,image.getServer().getPixelCalibration().getAveragedPixelSizeMicrons());
+                var shown = new ArrayList<>(hierarchy.getSelectionModel().getSelectedObjects()); if (shown.isEmpty()) shown.addAll(matching(args));
+                edited.put("highlight", actionHighlight(shown, string(args,"action","") .replace('_',' ') + " done")); result = edited;
+            }
+            case "apply_object_classifier" -> {
+                String name = string(args,"name","");
+                ObjectClassifier<BufferedImage> classifier;
+                try { classifier = loadObjectClassifier(name); } catch (IOException error) { throw new IllegalStateException("Cannot load object classifier: " + error.getMessage()); }
+                var objects = classifier.getCompatibleObjects(image);
+                if (objects.isEmpty()) throw new IllegalStateException("No compatible objects (detections/cells) for this classifier. Detect cells first.");
+                int changed = classifier.classifyObjects(image,objects,true);
+                if (changed > 0) hierarchy.fireObjectClassificationsChangedEvent(classifier,objects);
+                image.getHistoryWorkflow().addStep(new DefaultScriptableWorkflowStep("Run object classifier","runObjectClassifier(\"" + name.replace("\\","\\\\").replace("\"","\\\"") + "\")"));
+                var byClass = new TreeMap<String,Integer>(); for (var object : objects) byClass.merge(object.getPathClass() == null ? "Unclassified" : object.getPathClass().toString(),1,Integer::sum);
+                result = Map.of("classifier",name,"objects",objects.size(),"changed",changed,"classes",classifier.getPathClasses().stream().map(String::valueOf).toList(),"counts",byClass,"highlight",actionHighlight(objects,objects.size() + " cells classified"));
             }
             case "image_type" -> { var type = ImageData.ImageType.valueOf(string(args,"type","")); image.setImageType(type); result = Map.of("imageType",type.name(),"warning","Image type settings are not restored by hierarchy checkpoints."); }
             default -> throw new IllegalArgumentException("Unknown mutation");

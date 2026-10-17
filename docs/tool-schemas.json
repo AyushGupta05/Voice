@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "application": "QuPath",
-  "toolCount": 37,
+  "toolCount": 57,
   "tools": [
     {
       "name": "qupath_context",
@@ -397,7 +397,7 @@
     },
     {
       "name": "qupath_highlight",
-      "description": "Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Luma flies its cursor there with a short label. Only objects visible in the current viewer are outlined, so focus first if needed. select also selects the matched objects in QuPath. Display only.",
+      "description": "Visibly point at and outline what you are talking about, like a presenter: objects by IDs/class/scope, an image-pixel region (x, y, width, height) or a visible JavaFX control (nodeId from qupath_ui). Luma flies its cursor there with a short label. When most targets are off screen the viewer first zooms to fit them (focus; force with true/false; returns focused). select also selects the matched objects in QuPath. Display only.",
       "operation": "highlight",
       "risk": "view",
       "inputSchema": {
@@ -456,6 +456,9 @@
           "select": {
             "type": "boolean"
           },
+          "focus": {
+            "type": "boolean"
+          },
           "limit": {
             "type": "integer",
             "minimum": 1,
@@ -468,7 +471,7 @@
     },
     {
       "name": "qupath_overlays",
-      "description": "Show/hide detections and annotations, fill cells, change opacity, or show only an exact classification. Empty classification clears the filter. Changes display only.",
+      "description": "Show/hide detections, annotations, names, counting grid, TMA grid or pixel-classification overlay; fill cells/annotations; nuclei-vs-boundary detection display; opacity; or show only an exact classification (empty clears). Display only.",
       "operation": "overlays",
       "risk": "view",
       "inputSchema": {
@@ -482,6 +485,30 @@
           },
           "fill": {
             "type": "boolean"
+          },
+          "fillAnnotations": {
+            "type": "boolean"
+          },
+          "names": {
+            "type": "boolean"
+          },
+          "grid": {
+            "type": "boolean"
+          },
+          "tmaGrid": {
+            "type": "boolean"
+          },
+          "pixelClassification": {
+            "type": "boolean"
+          },
+          "detectionMode": {
+            "type": "string",
+            "enum": [
+              "nuclei",
+              "boundaries",
+              "both",
+              "centroids"
+            ]
           },
           "opacity": {
             "type": "number",
@@ -616,7 +643,7 @@
     },
     {
       "name": "qupath_class_summary",
-      "description": "Count objects by their current class with percentages computed by QuPath, for the whole image, the selection or the selected region. Use this for \"how many / what percentage are positive\", never arithmetic on listings.",
+      "description": "Count objects by their current class with percentages computed by QuPath, for the whole image, the selection or the selected region (falls back to the whole image when nothing is selected; see scopeUsed). Use this for \"how many / what percentage are positive\", never arithmetic on listings.",
       "operation": "class_summary",
       "risk": "read",
       "inputSchema": {
@@ -688,7 +715,7 @@
     },
     {
       "name": "qupath_detect_cells",
-      "description": "Run QuPath watershed cell detection in selected annotations with explicit parameters. Requires human approval; may take time. If the image has pixelSizeMicrons, use ONLY the *Microns parameters (requestedPixelSizeMicrons, backgroundRadiusMicrons, medianRadiusMicrons, sigmaMicrons, minAreaMicrons, maxAreaMicrons, cellExpansionMicrons); pixel parameters are rejected there, and vice versa. Good brightfield H-DAB start: detectionImageBrightfield \"Hematoxylin OD\", requestedPixelSizeMicrons 0.5, backgroundRadiusMicrons 8, medianRadiusMicrons 0, sigmaMicrons 1.5, minAreaMicrons 10, maxAreaMicrons 400, threshold 0.1, cellExpansionMicrons 5, includeNuclei, smoothBoundaries and makeMeasurements true.",
+      "description": "Run QuPath watershed cell detection in selected annotations with explicit parameters (qupath_detect_positive_cells does detection + positive/negative in one step). May take time. If the image has pixelSizeMicrons, use ONLY the *Microns parameters (requestedPixelSizeMicrons, backgroundRadiusMicrons, medianRadiusMicrons, sigmaMicrons, minAreaMicrons, maxAreaMicrons, cellExpansionMicrons); pixel parameters are rejected there, and vice versa. Good brightfield H-DAB start: detectionImageBrightfield \"Hematoxylin OD\", requestedPixelSizeMicrons 0.5, backgroundRadiusMicrons 8, medianRadiusMicrons 0, sigmaMicrons 1.5, minAreaMicrons 10, maxAreaMicrons 400, threshold 0.1, cellExpansionMicrons 5, includeNuclei, smoothBoundaries and makeMeasurements true.",
       "operation": "detect",
       "risk": "data",
       "inputSchema": {
@@ -816,11 +843,19 @@
           },
           "threshold": {
             "type": "number"
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "description": "Alternative to threshold: one value (Positive/Negative) or three increasing values (Negative/1+/2+/3+, H-score style) using QuPath's intensity classification, which keeps each object's base class."
           }
         },
         "required": [
-          "measurement",
-          "threshold"
+          "measurement"
         ],
         "additionalProperties": false
       }
@@ -931,6 +966,542 @@
         "required": [
           "scope"
         ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_delete_objects",
+      "description": "Delete objects by scope, kind, existing class or IDs (\"delete all detections\", \"remove the Necrosis annotations\"). Default scope is the selection; use scope \"all\" with a kind/class for the whole image. TMA cores are refused. A hierarchy checkpoint is made first.",
+      "operation": "delete",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "keepChildren": {
+            "type": "boolean",
+            "description": "Keep child objects (default true). false also removes cells inside a deleted annotation."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_edit_objects",
+      "description": "Edit existing objects with QuPath's own tools: merge (union of selected annotations), split (disconnected parts into separate annotations), lock/unlock, set_class (value = class name, empty clears), rename (value), duplicate, fill_holes, expand (distance px or distanceMicrons; negative shrinks). Scope defaults to the selection. Checkpointed.",
+      "operation": "edit_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "split",
+              "lock",
+              "unlock",
+              "set_class",
+              "rename",
+              "duplicate",
+              "fill_holes",
+              "expand"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Class name for set_class, new name for rename."
+          },
+          "distance": {
+            "type": "number"
+          },
+          "distanceMicrons": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_export_measurements",
+      "description": "Write a CSV measurement table (QuPath's Measure > Export measurements columns) for the objects in scope to Luma's export folder (.local/exports). kind picks annotation/cell/detection rows. Returns the path, row and column counts. No research data is sent anywhere.",
+      "operation": "export_measurements",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 100,
+            "description": "Optional exact column names to keep; default all."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_export_annotations",
+      "description": "Write the objects in scope as a GeoJSON FeatureCollection (full-resolution image pixels) to Luma's export folder; QuPath and QuPath's importer can read it back. Default kind annotation. Returns the path and count.",
+      "operation": "export_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "excludeMeasurements": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_export_image",
+      "description": "Save the current view, the selected region or the whole image as PNG in Luma's export folder. rendered true (default) writes what the viewer shows including overlays; false writes raw pixels. Downsample is chosen automatically (max 4096 px) unless given. Returns the path and output size.",
+      "operation": "export_image",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "type": "string",
+            "enum": [
+              "view",
+              "selection",
+              "full"
+            ]
+          },
+          "rendered": {
+            "type": "boolean"
+          },
+          "downsample": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 256
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_set_stains",
+      "description": "Set colour-deconvolution stain vectors for a brightfield image: preset \"H_E\" or \"H_DAB\", or explicit stains {\"Hematoxylin\":[r,g,b],\"DAB\":[r,g,b],\"Background\":[255,255,255]} with a name. Set the image type first. Not restored by hierarchy checkpoints.",
+      "operation": "set_stains",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "H_E",
+              "H_DAB"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "stains": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "maxProperties": 4
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_estimate_stains",
+      "description": "Run QuPath's automatic stain-vector estimation (Analyze > Estimate stain vectors, \"Auto\") on the selected region or the visible area and apply it (apply false only previews). Returns before/after vectors and the angle change. Use when DAB/haematoxylin separation looks wrong.",
+      "operation": "estimate_stains",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "apply": {
+            "type": "boolean"
+          },
+          "minStainOD": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "maxStainOD": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 5
+          },
+          "ignorePercentage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "excludeUnrecognisedColors": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_display",
+      "description": "Brightness/contrast and channels (display only): pick a channel by name or index and set min/max, auto range, or visible; gamma (0.1–10), grayscale, invertBackground, rotationDegrees, or measurementMap (a detection measurement name to colour cells by; \"\" clears). With no arguments it just reports the channel table.",
+      "operation": "display",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ]
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "auto": {
+            "type": "boolean"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "gamma": {
+            "type": "number"
+          },
+          "grayscale": {
+            "type": "boolean"
+          },
+          "invertBackground": {
+            "type": "boolean"
+          },
+          "rotationDegrees": {
+            "type": "number"
+          },
+          "measurementMap": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_plugins",
+      "description": "List the QuPath analysis plugins Luma can run directly (tiles, superpixels, tissue detection, TMA dearray, intensity/shape/smoothed features, positive cell detection, cell membrane detection, Delaunay clusters, annotation dilate/fill/refine/split, …) or, with plugin, read that plugin's parameters, defaults, units, ranges and choices for the current image. Read only.",
+      "operation": "plugins",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "plugin": {
+            "type": "string",
+            "maxLength": 60
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_run_plugin",
+      "description": "Run an allow-listed QuPath plugin (see qupath_plugins) with explicit parameters, exactly like Analyze menu dialogs but without the dialog. Most plugins work inside the selected annotation(s); TMA dearray and tissue detection work on the whole image. Parameters are validated against the plugin's own list; a checkpoint is made first; returns object-count deltas.",
+      "operation": "run_plugin",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "plugin": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "plugin"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_detect_positive_cells",
+      "description": "QuPath's Positive cell detection: watershed cell detection plus intensity classification in one run (Negative/Positive, or Negative/1+/2+/3+ when singleThreshold is false). Same watershed parameters as qupath_detect_cells plus thresholdCompartment (e.g. \"Nucleus: DAB OD mean\"), thresholdPositive1/2/3 and singleThreshold. Runs in the selected annotations; replaces existing cells there.",
+      "operation": "detect_positive",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "parameters"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_classifiers",
+      "description": "List the object and pixel classifiers saved in the open project (names to pass to apply_object_classifier / apply_pixel_classifier). Read only.",
+      "operation": "classifiers",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_apply_object_classifier",
+      "description": "Apply a saved object classifier (project name or absolute .json path) to all compatible detections, like Classify > Object classification > Load object classifier. Returns per-class counts. Replaces existing classes; checkpointed.",
+      "operation": "apply_object_classifier",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_apply_pixel_classifier",
+      "description": "Apply a saved pixel classifier or thresholder (project name or absolute .json path): mode annotations/detections creates objects inside the selected annotations (or the whole image), measurements adds area measurements to the selected objects, classify_detections classifies detections by their centroid pixel. minArea/minHoleArea in calibrated units². Checkpointed; may take time.",
+      "operation": "apply_pixel_classifier",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "annotations",
+              "detections",
+              "measurements",
+              "classify_detections"
+            ]
+          },
+          "minArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minHoleArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "deleteExisting": {
+            "type": "boolean"
+          },
+          "split": {
+            "type": "boolean"
+          },
+          "includeIgnored": {
+            "type": "boolean"
+          },
+          "measurementId": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_save",
+      "description": "Save the current image's objects and settings into the open project (File > Save). Needed before opening another image. Fails with guidance when the image is not a project entry.",
+      "operation": "save",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
         "additionalProperties": false
       }
     },
@@ -1062,6 +1633,206 @@
         },
         "required": [
           "actionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_desktop_inspect",
+      "description": "List the windows and actionable elements of QuPath (default), the frontmost app or any bundle ids via macOS Accessibility, including OS-owned open/save panels and alerts. Each element has a stable id, role, title/label/value, enabled and a global screen frame (top-left origin). Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, \"Set image type\"-style native sheets, third-party plugin windows, alerts and any other window on screen. Always inspect immediately before acting: ids expire after 30 s. Reports trusted:false when Luma lacks the Accessibility permission, which only the researcher can grant.",
+      "operation": "desktop_inspect",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "maxItems": 8,
+            "description": "Bundle ids, or \"frontmost\". Default [\"science.luma.qupath\"]."
+          },
+          "windowTitleContains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxElements": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_desktop_act",
+      "description": "Operate one element id from the latest qupath_desktop_inspect (within 30 s): press a button/menu item, toggle a checkbox, focus or select a row/tab/option, setValue or type into a field. Accessibility actions are tried first; otherwise Luma moves the real mouse to the element and clicks or types. The cursor flies there first. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, \"Set image type\"-style native sheets, third-party plugin windows, alerts and any other window on screen. Re-inspect afterwards; dispatch is not completion. Never bypass disabled controls.",
+      "operation": "desktop_act",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "press",
+              "setValue",
+              "focus",
+              "select",
+              "toggle",
+              "type"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Text for setValue/type."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+          }
+        },
+        "required": [
+          "id",
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_desktop_type",
+      "description": "Type text into whatever currently has keyboard focus (QuPath is brought forward first), optionally pressing Return after. For a file dialog: qupath_desktop_key [\"cmd+shift+g\"], then qupath_desktop_type the absolute path with submit true, then qupath_desktop_key [\"return\"] to open. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, \"Set image type\"-style native sheets, third-party plugin windows, alerts and any other window on screen.",
+      "operation": "desktop_type",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "submit": {
+            "type": "boolean",
+            "description": "Press Return after typing."
+          },
+          "app": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Bundle id to bring forward first: \"science.luma.qupath\" (default), \"frontmost\" or \"none\"."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_desktop_key",
+      "description": "Press keyboard shortcuts in order, e.g. [\"cmd+shift+g\"] to open the path sheet in a file chooser, [\"return\"], [\"escape\"], [\"tab\"], [\"cmd+o\"]. Modifiers cmd/shift/alt/ctrl plus one key name (letters, digits, return, escape, tab, space, delete, arrows, f1-f12). Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, \"Set image type\"-style native sheets, third-party plugin windows, alerts and any other window on screen.",
+      "operation": "desktop_key",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "minItems": 1,
+            "maxItems": 10
+          },
+          "app": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Bundle id to bring forward first: \"science.luma.qupath\" (default), \"frontmost\" or \"none\"."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_desktop_click",
+      "description": "Click at exact global screen coordinates (top-left origin, from a frame returned by qupath_desktop_inspect) when no element id fits, e.g. a canvas or custom-drawn plugin control. Luma flies its cursor there, then moves the real mouse and clicks. Use the in-app qupath_ui / qupath_ui_action first; they see JavaFX controls directly. Use the desktop tools only for what they cannot see: OS file open/save dialogs, \"Set image type\"-style native sheets, third-party plugin windows, alerts and any other window on screen. Prefer qupath_desktop_act with an id whenever one exists.",
+      "operation": "desktop_click",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "2 for a double-click."
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ]
+          },
+          "modifiers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "cmd",
+                "shift",
+                "alt",
+                "ctrl"
+              ]
+            },
+            "maxItems": 4
+          },
+          "app": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Bundle id to bring forward first: \"science.luma.qupath\" (default), \"frontmost\" or \"none\"."
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Two to six words shown beside Luma’s cursor while it flies to the target."
+          }
+        },
+        "required": [
+          "x",
+          "y"
         ],
         "additionalProperties": false
       }

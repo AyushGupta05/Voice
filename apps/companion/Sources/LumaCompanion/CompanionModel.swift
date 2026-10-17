@@ -77,6 +77,8 @@ final class CompanionModel: ObservableObject {
     private var micPeak: Float = 0
     private let session = URLSession(configuration: .ephemeral)
     let pointer = PointerOverlay()
+    /// Desktop-level control (Accessibility + synthetic input) answering the gateway's desktop_request events.
+    let desktop = DesktopControl()
     let audio = AudioIO()
 
     init() {
@@ -212,6 +214,15 @@ final class CompanionModel: ObservableObject {
     private func receive(_ event: [String: Any]) {
         switch event["type"] as? String {
         case "connected": eventsReady = true
+        case "desktop_request":
+            guard let requestID = event["requestId"] as? String else { return }
+            let op = event["op"] as? String ?? "", args = event["args"] as? [String: Any] ?? [:]
+            desktop.show = { [weak self] highlight in self?.pointer.highlight(highlight) }
+            Task { [weak self] in
+                guard let self else { return }
+                do { let result = try await self.desktop.perform(op: op, args: args); self.send(["type": "desktop_response", "requestId": requestID, "result": result]) }
+                catch { self.send(["type": "desktop_response", "requestId": requestID, "error": error.localizedDescription]) }
+            }
         case "tool":
             let name = event["name"] as? String ?? "Action"
             if name == "qupath_context" { Task { await refresh() }; return }

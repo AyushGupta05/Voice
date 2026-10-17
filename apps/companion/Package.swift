@@ -9,7 +9,8 @@ let package = Package(
         .target(name: "LumaPresentation"),
         .executableTarget(name: "LumaCompanion", dependencies: ["LumaAudioCore", "LumaPresentation"]),
         .testTarget(name: "LumaAudioCoreTests", dependencies: ["LumaAudioCore"]),
-        .testTarget(name: "LumaPresentationTests", dependencies: ["LumaPresentation"])
+        .testTarget(name: "LumaPresentationTests", dependencies: ["LumaPresentation"]),
+        .testTarget(name: "LumaCompanionTests", dependencies: ["LumaCompanion"])
     ],
     swiftLanguageModes: [.v5]
 )

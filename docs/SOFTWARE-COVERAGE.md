@@ -1,54 +1,136 @@
-# QuPath task coverage
+# QuPath workflow coverage
 
-The target experience is an audience-selected task in the actual QuPath application: observe what is open/selected, choose a supported operation, act, then verify its visible or measured result. The interface combines 32 structured MCP tools with a live installed-command catalog and reviewed native-control/scripting fallbacks. A separate endpoint for every button would become stale as plugins and QuPath versions change; the live catalog and control observation supply that changing surface.
+Every common QuPath 0.7 workflow, the route Luma's agent takes for it, and how far that route has been verified. Routes are tried in this order: a **structured tool** (exact JSON, validated, checkpointed, result includes a `highlight` so the cursor shows what happened), then a **menu command** (`qupath_commands` → `qupath_run_command`, driving its dialog with `qupath_ui` → `qupath_ui_action`), then **Groovy** (`qupath_run_script` with a recipe from [skills/qupath/references/recipes.md](../skills/qupath/references/recipes.md), verified against the pinned QuPath source with `qupath_api_search`). The agent never says "QuPath can't do that" before checking `qupath_commands` and `qupath_knowledge`.
 
-## Task routes
+Menu paths are the exact `qupath_commands` form (`Menu > Submenu > Command`), which matches the official [command reference](https://qupath.readthedocs.io/en/0.7/docs/reference/commands.html) with `-->` replaced by `>`. The audit of the local official docs that produced this table found that the docs script only stains, channel names, pixel size, GeoJSON/image export, the measurement exporter and deep-learning extensions; everything else is dialog-only there, so the Groovy below comes from the pinned source, not the docs.
 
-| Researcher intent | First route | Verification and boundary |
+Status key: **real-app** = exercised against the running QuPath through the gateway; **contract** = compiled against QuPath 0.7 and covered by an isolated Java/gateway test, not yet run in the live application; **untested** = route exists (menu path or API verified in source) but has not been executed by Luma.
+
+## Images and projects
+
+| Workflow | Luma route | Status |
 |---|---|---|
-| “What am I looking at?” | context, viewer snapshot with a vision-capable client, selected objects | Metadata and actual object IDs; the configured AWS text model has no image vision |
-| “Show this region / those positive cells” | focus, select, overlays | Actual viewer center/plane, exact class and full selection count |
-| “Analyze these measurements” | analysis_catalog → measurement_summary | Full matching population, missing values, distribution plots and exact class groups; no automatic biological inference |
-| “Find cells here” | analysis_catalog + knowledge → detect_cells | Selected annotations, current parameter units/choices, human approval, measured post-run results and contour inspection |
-| “Import this slide / project” | open_path | Exact approved absolute local path, unsaved-change guard, native import/reader dialogs, actual resulting image/project |
-| “Open the other image in this project” | project_images → open_project_image | Exact entry and observed source fingerprint; verify context after native dispatch |
-| “Bring in these annotations” | inspect_import → import_annotations | Reviewed file hash, counts/classes, full-resolution pixel coordinates, valid original geometry/plane, native precision-change disclosure, unique IDs, checkpoint and actual imported count |
-| “Open this analysis panel / click this button” | commands → run_command → ui → ui_action | Exact installed paths and current controls; review button/text/choice/tab action; inspect result, never assume dispatch completed |
-| “Use a pixel/object classifier, TMA tool or extension” | knowledge + API lookup + installed command discovery | Inspect actual project/model/plugin prerequisites; reviewed native interaction or exact-source script; specialized algorithms are not all individually pretested |
-| “Export these results / run across the project” | native measurement exporter or documented reviewed script | Explicit destination/scope; native saved-data prerequisites; verify output; external files lie outside hierarchy recovery |
-| “Compare / restore the earlier objects” | checkpoints, compare, restore | Exact image-bound checkpoint, full class/count changes; restore requires human review |
+| Find a slide by name | `qupath_find_images` | real-app |
+| Open an image or `.qpproj` | `qupath_open_path` (native reader/type dialogs via `qupath_ui` → `qupath_ui_action` Apply) | real-app |
+| Open another project image | `qupath_project_images` → `qupath_open_project_image` | real-app (isolated QuPathGUI) |
+| Save image data into the project | `qupath_save` (`entry.saveImageData` + `project.syncChanges`) | contract |
+| Save as `.qpdata` outside a project | `qupath_run_command "File > Save As"` + OS file dialog (researcher) | untested |
+| Create project / add images / remove images | `qupath_run_command "File > Project... > Create project"`, `"File > Project... > Add images"` (OS dialogs need the researcher); Groovy recipe `Projects.createProject` + `ImageServerProvider`/`ProjectCommands.addImage` in recipes.md | untested |
+| Project metadata, URIs, image list export | `qupath_run_command "File > Project... > Edit project metadata"`, `"... > Check project URIs"`, `"... > Export image list"` | untested |
+| Reload saved data | `qupath_run_command "File > Reload data"` | untested |
+| Set pixel size | Groovy `setPixelSizeMicrons(x, y)` recipe | untested |
+| List images / batch over a project | `qupath_project_images`; Groovy project-loop recipe; `qupath_save_workflow` + Automate > Script editor Run for project | real-app (list), untested (batch) |
 
-The current narrow GeoJSON importer supports a Feature, array or FeatureCollection of leaf annotations, max 16 MiB / 10,000 objects. It excludes archives, serialized `.qpdata`, detections and TMA grids. Other formats use documented native commands/scripts. Image opening supports existing local paths, not a remote connector or authenticated download. An external agent can use an authorized data connector to obtain a file first; Luma must not invent its location or coordinate system.
+## Image type and stains
 
-## Breadth evidence
+| Workflow | Luma route | Status |
+|---|---|---|
+| Set image type | `qupath_image_type` | real-app |
+| Set stain vectors (preset or explicit) | `qupath_set_stains {preset: "H_DAB"}` or explicit `stains` | contract |
+| Estimate stain vectors automatically | `qupath_estimate_stains` (QuPath `EstimateStainVectors`, selected region or visible area); dialog route `qupath_run_command "Analyze > Estimate stain vectors"` | contract |
+| Set channel names / colours (fluorescence) | Groovy `setChannelNames(...)`, `setChannelColors(...)` recipe | untested |
+| Read current stains | `qupath_context` → `image.stains` | contract |
 
-The earlier real QuPath 0.7 discovery found 232 menu commands across File, Edit, Tools, View, Objects, TMA, Measure, Automate, Analyze, Classify, Extensions, Window and Help. Those counts depend on installed plugins and current application state. [The discovery record](pitch/capability-discovery.json) proves enumeration, not execution of all 232 commands.
+## Annotations and objects
 
-The import/analysis increment adds seven tools: measurement_summary, analysis_catalog, project_images, open_path, open_project_image, inspect_import and import_annotations. Two additional read-only tools, api_search/api_read, expose the pinned base API source; see [API-LOOKUP.md](API-LOOKUP.md). Existing ui/ui_action now also expose exact choice-box options and enabled tab titles. Schemas and approval requirements are generated in [TOOL-REFERENCE.md](TOOL-REFERENCE.md).
+| Workflow | Luma route | Status |
+|---|---|---|
+| Draw a rectangle/ellipse region | `qupath_annotate` (position/size inferred from the viewer) | real-app |
+| Full-image annotation | `qupath_run_command "Objects > Annotations... > Create full image annotation"`; Groovy `createFullImageAnnotation(true)` | untested |
+| Polygon / arbitrary ROI | Groovy `ROIs.createPolygonROI` recipe | untested |
+| Merge selected annotations | `qupath_edit_objects {action: "merge"}` (`QP.mergeAnnotations`) | contract |
+| Split disconnected parts | `qupath_edit_objects {action: "split"}` (`RoiTools.splitROI`) | contract |
+| Lock / unlock | `qupath_edit_objects {action: "lock" / "unlock"}` | contract |
+| Set class of annotations or detections | `qupath_edit_objects {action: "set_class", value}` | contract |
+| Rename / duplicate | `qupath_edit_objects {action: "rename" / "duplicate"}` | contract |
+| Fill holes / expand or shrink | `qupath_edit_objects {action: "fill_holes" / "expand", distance or distanceMicrons}`; plugin route `qupath_run_plugin {plugin: "dilate_annotations" / "fill_annotation_holes" / "refine_annotations"}` | contract |
+| Make inverse, simplify, transform, split by lines | `qupath_run_command "Objects > Annotations... > Make inverse"`, `"... > Simplify shape"`, `"... > Transform annotations"`, `"... > Split annotations by lines"`; Groovy `makeInverseAnnotation`, `simplifySelectedAnnotations`, `splitSelectedAnnotationAreasByLines` | untested |
+| Select by class / kind / region / IDs | `qupath_select` | real-app |
+| Select by measurement | Groovy `selectObjects { it.getMeasurementList().get("…") > x }` recipe | untested |
+| Delete selected | `qupath_delete_selected` | real-app |
+| Delete by kind / class / scope | `qupath_delete_objects` (TMA cores refused) | contract |
+| Insert into / resolve hierarchy | `qupath_run_command "Objects > Annotations... > Resolve hierarchy"`; Groovy `resolveHierarchy()` | untested |
+| Import annotations (GeoJSON) | `qupath_inspect_import` → `qupath_import_annotations` | real-app (isolated QuPathGUI) |
+| Undo | `qupath_checkpoints` → `qupath_restore` (hierarchy only), `qupath_compare` | real-app |
 
-## Fast, visible interaction
+## Detection
 
-Use direct application APIs for common operations and numeric summaries. Full-scope statistics and histograms avoid hundreds of paginated model round trips. The companion plots two selected measurement distributions, with count/missing-value labels and a source-context marker. View changes return the actual screen target for the pointer overlay. Parsing GeoJSON and numeric summary calculations happen outside JavaFX after immutable observations are captured; applying imported objects occurs only after context/hash/geometry validation.
+| Workflow | Luma route | Status |
+|---|---|---|
+| Cell / nucleus detection (watershed) | `qupath_detect_cells` (validated parameters, `qupath_analysis_catalog` for defaults) | real-app (899 cells) |
+| Positive cell detection | `qupath_detect_positive_cells` (`PositiveCellDetection`: thresholdCompartment, thresholdPositive1/2/3, singleThreshold) | contract |
+| Cell membrane detection, subcellular detection, fast cell counts | `qupath_run_plugin {plugin: "cell_membrane_detection" / "subcellular_detection" / "fast_cell_counts"}` | contract (allow-list, parameter validation) |
+| Simple tissue detection | `qupath_run_plugin {plugin: "tissue_detection"}` | contract |
+| Positive pixel count | `qupath_run_plugin {plugin: "positive_pixel_count"}` | contract |
+| StarDist / InstanSeg / WSInfer | Groovy recipes (extension must be installed; check `qupath_commands` for `Extensions >`) | untested |
 
-Keep the original QuPath application visible. Prefer a short action and visible change, then a short factual confirmation. Cold image loading and scientific algorithms can take time; show progress and preserve cancellation/review rather than claiming instant completion. Stop prevents future agent work; it does not terminate an already-running native plugin or undo completed actions.
+## Classification
 
-![Offscreen native plot layout using explicitly synthetic values; not scientific evidence](images/measurement-report-synthetic.png)
+| Workflow | Luma route | Status |
+|---|---|---|
+| Threshold one measurement → Positive/Negative | `qupath_classify {measurement, threshold}` | real-app |
+| Intensity classes Negative/1+/2+/3+ (H-score style) | `qupath_classify {measurement, thresholds: [t1, t2, t3]}` (`PathObjectTools.setIntensityClassifications`, keeps base class) | contract |
+| Count / percentage by class | `qupath_class_summary` (falls back to the whole image when nothing is selected) | real-app |
+| Train an object classifier | `qupath_run_command "Classify > Object classification > Train object classifier"` and drive the dialog (`qupath_ui_action`); training annotations via `qupath_edit_objects set_class` | untested |
+| Single-measurement / composite classifier | `qupath_run_command "Classify > Object classification > Create single measurement classifier"` / `"... > Create composite classifier"` | untested |
+| Apply a saved object classifier | `qupath_classifiers` → `qupath_apply_object_classifier {name}` | contract |
+| Reset detection classifications | `qupath_run_command "Classify > Object classification > Reset detection classifications"`; Groovy `resetDetectionClassifications()` | untested |
+| Create thresholder / train pixel classifier | `qupath_run_command "Classify > Pixel classification > Create thresholder"` / `"... > Train pixel classifier"`, then the dialog; save it in the project | untested |
+| Apply a saved pixel classifier: annotations, detections, area measurements, classify detections | `qupath_apply_pixel_classifier {name, mode}` | contract |
+| Classify tiles → annotations | `qupath_run_plugin {plugin: "tiles_to_annotations"}` | contract |
 
-The image above is a SwiftUI render from labeled synthetic values. It checks plot layout and earlier-observation labeling, not the foreground application flow.
+## TMA, tiles and features
 
-## Verification state of this increment
+| Workflow | Luma route | Status |
+|---|---|---|
+| TMA dearray | `qupath_run_plugin {plugin: "tma_dearray", parameters: {coreDiameterMM, labelsHorizontal, labelsVertical, ...}}` | contract |
+| Specify / edit / relabel / delete TMA grid | `qupath_run_command "TMA > Specify TMA grid"`, `"TMA > Add... > ..."`, `"TMA > Relabel TMA grid"`, `"TMA > Delete TMA grid"` | untested |
+| TMA measurements / data viewer | `qupath_run_command "Measure > Show TMA measurements"`, `"File > TMA data... > Export TMA data"`; `qupath_export_measurements {kind: "all"}` filtered by class | untested |
+| Create tiles | `qupath_run_plugin {plugin: "tiles", parameters: {tileSizeMicrons or tileSizePx, trimToROI, makeAnnotations}}` | contract |
+| SLIC / DoG superpixels | `qupath_run_plugin {plugin: "superpixels_slic" / "superpixels_dog"}` | contract |
+| Add intensity / shape / smoothed / Haralick features | `qupath_run_plugin {plugin: "intensity_features" / "shape_features" / "smoothed_features" / "haralick_features"}` | contract |
+| Delaunay clusters, distances to annotations | `qupath_run_plugin {plugin: "delaunay_clusters"}`; `qupath_run_command "Analyze > Spatial analysis > Distance to annotations 2D"`; Groovy `detectionToAnnotationDistances(true)` | contract / untested |
 
-- Compiled against the pinned actual QuPath 0.7 API.
-- Synthetic real-library tests check full-population summaries, missing values, finite numeric extremes, import hash/identity/type/geometry rejection and duplicate UUIDs.
-- Gateway tests check exact import/project preflight review, no execution before a human decision and changed-source rejection.
-- Isolated JavaFX controls check selection fingerprints, choice/tab actions, disabled/ambiguous options and menu semantics without opening windows.
-- Separately authorized [isolated actual QuPathGUI import test](SYNTHETIC-IMPORT-TEST.md) passes through a gateway advertising all 32 MCP tools: two exact synthetic annotations, individual measurements, changed-file/duplicate rejection, comparison and empty baseline restoration. This exercises the import workflow, not every tool. Test-only socket wiring does not verify normal extension discovery or image-file opening.
-- Native result plots/import review compile; foreground layout and native file/import dialog flows remain to be verified after manual unlock.
+## Measurements, maps and export
 
-The previous real 899-cell analysis/recovery fixture and actual credit-funded text → viewer tests remain valid evidence for their stated operations. Navigation/foreground plots still need their own actual-app checks. Live GPT-Live voice remains disabled by the credit-only funding requirement.
+| Workflow | Luma route | Status |
+|---|---|---|
+| Read measurements / distributions | `qupath_measurements`, `qupath_measurement_summary`, `qupath_analysis_catalog` | real-app |
+| Measurement tables | `qupath_run_command "Measure > Show annotation measurements"` / `"... > Show detection measurements"` | real-app (command discovery), untested (dispatch) |
+| Measurement map | `qupath_display {measurementMap: "Nucleus: DAB OD mean"}` (`""` clears); dialog `qupath_run_command "Measure > Show measurement maps"` | contract |
+| Export measurements CSV | `qupath_export_measurements {kind, scope, columns}` → `.local/exports/*.csv` (same columns as Measure > Export measurements) | contract |
+| Export objects as GeoJSON | `qupath_export_annotations` → `.local/exports/*.geojson` | contract |
+| Export view / region / whole image | `qupath_export_image {region: "view" / "selection" / "full", rendered}` | contract |
+| Export OME-TIFF, SVG, snapshots | `qupath_run_command "File > Export images... > OME TIFF"` etc. (OS dialogs need the researcher) | untested |
+| Density maps | `qupath_run_command "Analyze > Density maps > Create density map"` and drive the dialog; Groovy `DensityMaps.builder(...)` recipe | untested |
+
+## Viewer and display
+
+| Workflow | Luma route | Status |
+|---|---|---|
+| Navigate / zoom / point at things | `qupath_focus`, `qupath_highlight` (zooms to fit off-screen targets, `focused`) | real-app |
+| Show / hide annotations, detections, names, fills, grid, TMA grid, pixel classification; opacity; cell display mode; show one class | `qupath_overlays` | real-app (basic), contract (new toggles) |
+| Brightness / contrast, channel visibility, auto range, gamma, grayscale, invert | `qupath_display` | contract |
+| Rotate image | `qupath_display {rotationDegrees}` | contract |
+| Scalebar, slide overview, cursor location, mini/channel viewer, multi-view | `qupath_run_command "View > Show scalebar"`, `"View > Show slide overview"`, `"View > Show mini viewer"`, `"View > Multi-view... > ..."` | untested |
+| Left panel tabs (Project, Image, Annotations, Hierarchy, Workflow) | `qupath_ui` → `qupath_ui_action {action: "select", value: "Annotations"}` on the TabPane | contract (JavaFX test), untested in app |
+| Viewer snapshot for inspection | `qupath_snapshot` | real-app |
+
+## Scripting and workflows
+
+| Workflow | Luma route | Status |
+|---|---|---|
+| Workflow history / generated script | `qupath_workflow_steps` | real-app |
+| Save a reusable workflow script | `qupath_save_workflow {name}` → `.local/workflows/*.groovy` | real-app |
+| Run exact Groovy | `qupath_run_script` (project + image required; `qupath_api_search` / `qupath_api_read` first) | real-app |
+| Script editor / run for project | `qupath_run_command "Automate > Script editor"`; Run for project is the researcher's menu in the editor (not exposed; see recipes for a project loop) | untested |
+
+## Tool inventory
+
+52 MCP tools; 46 adapter operations (`BridgeIdentity.OPERATIONS`). This increment added: `qupath_delete_objects`, `qupath_edit_objects`, `qupath_export_measurements`, `qupath_export_annotations`, `qupath_export_image`, `qupath_set_stains`, `qupath_estimate_stains`, `qupath_display`, `qupath_plugins`, `qupath_run_plugin`, `qupath_detect_positive_cells`, `qupath_classifiers`, `qupath_apply_object_classifier`, `qupath_apply_pixel_classifier`, `qupath_save`; and extended `qupath_classify` (`thresholds`), `qupath_overlays` (names, grid, TMA grid, pixel classification, fill annotations, detection display mode), `qupath_highlight` (`focus`), `qupath_context` (`image.stains`, `image.inProject`), and lenient `region`/`selection` scopes on read tools (`scopeUsed`). Every targeting operation now returns a `highlight` so the companion cursor moves to the region, objects or control involved. Schemas are generated in [TOOL-REFERENCE.md](TOOL-REFERENCE.md).
+
+The new adapter operations take effect only after QuPath is quit normally and relaunched with `./script/run-qupath.sh`, because the extension jar is loaded at startup (`adapterReadiness` reports the mismatch until then).
 
 ## Extending coverage
 
-For a recurring task, add a narrow schema and real API operation, exact prerequisites, approval/target binding, observable outcome and focused failure tests. For an uncommon installed tool, discover its command and inspect its dialog; consult pinned docs/source before proposing a script. Record new task evidence in this matrix. Unsupported custom canvases, OS-owned dialogs, unavailable models and third-party plugin contracts should be exposed as concrete missing capabilities, not hidden behind a claimed universal tool.
-
-Primary references: [QuPath command reference](https://qupath.readthedocs.io/en/0.7/docs/reference/commands.html), [measurement export](https://qupath.readthedocs.io/en/0.7/docs/tutorials/exporting_measurements.html), [scripting and project APIs](https://qupath.readthedocs.io/en/0.7/docs/scripting/overview.html), and the pinned source version in [script/dependencies.json](../script/dependencies.json).
+For a recurring task, add a narrow schema and real API operation, exact prerequisites, observable outcome and a focused contract test; keep `BridgeIdentityContractTest` in sync. For an uncommon installed tool, discover its command and inspect its dialog; consult the pinned source before proposing a script. Unsupported custom canvases, OS-owned dialogs and third-party plugin contracts are concrete missing capabilities, not hidden behind a claimed universal tool.

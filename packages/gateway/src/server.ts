@@ -14,6 +14,7 @@ import type { BackendClient } from './backend.js';
 import { tools, type Arguments } from './tools.js';
 import { fundingStatus } from './funding.js';
 import { approvalPolicy } from './runtime.js';
+import { DesktopBridge, withDesktop } from './desktop-bridge.js';
 import {AWSSpeechProvider,type SpeechProvider} from './aws-speech.js';
 import {SpeechSession} from './speech-session.js';
 
@@ -58,7 +59,9 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
   const state=join(root,'.local/state');await mkdir(state,{recursive:true,mode:0o700});
   const gatewayToken=await tokenFile(join(state,'gateway-token'));const companionToken=await tokenFile(join(state,'companion-token'));
   const knowledge=new Knowledge();await knowledge.load(root);
-  const runtime=options.runtime??new Runtime(new QuPathAdapter(root),knowledge,state,{autoApprove:approvalPolicy()==='auto'});
+  // Desktop (Accessibility) operations are answered by the connected companion; everything else goes to the QuPath extension.
+  const desktop=new DesktopBridge();
+  const runtime=options.runtime??new Runtime(withDesktop(new QuPathAdapter(root),desktop),knowledge,state,{autoApprove:approvalPolicy()==='auto'});
   const textClient=options.textClient??new BedrockBackendClient(state);
     const peers=new Set<WebSocket>();
   const voiceSessions=new Map<WebSocket,SpeechSession>();let voiceOwner:{peer:WebSocket;requestId:string}|undefined;
@@ -110,13 +113,14 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
     return session;
   };
   wss.on('connection',ws=>{
-    peers.add(ws);
+    peers.add(ws);desktop.attach(ws);
     const send=(event:Record<string,unknown>)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(event));};
     let session=createSession();session.ws=ws;sessions.set(ws,session);
     ws.on('message',raw=>{
       let requestId:unknown;
       void (async()=>{
         const event=JSON.parse(raw.toString());
+        if(desktop.handle(event))return;
         requestId=event.requestId;
         const conversation=session.conversation;
         if(event.type==='hello'){
@@ -153,7 +157,7 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
       })().catch(error=>send({type:'error',message:error.message,...(typeof requestId==='string'?{requestId}:{})}));
     });
     const disconnected=()=>{
-      voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;peers.delete(ws);
+      voiceSessions.get(ws)?.stop('Companion disconnected.');if(voiceOwner?.peer===ws)voiceOwner=undefined;peers.delete(ws);desktop.detach(ws);
       const current=sessions.get(ws);if(!current)return;sessions.delete(ws);
       if(current.ws!==ws)return;
       current.ws=undefined;
