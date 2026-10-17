@@ -156,7 +156,7 @@ class FidelisCatalogueWalkTest {
                     for (JsonElement b : d.getAsJsonArray("buttons")) buttons.add(b.getAsString());
                     String press = buttons.stream().filter(b -> b.equalsIgnoreCase("Cancel")).findFirst()
                             .orElse(buttons.stream().filter(b -> b.equalsIgnoreCase("No")).findFirst().orElse(buttons.isEmpty() ? "OK" : buttons.get(0)));
-                    BridgeHttp.Resp after = http.change("dialog_action", args("press", press));
+                    BridgeHttp.Resp after = http.change("dialog_action", args("dialogId", res.get("dialogId").getAsString(), "press", press));
                     String next = after.status() == 200 ? after.result().get("status").getAsString() : after.status() + " " + after.error();
                     if (after.status() == 200 && "dialog".equals(next)) {
                         r = after;
@@ -255,9 +255,12 @@ class FidelisCatalogueWalkTest {
         assertTrue(read.get("pending").getAsBoolean());
         assertEquals(dialog.get("title").getAsString(), read.getAsJsonObject("dialog").get("title").getAsString());
         assertEquals(409, http.change("filter", args("name", "invert")).status(), "nothing else runs while the dialog waits");
-        BridgeHttp.Resp bad = http.change("dialog_action", args("fields", args("nonexistent", 1), "press", "OK"));
+        String dialogId = first.get("dialogId").getAsString();
+        assertEquals(400, http.change("dialog_action", args("press", "OK")).status(), "dialogId is required");
+        assertEquals(409, http.change("dialog_action", args("dialogId", "dlg-0", "press", "OK")).status(), "a stale dialogId is refused");
+        BridgeHttp.Resp bad = http.change("dialog_action", args("dialogId", dialogId, "fields", args("nonexistent", 1), "press", "OK"));
         assertEquals(400, bad.status(), bad.body().toString());
-        JsonObject done = http.change("dialog_action", args("fields", args("radius", 3), "press", "OK")).result();
+        JsonObject done = http.change("dialog_action", args("dialogId", dialogId, "fields", args("radius", 3), "press", "OK")).result();
         assertEquals("completed", done.get("status").getAsString(), done.toString());
         assertNotEquals(before, PixelHash.sha256(engine.imagePlus(doc)), "Variance changed the pixels");
         HistoryRecord rec = null;
@@ -266,6 +269,7 @@ class FidelisCatalogueWalkTest {
         System.out.println("[penny-walk] Variance record: provenance " + rec.provenance() + ", origin " + rec.origin() + ", macro " + rec.macroLines());
         assertEquals(Origin.NL_SPOKEN, rec.origin());
         assertEquals(Provenance.LEGACY_DIALOG, rec.provenance());
+        assertEquals("task-walk", rec.transcriptRef(), "legacy steps carry the task id too");
         assertTrue(DialogDriver.showing().isEmpty());
         assertTrue(!http.read("dialog", null).get("pending").getAsBoolean());
     }

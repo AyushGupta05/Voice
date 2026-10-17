@@ -180,6 +180,7 @@ class FidelisBridgeTest {
         assertNotEquals(before, PixelHash.sha256(engine.imagePlus(id)), "Sharpen changed the pixels");
         assertEquals("ij1:Process>Sharpen", last().commandId());
         assertEquals(sc.fidelis.engine.api.Enums.Origin.NL_SPOKEN, last().origin());
+        assertEquals(http.taskId, last().transcriptRef(), "the legacy route accepts the reserved transcriptRef");
         assertEquals(0, sharp.get("undoSteps").getAsInt(), "the legacy route keeps no undo snapshot");
         String sharpened = PixelHash.sha256(engine.imagePlus(id));
         BridgeHttp.Resp undo = http.change("undo", args());
@@ -208,6 +209,42 @@ class FidelisBridgeTest {
             assertEquals(lo, disp.get("min").getAsDouble());
             assertEquals(hi, disp.get("max").getAsDouble());
         }
+    }
+
+    @Test
+    void theEngineRefusesAStepWhenAnythingElseEnteredTheHistoryAfterItsApproval() throws Exception {
+        String doc = openSquares();
+        sc.fidelis.engine.api.DocumentId id = new sc.fidelis.engine.api.DocumentId(doc);
+        // engine level: expectedHistorySize is checked when the worker dequeues the request
+        int size = engine.history().size();
+        sc.fidelis.engine.api.ActionResult stale = engine.submit(sc.fidelis.engine.api.ActionRequest.command(sc.fidelis.engine.api.Enums.Origin.NL_TYPED,
+                "ij1:Edit>Invert", Map.of("expectedHistorySize", size - 1), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals(sc.fidelis.engine.api.Enums.OperationState.FAILED, stale.state());
+        assertEquals("STATE_CHANGED", stale.error().subcode());
+        assertEquals(size, engine.history().size(), "nothing was recorded");
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.command(sc.fidelis.engine.api.Enums.Origin.NL_TYPED, "ij1:Edit>Invert",
+                Map.of("expectedHistorySize", size), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        // bridge level: a workspace action queued just before step 3 of a plan stops the plan there
+        RecordingUi intruder = new RecordingUi() {
+            @Override
+            public void planProgress(String planId, int step, String label) {
+                super.planProgress(planId, step, label);
+                if (step == 2) engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL,
+                        sc.fidelis.engine.api.ActionRequest.Operations.CLEAR_ROI, Map.of(), sc.fidelis.engine.api.TargetScope.of(id)));
+            }
+        };
+        PennyUi.register(intruder);
+        int h0 = engine.history().size();
+        BridgeHttp.Resp r = http.change("segment_cells", args("watershed", false));
+        assertEquals(409, r.status(), r.body().toString());
+        assertEquals("STATE_CHANGED", r.body().get("subcode").getAsString(), r.body().toString());
+        assertEquals(3, r.body().get("failedStep").getAsInt());
+        assertTrue(r.body().get("note").getAsString().contains("refused the failed step before running it"), r.body().toString());
+        List<String> labels = new java.util.ArrayList<>();
+        for (HistoryRecord h : engine.history().subList(h0, engine.history().size())) labels.add(h.label() + "/" + h.origin());
+        System.out.println("[penny-bridge] interleaved plan history: " + labels);
+        assertEquals(List.of("Gaussian Blur.../NL_SPOKEN", "SET_AUTO_THRESHOLD/NL_SPOKEN", "CLEAR_ROI/PANEL"), labels,
+                "the workspace action ran, the plan's later steps did not");
     }
 
     @Test

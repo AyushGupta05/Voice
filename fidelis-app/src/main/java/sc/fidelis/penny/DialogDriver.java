@@ -272,6 +272,7 @@ final class DialogDriver {
      */
     static Map<String, Object> act(Window w, Map<String, Object> values, String press) {
         return onEdt(() -> {
+            if (!w.isShowing()) throw new IllegalStateException("the dialog closed before Penny could answer it");
             Described d = describeOnEdt(w);
             if (w instanceof FileDialog fd) {
                 if (press == null || !press.equalsIgnoreCase("Cancel") || !values.isEmpty())

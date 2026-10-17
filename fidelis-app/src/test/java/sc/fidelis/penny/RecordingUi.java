@@ -11,7 +11,7 @@ import sc.fidelis.engine.api.DocumentId;
  * A stand-in workspace for bridge tests: records every {@link PennyUi} call and maps image pixels to the screen as a
  * canvas at (100, 200) shown at 2x, so the highlight payload's geometry can be checked exactly.
  */
-final class RecordingUi implements PennyUi {
+class RecordingUi implements PennyUi {
     static final int CANVAS_X = 100, CANVAS_Y = 200;
     static final double MAG = 2.0;
 

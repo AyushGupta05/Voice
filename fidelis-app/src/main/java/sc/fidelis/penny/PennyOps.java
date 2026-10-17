@@ -97,7 +97,13 @@ final class PennyOps {
             Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD, Operations.OPEN);
 
     /** A dialog the engine reported for one of a plan's operations (EngineEvent.DialogPending). */
-    record PendingDialog(String operationId, String title, String dialogClass) {}
+    record PendingDialog(String operationId, String title, String dialogClass, long generation) {
+        String id() {
+            return "dlg-" + generation;
+        }
+    }
+
+    private final java.util.concurrent.atomic.AtomicLong dialogGeneration = new java.util.concurrent.atomic.AtomicLong();
 
     /** A plan admitted for execution and the future of its run on the plan thread. */
     record Running(Plan plan, Future<Map<String, Object>> future) {}
@@ -149,6 +155,8 @@ final class PennyOps {
         volatile int current = -1;
         /** Title of a dialog Penny pressed Cancel on (the command then ends as cancelled, not as a failure). */
         volatile String cancelledDialog;
+        /** The exact window of {@link #dialog} once Penny reported it (dialog_action acts on this window only). */
+        volatile java.awt.Window dialogWindow;
         List<String> reasons = List.of();
         String contextKey;
         String codeToken;
@@ -230,7 +238,10 @@ final class PennyOps {
             }
         } else if (e instanceof sc.fidelis.engine.api.EngineEvent.DialogPending dp) {
             Plan p = dp.operationId() == null ? null : byOperation.get(dp.operationId());
-            if (p != null) p.dialog = new PendingDialog(dp.operationId(), dp.windowTitle(), dp.dialogClass());
+            if (p != null) {
+                p.dialog = new PendingDialog(dp.operationId(), dp.windowTitle(), dp.dialogClass(), dialogGeneration.incrementAndGet());
+                p.dialogWindow = null;
+            }
         }
     }
 
@@ -437,7 +448,7 @@ final class PennyOps {
         List<ActionResult> results = new ArrayList<>();
         try {
             Set<String> ours = new LinkedHashSet<>();
-            int mark = -1;
+            int cursor = -1;
             for (int i = 0; i < p.steps.size(); i++) {
                 Step s = p.steps.get(i);
                 final int index = i;
@@ -448,7 +459,8 @@ final class PennyOps {
                     if (!contextKey().equals(p.contextKey))
                         throw stepFailure(p, i, null, results, "the image, selection, results or history changed after the plan was approved", true);
                 } else {
-                    for (HistoryRecord h : sinceMark(mark)) {
+                    // every record since the previous step was submitted must be this plan's (its step and that step's children)
+                    for (HistoryRecord h : sinceMark(cursor)) {
                         boolean mine = p.transcriptRef.equals(h.transcriptRef()) || ours.contains(h.actionId())
                                 || (h.params() != null && ours.contains(String.valueOf(h.params().get("parentActionId"))));
                         if (!mine)
@@ -460,6 +472,12 @@ final class PennyOps {
                 p.current = i;
                 ActionRequest r = s.request();
                 if (r.kind() == ActionKind.CODE && p.codeToken != null) r = r.withConfirmation(p.codeToken);
+                cursor = engine.history().size();
+                // the engine refuses the step (STATE_CHANGED) if anything else enters the history before its worker starts it
+                Map<String, Object> bound = new LinkedHashMap<>(r.params());
+                bound.put("expectedHistorySize", cursor);
+                r = new ActionRequest(r.requestId(), r.origin(), r.kind(), r.commandId(), r.operation(), bound, r.target(),
+                        r.confirmationToken(), r.replayOf());
                 byRequest.put(r.requestId(), p);
                 ActionResult res;
                 try {
@@ -474,7 +492,6 @@ final class PennyOps {
                 }
                 results.add(res);
                 if (res.record() != null) ours.add(res.record().actionId());
-                mark = engine.history().size();
                 if (!res.succeeded() && p.cancelledDialog != null) {
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("status", "cancelled");
@@ -648,11 +665,17 @@ final class PennyOps {
         Plan r = running.get();
         PendingDialog rd = r == null ? null : r.dialog;
         if (p == null && rd != null && (planId == null || planId.isBlank() || planId.equals(r.id))) {
-            java.awt.Window w = DialogDriver.find(rd.title(), rd.dialogClass());
+            java.awt.Window w = r.dialogWindow != null ? r.dialogWindow : DialogDriver.find(rd.title(), rd.dialogClass());
             DialogDriver.Described dd = w == null ? null : DialogDriver.describe(w);
             if (dd != null && dd.buttons().stream().anyMatch(b -> b.equalsIgnoreCase("Cancel"))) {
+                String before = r.cancelledDialog;
                 r.cancelledDialog = dd.title();
-                DialogDriver.act(w, Map.of(), "Cancel");
+                try {
+                    DialogDriver.act(w, Map.of(), "Cancel");
+                } catch (RuntimeException e) {
+                    r.cancelledDialog = before;
+                    throw e;
+                }
                 out.put("cancelled", true);
                 out.put("planId", r.id);
                 out.put("dialogCancelled", dd.title());
@@ -673,8 +696,11 @@ final class PennyOps {
 
     private Map<String, Object> dialogResult(Plan p, java.awt.Window w, String note) {
         DialogDriver.Described d = DialogDriver.describe(w);
+        PendingDialog pd = p.dialog;
+        if (p.dialogWindow == null) p.dialogWindow = w;
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", "dialog");
+        out.put("dialogId", pd == null ? null : pd.id());
         out.put("planId", p.id);
         out.put("operation", p.call.operation());
         int i = p.current;
@@ -710,15 +736,27 @@ final class PennyOps {
     private Running admitDialogAction(JsonObject a) {
         Plan p = running.get();
         PendingDialog d = p == null ? null : p.dialog;
-        java.awt.Window w = d == null ? null : DialogDriver.find(d.title(), d.dialogClass());
-        if (p == null || w == null || p.handle == null) throw new Failure(409, "No Fiji dialog is waiting for Penny.");
+        java.awt.Window w = p == null ? null : p.dialogWindow;
+        if (p == null || d == null || w == null || p.handle == null) throw new Failure(409, "No Fiji dialog is waiting for Penny.");
+        String dialogId = PennyJson.str(a, "dialogId", null);
+        if (dialogId == null || dialogId.isBlank()) throw new IllegalArgumentException("'dialogId' is required (the dialogId of the dialog result being answered)");
+        if (!dialogId.equals(d.id()))
+            throw new Failure(409, "A different Fiji dialog is waiting now (" + d.id() + " '" + d.title() + "'); read it again before answering.",
+                    Map.of("dialogId", d.id()));
         @SuppressWarnings("unchecked")
         Map<String, Object> values = (Map<String, Object>) PennyJson.toJava(PennyJson.object(a, "fields"));
         String press = PennyJson.str(a, "press", "OK");
         if (press != null && press.isBlank()) press = null;
         String title = DialogDriver.describe(w).title();
-        DialogDriver.act(w, values, press);
-        if (press != null && (press.trim().equalsIgnoreCase("Cancel") || press.trim().equalsIgnoreCase("No"))) p.cancelledDialog = title;
+        boolean cancel = press != null && (press.trim().equalsIgnoreCase("Cancel") || press.trim().equalsIgnoreCase("No"));
+        String before = p.cancelledDialog;
+        if (cancel) p.cancelledDialog = title; // set before the press wakes the command, so its end is read as a cancel
+        try {
+            DialogDriver.act(w, values, press);
+        } catch (RuntimeException e) {
+            p.cancelledDialog = before;
+            throw e;
+        }
         if (press != null) DialogDriver.awaitClosed(w, 3000);
         return p.handle;
     }
@@ -801,9 +839,7 @@ final class PennyOps {
             prov = f.provenance();
         }
         String menu = s.menuPath() == null || s.menuPath().isBlank() ? s.label() : s.menuPath() + ">" + s.label();
-        // The engine's legacy route (no catalogued schema) refuses any params, the reserved transcriptRef included, so such
-        // a step goes without it (its history record then has no transcriptRef; reported to the engine owner).
-        ActionRequest r = ActionRequest.command(p.origin, id, s.schemaComplete() ? meta(p, params) : Map.of(), ts);
+        ActionRequest r = ActionRequest.command(p.origin, id, meta(p, params), ts);
         return new Step(role, s.label(), menu, r, prov, Params.preview(s, params));
     }
 
