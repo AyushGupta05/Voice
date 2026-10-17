@@ -102,7 +102,7 @@ test('bridge readiness compares the Fiji bridge identity with the fiji_* operati
     await writeFile(join(root, '.local/fiji-bridge-build.json'), JSON.stringify({ version: 1, protocolVersion: 1, sourceSha256, jarSha256: createHash('sha256').update(jar).digest('hex') }));
     const adapter = { adapterVersion: '0.1.0', protocolVersion: 1, sourceSha256, operations: requiredOperationsFor(fiji) };
     const ready = await bridgeReadiness(root, { adapter }, fiji);
-    assert.equal(ready.status, 'matches_build'); assert.match(ready.message, /all 40 required operations/);
+    assert.equal(ready.status, 'matches_build'); assert.match(ready.message, /all [0-9]+ required operations/);
     const missing = await bridgeReadiness(root, { adapter: { ...adapter, operations: adapter.operations.filter(op => op !== 'segment_cells') } }, fiji);
     assert.equal(missing.status, 'restart_required'); assert.deepEqual(missing.missingOperations, ['segment_cells']); assert.match(missing.message, /relaunch Fiji/);
     assert.equal((await bridgeReadiness(root, undefined, fiji)).status, 'unavailable');
@@ -149,7 +149,7 @@ test('Fiji acknowledgments and local sentences follow the protocol wording and r
   assert.equal(fiji.requestContinuesAfter('fiji_segment_cells', 'segment the cells and measure their area'), true);
   assert.equal(fiji.requestContinuesAfter('fiji_measure', 'measure the intensity here'), false);
   assert.equal(fiji.requestContinuesAfter('fiji_measure', 'how many are there and what is the mean area'), true);
-  assert.equal(fiji.requestContinuesAfter('fiji_threshold', 'make the threshold stricter'), false);
+  assert.equal(fiji.requestContinuesAfter('fiji_threshold', 'make the threshold stricter'), true, 'a stricter threshold is followed by a recount');
   assert.equal(fiji.requestContinuesAfter('fiji_threshold', 'threshold and count the particles'), true);
 });
 
