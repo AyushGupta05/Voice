@@ -16,13 +16,14 @@ const token=(await readFile(join(state,'companion-token'),'utf8')).trim();
 const ws=new WebSocket('ws://127.0.0.1:49555/events',{headers:{Authorization:`Bearer ${token}`}});
 const requestId=randomUUID();const timeline:Record<string,number>={};const t0=Date.now();const mark=(k:string)=>{timeline[k]??=Date.now()-t0;};
 const allowApproval=process.argv.includes('--allow-approval');const decisions:Record<string,unknown>[]=[];
-let sessionId:string|undefined;let transcript='';let reply='';let ack='';let finals=0;let audioBytes=0;const tools:string[]=[];
+let retries=0;let sessionId:string|undefined;let transcript='';let reply='';let ack='';let finals=0;let audioBytes=0;const tools:string[]=[];
 const done=new Promise<void>((resolveDone,reject)=>{
  const timer=setTimeout(()=>reject(new Error('Voice pipeline timed out.')),allowApproval?240000:60000);
  // Done once the answer arrived and no further (queued) reply audio follows for 2.5 s.
  let quiet:ReturnType<typeof setTimeout>|undefined;const settle=()=>{if(!reply||!finals)return;clearTimeout(quiet);quiet=setTimeout(()=>{clearTimeout(timer);resolveDone();},2500);};
  ws.on('message',raw=>{const event=JSON.parse(raw.toString());
   if(event.type==='connected')ws.send(JSON.stringify({type:'start_voice',requestId}));
+  else if(event.type==='voice_error'&&/already active/.test(event.message)&&retries++<3){setTimeout(()=>ws.send(JSON.stringify({type:'start_voice',requestId})),1000);return;}
   else if(event.type==='voice_state'&&event.requestId===requestId){
    if(event.state==='connecting')sessionId=event.sessionId;
    if(event.state==='ready_for_audio'){mark('readyForAudio');void stream();}
