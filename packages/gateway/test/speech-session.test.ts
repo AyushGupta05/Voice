@@ -8,7 +8,8 @@ function fixture(){let callbacks!:SpeechCallbacks;let signal!:AbortSignal;let st
  return{session,events,submitted,get callbacks(){return callbacks;},get signal(){return signal;},get stops(){return stops;},get closed(){return closed;},finish:()=>finish(),provider};}
 test('bounded audio queue preserves order and close wakes a blocked consumer',async()=>{
  const queue=new AudioQueue();const reader=queue.stream();const waiting=reader.next();queue.push(new Uint8Array([1,2]));assert.deepEqual((await waiting).value,new Uint8Array([1,2]));
- assert.throws(()=>queue.push(new Uint8Array(48002)));assert.throws(()=>queue.push(new Uint8Array([1])));const end=reader.next();queue.close();assert.equal((await end).done,true);
+ const small=new AudioQueue(4);small.push(new Uint8Array([1,2]));small.push(new Uint8Array([3,4]));small.push(new Uint8Array([5,6]));assert.equal(small.dropped,2);assert.deepEqual((await small.stream().next()).value,new Uint8Array([3,4]));
+ assert.throws(()=>queue.push(new Uint8Array([1])));const end=reader.next();queue.close();assert.equal((await end).done,true);
 });
 test('only ready audio is accepted; duplicate final transcripts cannot replay a task',async()=>{
  const f=fixture();f.session.acceptAudio('not audio');f.session.start();await tick();assert(f.events.some(e=>e.state==='ready_for_audio'));assert(!f.events.some(e=>e.state==='listening'));

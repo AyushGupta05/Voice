@@ -26,7 +26,10 @@ const production:SpeechDependencies={observe:sharedObservation(observeSpeechCred
   const client=new TranscribeStreamingClient({region:SPEECH_REGION,credentials:proof.credentials,maxAttempts:1,endpoint:'https://transcribestreaming.us-east-1.amazonaws.com'});
   try{
    async function* stream(){for await(const AudioChunk of audio)yield{AudioEvent:{AudioChunk}};}
+   const connecting=Date.now();
+   console.error(`[voice ${new Date().toISOString()}] connecting to Amazon Transcribe`);
    const result=await client.send(new StartStreamTranscriptionCommand({LanguageCode:'en-GB',MediaEncoding:'pcm',MediaSampleRateHertz:24000,EnablePartialResultsStabilization:true,PartialResultsStability:'high',AudioStream:stream()}),{abortSignal:signal});
+   console.error(`[voice ${new Date().toISOString()}] Transcribe stream accepted after ${Date.now()-connecting} ms`);
    signal.throwIfAborted();onReady();if(!result.TranscriptResultStream)throw new Error('AWS returned no transcript stream.');
    for await(const event of result.TranscriptResultStream){signal.throwIfAborted();
     if(!event.TranscriptEvent)throw new Error('AWS transcription stopped with a service error.');

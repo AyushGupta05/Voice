@@ -69,6 +69,8 @@ final class CompanionModel: ObservableObject {
     private var audioPending: [Data] = []
     private var audioPendingBytes = 0
     private var audioSending: Task<Void, Never>?
+    private var micChunks = 0
+    private var micPeak: Float = 0
     private let session = URLSession(configuration: .ephemeral)
     let pointer = PointerOverlay()
     let audio = AudioIO()
@@ -283,7 +285,9 @@ final class CompanionModel: ObservableObject {
             }
         case "voice_error":
             guard event["requestId"] as? String == voiceRequestID else { return }
+            Logger(subsystem: "science.luma.companion", category: "audio").error("Voice error from gateway: \(event["message"] as? String ?? "unknown")")
             activities.insert(Activity(title: "Voice needs attention", detail: event["message"] as? String ?? "Speech is unavailable.", isError: true), at: 0)
+            expanded = true
         case "voice_state":
             guard let requestID = event["requestId"] as? String, requestID == voiceRequestID else { return }
             let state = event["state"] as? String
@@ -414,6 +418,11 @@ final class CompanionModel: ObservableObject {
                     // Without echo cancellation, send silence while Luma speaks so its own voice is not transcribed.
                     let muted = self.voiceSpeaking && !self.audio.echoCancelled
                     self.microphoneLevel = muted ? 0 : level
+                    self.micChunks += 1; self.micPeak = max(self.micPeak, level)
+                    if self.micChunks % 48 == 1 {
+                        Logger(subsystem: "science.luma.companion", category: "audio").info("Microphone: \(self.micChunks) chunks captured, peak level \(self.micPeak), pending \(self.audioPendingBytes) bytes, socket \(self.socket == nil ? "missing" : "open")")
+                        self.micPeak = 0
+                    }
                     self.enqueueAudio(muted ? Data(count: data.count) : data, sessionID: sessionID)
                 }}
                 guard self.voiceSessionID == sessionID else { return }
