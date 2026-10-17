@@ -22,11 +22,11 @@ A restarted session reads this file first; keep it short, factual and current.
 |---|---|
 | Developer / GitHub | Alex Kurkar, `akurkar07` (collaborator access on reverez/Voice requested in #2; `permissions.push` was `false` on 17 Oct 16:00) |
 | Branch | `feat/alex-ui` (local clone of reverez/Voice, remote `origin`) |
-| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15) and `da1a4d6` (#16) not yet pushed (no push permission) |
-| Current issue | #15 and #16 implemented and tested locally, both PRs pending push access; next #19 macro editor |
+| Last pushed commit | `9f1ef7a` (baseline); local `0eced5d` + `553de9b` (#15), `da1a4d6` + `ff6cbaa` (#16), `088f7e2` (#19) not yet pushed (no push permission) |
+| Current issue | #15, #16 and #19 implemented and tested locally, all three PRs drafted and pending push access; #17 contract proposal posted, waiting for Arnav; #6 waits for the engine contract; #18 blocked (#11/#12) |
 | Machine | Windows 11, 1920x1200 at 125 % (`dpiScale=1.25`, logical desktop 1536x960); `FIDELIS_FIJI_DIR=C:\Users\al3xk\dev\Fiji` (archive 20261013-1517, SHA-256 `9201287a…794c54`, 1379 files match `external/fiji.lock.json`); Python 3.11 via `py -3.11 -I` |
 | Last UI-test result on this branch | `WorkspaceLayoutTest` 2/2, `WorkspaceViewportTest` 1/1, `WorkspaceU2Test` 4/4, `ConfirmationUiTest` 4/4 inside the full suite (17 Oct, `0eced5d`); `WorkspaceDisposeTest` 1/1 and `WorkspaceShortcutTest` 1/1 at `da1a4d6`; `WorkspaceU2Test` 20 consecutive runs, 20 × `4 tests finished, 0 failed` |
-| Last full-suite result on this branch | `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment |
+| Last full-suite result on this branch | `[fidelis-tests] 384 tests finished, 0 failed` at `088f7e2` (17 Oct, `FIDELIS_PYTHON` = Python 3.11) (previous: `382 tests finished, 0 failed` at `da1a4d6`) | <!-- older:  `[fidelis-tests] 380 tests finished, 2 failed` at `0eced5d`: the two `MacroReplay` tests failed only because `python` on PATH is 3.10 (`hashlib.file_digest` needs 3.11); rerun with `FIDELIS_PYTHON` = Python 3.11 recorded in the #3 comment | -->
 | FX-001 baseline diff | regenerated here with the pinned Fiji: numbers and hashes identical, only the lead's absolute clone paths and `seconds` differ (restored with `git checkout -- verification`; details in the #3 comment) |
 | Open PRs | none yet (push blocked) |
 
@@ -56,17 +56,33 @@ A restarted session reads this file first; keep it short, factual and current.
   `WorkspaceShortcutTest` reads every binding from Fiji (`Menus.getShortcuts()` + menu bar) and asserts Ctrl+M, Ctrl+T,
   Ctrl+Shift+A, Ctrl+Shift+T, Ctrl+Z, Ctrl+Shift+D (Fiji's Duplicate binding), + / -, space-pan on the product engine; the
   table it prints is in the #16 PR body draft.
+- #19 macro editor (`088f7e2`): `MacroEditorPanel` tab in the bottom dock (RSyntaxTextArea from Fiji's jars) with Load generated
+  macro / Open / Save / Run / Cancel and a console; Run = CODE request, the engine's capability confirmation shown as an inline
+  sheet, only the explicit act resubmits with the token; Cancel by operation id; console shows the run's Log lines (delivered
+  with the result). Workspace menu *Macro editor* (Ctrl+Alt+E), `File>New>Script...` etc. route to the dock, History & macro
+  has *Open in editor*; `ActivityPanel` no longer shows a parked (awaiting confirmation) operation as running.
+  `WorkspaceMacroEditorTest` runs the macro generated from a real J-12 in the editor: nothing before confirmation, decline runs
+  nothing, confirm -> 71 Results rows + 71 ROIs (ROI Manager), CODE step + 11 observed child steps in history; print line in
+  the console; long macro cancelled -> CANCELLED. Screenshot `docs/03-development/screenshots/j12-editor-1500x940.png`.
 
 ## Next steps
 
 1. When push access lands: `git push origin feat/alex-ui`, open the #15 PR (body drafted in the #15 comments), `READY FOR REVIEW:`.
 2. Open the #16 PR (body drafted; table from the `[shortcut]` lines of `WorkspaceShortcutTest`).
-3. #19 macro editor dock (RSyntaxTextArea 3.6.0 is in `Fiji/jars`, on the classpath via `fijienv.fiji_classpath()`).
+3. Open the #19 PR (body drafted in the session scratchpad; evidence lines are in the #19 PROGRESS comment).
+4. #17 channels strip once Arnav acknowledges the contract comment (SET_COMPOSITE_MODE / SET_ACTIVE_CHANNELS) and lands the
+   engine side; #6 adoption once the `previewMacroLines` contract merges; #20 polish only if time remains.
 
 ## Blockers and open questions
 
 - Push permission on reverez/Voice (`akurkar07`): requested in #2 on 17 Oct. Preflight (#3) is all PASS except that line
   (speech lines WARN, as allowed for the UI stream).
+- Engine observations from #19 (posted on #19 for Arnav): the CODE capability scan returns `exec,eval,call,runMacro` for every
+  text (even `print(...)`), so the confirmation sheet over-reports and pure macros are recorded `UNRECORDABLE` with 0 macro
+  lines; `Engine.rois(doc)` stays 0 after a CODE run that filled the ROI Manager (71); `EngineEvent.LogLine` is never emitted
+  (Log tab empty), log lines arrive only in the result digest.
+- From #16 (posted on #16): `CommandRunner` syncs the document ROI list with IJ1's ROI Manager only around Analyze Particles;
+  the UI routes `Add to Manager` (menu and Ctrl+T) to `ROI_LIST_ADD` for that reason.
 - Test-order observation (for #4): `ConfirmationUiTest.vocabularyPromptFollowsDocumentsAndRecording` fails when run *after*
   `WorkspaceViewportTest` + `WorkspaceU2Test` in one JVM: those scenarios leave seven documents open (two-squares.png x3,
   stack10, comp3, ramp16, confirm-required), the vocabulary prompt lists at most five titles, so the new document never
