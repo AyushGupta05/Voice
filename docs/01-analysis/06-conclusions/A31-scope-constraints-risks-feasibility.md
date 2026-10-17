@@ -32,7 +32,7 @@ approval: Awaiting approval
 | Tier | Definition | Contents (requirements with this priority) | Status |
 |---|---|---|---|
 | **T0 Existing demo** | The prototype as found (F02) | 4 commands, voice/typed grammar, per-run Fiji, stage previews, generated macro | Exists; 23 tests pass |
-| **MVP** | Minimum viable demonstration of the *product architecture* | All `MVP` FR/NFR in A26/A27. The 10-command MVP set (§3). Journeys J-01–J-04 (D16). | Not started |
+| **MVP** | Minimum viable demonstration of the *product architecture* | All `MVP` FR/NFR in A26/A27. The 10-command MVP set (§3). The journeys marked MVP in D16. | Not started |
 | **HACK** | What the brief calls hackathon target functionality. Here it means *the scope that would have been the hackathon target with full time*, achievable soon after the hackathon. | All `HACK` FR/NFR. Core set of 54 commands (`commands-core-parameters.csv`). ROI list, undo, B&C and threshold panels, one C4 and one C5 fallback demo. | Not started |
 | **PARITY** | Post-hackathon parity for audited subsystems | All `PARITY` FR/NFR. Full catalogue reachable. C1–C3 driven; C4–C6 legacy fallback. Accessibility. Batch on folder. | Planned |
 | **LONG** | Long-term modernisation | Cross-platform, external clients (MCP/web), optional LLM tools aligned with fiji-llm, macro toolsets, BDV integration | Exploratory |

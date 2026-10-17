@@ -22,4 +22,13 @@ Status vocabulary:
 | DEC-011 | Relationship with `fiji/fiji-llm`: interoperate rather than depend. Reuse its conventions (`AiToolPlugin`/MCP) for any LLM tool exposure (LONG scope). Do not depend on it for the MVP. Do not copy its unauthenticated loopback pattern. | 01→02 | Proposed — awaiting approval | A06, A18 F9, A21 V11 | A21, ADR-006 |
 | DEC-012 | Hackathon demonstration strategy: demonstrate the existing prototype (T0) and the documentation baseline. Build a clearly labelled in-JVM spike only if the owner authorises implementation work before the formal milestones. | 01 | Proposed — awaiting approval | A31 §2 | A31 |
 
-Design decisions (DEC-020 onwards) and their ADRs are added in the design stage (D02).
+| DEC-020 | Structured action history is the source of reproducibility; ImageJ macros are generated from it; the Recorder is never authoritative | 02 | Proposed — awaiting approval | P81, A12 | ADR-003, D07 |
+| DEC-021 | Execute IJ1 commands with `IJ.run(target, exactLabel, completeOptions)` on one non-EDT worker, with modifier reset, snapshot and postconditions | 02 | Proposed — awaiting approval | A15, A08, A11, A19 | ADR-004, D04, D06 |
+| DEC-022 | Speech runs in a persistent faster-whisper worker (CPU int8, VAD, PCM over a JSON-lines protocol); whisper.cpp is the alternative | 02 | Proposed — awaiting approval | A16 | ADR-005, D08 |
+| DEC-023 | NL: deterministic grammar and retrieval front ends; optional LLM; a deterministic validator and policy decide; no code generation | 02 | Proposed — awaiting approval | A17, P65 | ADR-007, D08 |
+| DEC-024 | Per-document snapshot undo within a memory budget, independent of IJ1 `Undo` | 02 | Proposed — awaiting approval | A19, P86 | ADR-008, D05 |
+| DEC-025 | Viewer renders through IJ1 `getBufferedImage` with caching; a GPU path only if measurements require it and E3 equality passes | 02 | Proposed — awaiting approval | P84 | ADR-009, D13 |
+| DEC-026 | Distribute through a Fiji update site; verify against a pinned reference install | 02 | Proposed — awaiting approval | A21, A22, A24 | ADR-010, D19 |
+| DEC-027 | Observation through `CommandListener`, SciJava module events, IJ1 listeners and a chained legacy hook (conditional on a probe) | 02 | Proposed — awaiting approval | P80, A20 | ADR-011, D04, D09 |
+
+Further design decisions raised by D11–D19 are added below as they are reviewed.
