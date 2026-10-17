@@ -13,7 +13,8 @@ area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
 if (!area) { print("RESULT error=needs_bleach_region_selection"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
-getSelectionCoordinates(rx, ry);
+// Roi.copy/Roi.paste keep composite selections (holes, several pieces) exactly.
+Roi.copy();
 getDimensions(w, h, channels, slices, frames);
 n = frames; if (frames == 1) n = slices;
 if (n < 4) { if (!wasBatch) setBatchMode("exit and display"); print("RESULT error=not_a_time_series"); exit; }
@@ -22,13 +23,13 @@ if (interval <= 0) { interval = 1; timeUnit = "frames"; }
 roi = newArray(n); ref = newArray(n);
 Stack.getPosition(c0, z0, t0);
 for (t = 1; t <= n; t++) {
-  if (frames > 1) Stack.setPosition(channel, z0, t); else { if (channels > 1) Stack.setChannel(channel); setSlice(t); }
-  makeSelection("polygon", rx, ry); getStatistics(roiPixels, roiMean);
+  if (frames > 1) Stack.setPosition(channel, z0, t); else Stack.setPosition(channel, t, 1);
+  Roi.paste(); getStatistics(roiPixels, roiMean);
   run("Select None"); getStatistics(allPixels, allMean);
   roi[t - 1] = roiMean; ref[t - 1] = (allMean * allPixels - roiMean * roiPixels) / (allPixels - roiPixels);
 }
 Stack.setPosition(c0, z0, t0);
-makeSelection("polygon", rx, ry);
+Roi.paste();
 if (bleachFrame < 2) { bleachFrame = 2; drop = 0; for (t = 1; t < n; t++) if (roi[t - 1] - roi[t] > drop) { drop = roi[t - 1] - roi[t]; bleachFrame = t + 1; } }
 pre = 0; preRef = 0;
 for (t = 0; t < bleachFrame - 1; t++) { pre += roi[t]; preRef += ref[t]; }

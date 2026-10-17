@@ -22,7 +22,8 @@ if (nImages == 0) { print("RESULT error=no_image"); exit; }
 orig = getImageID(); title = getTitle();
 wasBatch = is("batch mode"); setBatchMode(true);
 area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
-if (area) getSelectionCoordinates(rx, ry);
+// Roi.copy/Roi.paste keep composite selections (holes, several pieces) exactly.
+if (area) Roi.copy();
 getDimensions(w, h, channels, slices, frames);
 if (channels > 1) Stack.setChannel(channel);
 run("Select None");
@@ -34,7 +35,7 @@ run("32-bit");
 if (background > 0) run("Subtract Background...", "rolling=" + background);
 if (tophat > 0) run("Top Hat...", "radius=" + tophat);
 if (sigma > 0) run("Gaussian Blur...", "sigma=" + sigma);
-if (area) makeSelection("polygon", rx, ry);
+if (area) Roi.paste();
 options = "prominence=" + prominence + " output=[Point Selection]";
 if (excludeEdges) options = options + " exclude";
 run("Find Maxima...", options);
@@ -45,7 +46,7 @@ selectImage(orig);
 run("Clear Results");
 sum = 0;
 for (i = 0; i < count; i++) { v = getPixel(xs[i], ys[i]); setResult("X", i, xs[i]); setResult("Y", i, ys[i]); setResult("Value", i, v); sum += v; }
-if (count > 0) makeSelection("point", xs, ys); else if (area) makeSelection("polygon", rx, ry); else run("Select None");
+if (count > 0) makeSelection("point", xs, ys); else if (area) Roi.paste(); else run("Select None");
 updateResults();
 if (!wasBatch) setBatchMode("exit and display");
 print("RESULT count=" + count + " meanValue=" + d2s(sum / maxOf(count, 1), 2) + " prominence=" + prominence + " channel=" + channel);

@@ -28,7 +28,8 @@ wasBatch = is("batch mode");
 if (!wasBatch && !isOpen("ROI Manager")) run("ROI Manager...");
 setBatchMode(true);
 area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
-if (area) getSelectionCoordinates(rx, ry);
+// Roi.copy/Roi.paste keep composite selections (holes, several pieces) exactly.
+if (area) Roi.copy();
 getDimensions(w, h, channels, slices, frames);
 if (channels > 1) Stack.setChannel(channel);
 run("Select None");
@@ -42,7 +43,7 @@ setOption("BlackBackground", true);
 run("Convert to Mask");
 run("Fill Holes");
 if (watershed) run("Watershed");
-if (area) makeSelection("polygon", rx, ry);
+if (area) Roi.paste();
 run("Set Measurements...", "area mean centroid perimeter shape display redirect=[" + title + "] decimal=3");
 run("Clear Results");
 roiManager("reset");
@@ -53,7 +54,7 @@ run("Analyze Particles...", options);
 run("Set Measurements...", "area mean centroid perimeter shape display redirect=None decimal=3");
 close("penny-nuclei-mask");
 selectImage(orig);
-if (area) makeSelection("polygon", rx, ry);
+if (area) Roi.paste();
 count = nResults; sumArea = 0; sumMean = 0;
 for (i = 0; i < count; i++) { sumArea += getResult("Area", i); sumMean += getResult("Mean", i); }
 run("Remove Overlay");

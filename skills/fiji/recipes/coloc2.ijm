@@ -18,10 +18,11 @@ wasBatch = is("batch mode"); setBatchMode(true);
 getDimensions(w, h, channels, slices, frames);
 if (channels < 2) { if (!wasBatch) setBatchMode("exit and display"); print("RESULT error=needs_two_channels"); exit; }
 area = selectionType() >= 0 && selectionType() < 5 || selectionType() == 9;
-if (area) getSelectionCoordinates(rx, ry);
+// Roi.copy/Roi.paste keep composite selections (holes, several pieces) exactly.
+if (area) Roi.copy();
 run("Select None");
 run("Duplicate...", "title=penny-coloc-a duplicate channels=" + channelA);
-if (area) makeSelection("polygon", rx, ry);
+if (area) Roi.paste();
 selectImage(orig); run("Select None");
 run("Duplicate...", "title=penny-coloc-b duplicate channels=" + channelB);
 mask = 0; if (area) mask = 1;
@@ -51,7 +52,7 @@ thresholdA = colocValue(report, "Ch1 Max Threshold");
 thresholdB = colocValue(report, "Ch2 Max Threshold");
 close("penny-coloc-a"); close("penny-coloc-b");
 selectImage(orig);
-if (area) makeSelection("polygon", rx, ry);
+if (area) Roi.paste();
 if (!wasBatch) setBatchMode("exit and display");
 print("RESULT pearson=" + pearson + " pearsonAboveThreshold=" + pearsonAbove + " tM1=" + tM1 + " tM2=" + tM2 + " spearman=" + spearman + " kendall=" + kendall + " icq=" + icq + " costesP=" + costesP + " thresholdA=" + thresholdA + " thresholdB=" + thresholdB + " channelA=" + channelA + " channelB=" + channelB);
 

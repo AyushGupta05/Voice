@@ -110,8 +110,9 @@ public final class Pipeline {
             "// Reproduces the analysis Penny ran on " + image + " with the researcher's corrections.",
             "original = getTitle();",
             "roiManager(\"reset\"); run(\"Clear Results\");",
-            "if (nSlices > 1 || is(\"composite\")) run(\"Duplicate...\", \"title=penny-mask duplicate channels=\" + channel); else run(\"Duplicate...\", \"title=penny-mask\");",
-            "if (bitDepth() != 8) run(\"8-bit\");",
+            "// Brightfield RGB (H&E, IHC): nuclei from the hematoxylin optical density, as live segment_cells does.",
+            "if (bitDepth() == 24) { call(\"science.luma.fiji.Pipeline.hematoxylin\"); selectImage(\"penny-mask\"); dark = true; }",
+            "else { if (nSlices > 1 || is(\"composite\")) run(\"Duplicate...\", \"title=penny-mask duplicate channels=\" + channel); else run(\"Duplicate...\", \"title=penny-mask\"); if (bitDepth() != 8) run(\"8-bit\"); }",
             "if (sigma > 0) run(\"Gaussian Blur...\", \"sigma=\" + sigma);",
             "if (dark) setAutoThreshold(method + \" dark\"); else setAutoThreshold(method);",
             "setOption(\"BlackBackground\", true);",
@@ -178,6 +179,13 @@ public final class Pipeline {
             if (!(flat && saturated) && !tiny) keep.add(rois[i]);
         }
         return keep.toArray(new Roi[0]);
+    }
+    /** Macro entry point: opens the active RGB image's hematoxylin channel (Operations.hematoxylin) as "penny-mask". */
+    public static String hematoxylin() {
+        ImagePlus imp = WindowManager.getCurrentImage(); if (imp == null) return "";
+        var h = Operations.hematoxylin(imp);
+        ImagePlus mask = h.image(); mask.setTitle("penny-mask"); mask.show();
+        return h.vectors();
     }
     /** Macro entry point: split oversized objects, then apply the area/circularity filter, on the macro's ROI Manager. */
     public static String refine(String factor, String tolerance, String minArea, String maxArea, String minCircularity) { return refine(factor, tolerance, minArea, maxArea, minCircularity, "false", "1"); }

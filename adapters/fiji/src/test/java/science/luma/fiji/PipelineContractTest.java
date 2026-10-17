@@ -91,5 +91,22 @@ public final class PipelineContractTest {
         var replay = call("apply_analysis", again, true, null).getAsJsonObject("run");
         for (var image : replay.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == live, "artifact exclusion replays to the live count " + live + ": " + image);
         System.out.println("PASS default artifact exclusion: live " + live + " = folder replay on 3 images");
+        // H&E: nuclei from the hematoxylin channel, live and in the folder replay.
+        Path he = Files.createTempDirectory("penny-pipeline-he");
+        for (int i = 1; i <= 2; i++) {
+            var cp = new ij.process.ColorProcessor(200, 140); cp.setColor(new java.awt.Color(235, 180, 205)); cp.fill();
+            cp.setColor(new java.awt.Color(80, 50, 140));
+            for (int k = 0; k < 7; k++) cp.fill(new OvalRoi(15 + (k % 4) * 45, 20 + (k / 4) * 60, 22, 22));
+            expect(new FileSaver(new ImagePlus("he-" + i + ".tif", cp)).saveAsTiff(he.resolve("he-" + i + ".tif").toString()), "H&E fixture saved");
+        }
+        ImagePlus rgb = IJ.openImage(he.resolve("he-1.tif").toString());
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(rgb));
+        var heSegmented = call("segment_cells", new JsonObject(), true, null);
+        int heLive = heSegmented.get("count").getAsInt();
+        expect(heLive == 7 && "hematoxylin".equals(heSegmented.get("channelChosenBy").getAsString()), "7 purple nuclei from hematoxylin: " + heSegmented.get("count") + " " + heSegmented.get("channelChosenBy"));
+        var heApply = new JsonObject(); heApply.addProperty("name", "pipeline he");
+        var heRun = call("apply_analysis", heApply, true, null).getAsJsonObject("run");
+        for (var image : heRun.getAsJsonArray("perImage")) expect(image.getAsJsonObject().get("resultsRows").getAsInt() == heLive, "H&E replay reproduces " + heLive + ": " + image);
+        System.out.println("PASS H&E hematoxylin nuclei: live " + heLive + " = folder replay on 2 images");
     }
 }
