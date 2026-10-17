@@ -8,7 +8,7 @@ Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md)
 2. Implement the QuPath operation in `LumaExtension.java`. Use actual image/object APIs and JavaFX ownership. Validate prerequisites and return verifiable results with units.
 3. For data changes, preserve recoverable hierarchy state and require explicit approval. State what cannot be recovered.
 4. Add a meaningful gateway or adapter test for the failure that matters: stale selection, invalid parameter, cancelled analysis, missing measurement, duplicate approval, unavailable plugin or changed dialog.
-5. Update task guidance, capability status and any protocol/setup changes. Run `npm run docs:generate` after tool-schema changes; `npm run docs:check` detects a stale [tool reference](TOOL-REFERENCE.md).
+5. Update task guidance, capability status and any protocol/setup changes. Run `npm run docs:generate` after tool-schema changes; `npm run docs:check` detects drift in both the [readable tool reference](TOOL-REFERENCE.md) and [complete machine-readable registry](tool-schemas.json), including nested constraints, descriptions and operation/risk metadata. Never hand-edit either generated artifact.
 6. Run focused checks and autoreview. Verify the visible application when UI or scientific outcomes change.
 
 The running gateway’s tool list feeds MCP discovery and the conversation transport. MCP must advertise its authenticated `/tools` response, not a potentially newer source registry, and must leave argument validation to that gateway. Do not duplicate provider-specific scientific tool implementations.

@@ -11,8 +11,9 @@ Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16
 ## Current prototype
 
 - A floating macOS companion follows the active image and selected objects, highlights work and shows action history.
-- **32 MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
+- **32 implemented MCP tools** expose context, objects, measurements, navigation, display, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
 - Data changes require explicit approval bound to the reviewed arguments and application state. Agents cannot approve their own actions.
+- MCP discovery reflects the authenticated running gateway; a built update needs a normal reload before its new tools are available.
 - Authored task guidance and the locally downloaded official QuPath documentation provide searchable application knowledge.
 - A real public-slide fixture detected **899 cells**, classified **49** above a chosen DAB measurement threshold, compared results and restored the empty object hierarchy. An actual OpenAI agent also completed that fixed sequence in 21.5 seconds with five test-only simulated approvals; ordinary production actions still require human decisions. [Scientific agent evidence](docs/SCIENTIFIC-AGENT-TEST.md)
 
@@ -40,6 +41,7 @@ Open an image in QuPath and select an object or region. Use Luma's quick actions
 
 | Start here | Purpose |
 |---|---|
+| [Current readiness and safe next steps](docs/READINESS.md) | Verified results, staged-build distinction and remaining activation work |
 | [Product brief](docs/PRODUCT.md) | Problem, accepted direction and scope |
 | [Setup](docs/SETUP.md) | Install, launch, MCP configuration and troubleshooting |
 | [Tool reference](docs/TOOL-REFERENCE.md) | Current schemas, parameters and approval requirements |

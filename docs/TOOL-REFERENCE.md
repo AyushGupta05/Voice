@@ -1,6 +1,6 @@
 # MCP tool reference
 
-Generated from `packages/gateway/src/tools.ts`. Do not edit individual schemas here; regenerate after changing tool definitions.
+Generated from `packages/gateway/src/tools.ts`. Do not edit individual schemas here; regenerate after changing tool definitions. [Complete machine-readable registry](tool-schemas.json) retains every schema constraint and description. MCP discovery reports the running gateway, which may be older than these source definitions.
 
 All inputs are JSON objects. Unknown properties are rejected. Read and view tools run immediately; data and code tools create human-review proposals. The approval control is absent from the MCP tool list.
 
@@ -53,14 +53,14 @@ Input: `{}`.
 
 List real objects with IDs, ROIs and classifications. region means centroids inside the selected ROI on the same image plane. Results are paginated; total is untruncated.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "annotation", "cell", "detection" |
-| `classification` | No | string |
-| `ids` | No | array of string; max 1000 items |
-| `offset` | No | integer; min 0 |
-| `limit` | No | integer; min 1; max 500 |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+| `offset` | No | integer; min 0 |  |
+| `limit` | No | integer; min 1; max 500 |  |
 
 <a id="qupath-measurements"></a>
 
@@ -68,13 +68,13 @@ List real objects with IDs, ROIs and classifications. region means centroids ins
 
 Read measured values, never infer them from appearance. Returns at most 200 rows and an explicit truncation flag.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "annotation", "cell", "detection" |
-| `classification` | No | string |
-| `ids` | No | array of string; max 1000 items |
-| `limit` | No | integer; min 1; max 200 |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+| `limit` | No | integer; min 1; max 200 |  |
 
 <a id="qupath-measurement-summary"></a>
 
@@ -82,15 +82,15 @@ Read measured values, never infer them from appearance. Returns at most 200 rows
 
 Summarize the entire matching object scope, not a preview: finite counts, missing values, min/max/mean/sample standard deviation and histograms, optionally grouped by exact class. Read the actual measurement catalog first. Descriptive statistics are not biological conclusions.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "annotation", "cell", "detection" |
-| `classification` | No | string |
-| `ids` | No | array of string; max 1000 items |
-| `measurements` | Yes | array of string; min 1 characters; max 20 items |
-| `histogramBins` | No | integer; min 1; max 50 |
-| `groupByClass` | No | boolean |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+| `measurements` | Yes | array of (string; min 1 characters); min 1 items; max 20 items; unique items |  |
+| `histogramBins` | No | integer; min 1; max 50 |  |
+| `groupByClass` | No | boolean |  |
 
 <a id="qupath-analysis-catalog"></a>
 
@@ -131,7 +131,7 @@ Open an exact entry ID and source fingerprint discovered in the current project 
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `entryId` | Yes | string; min 1 characters; max 200 characters |
-| `entryFingerprint` | Yes | string |
+| `entryFingerprint` | Yes | string; pattern `^[a-f0-9]{64}$` |
 
 <a id="qupath-inspect-import"></a>
 
@@ -152,7 +152,7 @@ Add the inspected GeoJSON annotations to the current image after human review. R
 | Parameter | Required | Accepted value |
 |---|---|---|
 | `path` | Yes | string; min 1 characters; max 4096 characters |
-| `sha256` | Yes | string |
+| `sha256` | Yes | string; pattern `^[a-f0-9]{64}$` |
 | `coordinateSpace` | Yes | exactly "image_pixels" |
 
 <a id="qupath-select"></a>
@@ -161,12 +161,12 @@ Add the inspected GeoJSON annotations to the current image after human review. R
 
 Change the real selection using IDs or exact classification. Set ids to target specific objects; an empty filter selects all objects. Does not change scientific data.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "annotation", "cell", "detection" |
-| `classification` | No | string |
-| `ids` | No | array of string; max 1000 items |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "annotation", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
 
 <a id="qupath-focus"></a>
 
@@ -258,33 +258,33 @@ Run QuPath watershed cell detection in selected annotations with explicit parame
 |---|---|---|
 | `parameters` | Yes | object |
 
-Allowed `parameters` properties (all optional unless listed as required):
+Allowed `parameters` properties:
 
-| Property | Accepted value |
-|---|---|
-| `detectionImage` | string |
-| `detectionImageBrightfield` | string |
-| `backgroundByReconstruction` | boolean |
-| `excludeDAB` | boolean |
-| `maxBackground` | number |
-| `backgroundRadius` | number |
-| `medianRadius` | number |
-| `sigma` | number |
-| `minArea` | number |
-| `maxArea` | number |
-| `cellExpansion` | number |
-| `requestedPixelSizeMicrons` | number |
-| `backgroundRadiusMicrons` | number |
-| `medianRadiusMicrons` | number |
-| `sigmaMicrons` | number |
-| `minAreaMicrons` | number |
-| `maxAreaMicrons` | number |
-| `threshold` | number |
-| `watershedPostProcess` | boolean |
-| `cellExpansionMicrons` | number |
-| `includeNuclei` | boolean |
-| `smoothBoundaries` | boolean |
-| `makeMeasurements` | boolean |
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `detectionImage` | No | string |
+| `detectionImageBrightfield` | No | string |
+| `backgroundByReconstruction` | No | boolean |
+| `excludeDAB` | No | boolean |
+| `maxBackground` | No | number |
+| `backgroundRadius` | No | number |
+| `medianRadius` | No | number |
+| `sigma` | No | number |
+| `minArea` | No | number |
+| `maxArea` | No | number |
+| `cellExpansion` | No | number |
+| `requestedPixelSizeMicrons` | No | number |
+| `backgroundRadiusMicrons` | No | number |
+| `medianRadiusMicrons` | No | number |
+| `sigmaMicrons` | No | number |
+| `minAreaMicrons` | No | number |
+| `maxAreaMicrons` | No | number |
+| `threshold` | No | number |
+| `watershedPostProcess` | No | boolean |
+| `cellExpansionMicrons` | No | number |
+| `includeNuclei` | No | boolean |
+| `smoothBoundaries` | No | boolean |
+| `makeMeasurements` | No | boolean |
 
 <a id="qupath-classify"></a>
 
@@ -292,14 +292,14 @@ Allowed `parameters` properties (all optional unless listed as required):
 
 Assign fixed output classes Positive (measurement >= threshold) and Negative to matching detections. classification is ONLY a filter on existing labels: omit it when thresholding all matching cells; do not set it to Positive to choose the output. A real matching-candidate count is shown for human approval; empty scopes fail before a proposal. Replaces existing classes; not a biological diagnosis.
 
-| Parameter | Required | Accepted value |
-|---|---|---|
-| `scope` | No | "all", "selection", "region" |
-| `kind` | No | "all", "cell", "detection" |
-| `classification` | No | string |
-| `ids` | No | array of string; max 1000 items |
-| `measurement` | Yes | string |
-| `threshold` | Yes | number |
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `scope` | No | "all", "selection", "region" |  |
+| `kind` | No | "all", "cell", "detection" |  |
+| `classification` | No | string | Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class. |
+| `ids` | No | array of (string); max 1000 items |  |
+| `measurement` | Yes | string |  |
+| `threshold` | Yes | number |  |
 
 <a id="qupath-image-type"></a>
 

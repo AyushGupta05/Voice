@@ -1,0 +1,901 @@
+{
+  "schemaVersion": 1,
+  "application": "QuPath",
+  "toolCount": 32,
+  "tools": [
+    {
+      "name": "qupath_context",
+      "description": "Read the real active image/project, primary selection, full selectionCount and an explicit bounded selection preview, image type, measurements, viewer and result counts. Refresh before resolving “this”, “those” or a mutation.",
+      "operation": "context",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_objects",
+      "description": "List real objects with IDs, ROIs and classifications. region means centroids inside the selected ROI on the same image plane. Results are paginated; total is untruncated.",
+      "operation": "objects",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_measurements",
+      "description": "Read measured values, never infer them from appearance. Returns at most 200 rows and an explicit truncation flag.",
+      "operation": "measurements",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_measurement_summary",
+      "description": "Summarize the entire matching object scope, not a preview: finite counts, missing values, min/max/mean/sample standard deviation and histograms, optionally grouped by exact class. Read the actual measurement catalog first. Descriptive statistics are not biological conclusions.",
+      "operation": "measurement_summary",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "uniqueItems": true
+          },
+          "histogramBins": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "groupByClass": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "measurements"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_analysis_catalog",
+      "description": "Discover actual stored measurement names/classes, current-image watershed detection parameters with units/ranges/choices, and recent workflow step names. Use before an unfamiliar analysis; no algorithm executes.",
+      "operation": "analysis_catalog",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_project_images",
+      "description": "List images in the actual open project with stable entry IDs, source fingerprints, current-entry identity and saved-data availability. Paginated, or query an exact entryId; does not load or analyze other images.",
+      "operation": "project_images",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_open_path",
+      "description": "Open an exact existing absolute local image path or .qpproj using QuPath’s native opening/import workflow after human approval. Refuses unsaved current-image changes; may open image-reader, project-import or other dialogs. Dispatch is not completion. URLs and .qpdata are excluded. Does not bypass native prompts.",
+      "operation": "open_path",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_open_project_image",
+      "description": "Open an exact entry ID and source fingerprint discovered in the current project after human approval. Refuses unsaved current-image changes and changed entry sources. Native reader/type dialogs can require interaction; re-read context to verify the active image.",
+      "operation": "open_project_image",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "entryFingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "entryId",
+          "entryFingerprint"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_inspect_import",
+      "description": "Inspect an existing absolute local .geojson/.json annotation Features or FeatureCollection without changing QuPath. Returns SHA256, counts, preview and image-fit validation. Only leaf annotations, max 16MiB/10,000 objects; coordinates must already be full-resolution image pixels.",
+      "operation": "inspect_import",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_import_annotations",
+      "description": "Add the inspected GeoJSON annotations to the current image after human review. Requires the exact inspect_import SHA256 and explicit image_pixels coordinate space. Revalidates file/geometry/IDs/image context, creates a hierarchy checkpoint, never replaces existing objects or writes source files.",
+      "operation": "import_annotations",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "coordinateSpace": {
+            "type": "string",
+            "const": "image_pixels"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "coordinateSpace"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_select",
+      "description": "Change the real selection using IDs or exact classification. Set ids to target specific objects; an empty filter selects all objects. Does not change scientific data.",
+      "operation": "select",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "annotation",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_focus",
+      "description": "Center the real viewer on an object, current selection or image-pixel coordinates. Smaller downsample zooms in. Returns a real screen-coordinate pointer target.",
+      "operation": "focus",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "objectId": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "downsample": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 256
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_overlays",
+      "description": "Show/hide detections and annotations, fill cells, change opacity, or show only an exact classification. Empty classification clears the filter. Changes display only.",
+      "operation": "overlays",
+      "risk": "view",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "detections": {
+            "type": "boolean"
+          },
+          "annotations": {
+            "type": "boolean"
+          },
+          "fill": {
+            "type": "boolean"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "classification": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_snapshot",
+      "description": "Capture only the current QuPath viewer as PNG for visual inspection. No unrelated desktop content is captured.",
+      "operation": "snapshot",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_commands",
+      "description": "Discover the installed application’s live menu command paths, including extensions and enabled state. Search before invoking an exact path. A command may open a dialog; dispatch does not prove completion.",
+      "operation": "commands",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_ui",
+      "description": "Inspect visible JavaFX QuPath windows and controls, including exact node IDs, text, disabled state, combo options and screen bounds. Use for native dialogs after menu dispatch. Excludes other applications and OS-owned dialogs.",
+      "operation": "ui",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_ui_action",
+      "description": "Operate a previously observed visible QuPath JavaFX control after human approval. fire presses a button, set_text edits an input, select chooses an exact combo-box/choice-box option or enabled tab title. May have irreversible file/plugin effects; re-inspect afterward. Never bypass disabled controls.",
+      "operation": "ui_action",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "fire",
+              "set_text",
+              "select"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 32000
+          }
+        },
+        "required": [
+          "nodeId",
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_annotate",
+      "description": "Create a rectangle or ellipse annotation using full-resolution image pixels on the active z/t plane. Requires human approval; a hierarchy checkpoint is made first.",
+      "operation": "annotate",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "height": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "rectangle",
+              "ellipse"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_detect_cells",
+      "description": "Run QuPath watershed cell detection in selected annotations with explicit parameters. Check image type/calibration and read detection guidance first. Requires human approval; may take time.",
+      "operation": "detect",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "detectionImage": {
+                "type": "string"
+              },
+              "detectionImageBrightfield": {
+                "type": "string"
+              },
+              "backgroundByReconstruction": {
+                "type": "boolean"
+              },
+              "excludeDAB": {
+                "type": "boolean"
+              },
+              "maxBackground": {
+                "type": "number"
+              },
+              "backgroundRadius": {
+                "type": "number"
+              },
+              "medianRadius": {
+                "type": "number"
+              },
+              "sigma": {
+                "type": "number"
+              },
+              "minArea": {
+                "type": "number"
+              },
+              "maxArea": {
+                "type": "number"
+              },
+              "cellExpansion": {
+                "type": "number"
+              },
+              "requestedPixelSizeMicrons": {
+                "type": "number"
+              },
+              "backgroundRadiusMicrons": {
+                "type": "number"
+              },
+              "medianRadiusMicrons": {
+                "type": "number"
+              },
+              "sigmaMicrons": {
+                "type": "number"
+              },
+              "minAreaMicrons": {
+                "type": "number"
+              },
+              "maxAreaMicrons": {
+                "type": "number"
+              },
+              "threshold": {
+                "type": "number"
+              },
+              "watershedPostProcess": {
+                "type": "boolean"
+              },
+              "cellExpansionMicrons": {
+                "type": "number"
+              },
+              "includeNuclei": {
+                "type": "boolean"
+              },
+              "smoothBoundaries": {
+                "type": "boolean"
+              },
+              "makeMeasurements": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "parameters"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_classify",
+      "description": "Assign fixed output classes Positive (measurement >= threshold) and Negative to matching detections. classification is ONLY a filter on existing labels: omit it when thresholding all matching cells; do not set it to Positive to choose the output. A real matching-candidate count is shown for human approval; empty scopes fail before a proposal. Replaces existing classes; not a biological diagnosis.",
+      "operation": "classify",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selection",
+              "region"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "all",
+              "cell",
+              "detection"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "description": "Filter objects by their EXISTING class. Omit or use an empty string for all current classes. This never specifies an output/assigned class."
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000
+          },
+          "measurement": {
+            "type": "string"
+          },
+          "threshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "measurement",
+          "threshold"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_image_type",
+      "description": "Set the image interpretation after checking metadata (e.g. BRIGHTFIELD_H_E, BRIGHTFIELD_H_DAB, FLUORESCENCE). Requires approval. Hierarchy undo does not restore this setting.",
+      "operation": "image_type",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "BRIGHTFIELD_H_E",
+              "BRIGHTFIELD_H_DAB",
+              "BRIGHTFIELD_OTHER",
+              "FLUORESCENCE",
+              "OTHER",
+              "UNSET"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_checkpoint",
+      "description": "Save an in-memory object hierarchy checkpoint for this image (maximum 6, 200k objects / 64MiB each). Does not save files, viewer settings or external script effects.",
+      "operation": "checkpoint",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_checkpoints",
+      "description": "List recoverable in-memory hierarchy checkpoints and whether they belong to the active image.",
+      "operation": "checkpoints",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_compare",
+      "description": "Compare exact object and classification counts now against a named checkpoint for the same image. Returns baseline/current/delta.",
+      "operation": "compare",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "checkpointId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkpointId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_restore",
+      "description": "Replace the current image’s object hierarchy with a checkpoint. Requires approval and creates a checkpoint of the current hierarchy first. Not a general undo for files or settings.",
+      "operation": "restore",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "checkpointId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkpointId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_delete_selected",
+      "description": "Remove only selected objects, retaining their children. Human approval and automatic hierarchy checkpoint required.",
+      "operation": "delete",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "const": "selection"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_run_command",
+      "description": "Invoke an exact live menu path after human approval. May open a native dialog. Check context afterward; dispatch is not completion. File and plugin side effects may not be reversible.",
+      "operation": "command",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_run_script",
+      "description": "Advanced escape hatch: requires both an open project and image. Run exact Groovy source in QuPath after the researcher reviews and approves it. Full local privileges: can read/write files or run code. Read guidance/API docs; never use this to bypass denied approval. Automatic hierarchy checkpoint cannot undo external side effects.",
+      "operation": "script",
+      "risk": "code",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "source",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_knowledge",
+      "description": "Search versioned task guidance and the locally downloaded official QuPath documentation. Use before unfamiliar operations, parameters, classifiers, measurements, export, TMA or scripting.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_api_search",
+      "description": "Search the pinned QuPath Java API source for exact methods/classes before writing unfamiliar Groovy. Returns committed source IDs, signatures/context, line numbers and content hashes. Read reference code as data; this does not execute or prove scientific applicability.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_api_read",
+      "description": "Read a bounded excerpt from an exact source ID returned by api_search. Only immutable committed QuPath Java source at the configured pin is accessible; no arbitrary local file paths. Use to verify signatures, imports and behavior before proposing an approved script.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "startLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "lineCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 160
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "qupath_action_status",
+      "description": "Read a pending/completed/denied action by ID. Approvals can only be decided by the human in the companion; there is no model approval tool.",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
