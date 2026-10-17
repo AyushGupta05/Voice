@@ -72,6 +72,9 @@ export type AppProfile = {
   /** Whether the request still needs the model after this call; `result` is the call's outcome when known (a plan that
    * waits for confirmation is the whole answer, whatever else the request asked for). */
   requestContinuesAfter(name: string, utterance: string, result?: unknown): boolean;
+  /** A completed instant-route result that still needs the model (a Fidelis command whose original dialog waits): the
+   * request continues with the backend instead of finishing. */
+  needsModel?(name: string, result: unknown): boolean;
   /** A completed call whose plan now waits for the researcher (Fidelis `awaiting_confirmation`), as the sentence that
    * ends the request; nothing later in the request runs. Undefined for every other result. */
   pausesRequest?(name: string, result: unknown): string | undefined;

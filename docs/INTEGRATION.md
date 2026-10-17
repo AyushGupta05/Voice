@@ -94,7 +94,9 @@ A result `{status: "awaiting_confirmation", planId, reasons, steps}` is never re
 A legacy command whose original dialog opens answers `{status: "dialog", dialog: {title, fields, buttons}}`. That is
 not an outcome: no local sentence is spoken, the request goes back to the model, which fills the fields by key and
 presses a button with `fidelis_dialog_action {fields, press}` (default "OK"; `fidelis_dialog` reads a waiting dialog),
-and the request finishes from the command's result ("Ran Gaussian Blur."). The instructions say any Fiji menu command
+and the request finishes from the command's result ("Ran Gaussian Blur."). The same holds when a confirmed plan or
+another instant route opens a dialog: the profile's `needsModel` hook sends the request on to the model with what the
+step returned, instead of finishing as "Done.". The instructions say any Fiji menu command
 or plugin is available through `fidelis_commands` (by name or menu path) and `fidelis_command`, never to leave a dialog
 open, and `fidelis_run_macro` (always confirmed) for anything else.
 

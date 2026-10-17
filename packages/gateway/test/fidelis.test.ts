@@ -578,3 +578,27 @@ test('a spoken "cancel" consumed as barge-in still discards a waiting plan, and 
   assert.deepEqual(controls, ['Cancel that.']); assert.deepEqual(submits, []);
   session.stop(); await session.settled();
 });
+
+test('a confirmed plan whose command opens its original dialog continues with the model instead of saying "Done."', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'luma-fidelis-confirm-dialog-'));
+  const bridge = await fakeBridge(root, (request, state) => {
+    if (request.operation === 'confirm') { state.context = { ...state.context, contextKey: 'k-dialog', pending: null }; return { status: 'dialog', planId: 'plan-legacy', dialog: { title: 'Bandpass Filter...', fields: [{ key: 'filter_large', label: 'Filter large structures down to', type: 'number', value: 40 }], buttons: ['OK', 'Cancel'] } }; }
+    if (request.operation === 'dialog_action') return { status: 'completed', step: { label: 'Bandpass Filter...', outcome: 'COMPLETED' }, steps: [{}] };
+    throw new Error(`unexpected ${request.operation}`);
+  });
+  bridge.state.context = { ...bridge.state.context, contextKey: 'k-wait', pending: { planId: 'plan-legacy', reasons: ['legacy command without a catalogued schema'] } };
+  const runtime = new Runtime(new BridgeAdapter(root, fidelis, bridge.port), new Knowledge(fidelis), join(root, '.local/state'), { autoApprove: true, profile: fidelis });
+  const rounds: BackendRequest[] = [];
+  const client: BackendClient = { complete: async request => {
+    rounds.push(request);
+    assert.match(JSON.stringify(request.input), /fidelis_confirm .* returned .*Bandpass Filter/, 'the model sees what the instant step returned');
+    return { output: [{ type: 'function_call', call_id: 'd1', name: 'fidelis_dialog_action', arguments: JSON.stringify({ press: 'OK' }) }] };
+  } };
+  const { conversation: talk, events, result } = conversation(runtime, client);
+  try {
+    await talk.submit('Yes, go ahead.', true);
+    assert.deepEqual(events.filter(event => event.type === 'text_ack').map(event => event.text), ['Running it.', 'Filling in the dialog.']);
+    assert.equal(rounds.length, 1); assert.ok(bridge.requests.some(request => request.operation === 'dialog_action'));
+    assert.equal(result()!.text, 'Ran Bandpass Filter.'); assert.notEqual(result()!.fastPath, true);
+  } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});

@@ -341,6 +341,7 @@ export const fidelis: AppProfile = {
   bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true, controlRoutes: true,
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
+  needsModel: (_name, result) => dialogWaiting(result),
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),
   prepareAction, modelArguments,
 };

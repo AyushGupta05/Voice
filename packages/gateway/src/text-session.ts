@@ -100,6 +100,11 @@ export class TextConversation {
      this.emit({type:'text_result',taskId:active.id,text:failureSentence(reason),outcome:'failed',fastPath:true});
      return;
     }
+    // An instant step can leave work only the model can finish (a command's original Fiji dialog waiting): the request
+    // continues with the backend, which sees what the step returned, instead of finishing as done.
+    if(!failed&&profile.needsModel?.(route.tool,result)){
+     this.append('assistant',`(${route.tool} ${JSON.stringify(route.arguments)} returned ${String(JSON.stringify(result)).slice(0,2000)})`);
+    }else{
     // Object terminology belongs to this image and a successful request. Opening another image must also
     // preserve its real name, e.g. "hela cells" must never be spoken as "hela nuclei".
     if(!failed){
@@ -117,6 +122,7 @@ export class TextConversation {
     active.answered=true;this.append('assistant',`${reply} (${route.tool} ${JSON.stringify(route.arguments)})`);
     this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true,...(failed?{outcome:'failed'}:{})});
     return;
+    }
    }
    // A control word without an instant route ends here: nothing is sent to the model.
    if(options.instantOnly)return;
