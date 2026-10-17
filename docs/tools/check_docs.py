@@ -54,8 +54,18 @@ ACCEPTED_ALLOWED = {
 }  # owner-approved (see DECISIONS.md basis column)
 
 
+def penny_docs():
+    """Penny's documents (docs/tools/penny-docs.txt): they follow Penny's conventions and its own checker."""
+    listing = DOCS / "tools" / "penny-docs.txt"
+    if not listing.exists():
+        return set()
+    patterns = [line.strip() for line in listing.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
+    return {p for pattern in patterns for p in DOCS.glob(pattern)}
+
+
 def md_files():
-    return sorted(p for p in DOCS.rglob("*.md") if "tools" not in p.parts)
+    skip = penny_docs()
+    return sorted(p for p in DOCS.rglob("*.md") if "tools" not in p.parts and p not in skip)
 
 
 def front_matter(text):

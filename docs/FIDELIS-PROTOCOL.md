@@ -1,3 +1,16 @@
+---
+id: INT-01
+title: Fidelis bridge contract (Penny voice over the Fidelis engine)
+stage: 03-development
+status: Implemented on integration/fidelis-penny (verification in progress)
+priority: P0
+source_revisions: [integration/fidelis-penny]
+related_requirements: [FR-NL-001, FR-SPEECH-004, FR-HIST-002, FR-MACRO-001]
+related_decisions: [DEC-048]
+last_reviewed: 2026-10-17
+approval: Integration contract written by Ayush's session; review by Arnav (engine) and Alex (UI) pending
+---
+
 # Fidelis bridge contract (Penny × Fidelis)
 
 Penny's gateway drives the **Fidelis workstation** (`fidelis-app/`) the same way it drives stand-alone Fiji
