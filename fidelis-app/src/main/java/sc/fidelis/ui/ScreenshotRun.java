@@ -47,6 +47,21 @@ final class ScreenshotRun {
             long deadline = System.currentTimeMillis() + 20_000;
             while (engine.state() != sc.fidelis.engine.api.Enums.EngineState.READY && System.currentTimeMillis() < deadline)
                 Thread.sleep(100);
+            if (opts.scenario() != null) {
+                scenario(w, ctx, opts.scenario(), repo);
+                Thread.sleep(300);
+                SwingUtilities.invokeAndWait(() -> {
+                    w.docks().applyDefaultDividers();
+                    w.frame().toFront();
+                });
+                Thread.sleep(1500);
+                BufferedImage[] one = new BufferedImage[1];
+                SwingUtilities.invokeAndWait(() -> one[0] = capture(w));
+                Files.createDirectories(out.toAbsolutePath().getParent());
+                ImageIO.write(one[0], "png", out.toFile());
+                System.out.println("[fidelis] screenshot written: " + out.toAbsolutePath());
+                return;
+            }
             engine.open(repo.resolve("fixtures").resolve("two-squares.png")).get();
             Map<String, Object> ni = new LinkedHashMap<>();
             ni.put("title", "synthetic-16bit");
@@ -124,13 +139,19 @@ final class ScreenshotRun {
         JRootPane root = w.frame().getRootPane();
         BufferedImage img = new BufferedImage(Math.max(1, root.getWidth()), Math.max(1, root.getHeight()), BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
+        // match the on-screen text metrics (the default offscreen hints are narrower and clip right-aligned labels)
+        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+        g.setRenderingHint(java.awt.RenderingHints.KEY_FRACTIONALMETRICS, java.awt.RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         root.printAll(g);
         for (DocumentView v : w.documents().allViews()) {
-            if (!v.isShowing() || v.canvas().getWidth() <= 0) continue;
-            Point p = SwingUtilities.convertPoint(v.canvas(), 0, 0, root);
-            Graphics2D cg = (Graphics2D) g.create(p.x, p.y, v.canvas().getWidth(), v.canvas().getHeight());
-            v.canvas().paint(cg);
-            cg.dispose();
+            if (!v.isShowing()) continue;
+            for (ij.gui.ImageCanvas c : v.visibleCanvases()) {
+                if (c.getWidth() <= 0 || !c.isShowing()) continue;
+                Point p = SwingUtilities.convertPoint(c, 0, 0, root);
+                Graphics2D cg = (Graphics2D) g.create(p.x, p.y, c.getWidth(), c.getHeight());
+                c.paint(cg);
+                cg.dispose();
+            }
         }
         // heavyweight popups (command results, menus) are separate native windows: paint them in place
         java.awt.Point rootOrigin = root.getLocationOnScreen();
@@ -143,6 +164,88 @@ final class ScreenshotRun {
         }
         g.dispose();
         return img;
+    }
+
+    private static Map<String, Object> newImage(String title, String type, String fill, int w, int h, int c, int z, int t) {
+        Map<String, Object> ni = new LinkedHashMap<>();
+        ni.put("title", title);
+        ni.put("type", type);
+        ni.put("fill", fill);
+        ni.put("width", w);
+        ni.put("height", h);
+        ni.put("channels", c);
+        ni.put("slices", z);
+        ni.put("frames", t);
+        return ni;
+    }
+
+    private static void waitUntil(java.util.function.BooleanSupplier c, int seconds) throws InterruptedException {
+        long end = System.currentTimeMillis() + seconds * 1000L;
+        while (!c.getAsBoolean() && System.currentTimeMillis() < end) Thread.sleep(50);
+    }
+
+    /** U2 scenarios: real work through the engine so every panel shows genuine state. */
+    private static void scenario(Workspace w, UiContext ctx, String name, Path repo) throws Exception {
+        var engine = w.engine();
+        engine.open(repo.resolve("fixtures").resolve("two-squares.png")).get();
+        switch (name) {
+            case "threshold" -> {
+                SwingUtilities.invokeAndWait(() -> {
+                    w.docks().showThreshold();
+                    w.threshold().autoThreshold("Otsu", true);
+                });
+                Thread.sleep(800);
+            }
+            case "bc" -> {
+                engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
+                        newImage("synthetic-16bit", "16-bit", "Ramp", 512, 512, 1, 1, 1), null)).get();
+                SwingUtilities.invokeAndWait(() -> {
+                    w.docks().showDisplay();
+                    w.display().setRange(12000, 41000);
+                });
+                Thread.sleep(800);
+            }
+            case "compare" -> {
+                Map<String, Object> blur = new LinkedHashMap<>();
+                blur.put("sigma", 2.0);
+                blur.put("scaled", false);
+                blur.put("stack", false);
+                SwingUtilities.invokeAndWait(() -> ctx.submit(ActionRequest.command(Origin.MENU, "ij1:Process>Filters>Gaussian Blur...",
+                        blur, ctx.target()), "Gaussian Blur..."));
+                DocumentView v = w.documents().focusedView();
+                waitUntil(() -> v.hasBefore(), 20);
+                SwingUtilities.invokeAndWait(() -> v.setCompare(true));
+                Thread.sleep(500);
+            }
+            case "stack" -> {
+                engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
+                        newImage("stack-10", "8-bit", "Random", 256, 256, 1, 10, 1), null)).get();
+                engine.submit(ActionRequest.session(Origin.MENU, Operations.NEW_IMAGE,
+                        newImage("composite-3ch", "16-bit composite-mode", "Ramp", 256, 256, 3, 4, 1), null)).get();
+                // distinct content per plane through real engine commands: noise on every plane, then a per-channel display range
+                Map<String, Object> noise = new LinkedHashMap<>();
+                noise.put("standard", 6000.0);
+                noise.put("stack", true);
+                engine.submit(ActionRequest.command(Origin.MENU, "ij1:Process>Noise>Add Specified Noise...", noise,
+                        TargetScope.wholeStack(engine.focused().orElseThrow()))).get();
+                for (int c = 1; c <= 3; c++) {
+                    Map<String, Object> dr = new LinkedHashMap<>();
+                    dr.put("min", 0.0);
+                    dr.put("max", 30000.0);
+                    dr.put("channel", c);
+                    engine.submit(ActionRequest.direct(Origin.PANEL, Operations.SET_DISPLAY_RANGE, dr, TargetScope.of(engine.focused().orElseThrow()))).get();
+                }
+                waitUntil(() -> w.documents().focusedView() != null && w.documents().focusedView().subtitleText().contains("c:"), 10);
+                DocumentView v = w.documents().focusedView();
+                SwingUtilities.invokeAndWait(() -> {
+                    v.moveSlider('c', 2);
+                    v.moveSlider('z', 3);
+                    w.docks().showDisplay();
+                });
+                Thread.sleep(1000);
+            }
+            default -> throw new IllegalArgumentException("unknown scenario " + name);
+        }
     }
 
     /** Structural z-order check: popups over the heavyweight canvas must be separate native windows. */

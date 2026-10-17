@@ -362,7 +362,11 @@ public final class StubEngine implements Engine {
                 int w = ((Number) p.getOrDefault("width", 512)).intValue();
                 int h = ((Number) p.getOrDefault("height", 512)).intValue();
                 int n = ((Number) p.getOrDefault("slices", 1)).intValue();
-                ImagePlus imp = IJ.createImage(title, type + " " + fill, w, h, n);
+                int ch = ((Number) p.getOrDefault("channels", 1)).intValue();
+                int fr = ((Number) p.getOrDefault("frames", 1)).intValue();
+                ImagePlus imp = ch > 1 || fr > 1
+                        ? IJ.createImage(title, type + " " + fill, w, h, ch, n, fr)
+                        : IJ.createImage(title, type + " " + fill, w, h, n);
                 Doc d = register(imp, null);
                 return sessionResult(opId, req, t0, List.of(d.id), List.of(),
                         "newImage(\"" + title + "\", \"" + type + " " + fill + "\", " + w + ", " + h + ", " + n + ");");
@@ -451,8 +455,44 @@ public final class StubEngine implements Engine {
             case Operations.SET_DISPLAY_RANGE -> {
                 double min = ((Number) req.params().get("min")).doubleValue();
                 double max = ((Number) req.params().get("max")).doubleValue();
-                SwingUtilities.invokeAndWait(() -> d.imp.setDisplayRange(min, max));
+                Object chan = req.params().get("channel"); // UI extension: 1-based channel of a composite
+                SwingUtilities.invokeAndWait(() -> {
+                    if (chan instanceof Number cn && d.imp.isComposite()) {
+                        int prev = d.imp.getChannel();
+                        ((ij.CompositeImage) d.imp).setC(cn.intValue());
+                        d.imp.setDisplayRange(min, max);
+                        ((ij.CompositeImage) d.imp).setC(prev);
+                    } else {
+                        d.imp.setDisplayRange(min, max);
+                    }
+                    d.imp.updateAndDraw();
+                });
                 macro.add("setMinAndMax(" + min + ", " + max + ");");
+            }
+            case Operations.SET_THRESHOLD -> {
+                double lo = ((Number) req.params().get("lower")).doubleValue();
+                double hi = ((Number) req.params().get("upper")).doubleValue();
+                SwingUtilities.invokeAndWait(() -> {
+                    d.imp.getProcessor().setThreshold(lo, hi, ij.process.ImageProcessor.RED_LUT);
+                    d.imp.updateAndDraw();
+                });
+                macro.add("setThreshold(" + lo + ", " + hi + ");");
+            }
+            case Operations.SET_AUTO_THRESHOLD -> {
+                String method = String.valueOf(req.params().getOrDefault("method", "Default"));
+                boolean dark = Boolean.TRUE.equals(req.params().get("dark"));
+                SwingUtilities.invokeAndWait(() -> {
+                    d.imp.getProcessor().setAutoThreshold(method + (dark ? " dark" : ""));
+                    d.imp.updateAndDraw();
+                });
+                macro.add("setAutoThreshold(\"" + method + (dark ? " dark" : "") + "\");");
+            }
+            case Operations.RESET_THRESHOLD -> {
+                SwingUtilities.invokeAndWait(() -> {
+                    d.imp.getProcessor().resetThreshold();
+                    d.imp.updateAndDraw();
+                });
+                macro.add("resetThreshold();");
             }
             case Operations.UNDO, Operations.REDO -> {
                 if (d == null) return failed(opId, ErrorCode.PRECONDITION_FAILED, "No image is open", ms(t0));

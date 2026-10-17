@@ -19,6 +19,8 @@ import sc.fidelis.engine.api.Enums.Origin;
  *   <li>Edit: Undo (the engine's multi-step undo instead of IJ1's single slot)</li>
  *   <li>Image &gt; Zoom: In, Out, Original Scale, View 100%, To Selection, Scale to Fit, Set..., Maximize
  *       (the host drives the viewport; native zoom would re-pack the hidden window)</li>
+ *   <li>Image &gt; Adjust &gt; Threshold... and Brightness/Contrast...: open the Threshold and B&amp;C dock tabs instead of the
+ *       IJ1 ThresholdAdjuster and ContrastAdjuster windows</li>
  *   <li>Analyze &gt; Tools &gt; ROI Manager...: opens the ROI list dock instead of the IJ1 frame</li>
  *   <li>Plugins &gt; Macros &gt; Record...: opens the History and macro dock instead of the IJ1 Recorder</li>
  *   <li>Plugins &gt; Utilities &gt; Find Commands...: focuses the command bar</li>
@@ -56,6 +58,8 @@ final class Routes {
                 }
             });
             case "ij1:Image>Zoom>Maximize" -> ctx.docks().collapseAll();
+            case "ij1:Image>Adjust>Threshold..." -> ctx.docks().showThreshold();
+            case "ij1:Image>Adjust>Brightness/Contrast..." -> ctx.docks().showDisplay();
             case "ij1:Analyze>Tools>ROI Manager..." -> ctx.docks().showRoi();
             case "ij1:Plugins>Macros>Record..." -> ctx.docks().showHistory();
             case "ij1:Plugins>Utilities>Find Commands...", "ij1:Window>Show All", "ij1:Window>Main Window [enter]" -> ctx.focusCommandBar();

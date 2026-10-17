@@ -26,11 +26,14 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JSplitPane;
+import javax.swing.JToggleButton;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.gui.ImageCanvas;
 import ij.gui.ImageWindow;
 import ij.gui.Roi;
@@ -39,6 +42,7 @@ import sc.fidelis.engine.api.ActionRequest.Operations;
 import sc.fidelis.engine.api.DocumentId;
 import sc.fidelis.engine.api.DocumentInfo;
 import sc.fidelis.engine.api.Enums.Origin;
+import sc.fidelis.engine.api.HostCanvas;
 import sc.fidelis.engine.api.TargetScope;
 
 /**
@@ -76,6 +80,21 @@ public final class DocumentView extends JPanel {
     private final Timer poll;
     private int dimsKey = -1;
 
+    // ---- before/after comparison (FR-VIEW-007) ----
+    private final JPanel centre = new JPanel(new BorderLayout());
+    private final JToggleButton compareButton = new JToggleButton("Compare");
+    private final JLabel beforeTitle = new JLabel();
+    private final JLabel afterTitle = new JLabel();
+    private final JPanel beforePanel = new JPanel(new BorderLayout());
+    private final JPanel afterPanel = new JPanel(new BorderLayout());
+    private final BeforeHost beforeHost = new BeforeHost();
+    private ImagePlus beforeImp;
+    private String beforeLabel;
+    private ImageWindow beforeWin;
+    private ImageCanvas beforeCanvas;
+    private boolean compareOn;
+    private Rectangle lastSrcSeen = new Rectangle();
+
     DocumentView(UiContext ctx, DocumentInfo info) {
         super(new BorderLayout());
         this.ctx = ctx;
@@ -98,7 +117,8 @@ public final class DocumentView extends JPanel {
         north.add(dimPanel, BorderLayout.CENTER);
         north.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.panelBorder()));
         add(north, BorderLayout.NORTH);
-        add(host, BorderLayout.CENTER);
+        centre.add(host, BorderLayout.CENTER);
+        add(centre, BorderLayout.CENTER);
 
         attach();
         refresh(info);
@@ -197,6 +217,9 @@ public final class DocumentView extends JPanel {
     /** Detach the canvas so the engine can dispose the document. */
     void detach() {
         poll.stop();
+        disposeBefore();
+        if (beforeImp != null) beforeImp.flush();
+        beforeImp = null;
         host.remove(canvas);
     }
 
@@ -255,6 +278,12 @@ public final class DocumentView extends JPanel {
         p.add(smallButton("+", "Zoom in (+)", () -> zoomStep(true, null)));
         p.add(smallButton("Fit", "Scale to fit the viewport", this::fit));
         p.add(smallButton("1:1", "View 100% (one image pixel per screen pixel)", this::actualPixels));
+        compareButton.setMargin(new java.awt.Insets(1, 6, 1, 6));
+        compareButton.setFocusable(false);
+        compareButton.setEnabled(false);
+        compareButton.setToolTipText("Compare with the image before the last data-changing action (none yet)");
+        compareButton.addActionListener(e -> setCompare(compareButton.isSelected()));
+        p.add(compareButton);
         return p;
     }
 
@@ -466,13 +495,23 @@ public final class DocumentView extends JPanel {
      * Order is mandatory: setDrawingSize, setSourceRect, setMagnification, bounds (EXP-01 section 5.3 item 5).
      */
     void layoutViewport(double mag, double ax, double ay, double hx, double hy) {
+        mag = layoutCanvas(canvas, imp, vw(), vh(), mag, ax, ay, hx, hy);
+        lastMagSeen = mag;
+        lastSrcSeen = new Rectangle(canvas.getSrcRect());
+        updateZoomLabel();
+        mirrorBefore();
+    }
+
+    /** The viewport algorithm for any hosted canvas; returns the clamped magnification applied. */
+    private static double layoutCanvas(ImageCanvas canvas, ImagePlus imp, int vw, int vh,
+                                       double mag, double ax, double ay, double hx, double hy) {
         int iw = imp.getWidth();
         int ih = imp.getHeight();
         mag = Math.max(1.0 / 72.0, Math.min(32.0, mag));
-        int dw = (int) Math.min(vw(), Math.max(1, Math.round(iw * mag)));
-        int dh = (int) Math.min(vh(), Math.max(1, Math.round(ih * mag)));
-        int cx = (vw() - dw) / 2;
-        int cy = (vh() - dh) / 2;
+        int dw = (int) Math.min(vw, Math.max(1, Math.round(iw * mag)));
+        int dh = (int) Math.min(vh, Math.max(1, Math.round(ih * mag)));
+        int cx = (vw - dw) / 2;
+        int cy = (vh - dh) / 2;
         int sw = (int) Math.max(1, Math.min(iw, Math.ceil(dw / mag - 1e-9)));
         int sh = (int) Math.max(1, Math.min(ih, Math.ceil(dh / mag - 1e-9)));
         double sx = ax - (hx - cx) / mag;
@@ -484,8 +523,147 @@ public final class DocumentView extends JPanel {
         canvas.setMagnification(mag);
         canvas.setBounds(cx, cy, dw, dh);
         canvas.repaint();
-        lastMagSeen = mag;
-        updateZoomLabel();
+        return mag;
+    }
+
+    // ---- before/after comparison -----------------------------------------------------------------
+
+    private final class BeforeHost extends JPanel {
+        BeforeHost() {
+            super(null);
+            setBackground(Theme.CANVAS_SURROUND);
+        }
+
+        @Override
+        public void doLayout() {
+            mirrorBefore();
+        }
+
+        @Override
+        public void updateUI() {
+            super.updateUI();
+            setBackground(Theme.CANVAS_SURROUND);
+        }
+    }
+
+    /** Called with a real pixel copy taken before a data-changing action completed. */
+    void setBefore(ImagePlus snapshot, String label) {
+        boolean rebuild = compareOn;
+        if (rebuild) disposeBefore();
+        if (beforeImp != null && beforeImp != snapshot) beforeImp.flush();
+        beforeImp = snapshot;
+        beforeLabel = label;
+        compareButton.setEnabled(true);
+        compareButton.setToolTipText("Compare with the image before: " + label);
+        if (rebuild) {
+            buildBefore();
+            updateCompareLabels();
+            mirrorBefore();
+        }
+    }
+
+    boolean hasBefore() {
+        return beforeImp != null;
+    }
+
+    boolean isCompareOn() {
+        return compareOn;
+    }
+
+    /** Both canvases while comparing, else only the document canvas. */
+    java.util.List<ImageCanvas> visibleCanvases() {
+        java.util.List<ImageCanvas> l = new java.util.ArrayList<>();
+        l.add(canvas);
+        if (compareOn && beforeCanvas != null) l.add(beforeCanvas);
+        return l;
+    }
+
+    ImageCanvas compareCanvas() {
+        return compareOn ? beforeCanvas : null;
+    }
+
+    ImagePlus beforeImagePlus() {
+        return beforeImp;
+    }
+
+    void setCompare(boolean on) {
+        if (on && beforeImp == null) {
+            ctx.notice("There is no earlier state to compare with yet: run a data-changing command first", false);
+            compareButton.setSelected(false);
+            return;
+        }
+        if (on == compareOn) return;
+        compareOn = on;
+        compareButton.setSelected(on);
+        centre.removeAll();
+        if (on) {
+            beforePanel.removeAll();
+            beforePanel.add(beforeTitle, BorderLayout.NORTH);
+            beforePanel.add(beforeHost, BorderLayout.CENTER);
+            afterPanel.removeAll();
+            afterPanel.add(afterTitle, BorderLayout.NORTH);
+            afterPanel.add(host, BorderLayout.CENTER);
+            beforeTitle.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+            afterTitle.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+            beforeTitle.setFont(beforeTitle.getFont().deriveFont(Font.BOLD));
+            afterTitle.setFont(afterTitle.getFont().deriveFont(Font.BOLD));
+            buildBefore();
+            updateCompareLabels();
+            JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, beforePanel, afterPanel);
+            split.setResizeWeight(0.5);
+            split.setContinuousLayout(true);
+            split.setBorder(null);
+            centre.add(split, BorderLayout.CENTER);
+            SwingUtilities.invokeLater(() -> split.setDividerLocation(0.5));
+        } else {
+            disposeBefore();
+            afterPanel.remove(host);
+            centre.add(host, BorderLayout.CENTER);
+        }
+        centre.revalidate();
+        centre.repaint();
+    }
+
+    private void updateCompareLabels() {
+        beforeTitle.setText("Before: " + beforeLabel);
+        afterTitle.setText("After: " + beforeLabel);
+    }
+
+    /** A real copy, hosted by its own HostCanvas in a hidden window (read-only: no mouse or key handling). */
+    private void buildBefore() {
+        HostCanvas hc = new HostCanvas(beforeImp);
+        ImageWindow bw = new ImageWindow(beforeImp, hc);
+        bw.setVisible(false);
+        bw.setLayout(null);
+        bw.remove(hc);
+        for (java.awt.event.MouseListener l : hc.getMouseListeners()) hc.removeMouseListener(l);
+        for (java.awt.event.MouseMotionListener l : hc.getMouseMotionListeners()) hc.removeMouseMotionListener(l);
+        for (KeyListener l : hc.getKeyListeners()) hc.removeKeyListener(l);
+        beforeHost.add(hc);
+        beforeWin = bw;
+        beforeCanvas = hc;
+        ctx.legacyWindows().ignore(bw);
+        ctx.engine.focus(id); // the new window must not steal IJ1's current image
+        beforeHost.revalidate();
+    }
+
+    private void disposeBefore() {
+        if (beforeCanvas != null) beforeHost.remove(beforeCanvas);
+        if (beforeWin != null) {
+            beforeWin.setVisible(false);
+            WindowManager.removeWindow(beforeWin);
+            beforeWin.dispose();
+        }
+        beforeWin = null;
+        beforeCanvas = null;
+    }
+
+    /** Linked zoom and pan: the before canvas always shows the same magnification and centre. */
+    private void mirrorBefore() {
+        if (!compareOn || beforeCanvas == null || beforeHost.getWidth() <= 0 || beforeHost.getHeight() <= 0) return;
+        Rectangle src = canvas.getSrcRect();
+        layoutCanvas(beforeCanvas, beforeImp, beforeHost.getWidth(), beforeHost.getHeight(), canvas.getMagnification(),
+                src.x + src.width / 2.0, src.y + src.height / 2.0, beforeHost.getWidth() / 2.0, beforeHost.getHeight() / 2.0);
     }
 
     /** One ladder step; anchored at {@code cursor} (canvas coordinates) or the centre of the visible region. */
@@ -573,7 +751,36 @@ public final class DocumentView extends JPanel {
             lastMagSeen = m;
             updateZoomLabel();
         }
+        if (compareOn && !lastSrcSeen.equals(canvas.getSrcRect())) {
+            // panned natively (hand tool, Space-drag, wheel): follow in the before pane
+            lastSrcSeen = new Rectangle(canvas.getSrcRect());
+            mirrorBefore();
+        }
         syncSliders();
+        refreshSubtitle();
+    }
+
+    private void refreshSubtitle() {
+        try {
+            String sub = win.createSubtitle();
+            if (!sub.equals(subtitleField.getText())) {
+                subtitleField.setText(sub);
+                subtitleField.setToolTipText(sub);
+                subtitleField.setCaretPosition(0);
+            }
+        } catch (RuntimeException ignored) {
+            // the window may be mid-update
+        }
+    }
+
+    /** Test and dev hook: move a C/Z/T slider as the user would (commits SET_POSITION). */
+    public void moveSlider(char dim, int value) {
+        JSlider s = sliders.get(dim);
+        if (s != null) s.setValue(value);
+    }
+
+    public String subtitleText() {
+        return subtitleField.getText();
     }
 
     /** Zoom as IJ1's title rule: no decimals above 100 % or when integral, else one decimal. */

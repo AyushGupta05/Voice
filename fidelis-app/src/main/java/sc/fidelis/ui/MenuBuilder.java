@@ -157,6 +157,8 @@ final class MenuBuilder {
         m.add(bottom);
         m.addSeparator();
         m.add(panelItem("Parameters", () -> ctx.docks().showParameters()));
+        m.add(panelItem("Brightness/Contrast", () -> ctx.docks().showDisplay()));
+        m.add(panelItem("Threshold", () -> ctx.docks().showThreshold()));
         m.add(panelItem("ROI list", () -> ctx.docks().showRoi()));
         m.add(panelItem("Results", () -> ctx.docks().showResults()));
         m.add(panelItem("History & macro", () -> ctx.docks().showHistory()));

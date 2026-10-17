@@ -128,9 +128,9 @@ public final class ParametersPanel extends JPanel {
 
         fieldsPanel.setLayout(new MigLayout("insets 8 10 8 10, fillx, wrap 3", "[right]8[grow,fill]8[]", "[]0[]"));
         globalsPanel.setLayout(new MigLayout("insets 0, fillx, wrap 1", "[grow,fill]"));
-        JPanel center = new JPanel(new BorderLayout());
+        JPanel center = new WidthTrackingPanel(new BorderLayout());
         center.add(fieldsPanel, BorderLayout.NORTH);
-        JScrollPane sp = new JScrollPane(center);
+        JScrollPane sp = new JScrollPane(center, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setBorder(null);
         sp.getVerticalScrollBar().setUnitIncrement(14);
         formHost.add(sp, BorderLayout.CENTER);
