@@ -71,7 +71,15 @@ public final class LumaExtension implements QuPathExtension {
         qupath = app;
         token = System.getenv("LUMA_BRIDGE_TOKEN");
         if (token == null || token.length() < 32) {
-            System.err.println("Luma bridge disabled: launch through script/run-qupath.sh to set a random local token.");
+            // Launched from Finder/Dock rather than run-qupath.sh: read the same local token the gateway uses.
+            var root = lumaRoot();
+            if (root != null) {
+                try { token = Files.readString(root.resolve(".local/state/bridge-token"), StandardCharsets.UTF_8).trim(); }
+                catch (IOException error) { token = null; }
+            }
+        }
+        if (token == null || token.length() < 32) {
+            System.err.println("Luma bridge disabled: no local token (set LUMA_BRIDGE_TOKEN or -Dluma.root; run script/run-qupath.sh once).");
             return;
         }
         try {
@@ -451,9 +459,16 @@ public final class LumaExtension implements QuPathExtension {
             "script", script.length() > 60_000 ? script.substring(0, 60_000) + "\n// … truncated" : script,
             "note", "Generated from QuPath's workflow history; review parameters before reuse on other images."));
     }
+    /** The Luma checkout: LUMA_ROOT from run-qupath.sh, else -Dluma.root baked into the launcher's JVM options. */
+    static Path lumaRoot() {
+        for (String candidate : new String[] { System.getenv("LUMA_ROOT"), System.getProperty("luma.root") }) {
+            if (candidate != null && !candidate.isBlank() && Files.isDirectory(Path.of(candidate))) return Path.of(candidate);
+        }
+        return null;
+    }
     private static Path workflowDirectory() throws IOException {
-        String root = System.getenv("LUMA_ROOT");
-        Path directory = root != null && !root.isBlank() ? Path.of(root, ".local", "workflows") : Path.of(System.getProperty("user.home"), "Luma workflows");
+        var root = lumaRoot();
+        Path directory = root != null ? root.resolve(".local/workflows") : Path.of(System.getProperty("user.home"), "Luma workflows");
         return Files.createDirectories(directory);
     }
     /** Save the history as a reusable Groovy script. Only writes inside Luma's workflow directory. */

@@ -42,4 +42,5 @@ def preference_node(root):
 
 def launcher_config(original, root):
     config = original.replace('[JavaOptions]', 'app.classpath=$APPDIR/luma-qupath-bridge.jar\n\n[JavaOptions]')
-    return config + '\njava-options=-Dqupath.prefs.name=' + preference_node(root) + '\n'
+    # luma.root lets the extension find the shared bridge token when QuPath is started from Finder instead of run-qupath.sh.
+    return config + '\njava-options=-Dqupath.prefs.name=' + preference_node(root) + '\njava-options=-Dluma.root=' + str(root) + '\n'
