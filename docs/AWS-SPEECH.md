@@ -60,6 +60,16 @@ node --import tsx script/enable-speech.ts --authorized-aws-speech
 
 This makes read-only AWS calls and writes `.local/state/speech-funding.json` (it expires within 24 hours and is tied to the text-funding account). Restart the companion so its gateway re-reads funding. `/health` then reports `voice.enabled: true`.
 
+### Pathology vocabulary (recommended)
+
+Amazon Transcribe mishears domain words ("stroma" → "Ostroma") unless given a custom vocabulary. Create one once (digits are not allowed in phrases):
+
+```sh
+aws transcribe create-vocabulary --region us-east-1 --vocabulary-name luma-pathology --language-code en-GB --phrases QuPath Luma annotation annotations tumour tumor stroma Ki-sixty-seven DAB haematoxylin hematoxylin eosin H-DAB brightfield fluorescence immunohistochemistry nucleus nuclei nuclear cells cell detection detections classifier classification threshold positive negative superpixels tiles TMA dearray GeoJSON Groovy workflow measurement measurements histogram zoom overlay overlays slide annotate highlight checkpoint undo stricter looser percentage pixel micron microns H-score
+```
+
+When `aws transcribe get-vocabulary --vocabulary-name luma-pathology` reports `READY` (a few minutes), write `.local/state/speech-vocabulary.json` containing `{"name":"luma-pathology","languageCode":"en-GB"}`. Each new voice session passes it as `VocabularyName`; no restart is needed after the file exists. Custom vocabularies are free.
+
 ## Verify
 
 | Command | What it proves | Cost |

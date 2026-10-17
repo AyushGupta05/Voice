@@ -34,7 +34,7 @@ const production:SpeechDependencies={observe:sharedObservation(observeSpeechCred
   try{
    async function* stream(){for await(const AudioChunk of audio)yield{AudioEvent:{AudioChunk}};}
    const connecting=Date.now();
-   console.error(`[voice ${new Date().toISOString()}] connecting to Amazon Transcribe`);
+   console.error(`[voice ${new Date().toISOString()}] connecting to Amazon Transcribe${proof.vocabularyName?` with vocabulary ${proof.vocabularyName}`:''}`);
    const result=await client.send(new StartStreamTranscriptionCommand({LanguageCode:'en-GB',MediaEncoding:'pcm',MediaSampleRateHertz:24000,EnablePartialResultsStabilization:true,PartialResultsStability:'high',
     ...(proof.vocabularyName?{VocabularyName:proof.vocabularyName}:{}),AudioStream:stream()}),{abortSignal:signal});
    console.error(`[voice ${new Date().toISOString()}] Transcribe stream accepted after ${Date.now()-connecting} ms`);
