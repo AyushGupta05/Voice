@@ -1040,17 +1040,22 @@ public final class DefaultNlService implements NlService {
     // =============================================================================================
 
     private Step retrieve(String clause, DocumentInfo doc, DocumentId id) {
-        List<CommandSchema.Summary> hits = engine.search(clause, 8);
         Set<String> tokens = new LinkedHashSet<>(NlText.words(clause));
+        List<CommandSchema.Summary> hits = candidates(clause, tokens);
         CommandSchema.Summary chosen = null;
         int bestTokens = 0;
+        boolean bestComplete = false;
         for (CommandSchema.Summary h : hits) {
             List<String> lt = labelTokens(h.label());
-            if (lt.size() <= bestTokens || !labelMentioned(lt, tokens)) continue;
+            if (lt.size() < bestTokens || !labelMentioned(lt, tokens)) continue;
             Optional<CommandSchema> sc = engine.schema(h.commandId());
             if (unexplainedWords(tokens, lt, sc.orElse(null)) > 1) continue; // the clause is about something else
+            boolean complete = sc.map(CommandSchema::schemaComplete).orElse(false);
+            // a longer label wins; at equal length a command whose options are catalogued beats one that is not
+            if (lt.size() == bestTokens && (bestComplete || !complete)) continue;
             chosen = h;
             bestTokens = lt.size();
+            bestComplete = complete;
         }
         if (chosen == null) {
             return Step.refused("I could not map that to a catalogue command." + suggestions(hits));
@@ -1069,6 +1074,22 @@ public final class DefaultNlService implements NlService {
         if (scopeKey.isPresent()) scope(s, clause, doc, "stack");
         targetRefs(s, clause, doc, id);
         return complete(s, doc);
+    }
+
+    /**
+     * Candidate commands for a clause: the engine's own ranked search, plus every catalogue entry whose
+     * label words all occur in the clause. The engine search is a ranking aid; on the 953-command
+     * catalogue it can return nothing for a long clause ("find maxima with prominence 10"), so
+     * retrieval must not depend on it alone.
+     */
+    private List<CommandSchema.Summary> candidates(String clause, Set<String> tokens) {
+        Map<String, CommandSchema.Summary> out = new LinkedHashMap<>();
+        for (CommandSchema.Summary h : engine.search(clause, 8)) out.putIfAbsent(h.commandId(), h);
+        for (CommandSchema.Summary h : engine.catalogue()) {
+            if (out.containsKey(h.commandId())) continue;
+            if (labelMentioned(labelTokens(h.label()), tokens)) out.put(h.commandId(), h);
+        }
+        return new ArrayList<>(out.values());
     }
 
     /** One missing numeric slot and exactly one number in the clause: unambiguous ("rotate by 90"). */
