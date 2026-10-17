@@ -1,0 +1,14 @@
+initial: Prefs.blackBackground=true ImageConverter.getDoScaling()=true Analyzer.getMeasurements()=19 precision=3
+16->8 pixels [0,250,500,1000], display 0..1000, scaling on: [0, 64, 128, 255]
+16->8 pixels [0,250,500,1000], display 0..500, scaling on: [0, 128, 255, 255]
+16->8 pixels [0,250,500,1000], display 0..500, scaling off: [0, 250, 255, 255]
+Convert to Mask (thr 128-255) blackBackground=true: pixel(10)=0 pixel(200)=255 invertedLut=false
+   after Erode: pixel(128)=0 pixel(129)=255 pixel(130)=255
+Convert to Mask (thr 128-255) blackBackground=false: pixel(10)=0 pixel(200)=255 invertedLut=true
+   after Erode: pixel(128)=0 pixel(129)=255 pixel(130)=255
+Convert to Mask with no threshold set: pixel(10)=255 pixel(200)=0
+after two Measure calls: rows=1 headings=Area	Mean Mean full=0.42857143921511515 asString=0.429
+saved CSV:
+ ,Area,Mean
+1,21,0.429
+

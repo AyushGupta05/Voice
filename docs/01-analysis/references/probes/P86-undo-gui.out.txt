@@ -1,0 +1,29 @@
+  1541 [SciJava-4c7dcc85-Thread-0] START ij=1.54p99 Prefs.disableUndo=false Prefs.supportMacroUndo=false
+  2877 [SciJava-4c7dcc85-Thread-0] current after selectWindow(A)=p86-A
+  3067 [Run$_SciJava-4c7dcc85-Thread-0] U1 shown A: IJ.run(a,'Invert','') ; Undo.undo() from script thread             before=d058e36a after=d96413cf afterUndo=d058e36a  changed=true restored=true  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3234 [Run$_SciJava-4c7dcc85-Thread-0] U2 shown A: second Undo.undo() straight after U1 (redo toggle?)                before=d058e36a after=d058e36a afterUndo=d96413cf  changed=false restored=false  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3438 [Run$_SciJava-4c7dcc85-Thread-0] U3 shown A: IJ.run(a,'Gaussian Blur...','sigma=2') ; Undo.undo()               before=d96413cf after=8dff072b afterUndo=d96413cf  changed=true restored=true  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3592 [Run$_SciJava-4c7dcc85-Thread-0] U4 shown A: Invert ; IJ.run('Undo') (macro path: IJ.macroRunning()=true)       before=d96413cf after=d058e36a afterUndo=d96413cf  changed=true restored=true  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3750 [Run$_SciJava-4c7dcc85-Thread-0] U5 shown A: Invert ; IJ.runMacro('run("Undo");')                               before=d96413cf after=d058e36a afterUndo=d96413cf  changed=true restored=true  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3939 [Run$_SciJava-4c7dcc85-Thread-0] U6 shown A: Invert then Gaussian ; one Undo.undo() (single level?)             before=d96413cf after=84c3f78e afterUndo=d058e36a  changed=true restored=false  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  3960 [Run$_SciJava-4c7dcc85-Thread-0] U6b after one undo, A equals 'inverted original'? false (CRC of reference inverted original=690e94e8)
+  4785 [Run$_SciJava-4c7dcc85-Thread-0] U7 Invert A ; IJ.selectWindow(B) ; IJ.selectWindow(A) ; Undo.undo()            before=d96413cf after=d058e36a afterUndo=d058e36a  changed=true restored=false  [whatToUndo=0 undoImageID=0; current=p86-A id=-2]
+  5157 [Run$_SciJava-4c7dcc85-Thread-0] U8 Invert A ; WindowManager.setCurrentWindow(B.win) ; Undo.undo() (applies to B?) before=d058e36a after=d96413cf afterUndo=d96413cf  changed=true restored=false  [whatToUndo=0 undoImageID=0; current=p86-B id=-2]
+  5160 [Run$_SciJava-4c7dcc85-Thread-0] U8b B changed by that Undo? before=4f581a19 after=4f581a19 changed=false
+  5532 [Run$_SciJava-4c7dcc85-Thread-0] U9 IJ.run(a,'Invert') with WindowManager.setTempCurrentImage(a) around Undo.undo() before=d96413cf after=d058e36a afterUndo=d96413cf  changed=true restored=true  [whatToUndo=1 undoImageID=-2; current=p86-A id=-2]
+  5876 [Run$_SciJava-4c7dcc85-Thread-0] hidden: current=p86-hidden
+  6032 [Run$_SciJava-4c7dcc85-Thread-0] U10 hidden-window image: IJ.run(h,'Invert','') ; Undo.undo()                   before=342e1989 after=3d12e92c afterUndo=342e1989  changed=true restored=true  [whatToUndo=1 undoImageID=-5; current=p86-hidden id=-5]
+  6187 [Run$_SciJava-4c7dcc85-Thread-0] U11 hidden-window image: Invert ; setTempCurrentImage(h) ; Undo.undo()         before=342e1989 after=3d12e92c afterUndo=342e1989  changed=true restored=true  [whatToUndo=1 undoImageID=-5; current=p86-hidden id=-5]
+  6194 [Run$_SciJava-4c7dcc85-Thread-0] batch: current=p86-batch window=null
+  6362 [Run$_SciJava-4c7dcc85-Thread-0] U12 batch-mode image (Interpreter.batchMode=true, shown): Invert ; Undo.undo() before=97e8dd0c after=9ed42da9 afterUndo=97e8dd0c  changed=true restored=true  [whatToUndo=1 undoImageID=-6; current=p86-batch id=-6]
+  6534 [Run$_SciJava-4c7dcc85-Thread-0] U13 batch-mode image: Gaussian ; Undo.undo()                                   before=97e8dd0c after=8313286e afterUndo=97e8dd0c  changed=true restored=true  [whatToUndo=1 undoImageID=-6; current=p86-batch id=-6]
+  6908 [Run$_SciJava-4c7dcc85-Thread-0] U14 never-shown image: IJ.run(u,'Invert','') ; Undo.undo()                     before=a8203e87 after=a11cce22 afterUndo=a11cce22  changed=true restored=false  [whatToUndo=1 undoImageID=-7; current=p86-batch id=-7]
+  6910 [Run$_SciJava-4c7dcc85-Thread-0] U14b foreground A modified by that Undo? before=d96413cf after=d96413cf changed=false
+  7065 [Run$_SciJava-4c7dcc85-Thread-0] U15 never-shown image: Invert ; setTempCurrentImage(u) ; Undo.undo()           before=a11cce22 after=a8203e87 afterUndo=a11cce22  changed=true restored=true  [whatToUndo=1 undoImageID=-7; current=p86-A id=-7]
+  7240 [Run$_SciJava-4c7dcc85-Thread-0] U16 IJ.runMacro('selectImage("p86-A"); run("Invert"); run("Undo");') (measured around whole macro) before=d96413cf after=d96413cf afterUndo=d96413cf  changed=false restored=true  [whatToUndo=0 undoImageID=0; current=p86-A id=-2]
+  7241 [Run$_SciJava-4c7dcc85-Thread-0] DONE -> halt
+
+##### driver log (P85-gui-driver.ps1, scratch run86a)
+﻿09:08:39.993 launched pid=26604 launchEpochMs=1792224519928 args=-Dimagej.updater.disableAutocheck=true -Dg8.out.dir=C:\Users\arnav\AppData\Local\Temp\claude\c--Users-arnav-Documents-dev-click-to-batch\0143a74a-54d3-45c4-9ab8-8ca264a2998b\scratchpad\G8\run86a --java-home=C:\Users\arnav\Documents\dev\Fiji\java\win64\zulu21.42.19-ca-jdk21.0.7-win_x64 --allow-multiple --run "C:\Users\arnav\Documents\dev\click-to-batch\docs\01-analysis\references\probes\P86-undo-gui.groovy"
+09:08:51.836 done.flag seen
+09:08:52.014 exited pid=26604 exitCode= elapsedMs=12084

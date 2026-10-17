@@ -1,0 +1,47 @@
+P16 - launcher behaviour for headless scripting (agent G1, 2026-10-17)
+Runtime: C:\Users\arnav\Documents\dev\Fiji (fiji-windows-x64.exe = Jaunch launcher, config/jaunch/fiji.toml)
+JDK: java\win64\zulu21.42.19-ca-jdk21.0.7-win_x64
+
+1. Supported options (config/jaunch/fiji.toml lines 16-35): --allow-multiple, --run <plugin> [<arg>],
+   --edit, --plugins=<dir>, --update, --main-class, --python; --headless comes from common.toml line 101
+   and adds -Djava.awt.headless=true (jvm.toml line 613). Main class org.scijava.launcher.ClassLauncher
+   -> net.imagej.Main (fiji.toml lines 310-320). '-batch' is deliberately NOT added for --headless
+   (fiji.toml lines 321-326, fiji/fiji#416).
+
+2. Groovy script, headless (VERIFIED):
+   cwd=C:\Users\arnav\Documents\dev\Fiji
+   fiji-windows-x64.exe --java-home=<abs JDK> --allow-multiple --headless --run <abs path>\hello.groovy "out='<abs path>/hello.out'"
+   hello.groovy:
+     #@ String out
+     import ij.*
+     def f = new File(out)
+     f.text = "headless=" + java.awt.GraphicsEnvironment.isHeadless() + "\nij=" + IJ.getFullVersion() + "\nmenus=" + (Menus.getCommands()==null ? "null" : Menus.getCommands().size()) + "\n"
+     println("HELLO-STDOUT")
+   hello.out:
+     headless=true
+     ij=1.54p99
+     menus=944
+   rc=0, about 11 s wall time. Script parameters are passed as one comma-separated "key='value'" argument.
+
+3. Console output (VERIFIED on this machine): stdout/stderr of the launcher were empty in every case,
+   whether redirected by Git-Bash (> file 2> file) or by Python subprocess (stdout=file, stderr=STDOUT):
+   the println above, and print()/IJ.log() in a -macro run, produced 0-byte files. Probes therefore
+   write their own result files; error text is captured in-JVM (System.setOut/setErr, P13/P15).
+
+4. -macro abort on unknown command (VERIFIED):
+   t2.ijm:
+     File.saveString("before", "<dir>/t2.before");
+     print("PRINT-LINE");
+     run("Nonexistent Command XYZ");
+     File.saveString("after", "<dir>/t2.after");
+   Result: t2.before written, t2.after NOT written (macro aborted at the unknown command), rc=0.
+
+5. JVM lifetime: a --run Groovy script that leaves ImageJ/AWT threads alive does not end the process
+   (first P13 run stayed alive after writing its output; killed by PID). P13/P15 therefore end with
+   System.exit(0). In -macro runs, Gaussian Blur... and Median... wrote their PASS result but the
+   process did not exit within 120 s (P14 'exit-hang'); other operations exited in about 4.5 s.
+
+6. IJ1 macro language constraints met while writing P14 (VERIFIED by P15 in-process error capture):
+   - top-level variables are not visible in functions unless declared with 'var' (first P14 attempt aborted);
+   - a comparison expression passed directly as a function argument fails with "')' expected"
+     (e.g. result(cks()!=c0, ...)); P14 hoists it into a variable.

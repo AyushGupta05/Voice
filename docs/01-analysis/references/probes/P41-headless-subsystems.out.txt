@@ -1,0 +1,69 @@
+A1 java.version = 21.0.7
+A2 java.awt.headless property = true
+A3 GraphicsEnvironment.isHeadless() = true
+A4 script thread name = SciJava-7332ce55-Thread-0
+A5 script thread is EDT = false
+B1 LegacyService.isActive() = true
+B2 LegacyService.isLegacyMode() = false
+B3 LegacyService.isSyncEnabled() = false
+B4 LegacyService.getVersion() = 1.54p
+B5 IJ.getInstance() = null
+B6 Interpreter.isBatchMode() = true
+B7 GenericDialog superclass = net.imagej.patcher.HeadlessGenericDialog
+C1 UIService.isHeadless() = true
+C2 default UI = org.scijava.ui.headless.HeadlessUI
+C3 available UIs = net.imagej.legacy.ui.LegacyUI, org.scijava.ui.swing.sdi.SwingSDIUI, org.scijava.ui.awt.AWTUI, org.scijava.ui.swing.mdi.SwingMdiUI, org.scijava.ui.headless.HeadlessUI
+C4 UIService.isVisible() = true
+D1 GenericDialog, Run$_ thread, no macro options = THREW java.lang.RuntimeException: Cannot instantiate headless dialog except in macro mode
+D2 GenericDialog with macro options 'sigma=3.5 mode=b flag' = canceled=false sigma=3.5 mode=b flag=true
+D3 NonBlockingGenericDialog with macro options = THREW java.lang.VerifyError: Bad type on operand stack
+Exception Details:
+  Location:
+    ij/gui/NonBlockingGenericDialog.dispose()V @5: invokestatic
+  Reason:
+    Type 'ij/gui/NonBlockingGenericDialog' (current frame, stack[0]) is not assignable to 'java/awt/Window'
+  Current Frame:
+    bci: @5
+    flags: { }
+    locals: { 'ij/gui/NonBlockingGenericDialog' }
+    stack: { 'ij/gui/NonBlockingGenericDialog' }
+  Bytecode:
+    0000000: 2ab7 001b 2ab8 001c 2ab4 000c c600 1e2a
+    0000010: b400 0cb6 000d 4c2b c600 122a b400 10c6
+    0000020: 000b 2b2a b400 10b6 001d b1            
+  Stackmap Table:
+    same_frame(@42)
+
+E1 ImagePlus.show() then getWindow() = null
+E2 WindowManager.getCurrentImage() title (script thread) = p41
+E3 WindowManager.getImageCount() = 1
+E4 WindowManager.getIDList() = [-2]
+E5 new ImageWindow(imp) = THREW java.awt.HeadlessException: null
+E6 IJ.run(imp, Gaussian Blur..., sigma=2): mean before/after = 126.0 -> 126.0
+E7 IJ.run(Invert) on current image (no imp argument) = 126.0 -> 129.0
+E8 IJ.setAutoThreshold + Convert to Mask = isBinary=true
+F1 Measure into system ResultsTable = rows=1 Mean[0]=129.0
+F2 ResultsTable.show("Results") = returned normally
+F3 new ResultsTable().show("Custom") = returned normally
+F4 IJ.getTextPanel() = null
+G1 new RoiManager(false) = THREW java.awt.HeadlessException: null
+G2 new RoiManager() = THREW java.awt.HeadlessException: null
+G3 RoiManager.getInstance() = null
+G4 IJ.runMacro using roiManager in batch mode = [aborted]
+G5 ij.gui.Overlay as headless ROI container = overlay size=2
+H1 Recorder.record = false
+H2 IJ.recording() = false
+H3 new Recorder(false) = THREW java.awt.HeadlessException: null
+H4 new ContrastAdjuster() = THREW java.awt.HeadlessException: null
+H5 new ThresholdAdjuster() = THREW java.awt.HeadlessException: null
+H6 Toolbar.getInstance() = null
+H7 IJ.setTool(oval) then IJ.getToolName() = THREW java.lang.NullPointerException: Cannot invoke "ij.gui.Toolbar.setTool(String)" because the return value of "ij.gui.Toolbar.getInstance()" is null
+I1 convert ImagePlus->Dataset = net.imagej.DefaultDataset dims=[64, 64]
+I2 pixel sharing ImagePlus->Dataset = imp(0,0)=77 -> dataset(0,0)=77.0
+I3 ImageDisplayService.getActiveImageDisplay() = m
+I4 LegacyImageMap size after I3 = 2
+I5 ops stats.mean on Dataset = 128.957275390625
+I6 script with '#@ Dataset' and '#@ ImagePlus' inputs (preprocessor injection) = m | m | SciJava-7332ce55-Thread-20
+I7 ThreadService.run(...) thread name = SciJava-7332ce55-Thread-21
+I8 ThreadService.invoke on EDT (headless) = true
+J1 wrap cost: 1024x1024x20 16-bit ImagePlus->Dataset, 3 runs (ms) = 131.1, 0.5, 0.1
