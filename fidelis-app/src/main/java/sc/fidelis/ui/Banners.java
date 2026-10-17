@@ -48,7 +48,7 @@ public final class Banners extends JPanel {
         if (e instanceof EngineEvent.DialogPending d) {
             pendingOperation = d.operationId();
             pendingTitle = d.windowTitle();
-            dialogText.setText("⚑  Waiting for input in a Fiji dialog: \"" + d.windowTitle() + "\" — answer it to continue.");
+            dialogText.setText("Waiting for input in a Fiji dialog: \"" + d.windowTitle() + "\" — answer it to continue.");
             Color bg = UIManager.getColor("Panel.background");
             dialogBanner.setBackground(bg != null ? tint(bg) : Color.YELLOW);
             dialogBanner.setVisible(true);

@@ -32,7 +32,7 @@ public final class StatusBar extends JPanel {
     private final JLabel undo = new JLabel(" ");
     private final JLabel engine = new JLabel("Engine: initialising");
     private final JProgressBar progress = new JProgressBar();
-    private final JButton windows = new JButton("Fiji windows: 0 ▾");
+    private final JButton windows = new JButton("Fiji windows: 0", UiIcons.of(UiIcons.Kind.DOWN_SMALL));
     private final RecordingIndicator recording = new RecordingIndicator();
     private final Timer noticeFade;
     private String activity = "";
@@ -49,6 +49,8 @@ public final class StatusBar extends JPanel {
         tool.setToolTipText("Current tool");
         tool.setPreferredSize(new Dimension(130, 18));
         undo.setToolTipText("Undo snapshot memory: used / budget");
+        windows.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        windows.setIconTextGap(5);
         windows.setFocusable(false);
         windows.setBorderPainted(false);
         windows.setContentAreaFilled(false);
@@ -152,7 +154,7 @@ public final class StatusBar extends JPanel {
     }
 
     public void setWindowCount(int n) {
-        windows.setText("Fiji windows: " + n + " ▾");
+        windows.setText("Fiji windows: " + n);
     }
 
     /** Persistent red dot plus elapsed seconds while recording (docs D14 C-11). */

@@ -79,9 +79,14 @@ public final class ParametersPanel extends JPanel {
         JLabel provenance = new JLabel();
         JLabel error = new JLabel(" ");
         boolean edited;
+        String provenanceBase = "";
 
         Field(ParameterSchema ps) {
             this.ps = ps;
+        }
+
+        void updateProvenance() {
+            provenance.setText("key: " + ps.key() + (provenanceBase.isEmpty() ? "" : "  ·  " + provenanceBase));
         }
     }
 
@@ -121,7 +126,7 @@ public final class ParametersPanel extends JPanel {
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.panelBorder()), BorderFactory.createEmptyBorder(0, 0, 4, 0)));
         formHost.add(head, BorderLayout.NORTH);
 
-        fieldsPanel.setLayout(new MigLayout("insets 8 10 8 10, fillx, wrap 3", "[right]8[grow,fill]8[]", "[]6[]"));
+        fieldsPanel.setLayout(new MigLayout("insets 8 10 8 10, fillx, wrap 3", "[right]8[grow,fill]8[]", "[]0[]"));
         globalsPanel.setLayout(new MigLayout("insets 0, fillx, wrap 1", "[grow,fill]"));
         JPanel center = new JPanel(new BorderLayout());
         center.add(fieldsPanel, BorderLayout.NORTH);
@@ -173,8 +178,8 @@ public final class ParametersPanel extends JPanel {
         message.setText(" ");
         message.setForeground(Theme.muted());
         for (ParameterSchema ps : schema.parameters()) addField(ps, prefill);
-        if (schema.parameters().isEmpty()) fieldsPanel.add(muted("This command has no options."), "span 3");
-        fieldsPanel.add(globalsHeader(), "span 3, gaptop 10");
+        if (schema.parameters().isEmpty()) fieldsPanel.add(muted("This command has no options."), "span 3, alignx left");
+        fieldsPanel.add(globalsHeader(), "span 3, gaptop 10, alignx left");
         rebuildGlobals();
         fieldsPanel.add(globalsPanel, "span 3, growx");
         updateTarget();
@@ -203,8 +208,12 @@ public final class ParametersPanel extends JPanel {
         fields.put(ps.key(), f);
         boolean planned = prefill != null && prefill.containsKey(ps.key());
         Object initial = planned ? prefill.get(ps.key()) : null;
-        String label = humanise(ps.key()) + (ps.consequential() ? " ◆" : "");
-        JLabel lab = new JLabel(label);
+        JLabel lab = new JLabel(humanise(ps.key()));
+        if (ps.consequential()) {
+            lab.setIcon(UiIcons.of(UiIcons.Kind.DIAMOND, Theme.accent()));
+            lab.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+            lab.setIconTextGap(5);
+        }
         lab.setToolTipText(ps.consequential() ? "Affects the scientific result" : null);
         if (ps.consequential()) lab.setForeground(Theme.accent());
         String unit = ps.unit() == null ? "" : ps.unit();
@@ -255,21 +264,19 @@ public final class ParametersPanel extends JPanel {
                 }
             }
         }
-        f.provenance.setText(planned ? "from plan" : (ps.defaultValue() == null || ps.defaultValue().isEmpty() ? "" : "Fiji default"));
+        f.provenanceBase = planned ? "from plan" : (ps.defaultValue() == null || ps.defaultValue().isEmpty() ? "" : "Fiji default");
         f.provenance.setForeground(Theme.muted());
-        f.provenance.setFont(f.provenance.getFont().deriveFont(11f));
+        f.provenance.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
+        f.updateProvenance();
         f.component.setToolTipText(ps.help() == null || ps.help().isBlank() ? ps.key() : ps.key() + ": " + ps.help());
         fieldsPanel.add(lab);
         fieldsPanel.add(f.component);
         fieldsPanel.add(unitLabel);
-        JLabel key = new JLabel("key: " + ps.key());
-        key.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-        key.setForeground(Theme.muted());
-        fieldsPanel.add(key, "skip 1, split 2");
-        fieldsPanel.add(f.provenance, "gapleft 8, wrap");
+        fieldsPanel.add(f.provenance, "skip 1, span 2, wrap, gaptop 0");
         f.error.setForeground(Theme.error());
         f.error.setFont(f.error.getFont().deriveFont(11f));
-        fieldsPanel.add(f.error, "skip 1, span 2, wrap");
+        fieldsPanel.add(f.error, "skip 1, span 2, wrap, hidemode 3");
+        f.error.setVisible(false);
     }
 
     private static String numberText(Object o) {
@@ -304,7 +311,8 @@ public final class ParametersPanel extends JPanel {
     private void touched(Field f) {
         if (!f.edited) {
             f.edited = true;
-            f.provenance.setText("edited");
+            f.provenanceBase = "edited";
+            f.updateProvenance();
         }
         updateMacro();
         updateRunState();
@@ -319,9 +327,10 @@ public final class ParametersPanel extends JPanel {
         for (Field f : fields.values()) {
             try {
                 out.put(f.ps.key(), f.value.get());
-                f.error.setText(" ");
+                f.error.setVisible(false);
             } catch (NumberFormatException e) {
                 f.error.setText(e.getMessage() != null && e.getMessage().startsWith("Choose") ? "Choose a value" : "Not a number");
+                f.error.setVisible(true);
                 ok = false;
             }
         }

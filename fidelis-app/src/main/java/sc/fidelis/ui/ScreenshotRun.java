@@ -78,6 +78,7 @@ final class ScreenshotRun {
                 w.frame().toFront();
             });
             Thread.sleep(1800);
+            SwingUtilities.invokeAndWait(() -> reportPopupRealisation(w));
             BufferedImage[] img = new BufferedImage[1];
             SwingUtilities.invokeAndWait(() -> img[0] = capture(w));
             Files.createDirectories(out.toAbsolutePath().getParent());
@@ -86,8 +87,12 @@ final class ScreenshotRun {
             try {
                 Path robotOut = Path.of(out.toString().replaceFirst("\\.png$", "") + "-robot.png");
                 BufferedImage shot = robotCapture(w);
-                ImageIO.write(shot, "png", robotOut.toFile());
-                System.out.println("[fidelis] robot capture written: " + robotOut.toAbsolutePath());
+                if (isBlack(shot)) {
+                    System.out.println("[fidelis] robot capture is all black (locked desktop or no interactive session); not written");
+                } else {
+                    ImageIO.write(shot, "png", robotOut.toFile());
+                    System.out.println("[fidelis] robot capture written: " + robotOut.toAbsolutePath());
+                }
             } catch (Exception | Error ex) {
                 System.out.println("[fidelis] robot capture unavailable: " + ex);
             }
@@ -114,6 +119,26 @@ final class ScreenshotRun {
         }
         g.dispose();
         return img;
+    }
+
+    /** Structural z-order check: popups over the heavyweight canvas must be separate native windows. */
+    private static void reportPopupRealisation(Workspace w) {
+        DocumentView v = w.documents().focusedView();
+        if (v == null) return;
+        javax.swing.JPopupMenu pm = new javax.swing.JPopupMenu();
+        pm.add(new javax.swing.JMenuItem("probe item"));
+        pm.show(v.canvas(), 30, 30);
+        java.awt.Window win = SwingUtilities.getWindowAncestor(pm);
+        System.out.println("[fidelis] popup over canvas realised as: " + (win == null ? "lightweight (inside the frame)" : win.getClass().getName())
+                + "; showing=" + pm.isShowing());
+        pm.setVisible(false);
+    }
+
+    private static boolean isBlack(BufferedImage img) {
+        for (int y = 0; y < img.getHeight(); y += 7)
+            for (int x = 0; x < img.getWidth(); x += 7)
+                if ((img.getRGB(x, y) & 0xffffff) != 0) return false;
+        return true;
     }
 
     static BufferedImage robotCapture(Workspace w) throws Exception {

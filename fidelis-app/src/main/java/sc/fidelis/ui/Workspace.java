@@ -50,6 +50,9 @@ public final class Workspace {
     public static void launch(ImageJ ij, String[] args) {
         Options o = Options.parse(args);
         Theme.install();
+        System.out.println("[fidelis] display scale (default transform) = "
+                + java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                        .getDefaultConfiguration().getDefaultTransform().getScaleX());
         Runnable quit = () -> new Thread(() -> Bootstrap.exit(ij, 0), "fidelis-quit").start();
         Engine engine = EngineProvider.get(quit);
         Workspace w = create(engine, quit, o.size());
@@ -275,6 +278,10 @@ public final class Workspace {
                     default -> {
                     }
                 }
+            }
+            if (shot != null && !shot.isAbsolute()) {
+                // the JVM runs in the Fiji directory, which must never receive output files
+                shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
             return new Options(shot, open, size);

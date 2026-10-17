@@ -134,6 +134,11 @@ public final class HistoryPanel extends JPanel {
         for (Map.Entry<String, Object> e : params.entrySet()) {
             if (sb.length() > 0) sb.append(", ");
             Object v = e.getValue();
+            if (v instanceof sc.fidelis.engine.api.RoiGeometry g) {
+                sb.append(e.getKey()).append('=').append(g.type().toLowerCase(java.util.Locale.ROOT));
+                if (g.bounds() != null) sb.append(java.util.Arrays.toString(g.bounds()).replace('[', '(').replace(']', ')'));
+                continue;
+            }
             String s = v instanceof Double d && d == Math.rint(d) && Math.abs(d) < 1e9 ? Long.toString(d.longValue()) : String.valueOf(v);
             sb.append(e.getKey()).append('=').append(s);
         }

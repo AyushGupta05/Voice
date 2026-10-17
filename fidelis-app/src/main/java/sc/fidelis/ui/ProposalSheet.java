@@ -161,7 +161,7 @@ final class ProposalSheet extends JPanel {
         for (Map.Entry<String, Object> e : r.params().entrySet()) {
             Optional<CommandSchema.ParameterSchema> ps = schema.flatMap(s -> s.parameter(e.getKey()));
             String unit = ps.map(CommandSchema.ParameterSchema::unit).filter(u -> u != null && !u.isBlank()).map(u -> " " + u).orElse("");
-            String mark = ps.map(CommandSchema.ParameterSchema::consequential).orElse(false) ? "  ◆" : "";
+            String mark = ps.map(CommandSchema.ParameterSchema::consequential).orElse(false) ? "   (affects the result)" : "";
             String src = prov.get(e.getKey());
             box.add(mono("    " + e.getKey() + " = " + e.getValue() + unit + (src != null ? "   [" + src + "]" : "") + mark));
         }

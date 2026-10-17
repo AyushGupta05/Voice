@@ -44,14 +44,14 @@ final class Docks {
         bottom.addTab("Log", log);
         bottom.addTab("Activity", activity);
 
-        right.putClientProperty(FlatClientProperties.TABBED_PANE_TRAILING_COMPONENT, collapseButton("▸", "Collapse the right dock", () -> setRightVisible(false)));
-        bottom.putClientProperty(FlatClientProperties.TABBED_PANE_TRAILING_COMPONENT, collapseButton("▾", "Collapse the bottom dock", () -> setBottomCollapsed(true)));
+        right.putClientProperty(FlatClientProperties.TABBED_PANE_TRAILING_COMPONENT, collapseButton(UiIcons.Kind.RIGHT, "Collapse the right dock", () -> setRightVisible(false)));
+        bottom.putClientProperty(FlatClientProperties.TABBED_PANE_TRAILING_COMPONENT, collapseButton(UiIcons.Kind.DOWN, "Collapse the bottom dock", () -> setBottomCollapsed(true)));
         bottom.addChangeListener(e -> {
             if (bottomCollapsed && bottom.getSelectedIndex() >= 0) setBottomCollapsed(false);
             else if (bottom.getSelectedIndex() >= 0) lastBottomTab = bottom.getSelectedIndex();
         });
 
-        JButton restore = new JButton("◂");
+        JButton restore = new JButton(UiIcons.of(UiIcons.Kind.LEFT));
         restore.setToolTipText("Show the right dock");
         restore.setMargin(new Insets(2, 2, 2, 2));
         restore.setFocusable(false);
@@ -76,8 +76,8 @@ final class Docks {
         return vertical;
     }
 
-    private static JComponent collapseButton(String glyph, String tip, Runnable r) {
-        JButton b = new JButton(glyph);
+    private static JComponent collapseButton(UiIcons.Kind glyph, String tip, Runnable r) {
+        JButton b = new JButton(UiIcons.of(glyph));
         b.setToolTipText(tip);
         b.setFocusable(false);
         b.setMargin(new Insets(0, 6, 0, 6));
