@@ -256,8 +256,31 @@ public final class DefaultEngine implements Engine {
         op.cancelRequested = true;
         if (running == op) {
             if (op.request.kind() == ActionKind.CODE) {
-                op.abortIssued = true;
-                Interpreter.abort();
+                // Abort the interpreter this operation runs (never the static Interpreter.instance, which may be
+                // another macro's or still unset while ours is tokenising). abortMacro waits up to 2 s for the
+                // macro thread to stop, so it runs off the caller's thread (the UI cancels from the EDT).
+                boolean started;
+                synchronized (op) {
+                    started = op.interpreterStarted;
+                    op.abortIssued = true;
+                }
+                Interpreter i = interpreter;
+                if (started && i != null) {
+                    Thread t = new Thread(() -> {
+                        // Interpreter.run(Program) clears the abort flag once it has tokenised the text: an abort
+                        // issued in that window is lost, so repeat until the runner reports the macro finished.
+                        for (int k = 0; k < 50 && !op.interpreterFinished; k++) {
+                            i.abortMacro();
+                            try {
+                                Thread.sleep(20);
+                            } catch (InterruptedException e) {
+                                return;
+                            }
+                        }
+                    }, "fidelis-abort-" + op.id);
+                    t.setDaemon(true);
+                    t.start();
+                }
             } else {
                 op.abortIssued = true;
                 CommandRunner.requestEscape();

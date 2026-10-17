@@ -125,14 +125,23 @@ final class CodeRunner {
         eng.setInterpreter(interp);
         String ret = null;
         Throwable thrown = null;
+        boolean cancelledBeforeStart;
+        synchronized (op) {
+            // Interpreter.run resets the interpreter's abort flag when it starts, so a cancel that arrived before
+            // this point would be lost: honour it here, and let cancel() abort only an interpreter that has started.
+            cancelledBeforeStart = op.cancelRequested;
+            if (cancelledBeforeStart) op.abortIssued = true;
+            else op.interpreterStarted = true;
+        }
         try {
-            ret = interp.run(text, null);
+            ret = cancelledBeforeStart ? "[aborted]" : interp.run(text, null);
         } catch (Throwable e) {
             thrown = e;
             interp.abortMacro();
             ImagePlus cur = ij.WindowManager.getCurrentImage();
             if (cur != null) cur.unlock();
         } finally {
+            op.interpreterFinished = true;
             eng.setInterpreter(null);
             eng.setRunning(null);
             eng.setGuard(null);
