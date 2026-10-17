@@ -35,6 +35,8 @@ public final class Workspace {
     private final CommandBar commandBar;
     private final DocumentArea documents;
     private final ParametersPanel parameters;
+    private final ThresholdPanel threshold;
+    private final DisplayPanel display;
     private final RoiPanel rois;
     private final ResultsPanel results;
     private final HistoryPanel history;
@@ -108,6 +110,8 @@ public final class Workspace {
         ctx.setDocuments(documents);
         parameters = new ParametersPanel(ctx);
         ctx.setParameters(parameters);
+        threshold = new ThresholdPanel(ctx);
+        display = new DisplayPanel(ctx);
         rois = new RoiPanel(ctx);
         results = new ResultsPanel(ctx);
         history = new HistoryPanel(ctx);
@@ -128,7 +132,7 @@ public final class Workspace {
         frame.getContentPane().setLayout(new BorderLayout());
         frame.getContentPane().add(north, BorderLayout.NORTH);
         frame.getContentPane().add(tools, BorderLayout.WEST);
-        frame.getContentPane().add(docks.build(documents, parameters, rois, results, history, log, activity), BorderLayout.CENTER);
+        frame.getContentPane().add(docks.build(documents, parameters, display, threshold, rois, results, history, log, activity), BorderLayout.CENTER);
         frame.getContentPane().add(status, BorderLayout.SOUTH);
 
         Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
@@ -166,6 +170,8 @@ public final class Workspace {
         banners.handle(e);
         documents.handle(e);
         parameters.handle(e);
+        threshold.handle(e);
+        display.handle(e);
         rois.handle(e);
         results.handle(e);
         history.handle(e);
@@ -252,6 +258,14 @@ public final class Workspace {
         return history;
     }
 
+    ThresholdPanel threshold() {
+        return threshold;
+    }
+
+    DisplayPanel display() {
+        return display;
+    }
+
     RoiPanel rois() {
         return rois;
     }
@@ -281,13 +295,14 @@ public final class Workspace {
     }
 
     /** Command-line options of the workspace (handled in {@link #launch}). */
-    record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search) {
+    record Options(Path screenshot, java.util.List<String> open, Dimension size, String instruction, String search, String scenario) {
         static Options parse(String[] args) {
             Path shot = null;
             java.util.List<String> open = new java.util.ArrayList<>();
             Dimension size = null;
             String instruction = null;
             String search = null;
+            String scenario = null;
             for (int i = 0; i < args.length; i++) {
                 switch (args[i]) {
                     case "--screenshot" -> {
@@ -298,6 +313,9 @@ public final class Workspace {
                     }
                     case "--instruction" -> {
                         if (i + 1 < args.length) instruction = args[++i];
+                    }
+                    case "--scenario" -> {
+                        if (i + 1 < args.length) scenario = args[++i];
                     }
                     case "--search" -> {
                         if (i + 1 < args.length) search = args[++i];
@@ -317,7 +335,7 @@ public final class Workspace {
                 shot = Path.of(System.getProperty("fidelis.repo.dir", System.getProperty("java.io.tmpdir"))).resolve(shot);
             }
             if (shot != null && size == null) size = new Dimension(1500, 940);
-            return new Options(shot, open, size, instruction, search);
+            return new Options(shot, open, size, instruction, search, scenario);
         }
     }
 }

@@ -35,9 +35,16 @@ final class Docks {
     private int lastBottomTab = 0;
     private int lastRightWidth = RIGHT_WIDTH;
 
-    JComponent build(JComponent documents, JComponent parameters, JComponent roi, JComponent results,
-                     JComponent history, JComponent log, JComponent activity) {
+    private JComponent thresholdTab;
+    private JComponent displayTab;
+
+    JComponent build(JComponent documents, JComponent parameters, JComponent display, JComponent threshold,
+                     JComponent roi, JComponent results, JComponent history, JComponent log, JComponent activity) {
+        displayTab = display;
+        thresholdTab = threshold;
         right.addTab("Parameters", parameters);
+        right.addTab("B&C", display);
+        right.addTab("Threshold", threshold);
         right.addTab("ROI list", roi);
         right.addTab("Results", results);
         bottom.addTab("History & macro", history);
@@ -157,12 +164,20 @@ final class Docks {
         showRight(0);
     }
 
+    void showDisplay() {
+        showRight(right.indexOfComponent(displayTab));
+    }
+
+    void showThreshold() {
+        showRight(right.indexOfComponent(thresholdTab));
+    }
+
     void showRoi() {
-        showRight(1);
+        showRight(3);
     }
 
     void showResults() {
-        showRight(2);
+        showRight(4);
     }
 
     void showHistory() {

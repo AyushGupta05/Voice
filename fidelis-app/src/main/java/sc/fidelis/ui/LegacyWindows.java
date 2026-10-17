@@ -36,6 +36,13 @@ public final class LegacyWindows {
     private final UiContext ctx;
     private final Map<Window, Entry> awt = new LinkedHashMap<>();
     private final Map<String, Entry> fromEngine = new LinkedHashMap<>();
+    private final java.util.Set<Window> ignored = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+
+    /** Windows the workspace itself created and hides (for example the comparison snapshot window). */
+    void ignore(Window w) {
+        ignored.add(w);
+        awt.remove(w);
+    }
 
     LegacyWindows(UiContext ctx) {
         this.ctx = ctx;
@@ -58,7 +65,7 @@ public final class LegacyWindows {
 
     private boolean isCandidate(Window w) {
         if (!(w instanceof Frame) && !(w instanceof Dialog)) return false;
-        if (w == ctx.frame) return false;
+        if (w == ctx.frame || ignored.contains(w)) return false;
         for (Window o = w.getOwner(); o != null; o = o.getOwner()) if (o == ctx.frame) return false;
         for (var info : ctx.engine.documents()) {
             DocumentId id = info.id();

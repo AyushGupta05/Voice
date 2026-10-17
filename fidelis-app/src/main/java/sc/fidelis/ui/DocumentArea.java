@@ -221,6 +221,67 @@ public final class DocumentArea extends JPanel {
         }
     }
 
+    // ---- comparison snapshots (FR-VIEW-007) -------------------------------------------------------
+
+    /** Largest image the UI keeps a before-copy of. */
+    static final long MAX_SNAPSHOT_BYTES = 64L * 1024 * 1024;
+
+    /** A real pixel copy taken before an action (imp null when no copy was taken). */
+    record Snapshot(DocumentId doc, ImagePlus imp, String label) {}
+
+    private final Map<DocumentId, Integer> inFlight = new java.util.HashMap<>();
+
+    /**
+     * Take the before-copy for a COMMAND of consequence AC3 or higher, on the submitting side and before the
+     * request is queued, so the engine cannot have changed pixels yet. A copy is taken only when no other
+     * command on that document is still in flight (otherwise the pixel state is not well defined).
+     */
+    Snapshot beforeAction(sc.fidelis.engine.api.ActionRequest req, String label) {
+        if (req.kind() != sc.fidelis.engine.api.Enums.ActionKind.COMMAND) return null;
+        Snapshot[] out = new Snapshot[1];
+        if (SwingUtilities.isEventDispatchThread()) out[0] = take(req, label);
+        else {
+            try {
+                SwingUtilities.invokeAndWait(() -> out[0] = take(req, label));
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return out[0];
+    }
+
+    private Snapshot take(sc.fidelis.engine.api.ActionRequest req, String label) {
+        DocumentId id = req.target() != null ? req.target().document() : ctx.engine.focused().orElse(null);
+        if (id == null) return null;
+        boolean first = inFlight.merge(id, 1, Integer::sum) == 1;
+        ImagePlus imp = ctx.engine.imagePlus(id);
+        boolean significant = ctx.engine.schema(req.commandId())
+                .map(s -> s.consequence().ordinal() >= sc.fidelis.engine.api.Enums.ConsequenceClass.AC3_REVERSIBLE_DATA.ordinal())
+                .orElse(false);
+        if (imp == null || !first || !significant || views.get(id) == null) return new Snapshot(id, null, label);
+        long bytes = (long) imp.getWidth() * imp.getHeight() * Math.max(1, imp.getStackSize())
+                * (imp.getBitDepth() == 24 ? 4 : Math.max(1, imp.getBitDepth() / 8));
+        if (bytes > MAX_SNAPSHOT_BYTES || imp.getStack().isVirtual()) return new Snapshot(id, null, label);
+        ImagePlus dup = imp.duplicate();
+        if (dup == null) return new Snapshot(id, null, label);
+        if (!imp.isComposite() && imp.getBitDepth() != 24) dup.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
+        dup.setTitle("[before] " + imp.getTitle());
+        return new Snapshot(id, dup, label);
+    }
+
+    /** Keep the before-copy only when the action completed and changed this document's pixels. */
+    void afterAction(Snapshot s, sc.fidelis.engine.api.ActionResult r) {
+        if (s == null) return;
+        inFlight.merge(s.doc(), -1, Integer::sum);
+        if (inFlight.getOrDefault(s.doc(), 0) <= 0) inFlight.remove(s.doc());
+        if (s.imp() == null) return;
+        boolean changed = r != null && r.state() == sc.fidelis.engine.api.Enums.OperationState.COMPLETED && r.digest() != null
+                && r.digest().changed().stream().anyMatch(c -> c.id().equals(s.doc()) && c.pixelsChanged());
+        DocumentView v = views.get(s.doc());
+        if (changed && v != null) v.setBefore(s.imp(), s.label());
+        else s.imp().flush();
+    }
+
     public DocumentView view(DocumentId id) {
         return views.get(id);
     }

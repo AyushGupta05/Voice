@@ -111,8 +111,10 @@ public final class UiContext {
     /** Submit a request and report its outcome in the status bar (never blocks the EDT). */
     public CompletableFuture<ActionResult> submit(ActionRequest req, String label) {
         labels.put(req.requestId(), label);
+        DocumentArea.Snapshot snap = documents == null ? null : documents.beforeAction(req, label);
         CompletableFuture<ActionResult> f = engine.submit(req);
         f.whenComplete((r, t) -> Theme.onEdt(() -> {
+            if (documents != null) documents.afterAction(snap, t == null ? r : null);
             if (t != null) {
                 notice(label + " failed: " + t, true);
                 return;
@@ -149,6 +151,11 @@ public final class UiContext {
      * surfaces the original Fiji dialog (DialogPending banner).
      */
     public void runCommand(String commandId, Origin origin) {
+        runCommand(commandId, origin, null);
+    }
+
+    /** As {@link #runCommand(String, Origin)}, with form values pre-filled (for example from a panel). */
+    public void runCommand(String commandId, Origin origin, Map<String, Object> prefill) {
         if (engine.state() != EngineState.READY) {
             notice("The engine is still starting (" + engine.state() + ")", false);
             return;
@@ -156,7 +163,7 @@ public final class UiContext {
         if (Routes.handle(this, commandId)) return;
         Optional<CommandSchema> schema = engine.schema(commandId);
         if (schema.isPresent() && schema.get().schemaComplete() && !schema.get().parameters().isEmpty()) {
-            parameters.show(schema.get(), null, origin);
+            parameters.show(schema.get(), prefill, origin);
             return;
         }
         String label = schema.map(CommandSchema::label).orElse(commandId.substring(commandId.lastIndexOf('>') + 1));
