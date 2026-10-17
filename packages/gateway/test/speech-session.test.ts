@@ -43,6 +43,6 @@ test('a queued final reply plays after its acknowledgment even when its synthesi
  assert.equal(events.filter(e=>e.type==='audio').length,2);session.stop();
 });
 test('room chatter and one-word fragments are ignored while real requests and short commands pass',()=>{
- for(const chatter of ['OK.','Bye.','Really.','You might be.','no way','hello'])assert.equal(isAddressedToLuma(chatter),false,chatter);
- for(const request of ['Zoom in a little.','Show me the positive cells','undo that','Stop','zoom out','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
+ for(const chatter of ['OK.','Bye.','Really.','hello','Yeah','Hmm.'])assert.equal(isAddressedToLuma(chatter),false,chatter);
+ for(const request of ['Zoom in a little.','Show me the positive cells','Focus here','undo that','Stop','zoom out','Hey Luma, what is this?','No','yes','save it','Add a tumour region on the right'])assert.equal(isAddressedToLuma(request),true,request);
 });

@@ -29,7 +29,8 @@ export function isAddressedToLuma(text:string){
  const clean=text.toLowerCase().replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
  if(!clean)return false;
  if(SHORT_COMMANDS.test(clean))return true;
- return wordCount(clean)>=3;
+ // Single stray words ("OK.", "Bye.", "Really.") are chatter; two or more words are treated as a request.
+ return wordCount(clean)>=2;
 }
 export class SpeechSession{
  readonly id=randomUUID();private controller=new AbortController();private input=new AudioQueue();
