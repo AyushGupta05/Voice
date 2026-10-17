@@ -209,3 +209,9 @@ test('raw images rank above same-named ground-truth masks; tumour fraction is in
   assert.match((await findLocalImages(root, 'bbbc channel1 mask', 5, [root], false)).matches[0]?.path ?? 'foreground', /foreground/);
   assert.equal(fiji.fastRoute!('How much of the tissue is tumour?', { image: { slices: 1 }, counts: { roiManager: 3 } })?.tool, 'fiji_tumor_region');
 });
+
+test('spoken dataset numbers and channels normalise like file names', async () => {
+  const { queryWords } = await import('../src/local-images.js');
+  assert.deepEqual(queryWords('the BBBCOO8 channel one image'), ['bbbc008', 'channel1']);
+  assert.deepEqual(queryWords('bbbc zero zero eight slice two'), ['bbbc008', 'slice2']);
+});

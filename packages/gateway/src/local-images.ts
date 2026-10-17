@@ -16,15 +16,27 @@ function extension(name: string) {
   return extname(lower);
 }
 /** Words that describe what the researcher wants rather than name it ("the mitosis movie" is mitosis.tif). */
-const FILLER = /^(?:the|a|an|my|this|that|one|movie|video|image|images|picture|pictures|photo|file|files|stack|sample|series|folder|directory|dataset)$/;
+const FILLER = /^(?:open|show|load|find|get|bring|up|please|the|a|an|my|this|that|one|movie|video|image|images|picture|pictures|photo|file|files|stack|sample|series|folder|directory|dataset)$/;
 /** Spoken names for what file names abbreviate: a query word matches when the name contains any of these. */
 const ALIASES: Array<[RegExp, RegExp]> = [
   [/^(?:h&e|he|hne)$/, /histopath|h&e|hne|eosin|idc|(?:^|[^a-z])he(?:[^a-z]|$)/],
   [/^(?:nuclei|nucleus|nuclear)$/, /nucle|bbbc|dapi|hoechst/],
 ];
 /** Query words with spoken "h and e" joined and filler dropped; every word is kept when all of them are filler. */
+/** 1 for ground-truth masks/labels (often named exactly like the raw image) unless the query asks for them, else 0. */
+function derivedRank(query: string) {
+  const wantsMask = /\b(mask|masks|foreground|label|labels|ground ?truth|annotation|segmentation)\b/i.test(query);
+  return (path: string) => !wantsMask && /\/(foreground|masks?|labels?|ground[_ -]?truth|gt|annotations?|segmentations?)\//i.test(path) ? 1 : 0;
+}
 export function queryWords(query: string) {
-  const words = query.toLowerCase().replace(/\bh\s*(?:&|and|n)\s*e\b/g, 'h&e').split(/[\s,]+/).filter(Boolean);
+  const digits: Record<string, string> = { zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9' };
+  const spoken = query.toLowerCase().replace(/\bh\s*(?:&|and|n)\s*e\b/g, 'h&e')
+    // "BBBC zero zero eight" → "bbbc008"; Transcribe also writes 008 as "OO8".
+    .replace(/\b([a-z]+)((?:\s+(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)){2,})\b/g, (_, word: string, run: string) => word + run.trim().split(/\s+/).map(d => digits[d]).join(''))
+    // "channel one" / "slice 2" → channel1 / slice2, as microscopy file names write them.
+    .replace(/\b(channel|slice|series|field|well|ch|w|c|s)\s+(zero|one|two|three|four|five|six|seven|eight|nine|\d+)\b/g, (_, word: string, d: string) => word + (digits[d] ?? d))
+    .replace(/\b([a-z]{2,}?)(o+)(\d+)\b/g, (_, word: string, os: string, rest: string) => word + '0'.repeat(os.length) + rest);
+  const words = spoken.split(/[\s,]+/).filter(Boolean);
   const kept = words.filter(word => !FILLER.test(word));
   return kept.length ? kept : words;
 }
@@ -67,6 +79,7 @@ export function searchRoots(root: string, home = homedir()) {
   return [join(root, '.local', 'data'), join(home, 'Desktop'), join(home, 'Downloads'), join(home, 'Documents')];
 }
 export async function findLocalImages(root: string, query = '', limit = 20, roots = searchRoots(root), useSpotlight = true): Promise<{ matches: LocalImage[]; searched: string[]; truncated: boolean }> {
+  const pool = Math.max(limit, 500);
   const matches: LocalImage[] = [];
   const seen = new Set<string>();
   let truncated = false;
@@ -80,7 +93,7 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
         // A named folder ("run it on the bbbc folder") is a match of its own when it directly holds images.
         if (query.trim() && !seen.has(path) && imageNameMatches(folderWords(path), query)) {
           const images = await directImageCount(path);
-          if (images > 0) { if (matches.length >= limit) { truncated = true; return; } seen.add(path); matches.push({ path, name: entry.name, sizeBytes: 0, kind: 'folder', images }); }
+          if (images > 0) { if (matches.length >= pool) { truncated = true; return; } seen.add(path); matches.push({ path, name: entry.name, sizeBytes: 0, kind: 'folder', images }); }
         }
         if (depth < 3) await visit(path, depth + 1); continue;
       }
@@ -88,7 +101,7 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
       const ext = extension(entry.name);
       // The folder names count too: "the BBBC nuclei image" lives in …/bbbc008/images/.
       if (!IMAGE_EXTENSIONS.has(ext) || !imageNameMatches(`${folderWords(directory)} ${entry.name}`, query) || seen.has(path)) continue;
-      if (matches.length >= limit) { truncated = true; return; }
+      if (matches.length >= pool) { truncated = true; return; }
       let size = 0;
       try { size = (await stat(path)).size; } catch { continue; }
       seen.add(path);
@@ -113,13 +126,14 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
       }
     }
     for (const directory of roots) await fuzzy(directory, 0);
-    scored.sort((a, b) => a.score - b.score || b.sizeBytes - a.sizeBytes);
+    const derivedFuzzy = derivedRank(query);
+    scored.sort((a, b) => derivedFuzzy(a.path) - derivedFuzzy(b.path) || a.score - b.score || b.sizeBytes - a.sizeBytes);
     for (const { score: _score, ...match } of scored.slice(0, limit)) matches.push(match);
     if (matches.length) return { matches, searched: roots, truncated: scored.length > limit };
   }
   // Spotlight covers the rest of the home folder (any depth) for slides the researcher saved elsewhere.
   for (const path of useSpotlight ? await spotlightImages(query) : []) {
-    if (seen.has(path) || matches.length >= limit) { if (!seen.has(path)) truncated = true; continue; }
+    if (seen.has(path) || matches.length >= pool) { if (!seen.has(path)) truncated = true; continue; }
     let size = 0;
     try { size = (await stat(path)).size; } catch { continue; }
     seen.add(path);
@@ -128,9 +142,10 @@ export async function findLocalImages(root: string, query = '', limit = 20, root
   // Images largest first, then folders with the most images.
   // Ground-truth masks and label images often share the raw image's file name (BBBC008 images/ vs foreground/): the raw image
   // comes first unless the researcher asked for the mask.
-  const wantsMask = /\b(mask|masks|foreground|label|labels|ground ?truth|annotation|segmentation)\b/i.test(query);
-  const derived = (path: string) => !wantsMask && /\/(foreground|masks?|labels?|ground[_ -]?truth|gt|annotations?|segmentations?)\//i.test(path) ? 1 : 0;
+  const derived = derivedRank(query);
   matches.sort((a, b) => Number(a.kind === 'folder') - Number(b.kind === 'folder') || derived(a.path) - derived(b.path) || b.sizeBytes - a.sizeBytes || (b.images ?? 0) - (a.images ?? 0));
+  // Ranked over the whole pool, then cut: walk order (foreground/ before images/) must not decide what comes first.
+  if (matches.length > limit) { matches.length = limit; truncated = true; }
   return { matches, searched: useSpotlight ? [...roots, 'Spotlight: home folder'] : roots, truncated };
 }
 /** macOS Spotlight query for slide/project files by extension; silent on any failure (non-macOS, indexing off, timeout). */
