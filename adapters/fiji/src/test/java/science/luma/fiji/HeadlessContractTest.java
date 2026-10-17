@@ -61,7 +61,7 @@ public final class HeadlessContractTest {
         expect(context.getAsJsonObject("image").get("title").getAsString().equals("synthetic-blobs.tif"), "context sees the synthetic image");
         expect(context.getAsJsonObject("image").get("bitDepth").getAsInt() == 8, "8-bit image");
         expect(context.get("viewer").isJsonNull(), "no window means no viewer geometry");
-        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 41, "adapter declares 41 operations");
+        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 51, "adapter declares 51 operations");
 
         var status = call("status", new JsonObject(), false, null);
         expect(status.has("status") && !status.get("analysisRunning").getAsBoolean(), "status reports the status bar text: " + status);

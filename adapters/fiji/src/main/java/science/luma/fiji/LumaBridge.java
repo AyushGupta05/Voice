@@ -27,17 +27,17 @@ public final class LumaBridge implements PlugIn {
     private static final Gson JSON = new GsonBuilder().serializeNulls().serializeSpecialFloatingPointValues().disableHtmlEscaping().create();
     private static final int MAX_BODY = 1024 * 1024;
     private static final long UI_TIMEOUT_SECONDS = 120, COMMAND_TIMEOUT_MS = 20_000;
-    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins", "status");
+    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins", "status", "colocalize", "object_stats", "workflows");
     /** Status-bar wording while a data/code operation runs, so the action is visible in Fiji itself. */
     static final Map<String, String> STATUS = Map.ofEntries(Map.entry("segment_cells", "segmenting cells"), Map.entry("measure", "measuring"), Map.entry("threshold", "thresholding"),
         Map.entry("analyze_particles", "counting particles"), Map.entry("filter", "applying the filter"), Map.entry("convert", "converting"), Map.entry("open_path", "opening"),
         Map.entry("run_command", "running the command"), Map.entry("run_macro", "running a macro"), Map.entry("run_script", "running a script"), Map.entry("restore", "going back"), Map.entry("undo", "going back"),
         Map.entry("save_workflow", "saving the macro"), Map.entry("save_image", "saving the image"), Map.entry("export_results", "exporting results"), Map.entry("duplicate", "duplicating"), Map.entry("close", "closing"));
     static final Set<String> VIEW = Set.of("activate_image", "select_roi", "zoom", "highlight", "overlay", "display", "stack");
-    static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo");
-    static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results");
+    static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo", "track_objects", "intensity_over_time", "tumor_region", "classify_intensity");
+    static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results", "make_macro", "run_workflow", "capture_macro");
     /** Data/code operations that change an image's pixels, ROIs, overlay, manager or results and therefore get a checkpoint first. */
-    static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script");
+    static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script", "track_objects", "tumor_region", "classify_intensity");
     private static final Object LOCK = new Object();
     private static LumaBridge current;
 
@@ -51,6 +51,9 @@ public final class LumaBridge implements PlugIn {
     final Operations ops = new Operations(journal);
     final AtomicBoolean analysisRunning = new AtomicBoolean();
     final Scripting scripting = new Scripting(journal, ui, analysisRunning);
+    final Tracking tracking = new Tracking(ops, journal);
+    final Analysis analysis = new Analysis(ops, journal);
+    final Macros macros = new Macros(scripting, journal, analysisRunning);
     private volatile Map<String, Object> lastDispatch = Map.of();
     private String lastUndoCheckpoint;
 
@@ -177,6 +180,9 @@ public final class LumaBridge implements PlugIn {
                 }
                 case "run_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before macro")); yield withMeta(scripting.runMacro(args, imp, COMMAND_TIMEOUT_MS), backup); }
                 case "run_script" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before script")); yield withMeta(scripting.runScript(args, imp, COMMAND_TIMEOUT_MS), backup); }
+                case "make_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", true) ? edt(() -> checkpointIfPossible("Before make macro")) : null; yield withMeta(macros.makeMacro(args, imp), backup); }
+                case "run_workflow" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = "folder".equals(Operations.string(args, "target", "active")) ? null : edt(() -> checkpointIfPossible("Before workflow")); yield withMeta(macros.runWorkflow(args, imp), backup); }
+                case "capture_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", false) ? edt(() -> checkpointIfPossible("Before capture macro")) : null; yield withMeta(macros.macroFromRecorder(args, imp), backup); }
                 default -> edt(() -> { check(expected); return execute(operation, args, request); });
             };
         } finally {
@@ -255,6 +261,13 @@ public final class LumaBridge implements PlugIn {
             case "snapshot" -> ops.snapshot();
             case "log" -> Operations.log(args);
             case "undo" -> undo();
+            case "track_objects" -> tracking.trackObjects(args);
+            case "intensity_over_time" -> tracking.intensityOverTime(args);
+            case "tumor_region" -> analysis.tumorRegion(args);
+            case "colocalize" -> analysis.colocalize(args);
+            case "classify_intensity" -> analysis.classifyIntensity(args);
+            case "object_stats" -> analysis.regionStats(args);
+            case "workflows" -> macros.workflows(args);
             default -> throw new IllegalArgumentException("Unknown operation: " + operation);
         };
         var out = new LinkedHashMap<>(result);

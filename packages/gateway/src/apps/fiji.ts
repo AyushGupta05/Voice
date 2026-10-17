@@ -90,6 +90,7 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 /** An area spoken with the unit the bridge reported; µm² of a millimetre or more is said in mm² (exact factor 10⁶). */
 function spokenArea(area: number, unit: string | undefined): string {
   if (!unit) return round(area);
+  if (/^pixels?$/i.test(unit)) return `${round(area)} square pixels`;
   if (/^(?:µm|um|μm|micron)$/i.test(unit) && area >= 1e6) return `${round(area / 1e6)} mm²`;
   return `${round(area)} ${unit}²`;
 }
@@ -103,10 +104,11 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
   if (name === 'fiji_track_objects') {
     const tracks = finite(inner.tracks), frames = finite(inner.frames), speed = finite(inner.meanSpeed);
     if (tracks === undefined || frames === undefined) return undefined;
-    // meanSpeed is per timeUnit when the image has a frame interval, per frame otherwise (docs/FIJI-PROTOCOL.md).
-    const per = finite(inner.frameInterval) !== undefined && text(inner.timeUnit) ? text(inner.timeUnit) : 'frame';
+    // The bridge reports speedUnit as "<unit>/<timeUnit>": per second etc. with a frame interval, per frame (or slice) without.
+    const [distance, per = 'frame'] = text(inner.speedUnit)?.split('/').map(part => part.trim()) ?? [unit, finite(inner.frameInterval) !== undefined ? text(inner.timeUnit) : undefined];
+    const length = distance && !/^pixels?$/i.test(distance) ? ` ${distance}` : distance ? ' pixels' : '';
     const divisions = finite(inner.divisions);
-    return `Tracked ${plural(tracks, 'object')} over ${frames} frames${speed !== undefined ? `, mean speed ${round(speed)}${unit ? ` ${unit}` : ''} per ${per}` : ''}${divisions ? `, ${plural(divisions, 'division')}` : ''}.`;
+    return `Tracked ${plural(tracks, 'object')} over ${frames} frames${speed !== undefined ? `, mean speed ${round(speed)}${length} per ${per || 'frame'}` : ''}${divisions ? `, ${plural(divisions, 'division')}` : ''}.`;
   }
   if (name === 'fiji_intensity_over_time') {
     const frames = finite(inner.frames), series = Array.isArray(inner.series) ? inner.series as Array<Record<string, unknown>> : [];
@@ -124,7 +126,9 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
     const fraction = finite(inner.areaFraction), area = finite(inner.area), regions = finite(inner.regions);
     if (fraction === undefined || fraction < 0 || fraction > 1) return undefined;
     const where = regions !== undefined && regions > 1 ? `${regions} regions cover` : 'Tumour covers';
-    return `${where} ${percent(fraction * 100)} of the section${area !== undefined ? `, ${spokenArea(area, unit)}` : ''}.`;
+    // areaFractionOf names the basis: the drawn selection, a ROI named "Tissue", or the whole image (glass included).
+    const basis = inner.areaFractionOf === 'tissue' ? 'section' : inner.areaFractionOf === 'selection' ? 'selected region' : 'image';
+    return `${where} ${percent(fraction * 100)} of the ${basis}${area !== undefined ? `, ${spokenArea(area, unit)}` : ''}.`;
   }
   if (name === 'fiji_colocalize') {
     const r = finite(inner.pearson); if (r === undefined) return undefined;
@@ -157,13 +161,14 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
   if (name === 'fiji_workflows') {
     const list = Array.isArray(inner.workflows) ? inner.workflows as Array<{ name?: unknown }> : undefined;
     if (!list) return undefined;
-    if (!list.length) return 'No saved workflows yet.';
+    const total = Math.max(finite(inner.total) ?? 0, list.length);
+    if (!total) return 'No saved workflows yet.';
     const names = list.map(entry => text(entry?.name)).filter(Boolean) as string[];
-    if (list.length > 3 || names.length !== list.length) return `${plural(list.length, 'saved workflow')}.`;
+    if (total > 3 || names.length !== total) return `${plural(total, 'saved workflow')}.`;
     return `${plural(list.length, 'saved workflow')}: ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`}.`;
   }
   if (name === 'fiji_run_workflow') {
-    const processed = finite(inner.processed), failed = finite(inner.failed) ?? 0;
+    const processed = finite(inner.processed), failed = Array.isArray(inner.failed) ? inner.failed.length : finite(inner.failed) ?? 0;
     if (processed === undefined || processed === 0) return undefined;
     const workflow = text(inner.workflow) ?? text(args.name), csv = fileName(inner.csv);
     return `Ran ${workflow ?? 'the workflow'} on ${plural(processed, 'image')}${failed ? `, ${failed} failed` : ''}${csv ? `; results in ${csv}` : ''}.`;
