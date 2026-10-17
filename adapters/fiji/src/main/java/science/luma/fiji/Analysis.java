@@ -936,7 +936,8 @@ final class Analysis {
         var overlay = new Overlay();
         for (int i = 0; i < rois.size(); i++) {
             Roi roi = rois.get(i); roi.setName(String.format(Locale.ROOT, "Cell %d", i + 1));
-            if (roi.getStrokeColor() == null) roi.setStrokeColor(Color.CYAN);
+            // The same look as segment_cells' overlay (Operations.outline): magenta, 2 px; classification colours are kept.
+            if (roi.getStrokeColor() == null || Color.CYAN.equals(roi.getStrokeColor())) { roi.setStrokeColor(Color.MAGENTA); roi.setStrokeWidth(2); }
             if (replaced.contains(roi)) new Operations.ManagerRoi(roi, roi.getName()).appendTo(manager); else manager.addRoi(roi);
             var copy = (Roi) roi.clone(); overlay.add(copy);
         }

@@ -371,7 +371,7 @@ private struct ClipMask: View {
     }
 }
 
-private struct CursorBuddy: View {
+struct CursorBuddy: View {
     let label: String
     let accent: Color
     let mood: CursorMood
@@ -461,14 +461,19 @@ private struct BuddyArrow: Shape {
     }
 }
 
-private struct HighlightShape: View {
+struct HighlightShape: View {
     let target: HighlightTarget
     let accent: Color
     let delay: Double
     let generation: Int
     let hovered: Bool
-    @State private var shown = false
+    @State private var shown: Bool
     @State private var pulse = false
+    /// A spotlight, not a second overlay: after a few seconds the outline fades and Fiji's own overlay remains (hover brings it back).
+    @State private var faded = false
+    init(target: HighlightTarget, accent: Color, delay: Double, generation: Int, hovered: Bool, shown: Bool = false) {
+        self.target = target; self.accent = accent; self.delay = delay; self.generation = generation; self.hovered = hovered; _shown = State(initialValue: shown)
+    }
     var body: some View {
         let inset = target.rect.insetBy(dx: -4, dy: -4)
         ZStack(alignment: .topLeading) {
@@ -494,13 +499,15 @@ private struct HighlightShape: View {
         }
         .frame(width: inset.width, height: inset.height, alignment: .topLeading)
         .scaleEffect(shown ? (hovered ? 1.08 : 1) : 1.35)
-        .opacity(shown ? 1 : 0)
+        .opacity(shown ? (faded && !hovered ? 0 : 1) : 0)
+        .animation(.easeInOut(duration: 0.2), value: hovered)
         .position(x: inset.midX, y: inset.midY)
         .onAppear { animateIn() }
-        .onChange(of: generation) { _, _ in shown = false; animateIn() }
+        .onChange(of: generation) { _, _ in shown = false; faded = false; animateIn() }
     }
     private func animateIn() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.7).delay(0.45 + delay)) { shown = true }
         withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(0.8 + delay)) { pulse = true }
+        withAnimation(.easeOut(duration: 1.1).delay(3.2 + delay)) { faded = true }
     }
 }
