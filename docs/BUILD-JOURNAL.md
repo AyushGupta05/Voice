@@ -57,7 +57,7 @@ A third valid review found six further issues: list-selection approval binding, 
 
 Headless tests preserve exact ROI precision, class probability, root measurements/metadata, object IDs and TMA-grid relationships. An isolated JavaFX test confirms classifier/table selection invalidation and check/radio dispatch semantics; it opens no windows and touches no QuPath session. A 1e-7 detection-parameter regression passes. The authorized OS-2 integration and actual MCP smoke passed again with the same counts and empty restoration. The native companion built and launched with project information in its approval panel. Structured review is running again.
 
-The next implementation milestone should add GPT-Live's actual client-delegation protocol and a backend-agent interface under local mock tests, preserving the closed production funding gate. The separate protocol and verification boundary is documented in GPT-LIVE-PLAN.md. Do not rename RealtimeSession or claim a live funded session.
+The next implementation milestone should add GPT-Live's actual client-delegation protocol and a backend-agent interface under local mock tests, preserving the closed production funding gate. The separate protocol and verification boundary is documented in VOICE.md (the GPT-Live plan it superseded was removed). Do not rename RealtimeSession or claim a live funded session.
 
 ## Script responsiveness and modal safety
 

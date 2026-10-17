@@ -143,14 +143,15 @@ Fidelis is an independent project and is not endorsed by the Fiji or ImageJ deve
 
 ## Repositories
 
-This repository is Fidelis's **hackathon submission**. It is named `Voice` because it is a GitHub fork of the team's shared hackathon parent.
+This repository is the team's **hackathon submission**: Penny's voice integrated with the Fidelis workstation. It is named `Voice` after the team's shared hackathon repository.
 
 | Repository | Role |
 |---|---|
-| [`reverez/Voice`](https://github.com/reverez/Voice) | **This repository.** The Fidelis project (prototype, documentation, ongoing development). A fork of `Sleep-On-It/Voice`. |
+| [`Sleep-On-It/Voice`](https://github.com/Sleep-On-It/Voice) | **This repository.** Penny × Fidelis: the integrated voice companion and workstation (primary since 17 October 2026). |
+| [`reverez/Voice`](https://github.com/reverez/Voice) | The fork where the Fidelis workstreams were developed before the integration. |
 | [`Sleep-On-It/Voice`](https://github.com/Sleep-On-It/Voice) | Shared hackathon parent (initial commit with the Apache-2.0 licence only) |
 | [`Sleep-On-It/Fidelis`](https://github.com/Sleep-On-It/Fidelis) | The original Fidelis repository, formerly `reverez/click-to-batch`. Its branches and history are preserved there. |
-| [`AyushGupta05/Voice`](https://github.com/AyushGupta05/Voice) | **Luma**, a separate, independent submission (QuPath) by a teammate. It is unrelated to Fidelis. This repository has no dependency on it. |
+| [`AyushGupta05/Voice`](https://github.com/AyushGupta05/Voice) | Ayush's fork where Penny (formerly Luma) was built; its work is merged here and it is kept in sync as a secondary remote. |
 
 The Fidelis history is preserved here through an explicit, history-preserving merge (no rewriting). The merge commit's first parent is the Voice initial commit; its second parent carries the complete Fidelis history from `Sleep-On-It/Fidelis`.
 

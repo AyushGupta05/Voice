@@ -41,3 +41,7 @@ verification/baselines/FX-031/*/*/
 .local/
 .build/
 coverage/
+
+# Generated decks and exports never live at the root or in output/ (decks belong in docs/pitch/)
+output/
+/*.pptx
