@@ -1,7 +1,8 @@
 #!/bin/bash
 # Builds Fidelis and starts it with Penny's bridge (docs/FIDELIS-PROTOCOL.md): shared bridge token and root,
 # .local/state/app = fidelis for the companion's gateway, build and run output in .local/fidelis.log.
-# Arguments go to Fidelis itself (e.g. --screenshot out.png). FIDELIS_SKIP_BUILD=1 launches the existing build.
+# Arguments go to Fidelis itself (e.g. --screenshot out.png). FIDELIS_SKIP_BUILD=1 launches the existing build;
+# FIDELIS_PENNY_GATEWAY=ws://127.0.0.1:<port>/events uses a gateway other than the companion's (LUMA_GATEWAY_PORT).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT=49558
@@ -48,5 +49,8 @@ export LUMA_ROOT="$PWD"
 printf fidelis > .local/state/app
 # The bridge reads its token from <luma.root>/.local/state/bridge-token; fidelis.penny=true starts it explicitly.
 # --isolated-home keeps ImageJ preferences away from the real profile (one Fidelis/Fiji JVM per checkout).
-nohup python3 -I fidelis-app/tools/run.py --isolated-home --prop "luma.root=$PWD" --prop fidelis.penny=true -- "$@" >> .local/fidelis.log 2>&1 &
+# FIDELIS_PENNY_GATEWAY points the workspace's voice client at another gateway (default ws://127.0.0.1:49555/events).
+GATEWAY_PROP=()
+if [[ -n "${FIDELIS_PENNY_GATEWAY:-}" ]]; then GATEWAY_PROP=(--prop "fidelis.penny.gateway=$FIDELIS_PENNY_GATEWAY"); fi
+nohup python3 -I fidelis-app/tools/run.py --isolated-home --prop "luma.root=$PWD" --prop fidelis.penny=true "${GATEWAY_PROP[@]}" -- "$@" >> .local/fidelis.log 2>&1 &
 echo "Started Fidelis (pid $!); Penny bridge on 127.0.0.1:$PORT, log in .local/fidelis.log"

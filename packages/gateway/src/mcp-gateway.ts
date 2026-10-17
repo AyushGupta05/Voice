@@ -7,7 +7,7 @@ const toolName = new RegExp(`^(?:${appIds.join('|')})_[a-z_]+$`);
 /** Uses only the agent credential. Human approval routes are deliberately absent. */
 export class MCPGateway {
   private readonly base: string;
-  constructor(private readonly root: string, port = 49555) {
+  constructor(private readonly root: string, port = Number(process.env.LUMA_GATEWAY_PORT ?? 49555)) {
     if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('Invalid local gateway port.');
     this.base = `http://127.0.0.1:${port}`;
   }

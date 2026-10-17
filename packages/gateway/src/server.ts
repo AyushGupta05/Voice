@@ -186,5 +186,8 @@ export async function startServer(root:string,port=49555,options:ServerOptions={
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
   const root=resolve(process.env.LUMA_ROOT??process.cwd());
-  startServer(root).then(()=>console.log(`Luma gateway for ${activeProfile().displayName} listening on http://127.0.0.1:49555 (authenticated, local only)`)).catch(error=>{console.error(error.message);process.exitCode=1;});
+  // LUMA_GATEWAY_PORT lets a second gateway (another app profile, a worktree) run beside the companion's default 49555.
+  const port=Number(process.env.LUMA_GATEWAY_PORT??49555);
+  if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('LUMA_GATEWAY_PORT must be a port number between 1024 and 65535.');
+  startServer(root,port).then(()=>console.log(`Luma gateway for ${activeProfile().displayName} listening on http://127.0.0.1:${port} (authenticated, local only)`)).catch(error=>{console.error(error.message);process.exitCode=1;});
 }
