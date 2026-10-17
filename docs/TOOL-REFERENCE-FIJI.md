@@ -27,6 +27,9 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fiji_object_stats`](#fiji-object-stats) | read | No |
 | [`fiji_filter_objects`](#fiji-filter-objects) | data | Yes |
 | [`fiji_split_objects`](#fiji-split-objects) | data | Yes |
+| [`fiji_explain_object`](#fiji-explain-object) | read | No |
+| [`fiji_analysis_workflow`](#fiji-analysis-workflow) | read | No |
+| [`fiji_apply_analysis`](#fiji-apply-analysis) | code | Yes |
 | [`fiji_merge_objects`](#fiji-merge-objects) | data | Yes |
 | [`fiji_filter`](#fiji-filter) | data | Yes |
 | [`fiji_convert`](#fiji-convert) | data | Yes |
@@ -337,6 +340,42 @@ Separate touching or merged cells: watershed inside oversized objects (area abov
 | `at` | No | "pointer" | pointer = the object(s) under or nearest the mouse (context.pointer), for “this one / these”. |
 | `x` | No | number |  |
 | `y` | No | number |  |
+
+<a id="fiji-explain-object"></a>
+
+## fiji_explain_object
+
+Answer “why did you count this as a cell?”: the object under the pointer (or index) with its real area, intensity, circularity, size relative to the median and the segmentation rules it passed (threshold method, minimum area); flags likely debris or merged cells. Highlights it. Read only.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `at` | No | "pointer" |
+| `x` | No | number |
+| `y` | No | number |
+| `index` | No | integer; min 0 |
+
+<a id="fiji-analysis-workflow"></a>
+
+## fiji_analysis_workflow
+
+Show the current analysis as a reproducible workflow: segmentation settings plus every correction as parameters (min/max area, split rule), hand edits that will not be replayed, and the ImageJ macro. Use for “what did you do / show me the workflow / what parameters”. Read only.
+
+Input: `{}`.
+
+<a id="fiji-apply-analysis"></a>
+
+## fiji_apply_analysis
+
+Apply the corrected analysis to other images: saves it as a parameterised macro (corrections included) and runs it on the active image’s folder (default), another folder, or all open images; CSV with a Source column. The answer to “that looks right, apply this to the whole folder / the other 100 images”. Returns steps, params, notReplayed, and the run (processed, failed, perImage, csv).
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `name` | No | string; min 1 characters; max 80 characters |
+| `target` | No | "folder", "open", "none" |
+| `folder` | No | string; min 1 characters; max 4096 characters |
+| `pattern` | No | string; max 200 characters |
+| `limit` | No | integer; min 1; max 500 |
+| `recursive` | No | boolean |
 
 <a id="fiji-merge-objects"></a>
 

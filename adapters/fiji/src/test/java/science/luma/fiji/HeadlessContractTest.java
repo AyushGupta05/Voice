@@ -61,7 +61,7 @@ public final class HeadlessContractTest {
         expect(context.getAsJsonObject("image").get("bitDepth").getAsInt() == 8, "8-bit image");
         expect(context.get("viewer").isJsonNull(), "no window means no viewer geometry");
         expect(context.has("pointer") && !context.getAsJsonObject("pointer").get("overCanvas").getAsBoolean() && context.getAsJsonObject("pointer").get("x").isJsonNull(), "pointer is reported but not over a canvas: " + context.get("pointer"));
-        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 54, "adapter declares 54 operations");
+        expect(context.getAsJsonObject("adapter").getAsJsonArray("operations").size() == 57, "adapter declares 57 operations");
 
         var status = call("status", new JsonObject(), false, null);
         expect(status.has("status") && !status.get("analysisRunning").getAsBoolean(), "status reports the status bar text: " + status);
@@ -184,6 +184,20 @@ public final class HeadlessContractTest {
         var described = Operations.describe(composite);
         @SuppressWarnings("unchecked") var channels = (List<Map<String, Object>>) described.get("channels");
         expect(channels.size() == 2 && "DAPI".equals(channels.get(1).get("label")) && "grays".equals(channels.get(1).get("lut")), "channels carry labels and LUT names: " + channels);
+
+        // --- open_path reads off the event thread and presents the image; bad paths are refused
+        var pngFile = java.nio.file.Files.createTempFile("luma-open-", ".png");
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(40, 30, java.awt.image.BufferedImage.TYPE_BYTE_GRAY), "png", pngFile.toFile());
+        var openedPng = call("open_path", obj("path", pngFile.toString()), true, key("context"));
+        expect(openedPng.get("opened").getAsBoolean() && openedPng.get("reader").getAsString().equals("ImageJ") && openedPng.getAsJsonObject("image").get("width").getAsInt() == 40, "PNG opened via the worker: " + openedPng);
+        expect(rawCall("open_path", obj("path", "/nonexistent/luma.tif"), true, key("context")).statusCode() == 400, "missing file refused");
+        call("close", obj("title", pngFile.getFileName().toString()), true, key("context"));
+        java.nio.file.Files.deleteIfExists(pngFile);
+        java.awt.EventQueue.invokeAndWait(() -> WindowManager.setTempCurrentImage(imp));
+
+        // --- stack navigation accepts words
+        var words = obj("slice", "next"); expect(Operations.position(words, "slice", 2, 5) == 3 && Operations.position(obj("slice", "previous"), "slice", 1, 5) == 1 && Operations.position(obj("slice", "last"), "slice", 1, 5) == 5 && Operations.position(obj("slice", "4"), "slice", 1, 5) == 4, "next/previous/first/last resolve against the axis");
+        expect(rawCall("stack", obj("slice", "sideways"), false, null).statusCode() == 400, "unknown navigation word rejected");
 
         // --- filters and conversions change pixels and are checkpointed
         expect(imp.getProcessor().getPixel(47, 48) >= 200, "disc edge pixel starts bright");

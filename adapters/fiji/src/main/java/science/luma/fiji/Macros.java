@@ -795,7 +795,10 @@ final class Macros {
             for (var key : declared.keySet()) {
                 var value = values.getOrDefault(key, declared.get(key));
                 String call = "pennyParam(\"" + key + "\", \"" + Journal.escape(text(value)) + "\")";
-                text.append(key).append(" = ").append(value.isNumber() ? "parseFloat(" + call + ")" : value.isBoolean() ? call + " == \"true\"" : call).append(";\n");
+                // A user function's string result inside a comparison aborts an ImageJ macro ("Numeric return value expected"),
+                // so the text is read into a variable first.
+                if (value.isBoolean()) text.append(key).append(" = ").append(call).append("; if (").append(key).append(" == \"true\") ").append(key).append(" = true; else ").append(key).append(" = false;\n");
+                else text.append(key).append(" = ").append(value.isNumber() ? "parseFloat(" + call + ")" : call).append(";\n");
             }
             text.append("function pennyParam(key, fallback) { a = \" \" + getArgument() + \" \"; i = indexOf(a, \" \" + key + \"=\"); if (i < 0) return fallback; v = substring(a, i + lengthOf(key) + 2); if (startsWith(v, \"[\")) return substring(v, 1, indexOf(v, \"]\")); return substring(v, 0, indexOf(v, \" \")); }\n");
         } else {

@@ -16,7 +16,7 @@ import subprocess, sys
 try:
     result = subprocess.run([sys.argv[1], '-Dapple.awt.UIElement=true', '-Djava.awt.headless=false', '-Dpatch.ij1=false', '-Dluma.root=' + __import__('os').getcwd(),
         '-cp', sys.argv[2], 'science.luma.fiji.HeadlessContractTest'], timeout=180)
-    for test in ('TrackingContractTest', 'AnalysisContractTest', 'MacrosContractTest'):
+    for test in ('TrackingContractTest', 'AnalysisContractTest', 'MacrosContractTest', 'PipelineContractTest'):
         if result.returncode: break
         result = subprocess.run([sys.argv[1], '-Dapple.awt.UIElement=true', '-Djava.awt.headless=false', '-Dpatch.ij1=false', '-Dluma.root=' + __import__('os').getcwd(),
             '-cp', sys.argv[2], 'science.luma.fiji.' + test], timeout=240)

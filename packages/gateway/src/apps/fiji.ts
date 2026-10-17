@@ -13,7 +13,7 @@ const acknowledgments: Record<string, string> = {
   fiji_activate_image: 'Switching image.', fiji_project_stack: 'Projecting.', fiji_convert: 'Converting.', fiji_save_image: 'Saving.', fiji_export_results: 'Exporting.',
   fiji_results: 'Checking.', fiji_roi_manager: 'Checking.', fiji_images: 'Checking.',
   fiji_track_objects: 'Tracking them.', fiji_intensity_over_time: 'Following the intensity.', fiji_tumor_region: 'Outlining the tumour.',
-  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Plotting the sizes.', fiji_filter_objects: 'Removing them.', fiji_split_objects: 'Separating them.', fiji_merge_objects: 'Merging them.',
+  fiji_colocalize: 'Checking colocalisation.', fiji_classify_intensity: 'Scoring positives.', fiji_object_stats: 'Plotting the sizes.', fiji_filter_objects: 'Removing them.', fiji_split_objects: 'Separating them.', fiji_merge_objects: 'Merging them.', fiji_apply_analysis: 'Running it on the whole folder.', fiji_analysis_workflow: 'Here is the workflow.', fiji_explain_object: 'Checking that one.',
   fiji_make_macro: 'Writing the macro.', fiji_workflows: 'Checking.', fiji_run_workflow: 'Running it on every image.', fiji_capture_macro: 'Saving the macro.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
@@ -83,7 +83,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (inner) { const sentence = biologySentence(name, args, inner); if (sentence !== null) return sentence; }
   return undefined;
 }
-const biologyReads = new Set(['fiji_colocalize', 'fiji_object_stats', 'fiji_workflows']);
+const biologyReads = new Set(['fiji_colocalize', 'fiji_object_stats', 'fiji_workflows', 'fiji_analysis_workflow', 'fiji_explain_object']);
 const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : undefined;
 const fileName = (value: unknown) => text(value)?.split('/').pop();
 const percent = (value: number) => `${Math.abs(value) >= 10 ? Math.round(value) : Number(value.toFixed(1))}%`;
@@ -164,6 +164,27 @@ function biologySentence(name: string, args: Record<string, unknown>, inner: Rec
     if (split === undefined || before === undefined || after === undefined) return undefined;
     return split ? `Separated ${plural(split, 'clump')}: ${before} to ${after} cells.` : `Nothing looked merged; still ${plural(after, 'cell')}.`;
   }
+  if (name === 'fiji_apply_analysis') {
+    const run = inner.run as Record<string, unknown> | undefined;
+    if (!run) return inner.workflow ? 'Saved the analysis as a macro.' : undefined;
+    const processed = finite(run.processed), failed = Array.isArray(run.failed) ? run.failed.length : 0;
+    if (processed === undefined || processed === 0) return undefined;
+    const per = Array.isArray(run.perImage) ? (run.perImage as Array<{ resultsRows?: unknown }>).map(entry => finite(entry?.resultsRows)).filter((v): v is number => v !== undefined) : [];
+    const mean = per.length ? per.reduce((a, b) => a + b, 0) / per.length : undefined;
+    const manual = Array.isArray(inner.notReplayed) ? inner.notReplayed.length : 0;
+    return `Ran the corrected analysis on ${plural(processed, 'image')}${mean !== undefined ? `, ${round(mean)} cells each on average` : ''}${failed ? `, ${failed} failed` : ''}${fileName(run.csv) ? `; results in ${fileName(run.csv)}` : ''}${manual ? `. ${plural(manual, 'hand edit')} not replayed` : ''}.`;
+  }
+  if (name === 'fiji_analysis_workflow') {
+    const params = inner.params as Record<string, unknown> | undefined; if (!params) return undefined;
+    const min = finite(params.minArea), split = finite(params.splitFactor);
+    return `${text(params.method) ?? 'Auto'} threshold on channel ${params.channel}${split ? `, split clumps over ${round(split)} times the median` : ''}${min ? `, keep ${round(min)} and up` : ''}; ready to replay.`;
+  }
+  if (name === 'fiji_explain_object') {
+    const reasons = Array.isArray(inner.reasons) ? (inner.reasons as unknown[]).filter((r): r is string => typeof r === 'string') : [];
+    const area = finite(inner.area); if (!reasons.length || area === undefined) return undefined;
+    const flag = reasons.find(r => /debris|touching/.test(r));
+    return `Counted because ${reasons[0]}; ${spokenArea(area, unit)}${flag ? `, but ${flag}` : ''}.`;
+  }
   if (name === 'fiji_merge_objects') {
     const merged = finite(inner.merged), after = finite(inner.after);
     if (merged === undefined || after === undefined) return undefined;
@@ -215,6 +236,7 @@ function requestContinuesAfter(name: string, utterance: string): boolean {
   if (name === 'fiji_make_macro') return !/\b(macro|script)\b/.test(said) || /\b(how many|what|which|find|count|measure)\b/.test(said);
   return false;
 }
+const imageUnit = (context: unknown) => { const unit = (context as { image?: { calibration?: { unit?: unknown } } } | undefined)?.image?.calibration?.unit; return typeof unit === 'string' ? unit : 'pixel'; };
 /** Whole-utterance instant routes from the protocol: zoom, fit, overlay, slices and undo. */
 function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const said = cleanUtterance(text);
@@ -234,12 +256,21 @@ function fastRoute(text: string, context: unknown): FastRoute | undefined {
   const pointer = (context as { pointer?: { overCanvas?: unknown; lastX?: unknown } } | undefined)?.pointer;
   const pointing = pointer?.overCanvas === true || finite(pointer?.lastX) !== undefined;
   const deictic = /\b(this|these|that|those|here|this one|that one)\b/.test(said);
+  if (objects > 0 && pointing && /\bwhy\b/.test(said) && /\b(count|cell|detect|includ|this|that)\w*/.test(said)) return { tool: 'fiji_explain_object', arguments: { at: 'pointer' }, reply: 'Checking that one.' };
   if (objects > 0 && pointing && deictic && !/\b(and then|then|after that|channels?)\b/.test(said)) {
     // "These should be separate / are one cell / remove this one" act on the cells under the researcher's pointer.
     if (/\b(one cell|same cell|single cell|merge|join|combine|together|shouldn'?t be (?:split|separate))\b/.test(said) && !/\bseparate\b(?!.*shouldn)/.test(said)) return { tool: 'fiji_merge_objects', arguments: { at: 'pointer' }, reply: 'Merging them.' };
     if (/\b(separate|split|divide|break up|pull apart|two cells|not one)\b/.test(said)) return { tool: 'fiji_split_objects', arguments: { at: 'pointer' }, reply: 'Separating them.' };
     if (/\b(remove|delete|drop|get rid of|not a cell|isn'?t a cell|ignore)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { at: 'pointer' }, reply: 'Removing it.' };
   }
+  // Numbers matter here, and cleanUtterance drops digits: match the raw words.
+  const smaller = text.toLowerCase().replace(/[.!?,]/g, ' ').match(/\b(?:remove|drop|delete|exclude|get rid of|filter out)\b.*\b(?:smaller|less) than (\d+(?:\.\d+)?) ?(square microns?|square micrometres?|square micrometers?|µm²|um2|microns? squared|square pixels?|pixels?)\b/);
+  if (objects > 0 && smaller) {
+    const calibrated = !/pixel/.test(smaller[2]) || imageUnit(context) === 'pixel';
+    if (calibrated) return { tool: 'fiji_filter_objects', arguments: { minArea: Number(smaller[1]) }, reply: `Removing anything under ${smaller[1]}.` };
+  }
+  if (objects > 0 && /\b(apply|run|do)\b.*\b(this|that|it|same|analysis|workflow)\b.*\b(folder|all (?:the )?(?:other )?images|other \d+ images|every image|rest of the images|other images|whole dataset|dataset|everything)\b/.test(said)) return { tool: 'fiji_apply_analysis', arguments: {}, reply: 'Running it on the whole folder.' };
+  if (objects > 0 && /^(?:show (?:me )?(?:the )?(?:workflow|steps|parameters|analysis)|what (?:did you do|steps|parameters)\b)/.test(said)) return { tool: 'fiji_analysis_workflow', arguments: {}, reply: 'Here is the workflow.' };
   if (objects > 0 && !/\b(and then|then|after that|channels?)\b/.test(said)) {
     if (/\b(remove|drop|delete|get rid of|filter out|exclude|ignore|lose)\b.*\b(tiny|small|little|specks?|debris|dots?|noise|junk|fragments?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'tiny' }, reply: 'Removing the tiny ones.' };
     if (/\b(remove|drop|delete|get rid of|filter out|exclude)\b.*\b(huge|big|giant|large|clumps?)\b/.test(said)) return { tool: 'fiji_filter_objects', arguments: { remove: 'huge' }, reply: 'Removing the big ones.' };
@@ -298,7 +329,7 @@ export const fiji: AppProfile = {
   launcherScript: './script/run-fiji.sh', bridgeJar: 'dist/luma-fiji-bridge.jar', buildManifest: '.local/fiji-bridge-build.json', buildScript: 'script/build-fiji-bridge.sh',
   doctorArtifacts: [['dist/luma-fiji-bridge.jar', 'Fiji bridge build'], ['.local/fiji/Fiji.app/Contents/MacOS/ImageJ-macosx', 'Fiji launcher']],
   fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
-  longRunningTools: new Set(['fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
+  longRunningTools: new Set(['fiji_apply_analysis', 'fiji_merge_objects', 'fiji_split_objects', 'fiji_segment_cells', 'fiji_run_macro', 'fiji_run_script', 'fiji_run_command', 'fiji_track_objects', 'fiji_tumor_region', 'fiji_make_macro', 'fiji_run_workflow', 'fiji_capture_macro']),
   prepareAction,
   async settleDialogs(runtime, name, args, signal) {
     // Only operations that import an image get their dialog confirmed; other commands keep their dialogs for the model.

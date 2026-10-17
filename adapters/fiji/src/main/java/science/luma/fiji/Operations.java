@@ -50,10 +50,16 @@ final class Operations {
         var result = new ArrayList<ImagePlus>();
         int[] ids = WindowManager.getIDList();
         if (ids != null) for (int id : ids) { var imp = WindowManager.getImage(id); if (imp != null) result.add(imp); }
+        // Windows ImageJ's list missed (batch-mode images shown later, importer series) still count as open images.
+        for (var window : java.awt.Window.getWindows()) {
+            if (window instanceof ImageWindow imageWindow && window.isShowing()) { var imp = imageWindow.getImagePlus(); if (imp != null && result.stream().noneMatch(i -> i == imp)) result.add(imp); }
+        }
         var current = WindowManager.getCurrentImage();
         if (current != null && result.stream().noneMatch(i -> i == current)) result.addFirst(current);
+        result.sort(Comparator.comparing(imp -> imp.getWindow() instanceof PlotWindow ? 1 : 0));
         return result;
     }
+    static String kind(ImagePlus imp) { return imp.getWindow() instanceof PlotWindow ? "plot" : "image"; }
     ImagePlus find(JsonObject args) {
         if (args.has("id")) { int id = args.get("id").getAsInt(); for (var imp : images()) if (imp.getID() == id) return imp; throw new IllegalArgumentException("No open image has id " + id + "."); }
         if (args.has("title")) { String title = args.get("title").getAsString(); for (var imp : images()) if (title.equals(imp.getTitle())) return imp; throw new IllegalArgumentException("No open image is titled \"" + title + "\"."); }
@@ -83,7 +89,7 @@ final class Operations {
     }
     static Map<String, Object> describe(ImagePlus imp) {
         var result = new LinkedHashMap<String, Object>();
-        result.put("id", imp.getID()); result.put("title", imp.getTitle()); result.put("width", imp.getWidth()); result.put("height", imp.getHeight());
+        result.put("id", imp.getID()); result.put("title", imp.getTitle()); result.put("kind", kind(imp)); result.put("width", imp.getWidth()); result.put("height", imp.getHeight());
         result.put("channels", imp.getNChannels()); result.put("slices", imp.getNSlices()); result.put("frames", imp.getNFrames()); result.put("bitDepth", imp.getBitDepth());
         result.put("type", typeName(imp.getType()));
         Calibration cal = imp.getCalibration();
@@ -161,21 +167,31 @@ final class Operations {
         if (!path.isAbsolute() || !Files.isRegularFile(path) || !Files.isReadable(path)) throw new IllegalArgumentException("Choose an existing readable absolute local file path.");
         try { return path.toRealPath(); } catch (IOException error) { throw new IllegalArgumentException("Cannot resolve path: " + error.getMessage()); }
     }
-    Map<String, Object> openPath(JsonObject args) {
-        var path = openablePath(string(args, "path", ""));
+    /** Reads the file (ImageJ, else Bio-Formats). Runs on a worker thread: whole-slide imports take minutes and must not block the event thread. */
+    record Opened(ImagePlus image, String reader) {}
+    Opened openOffThread(Path path) {
         ImagePlus imp = IJ.openImage(path.toString());
-        String reader = "ImageJ";
-        if (imp == null) {
-            reader = "Bio-Formats";
-            journal.record("open_path", "run(\"Bio-Formats Importer\", \"open=[" + Journal.escape(path.toString()) + "] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT\");");
-            IJ.run("Bio-Formats Importer", "open=[" + path + "] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
-            imp = WindowManager.getCurrentImage();
-            if (imp == null || path(imp) == null || !path(imp).equals(path.toString())) throw new IllegalStateException("Neither ImageJ nor Bio-Formats opened " + path.getFileName() + ". Inspect Fiji for a reader dialog.");
-        } else { journal.record("open_path", "open(\"" + Journal.escape(path.toString()) + "\");"); show(imp); }
+        if (imp != null) return new Opened(imp, "ImageJ");
+        journal.record("open_path", "run(\"Bio-Formats Importer\", \"open=[" + Journal.escape(path.toString()) + "] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT\");");
+        IJ.run("Bio-Formats Importer", "open=[" + path + "] autoscale color_mode=Default view=Hyperstack stack_order=XYCZT");
+        var current = WindowManager.getCurrentImage();
+        if (current == null || path(current) == null || !path(current).equals(path.toString())) throw new IllegalStateException("Neither ImageJ nor Bio-Formats opened " + path.getFileName() + ". Inspect Fiji for a reader dialog.");
+        return new Opened(current, "Bio-Formats");
+    }
+    /** Shows and presents an image read by {@link #openOffThread}; event thread only. */
+    Map<String, Object> present(Opened opened, Path path) {
+        var imp = opened.image();
+        if (opened.reader().equals("ImageJ")) { journal.record("open_path", "open(\"" + Journal.escape(path.toString()) + "\");"); show(imp); }
+        else if (imp.getWindow() != null) WindowManager.setCurrentWindow(imp.getWindow());
         Viewer.present(imp);
         var result = new LinkedHashMap<String, Object>();
-        result.put("opened", true); result.put("reader", reader); result.put("image", describe(imp)); result.put("highlight", Viewer.imageHighlight(imp, "Opened " + imp.getTitle()));
+        result.put("opened", true); result.put("reader", opened.reader()); result.put("path", path.toString()); result.put("image", describe(imp)); result.put("highlight", Viewer.imageHighlight(imp, "Opened " + imp.getTitle()));
         return result;
+    }
+    /** Synchronous variant for callers already off the event thread (tests, scripts). */
+    Map<String, Object> openPath(JsonObject args) {
+        var path = openablePath(string(args, "path", ""));
+        return present(openOffThread(path), path);
     }
     Map<String, Object> activate(JsonObject args) {
         var imp = find(args);
@@ -317,6 +333,10 @@ final class Operations {
     }
     /** Appends one Measure row. ImageJ's Analyzer.measure() resets the table when no Results window exists, so area/line statistics are saved directly. */
     static void measureInto(ImagePlus imp, int flags, ResultsTable table) {
+        // A changed column set makes Analyzer reset the table and, when measurements are "unsaved", show a modal
+        // "Save N measurements?" dialog that would park this call inside a nested event loop. The bridge checkpointed
+        // the Results table before this operation, so nothing is lost by declining up front.
+        Analyzer.setUnsavedMeasurements(false);
         var analyzer = new Analyzer(imp, flags, table); Roi roi = imp.getRoi();
         if (roi != null && (roi.isLine() || roi.getType() == Roi.POINT || roi.getType() == Roi.ANGLE)) { analyzer.measure(); return; }
         analyzer.saveResults(imp.getStatistics(flags), roi);
@@ -425,6 +445,7 @@ final class Operations {
         var table = results(); int before = table.size(); int managerBefore = manager == null ? 0 : manager.getCount();
         var analyzer = new ParticleAnalyzer(options, measurements, table, minSize, maxSize, minCirc, maxCirc);
         analyzer.setHideOutputImage(show.equalsIgnoreCase("Nothing"));
+        Analyzer.setUnsavedMeasurements(false);
         if (!analyzer.analyze(imp)) throw new IllegalStateException("Analyze Particles did not run; check the Log window.");
         showResults(table); 
         String sizeText = plain(minSize) + "-" + (Double.isInfinite(maxSize) ? "Infinity" : plain(maxSize));
@@ -695,10 +716,23 @@ final class Operations {
             journal.record("stack", "run(\"Z Project...\", \"projection=[" + switch (ij) { case "max" -> "Max Intensity"; case "sum" -> "Sum Slices"; case "avg" -> "Average Intensity"; case "min" -> "Min Intensity"; case "sd" -> "Standard Deviation"; default -> "Median"; } + "]\");");
             return Map.of("projected", true, "method", ij, "image", describe(projected), "highlight", Viewer.imageHighlight(projected, "Projection"));
         }
-        int c = integer(args, "channel", imp.getC(), 1, Math.max(1, imp.getNChannels())), z = integer(args, "slice", imp.getZ(), 1, Math.max(1, imp.getNSlices())), t = integer(args, "frame", imp.getT(), 1, Math.max(1, imp.getNFrames()));
+        int c = position(args, "channel", imp.getC(), imp.getNChannels()), z = position(args, "slice", imp.getZ(), imp.getNSlices()), t = position(args, "frame", imp.getT(), imp.getNFrames());
         imp.setPosition(c, z, t); imp.updateAndDraw();
         journal.record("stack", "Stack.setPosition(" + c + ", " + z + ", " + t + ");");
         return Map.of("position", Map.of("channel", imp.getC(), "slice", imp.getZ(), "frame", imp.getT()), "image", describe(imp), "highlight", Viewer.imageHighlight(imp, "Slice " + imp.getZ()));
+    }
+
+    /** A 1-based position from a number or the words next, previous, first, last (clamped to the axis). */
+    static int position(JsonObject args, String name, int current, int length) {
+        int max = Math.max(1, length);
+        if (!args.has(name) || args.get(name).isJsonNull()) return current;
+        var value = args.get(name);
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+            String word = value.getAsString().strip().toLowerCase(Locale.ROOT);
+            if (word.matches("-?\\d+")) return Math.max(1, Math.min(max, Integer.parseInt(word)));
+            return switch (word) { case "next", "+1" -> Math.min(max, current + 1); case "previous", "prev", "-1" -> Math.max(1, current - 1); case "first" -> 1; case "last" -> max; default -> throw new IllegalArgumentException(name + " must be a number or next/previous/first/last"); };
+        }
+        return integer(args, name, current, 1, max);
     }
 
     // ----- files -----

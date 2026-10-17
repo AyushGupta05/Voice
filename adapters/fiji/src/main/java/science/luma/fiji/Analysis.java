@@ -626,37 +626,66 @@ final class Analysis {
         }
         else for (int i = 0; i < n; i++) if (area[i] > factor * median) targets.add(i);
         var out = new ArrayList<Roi>(); var newParts = new ArrayList<Roi>(); int split = 0;
+        // Objects the researcher pointed at, selected or listed are asserted to be several cells: split as gently as works.
+        boolean asserted = pointed || args.has("indices") || selection != null && selection.isArea() && !Operations.bool(args, "all", false);
+        int minPart = Math.max(4, (int) Math.round(median * 0.15));
+        double usedTolerance = 0.5, splitRatio = Double.POSITIVE_INFINITY;
         for (int i = 0; i < n; i++) {
             if (!targets.contains(i)) { out.add(rois[i]); continue; }
-            var b = rois[i].getBounds(); int w = b.width + 2, h = b.height + 2;
-            var mask = new ByteProcessor(w, h);
-            var local = (Roi) rois[i].clone(); local.setLocation(local.getXBase() - b.x + 1, local.getYBase() - b.y + 1);
-            mask.setColor(255); mask.fill(local);
-            // One EDM per object: ImageJ's EDM keeps a MaximumFinder whose direction offsets are built for the first mask
-            // width it sees, so reusing it across differently sized masks reads past the pixel array.
-            new ij.plugin.filter.EDM().toWatershed(mask);
-            int[] labels = new int[w * h]; var parts = label((byte[]) mask.getPixels(), w, h, labels);
-            int minPart = Math.max(4, (int) Math.round(median * 0.15));
-            var pieces = new ArrayList<Roi>();
-            for (int k = 0; k < parts.size(); k++) {
-                if (parts.get(k) < minPart) continue;
-                var part = new ByteProcessor(w, h); byte[] pp = (byte[]) part.getPixels();
-                for (int j = 0; j < labels.length; j++) if (labels[j] == k + 1) pp[j] = (byte) 255;
-                Roi piece = maskToRoi(part); if (piece == null) continue;
-                piece.setLocation(piece.getXBase() + b.x - 1, piece.getYBase() + b.y - 1);
-                pieces.add(piece);
-            }
-            if (pieces.size() >= 2) { split++; out.addAll(pieces); newParts.addAll(pieces); } else out.add(rois[i]);
+            double[] tolerance = {0.5};
+            var pieces = asserted ? Pipeline.splitAsserted(rois[i], minPart, tolerance) : Pipeline.splitRoi(rois[i], 0.5, minPart);
+            if (pieces.isEmpty()) { out.add(rois[i]); continue; }
+            split++; out.addAll(pieces); newParts.addAll(pieces);
+            usedTolerance = Math.min(usedTolerance, tolerance[0]); splitRatio = Math.min(splitRatio, area[i] / median);
         }
         replaceManager(imp, manager, out);
         var result = new LinkedHashMap<String, Object>();
         result.put("before", n); result.put("after", out.size()); result.put("checked", targets.size()); result.put("split", split);
         result.put("scope", args.has("indices") ? "indices" : pointed ? "pointer" : selection != null && selection.isArea() && !Operations.bool(args, "all", false) ? "selection" : "oversized");
-        result.put("medianArea", median);
+        result.put("medianArea", median); result.put("tolerance", usedTolerance); if (split > 0) result.put("splitRatio", splitRatio);
         journal.record("split_objects", "// split_objects: watershed inside " + targets.size() + " objects (" + result.get("scope") + "), " + split + " split: " + n + " -> " + out.size() + "\nrun(\"Watershed\");");
         result.put("highlight", Viewer.roiHighlight(imp, newParts.isEmpty() ? out : newParts, split == 0 ? "Nothing to split" : split + " split, " + out.size() + " cells", 120));
         return result;
     }
+    // =====================================================================================================
+    // explain_object: "why did you count this as a cell?"
+    // =====================================================================================================
+    Map<String, Object> explainObject(JsonObject args, Map<String, Object> analysis) {
+        var imp = ops.active();
+        var manager = ops.managerOrNull();
+        if (manager == null || manager.getCount() == 0) throw new IllegalStateException("Segment the cells first.");
+        Roi[] rois = manager.getRoisAsArray(); int n = rois.length;
+        double[] px = new double[n]; for (int i = 0; i < n; i++) px[i] = rois[i].getStatistics().pixelCount;
+        double median = (double) describeValues(px).get("median");
+        int index;
+        if (args.has("index")) index = Operations.integer(args, "index", 0, 0, n - 1);
+        else { var hits = objectsAt(rois, pointedAt(imp, args), median, 1); if (hits.isEmpty()) throw new IllegalStateException("No detected object under the pointer, so it was not counted."); index = hits.getFirst(); }
+        Roi roi = (Roi) rois[index].clone(); roi.setImage(imp);
+        Calibration cal = imp.getCalibration();
+        @SuppressWarnings("unchecked") var params = analysis == null ? Map.<String, Object>of() : (Map<String, Object>) analysis.get("params");
+        int channel = params.get("channel") instanceof Number c ? Math.min(c.intValue(), Math.max(1, imp.getNChannels())) : imp.getC();
+        ImageProcessor ip = measurementProcessor(imp, channel); ip.setRoi(roi);
+        var stats = ImageStatistics.getStatistics(ip, Measurements.AREA | Measurements.MEAN | Measurements.MIN_MAX, cal); ip.resetRoi();
+        double perimeter = roi.getLength(), circularity = perimeter > 0 ? Math.min(1, 4 * Math.PI * px[index] / (perimeter * perimeter)) : 0;
+        int smaller = 0; for (double v : px) if (v < px[index]) smaller++;
+        var result = new LinkedHashMap<String, Object>();
+        result.put("index", index); result.put("name", rois[index].getName()); result.put("channel", channel);
+        result.put("area", stats.area); result.put("unit", cal.getUnit()); result.put("mean", stats.mean); result.put("min", stats.min); result.put("max", stats.max);
+        result.put("circularity", circularity); result.put("areaPercentile", Math.round(100.0 * smaller / Math.max(1, n - 1)));
+        result.put("relativeToMedian", px[index] / median);
+        var reasons = new ArrayList<String>();
+        if (!params.isEmpty()) {
+            reasons.add("its pixels in channel " + channel + " were above the " + params.get("method") + " auto threshold" + (Boolean.TRUE.equals(params.get("dark")) ? " (bright on dark)" : ""));
+            reasons.add("its area " + Operations.plain(round(stats.area, 2)) + " " + cal.getUnit() + "² passed the minimum of " + params.get("minArea") + " " + cal.getUnit() + "²");
+            if (params.get("minCircularity") instanceof Number c && c.doubleValue() > 0) reasons.add("circularity " + Operations.plain(round(circularity, 2)) + " ≥ " + c);
+        } else reasons.add("it is an object in the ROI Manager");
+        if (px[index] > 1.8 * median) reasons.add("it is " + Operations.plain(round(px[index] / median, 1)) + "× the median size, so it may be touching cells");
+        if (px[index] < 0.4 * median) reasons.add("it is much smaller than typical (" + Operations.plain(round(px[index] / median, 2)) + "× the median), possibly debris");
+        result.put("reasons", reasons);
+        result.put("highlight", Viewer.roiHighlight(imp, List.of(rois[index]), "This object", 1));
+        return result;
+    }
+
     // =====================================================================================================
     // merge_objects: "these two are one cell" (the inverse correction)
     // =====================================================================================================

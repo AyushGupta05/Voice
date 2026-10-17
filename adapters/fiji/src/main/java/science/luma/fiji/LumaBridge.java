@@ -26,8 +26,8 @@ public final class LumaBridge implements PlugIn {
     static final int DEFAULT_PORT = 49557;
     private static final Gson JSON = new GsonBuilder().serializeNulls().serializeSpecialFloatingPointValues().disableHtmlEscaping().create();
     private static final int MAX_BODY = 1024 * 1024;
-    private static final long UI_TIMEOUT_SECONDS = 120, COMMAND_TIMEOUT_MS = 20_000;
-    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins", "status", "colocalize", "object_stats", "workflows");
+    private static final long UI_TIMEOUT_SECONDS = 120, COMMAND_TIMEOUT_MS = 20_000, OPEN_TIMEOUT_MS = 100_000;
+    static final Set<String> READ = Set.of("context", "images", "roi_manager", "results", "commands", "ui", "recorder", "checkpoints", "compare", "snapshot", "log", "plugins", "status", "colocalize", "object_stats", "workflows", "analysis_workflow", "explain_object");
     /** Status-bar wording while a data/code operation runs, so the action is visible in Fiji itself. */
     static final Map<String, String> STATUS = Map.ofEntries(Map.entry("segment_cells", "segmenting cells"), Map.entry("measure", "measuring"), Map.entry("threshold", "thresholding"),
         Map.entry("analyze_particles", "counting particles"), Map.entry("filter", "applying the filter"), Map.entry("convert", "converting"), Map.entry("open_path", "opening"),
@@ -35,7 +35,7 @@ public final class LumaBridge implements PlugIn {
         Map.entry("save_workflow", "saving the macro"), Map.entry("save_image", "saving the image"), Map.entry("export_results", "exporting results"), Map.entry("duplicate", "duplicating"), Map.entry("close", "closing"));
     static final Set<String> VIEW = Set.of("activate_image", "select_roi", "zoom", "highlight", "overlay", "display", "stack");
     static final Set<String> DATA = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "duplicate", "checkpoint", "restore", "close", "undo", "track_objects", "intensity_over_time", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
-    static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results", "make_macro", "run_workflow", "capture_macro");
+    static final Set<String> CODE = Set.of("open_path", "run_command", "ui_action", "run_macro", "run_script", "save_workflow", "save_image", "export_results", "make_macro", "run_workflow", "capture_macro", "apply_analysis");
     /** Data/code operations that change an image's pixels, ROIs, overlay, manager or results and therefore get a checkpoint first. */
     static final Set<String> CHECKPOINT_FIRST = Set.of("add_to_manager", "measure", "clear_results", "threshold", "analyze_particles", "segment_cells", "filter", "convert", "run_command", "ui_action", "run_macro", "run_script", "track_objects", "tumor_region", "classify_intensity", "filter_objects", "split_objects", "merge_objects");
     private static final Object LOCK = new Object();
@@ -54,6 +54,7 @@ public final class LumaBridge implements PlugIn {
     final Tracking tracking = new Tracking(ops, journal);
     final Analysis analysis = new Analysis(ops, journal);
     final Macros macros = new Macros(scripting, journal, analysisRunning);
+    final Pipeline pipeline = new Pipeline();
     private volatile Map<String, Object> lastDispatch = Map.of();
     private String lastUndoCheckpoint;
 
@@ -184,7 +185,18 @@ public final class LumaBridge implements PlugIn {
                 case "run_script" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = edt(() -> checkpointIfPossible("Before script")); yield withMeta(scripting.runScript(args, imp, COMMAND_TIMEOUT_MS), backup); }
                 case "make_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", true) ? edt(() -> checkpointIfPossible("Before make macro")) : null; yield withMeta(macros.makeMacro(args, imp), backup); }
                 case "run_workflow" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = "folder".equals(Operations.string(args, "target", "active")) ? null : edt(() -> checkpointIfPossible("Before workflow")); yield withMeta(macros.runWorkflow(args, imp), backup); }
+                case "apply_analysis" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var described = edt(pipeline::describe); yield withMeta(applyAnalysis(args, imp, described), null); }
                 case "capture_macro" -> { var imp = edt(() -> { check(expected); return WindowManager.getCurrentImage(); }); var backup = Operations.bool(args, "test", false) ? edt(() -> checkpointIfPossible("Before capture macro")) : null; yield withMeta(macros.macroFromRecorder(args, imp), backup); }
+                case "open_path" -> {
+                    var path = edt(() -> { check(expected); return Operations.openablePath(Operations.string(args, "path", "")); });
+                    var watched = scripting.watch("open", null, () -> ops.openOffThread(path), OPEN_TIMEOUT_MS);
+                    if (watched.error() != null) throw new IllegalStateException("Could not open " + path.getFileName() + ": " + Objects.toString(watched.error().getMessage(), watched.error().getClass().getSimpleName()));
+                    var result = new LinkedHashMap<String, Object>(); result.put("path", path.toString()); result.put("elapsedMs", watched.elapsedMs());
+                    if (watched.dialog() != null) { result.put("opened", false); result.put("dispatched", true); result.put("dialog", scripting.dialogJson(watched.dialog())); result.put("note", "The reader opened a dialog (for example Bio-Formats import options); fill it with fiji_ui_action and press OK."); }
+                    else if (!watched.finished()) { result.put("opened", false); result.put("dispatched", true); result.put("running", true); result.put("note", "Still reading after " + OPEN_TIMEOUT_MS / 1000 + " s; fiji_context reports analysisRunning until the image appears."); }
+                    else { var opened = (Operations.Opened) watched.value(); result.putAll(edt(() -> ops.present(opened, path))); }
+                    yield withMeta(result, null);
+                }
                 default -> edt(() -> { check(expected); return execute(operation, args, request); });
             };
         } finally {
@@ -216,6 +228,33 @@ public final class LumaBridge implements PlugIn {
         if (imp != null && !out.containsKey("highlight")) out.put("highlight", edt(() -> Viewer.imageHighlight(imp, Objects.toString(out.get("command"), "Done"))));
         return out;
     }
+    /** "Apply this to the whole folder": saves the corrected analysis as a parameterised macro, then replays it on the folder. */
+    private Map<String, Object> applyAnalysis(JsonObject args, ij.ImagePlus imp, Map<String, Object> described) throws Exception {
+        var make = new JsonObject();
+        String title = imp == null ? "image" : imp.getTitle().replaceFirst("\\.[A-Za-z0-9]+$", "");
+        make.addProperty("name", Operations.string(args, "name", "analysis " + title));
+        make.addProperty("code", String.valueOf(described.get("macro")));
+        make.addProperty("description", String.join("; ", castList(described.get("steps"))));
+        make.add("params", JSON.toJsonTree(described.get("params")));
+        make.addProperty("test", false);
+        var saved = macros.makeMacro(make, imp);
+        var out = new LinkedHashMap<String, Object>();
+        out.put("workflow", saved); out.put("steps", described.get("steps")); out.put("params", described.get("params")); out.put("notReplayed", described.get("notReplayed")); out.put("countOnSource", described.get("countOnSource"));
+        String target = Operations.string(args, "target", "folder");
+        if (target.equals("none")) return out;
+        var run = new JsonObject(); run.addProperty("name", String.valueOf(saved.get("slug"))); run.addProperty("target", target);
+        String folder = Operations.string(args, "folder", "");
+        if (folder.isBlank() && target.equals("folder")) {
+            var info = imp == null ? null : imp.getOriginalFileInfo();
+            if (info == null || info.directory == null || info.directory.isBlank()) throw new IllegalStateException("This image has no folder on disk; say which folder to run on.");
+            folder = info.directory;
+        }
+        if (!folder.isBlank()) run.addProperty("folder", folder);
+        for (var key : List.of("pattern", "limit", "recursive", "saveResults")) if (args.has(key)) run.add(key, args.get(key));
+        out.put("run", macros.runWorkflow(run, imp));
+        return out;
+    }
+    @SuppressWarnings("unchecked") private static List<String> castList(Object value) { return value instanceof List<?> list ? (List<String>) list : List.of(); }
     private Object checkpointIfPossible(String label) {
         var imp = WindowManager.getCurrentImage();
         if (imp == null) return Map.of("skipped", true, "reason", "No image open; nothing to checkpoint.", "scope", Checkpoints.SCOPE);
@@ -272,9 +311,12 @@ public final class LumaBridge implements PlugIn {
             case "filter_objects" -> analysis.filterObjects(args);
             case "split_objects" -> analysis.splitObjects(args);
             case "merge_objects" -> analysis.mergeObjects(args);
+            case "analysis_workflow" -> pipeline.describe();
+            case "explain_object" -> analysis.explainObject(args, pipeline.ready() ? pipeline.describe() : null);
             case "workflows" -> macros.workflows(args);
             default -> throw new IllegalArgumentException("Unknown operation: " + operation);
         };
+        pipeline.observe(operation, args, result, WindowManager.getCurrentImage());
         var out = new LinkedHashMap<>(result);
         if (checkpoint != null) out.put("checkpoint", checkpoint);
         if (!operation.equals("context")) out.put("contextKey", contextKey());
