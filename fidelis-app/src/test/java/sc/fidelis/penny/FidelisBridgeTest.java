@@ -170,6 +170,33 @@ class FidelisBridgeTest {
     }
 
     @Test
+    void legacyFiltersRunAndParticleCountsDoNotDependOnTheResultsTable() throws Exception {
+        String doc = openSquares();
+        sc.fidelis.engine.api.DocumentId id = new sc.fidelis.engine.api.DocumentId(doc);
+        String before = PixelHash.sha256(engine.imagePlus(id));
+        JsonObject sharp = http.change("filter", args("name", "sharpen")).result();
+        assertEquals("completed", sharp.get("status").getAsString(), sharp.toString());
+        assertNotEquals(before, PixelHash.sha256(engine.imagePlus(id)), "Sharpen changed the pixels");
+        assertEquals("ij1:Process>Sharpen", last().commandId());
+        assertEquals(sc.fidelis.engine.api.Enums.Origin.NL_SPOKEN, last().origin());
+        assertEquals(0, sharp.get("undoSteps").getAsInt(), "the legacy route keeps no undo snapshot");
+        String sharpened = PixelHash.sha256(engine.imagePlus(id));
+        BridgeHttp.Resp undo = http.change("undo", args());
+        assertEquals(409, undo.status(), undo.body().toString());
+        assertTrue(undo.error().contains("nothing to undo"), undo.error());
+        assertEquals(sharpened, PixelHash.sha256(engine.imagePlus(id)), "a refused undo changes nothing");
+        JsonObject t = http.change("threshold", args("method", "Otsu", "dark", true)).result();
+        assertTrue(t.get("lower").getAsDouble() <= t.get("upper").getAsDouble(), t.toString());
+        JsonObject shown = http.change("analyze_particles", args()).result();
+        JsonObject quiet = http.change("analyze_particles", args("display", false)).result();
+        System.out.println("[penny-bridge] two-squares: threshold " + t.get("lower") + "-" + t.get("upper") + ", particles " + shown.get("count")
+                + " (" + shown.get("countedFrom").getAsString() + "), display off " + quiet.get("count") + " (" + quiet.get("countedFrom").getAsString() + ")");
+        assertTrue(shown.get("count").getAsInt() > 0, shown.toString());
+        assertEquals(shown.get("count").getAsInt(), quiet.get("count").getAsInt());
+        assertEquals(engine.rois(id).size(), quiet.get("count").getAsInt());
+    }
+
+    @Test
     void macrosWaitForConfirmationAndRunOnlyAfterIt() throws Exception {
         String doc = openSquares();
         String hash = PixelHash.sha256(engine.imagePlus(new sc.fidelis.engine.api.DocumentId(doc)));

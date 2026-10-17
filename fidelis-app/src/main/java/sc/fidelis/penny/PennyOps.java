@@ -269,14 +269,14 @@ final class PennyOps {
 
     /** Runs the plan on the plan thread and waits for it (bounded); the plan keeps running if the wait times out. */
     private Map<String, Object> start(Plan p, boolean confirmed) {
-        Plan old = pending.get();
-        if (old != null && old != p && pending.compareAndSet(old, null))
-            discard(old, "another action (" + p.call.operation() + ") ran after it, so the image, selection or results changed");
         if (!running.compareAndSet(null, p)) {
             Plan r = running.get();
             throw new Failure(409, "Penny is still running a plan in Fidelis" + (r == null ? "" : " (" + r.call.operation() + ", " + r.id + ")")
                     + "; wait for it to finish.", Map.of("planId", r == null ? "" : r.id));
         }
+        Plan old = pending.get();
+        if (old != null && old != p && pending.compareAndSet(old, null))
+            discard(old, "another action (" + p.call.operation() + ") ran after it, so the image, selection or results changed");
         ui(() -> PennyUi.current().showPlan(card(p), true));
         Future<Map<String, Object>> f;
         try {
@@ -334,8 +334,12 @@ final class PennyOps {
             for (int i = 0; i < results.size(); i++) steps.add(step(p.steps.get(i), results.get(i)));
             out.put("steps", steps);
             int undoable = 0;
-            for (ActionResult r : results) {
+            for (int i = 0; i < results.size(); i++) {
+                ActionResult r = results.get(i);
                 if (r.digest() == null || r.record() == null || "UNDO".equals(r.record().commandId())) continue;
+                ActionRequest q = p.steps.get(i).request();
+                // the engine's legacy route (no catalogued schema) keeps no undo snapshot
+                if (q.kind() == ActionKind.COMMAND && !engine.schema(q.commandId()).map(CommandSchema::schemaComplete).orElse(false)) continue;
                 boolean px = false;
                 for (var ch : r.digest().changed()) px |= ch.pixelsChanged() || ch.typeChanged();
                 if (px) undoable++;
@@ -496,7 +500,9 @@ final class PennyOps {
             prov = f.provenance();
         }
         String menu = s.menuPath() == null || s.menuPath().isBlank() ? s.label() : s.menuPath() + ">" + s.label();
-        ActionRequest r = ActionRequest.command(p.origin, id, meta(p, params), ts);
+        // The engine's legacy route (no catalogued schema) refuses any params, the reserved transcriptRef included, so such
+        // a step goes without it (its history record then has no transcriptRef; reported to the engine owner).
+        ActionRequest r = ActionRequest.command(p.origin, id, s.schemaComplete() ? meta(p, params) : Map.of(), ts);
         return new Step(role, s.label(), menu, r, prov, Params.preview(s, params));
     }
 
@@ -1049,9 +1055,21 @@ final class PennyOps {
         double total = 0;
         for (double v : areas) total += v;
         List<RoiGeometry> rois = engine.rois(d.id());
-        List<RoiGeometry> found = rois.subList(Math.max(0, rois.size() - count), rois.size());
+        Map<String, Object> pa = plan.steps.get(k).request().params();
+        String countedFrom = "Results rows of " + actionId;
         Map<String, Object> m = new LinkedHashMap<>();
+        if (!Boolean.TRUE.equals(pa.get("display"))) {
+            if (Boolean.TRUE.equals(pa.get("add"))) {
+                count = rois.size();
+                countedFrom = "the ROI list (display was off)";
+            } else {
+                m.put("note", "display and add were both off, so Fidelis recorded no rows or ROIs to count");
+                countedFrom = "nothing (display and add off)";
+            }
+        }
+        List<RoiGeometry> found = rois.subList(Math.max(0, rois.size() - count), rois.size());
         m.put("count", count);
+        m.put("countedFrom", countedFrom);
         m.put("averageSize", areas.isEmpty() ? "NaN" : total / areas.size());
         m.put("totalArea", areas.isEmpty() ? "NaN" : total);
         m.put("unit", d.unit());
