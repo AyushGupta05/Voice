@@ -1,0 +1,29 @@
+{
+  "mcp": "passed",
+  "tools": 23,
+  "sourceTools": 32,
+  "sourceSchemaMatch": false,
+  "image": {
+    "name": "OS-2.ndpi",
+    "zSlices": 1,
+    "channels": [
+      "Red",
+      "Green",
+      "Blue"
+    ],
+    "timepoints": 1,
+    "pixelSizeMicrons": 0.22709982175592125,
+    "width": 126976,
+    "height": 73728,
+    "type": "BRIGHTFIELD_H_DAB"
+  },
+  "menuMatches": 7,
+  "knowledgeDocuments": 66,
+  "resources": 1,
+  "scope": "Read-only actual MCP SDK \u2192 existing authenticated gateway \u2192 public OS-2 QuPath session",
+  "providerRequests": 0,
+  "sourceOnlyToolsAdvertised": false,
+  "loadedExtensionUpdated": false,
+  "nativeForegroundVerified": false,
+  "note": "Live MCP catalog matches the running gateway exactly. This does not prove newly compiled Java operations loaded or all software features tested."
+}

@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-17T03:32:16.034727+00:00",
+  "tools": 30,
+  "added": [
+    "measurement_summary",
+    "analysis_catalog",
+    "project_images",
+    "open_path",
+    "open_project_image",
+    "inspect_import",
+    "import_annotations"
+  ],
+  "gatewayTests": 62,
+  "qupathLibraryContracts": "passed with synthetic images and temporary GeoJSON only",
+  "javafxControls": "passed in isolation, no windows",
+  "nativeBuild": "passed",
+  "pcmTests": 4,
+  "nativePlotLayout": "offscreen synthetic SwiftUI render inspected",
+  "structuredReview": "clean after six verified findings were fixed",
+  "newLiveImportNavigationFlow": "pending manual unlock and separate disposable-instance authorization",
+  "runningQuPathReloaded": false,
+  "additionalInferenceRequests": 0,
+  "voice": "disabled; credit-covered GPT-Live endpoint unverified"
+}

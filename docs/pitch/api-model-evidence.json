@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T03:51:02.359Z",
+  "flow": "authenticated companion WebSocket -> actual AWS-credit OpenAI text -> restricted Runtime -> pinned QuPath API source",
+  "testServer": "isolated loopback; production conversation routing with restricted public fixture Runtime",
+  "model": "openai.gpt-oss-120b-1:0",
+  "operation": "actual model API search and declaration verification; no application action",
+  "viewerUnchanged": true,
+  "hierarchyUnchanged": true,
+  "approvalProposals": 0,
+  "events": [
+    "connected",
+    "task_state",
+    "tool",
+    "tool",
+    "text_result",
+    "task_state"
+  ],
+  "executedTools": [
+    "qupath_api_search",
+    "qupath_api_read"
+  ],
+  "declarationProof": {
+    "source": "qupath-core-processing/src/main/java/qupath/lib/scripting/QP.java",
+    "sourceCommit": "04ccfa4fb7d43e9b566393e08e83690b72248d44",
+    "sourceSha256": "fde9a6650072a175089167332790895ad486be3d8da2d52296da9a1edfdb4519",
+    "line": 4905,
+    "signature": "\tpublic static PixelClassifier loadPixelClassifier(String name) throws IllegalArgumentException {",
+    "returnType": "PixelClassifier",
+    "firstParameterType": "String"
+  },
+  "answer": "{\"returnType\":\"PixelClassifier\",\"firstParameterType\":\"String\"}",
+  "projectAttemptReserveDeltaUSD": 4,
+  "estimatedTokenCostUSD": 0.003171,
+  "billingReconciled": false,
+  "elapsedMs": 9457,
+  "nativeUI": "not exercised; separate foreground verification pending",
+  "voice": "not used; GPT-Live disabled",
+  "vision": "text-only; no image sent"
+}

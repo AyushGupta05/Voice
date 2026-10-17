@@ -36,3 +36,8 @@ verification/runs/
 # Licence-restricted (CC BY-NC-SA) fixtures: keep only the aggregate summary.json (counts and hashes), never per-step ROI/pixel data
 verification/baselines/FX-030/*/*/
 verification/baselines/FX-031/*/*/
+
+# Penny (voice gateway, companion, Fiji bridge): local state, tokens, downloads, builds
+.local/
+.build/
+coverage/

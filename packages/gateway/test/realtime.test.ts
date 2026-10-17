@@ -1,0 +1,35 @@
+import { tools as toolDefinitions } from '../src/tools.js';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { WebSocketServer, WebSocket } from 'ws';
+import { RealtimeSession } from '../src/realtime.js';
+import { Runtime } from '../src/runtime.js';
+import { Knowledge } from '../src/knowledge.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+test('realtime relay configures continuous audio and returns actual tool results once per call',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-realtime-'));
+  const server=new WebSocketServer({port:0,host:'127.0.0.1'});await once(server,'listening');
+  const address=server.address();assert(address && typeof address==='object');let calls=0;
+  const runtime=new Runtime({execute:async operation=>{if(operation==='context')return {contextKey:'image-1'};calls++;return {updated:true};}},new Knowledge(),directory);
+  const events:Record<string,unknown>[]=[];
+  const session=new RealtimeSession(runtime,event=>events.push(event));
+  const connection=once(server,'connection');session.connect(`ws://127.0.0.1:${address.port}`,{},3);
+  const peer=(await connection)[0] as WebSocket;
+  const first=JSON.parse((await once(peer,'message'))[0].toString());assert.equal(first.type,'session.update');
+  assert.equal(first.session.audio.input.turn_detection.interrupt_response,true);assert.deepEqual(first.session.tools.map((tool:{name:string})=>tool.name),toolDefinitions.map(tool=>tool.name));
+  const received:Record<string,unknown>[]=[];peer.on('message',data=>received.push(JSON.parse(data.toString())));
+  const call={type:'response.function_call_arguments.done',call_id:'call-1',name:'qupath_overlays',arguments:'{"fill":true}'};
+  peer.send(JSON.stringify(call));peer.send(JSON.stringify(call));
+  const deadline=Date.now()+2000;
+  while(!received.some(event=>event.type==='response.create')&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(calls,1);
+  const output=received.find(event=>event.type==='conversation.item.create') as {item?:{output:string}};
+  assert.deepEqual(JSON.parse(output.item!.output),{updated:true});
+  peer.send(JSON.stringify({type:'input_audio_buffer.speech_started'}));
+  await new Promise(resolve=>setTimeout(resolve,20));assert(events.some(event=>event.type==='interrupted'));
+  session.close();await new Promise<void>(resolve=>server.close(()=>resolve()));await rm(directory,{recursive:true,force:true});
+});

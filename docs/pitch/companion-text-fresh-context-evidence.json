@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T04:30:15.859Z",
+  "flow": "authenticated companion WebSocket -> actual AWS-credit OpenAI text -> shared Runtime -> real QuPath",
+  "testServer": "isolated loopback; production conversation routing with restricted public fixture Runtime",
+  "model": "openai.gpt-oss-120b-1:0",
+  "operation": "exact display-only focus",
+  "center": [
+    51100,
+    27100
+  ],
+  "hierarchyUnchanged": true,
+  "approvalProposals": 0,
+  "events": [
+    "connected",
+    "task_state",
+    "tool",
+    "tool",
+    "tool",
+    "tool",
+    "text_result",
+    "task_state",
+    "tool"
+  ],
+  "executedTools": [
+    "qupath_context",
+    "qupath_context",
+    "qupath_focus",
+    "qupath_context",
+    "qupath_context"
+  ],
+  "answer": "Viewer centered at x\u202f=\u202f51100, y\u202f=\u202f27100, downsample\u202f=\u202f3.",
+  "projectAttemptReserveDeltaUSD": 2,
+  "estimatedTokenCostUSD": 0.0011169,
+  "billingReconciled": false,
+  "elapsedMs": 4665,
+  "nativeUI": "compiled separately; no foreground click/visual verification in this fixture",
+  "voice": "not used; GPT-Live disabled",
+  "vision": "text-only; no image sent",
+  "comparison": {
+    "baselineEvidence": "companion-text-evidence.json",
+    "sameFixtureAndUserMessage": true,
+    "baselineElapsedMs": 6079,
+    "baselineModelRequests": 3,
+    "currentModelRequests": 2,
+    "sampleCountPerRevision": 1,
+    "boundary": "Two individual runs, not a latency benchmark or live-voice result; model/context tool remains available."
+  },
+  "cumulative": {
+    "completedModelRequests": 12,
+    "estimatedTokenCostUSD": 0.007089,
+    "retainedAttemptReservesUSD": 12,
+    "billingSettlementReconciled": false
+  }
+}

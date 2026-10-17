@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T02:57:05.232Z",
+  "flow": "authenticated companion WebSocket -> actual AWS-credit OpenAI text -> shared Runtime -> real QuPath",
+  "testServer": "isolated loopback; production conversation routing with restricted public fixture Runtime",
+  "model": "openai.gpt-oss-120b-1:0",
+  "operation": "exact display-only focus",
+  "center": [
+    51100,
+    27100
+  ],
+  "hierarchyUnchanged": true,
+  "approvalProposals": 0,
+  "events": [
+    "connected",
+    "task_state",
+    "tool",
+    "tool",
+    "tool",
+    "tool",
+    "tool",
+    "tool",
+    "text_result",
+    "task_state",
+    "tool"
+  ],
+  "executedTools": [
+    "qupath_context",
+    "qupath_context",
+    "qupath_context",
+    "qupath_context",
+    "qupath_focus",
+    "qupath_context",
+    "qupath_context"
+  ],
+  "answer": "Viewer centered at (51100,\u202f27100) with downsample\u202f3.",
+  "projectAttemptReserveDeltaUSD": 3,
+  "estimatedTokenCostUSD": 0.00140085,
+  "billingReconciled": false,
+  "elapsedMs": 6079,
+  "nativeUI": "compiled separately; no foreground click/visual verification in this fixture",
+  "voice": "not used; GPT-Live disabled",
+  "vision": "text-only; no image sent"
+}

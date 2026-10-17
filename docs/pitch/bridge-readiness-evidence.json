@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T05:24:26.757Z",
+  "check": "Old running extension is distinguished from completed source build",
+  "currentBuildManifestVersion": 1,
+  "currentBuildSourceSha256": "8397d3ef57701453ad6abf5bf18de841f0bb51d5202640c519be6307e7bb4870",
+  "loadedIdentityPresent": false,
+  "readiness": {
+    "status": "restart_required",
+    "message": "The running QuPath bridge predates build identity. Save work and quit/relaunch QuPath normally to load the built extension."
+  },
+  "originalQuPathVersion": "0.7.0",
+  "hierarchyEmpty": true,
+  "selectionCount": 0,
+  "applicationRestarted": false,
+  "scientificMutationExecuted": false,
+  "providerCalls": 0,
+  "boundary": "Actual legacy detection only; matching/stale/invalid identity and artifact cases have synthetic contracts. No new native-flow or voice claim."
+}

@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "strict": true, "esModuleInterop": true, "skipLibCheck": true,
+    "outDir": "dist/gateway", "rootDir": ".", "resolveJsonModule": true
+  },
+  "include": ["packages/gateway/**/*.ts", "script/*.ts"]
+}

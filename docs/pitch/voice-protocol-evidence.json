@@ -1,0 +1,18 @@
+{
+  "protocol": "GPT-Live client delegation",
+  "provider": "local WebSocket fixture only",
+  "backend": "scripted local response; no AI inference",
+  "audio": "synthetic PCM; no microphone or speaker",
+  "application": "real QuPath",
+  "operation": "display-only focus",
+  "center": [
+    51100,
+    27100
+  ],
+  "hierarchyUnchanged": true,
+  "modelTurns": 2,
+  "audioChunks": 1,
+  "elapsedFixtureMs": 25,
+  "timingBoundary": "local glue only; not model or voice latency",
+  "status": "passed"
+}

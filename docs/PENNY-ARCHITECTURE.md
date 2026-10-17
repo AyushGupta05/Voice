@@ -1,0 +1,58 @@
+# Architecture
+
+```mermaid
+flowchart LR
+    Researcher[Researcher: voice / text / mouse] --> Companion[Native macOS companion]
+    Companion <--> Gateway[Loopback gateway]
+    Gateway -. planned .-> Voice[GPT-Live: funding blocked]
+    Gateway <--> MCP[MCP stdio clients]
+    Gateway --> Approval[Human approval + bound action]
+    Approval --> Bridge[Authenticated QuPath extension]
+    Bridge <--> QuPath[Real viewer / selection / image / hierarchy]
+    Gateway --> Knowledge[Versioned QuPath task knowledge]
+    Gateway --> Audit[Local action journal]
+```
+
+## Boundaries
+
+The extension owns application state and runs JavaFX mutations on the UI thread. The gateway owns provider credentials, tool validation, approvals and conversation execution. The companion owns microphone capture, audio playback and presentation. MCP clients discover the authenticated running gateway’s catalog and call its shared tool executor. The stdio process does not independently apply potentially newer source schemas. This keeps discovery and argument validation aligned with the running gateway during staged builds; Java-extension readiness is checked separately. Cached clients need rediscovery/reconnection after registry changes. The MCP credential cannot decide approvals.
+
+No arbitrary shell tool is exposed. General Groovy execution is available only as an explicit approval-gated escape hatch. QuPath plugins and scripts can access local files and run code; approval must show the exact source and be scoped to one invocation.
+
+Only loopback interfaces are used. Per-install random tokens protect the bridge and gateway. Browser-origin requests are rejected. Secrets and image data stay out of Git. Structured observations are preferred to whole-screen capture; no unrelated application screenshot is sent by default.
+
+## Preserving QuPath
+
+The scientific application remains QuPath 0.7.0: its viewer, algorithms, projects, menus, plugins and scripting APIs. No upstream application source is patched. The official extracted app remains in `.local/qupath-package`; the separately named `dist/QuPathLuma.app` is a local development launcher. Its original application resources, including 165 top-level JARs and 16 nested documentation JARs, link to the official files, with one additional Penny extension JAR. The copied executable has the same code after normalizing its local signature. The launcher changes its own bundle name/identifier, adds the bridge classpath and isolates QuPath settings with its supported `qupath.prefs.name` property, using a separate per-checkout `science.luma/…/qupath/0.7` preference node. It uses the separate full JDK because QuPath's bundled runtime omits `jdk.httpserver`.
+
+The gateway, model tools, approvals and floating interface live outside QuPath. Removing those layers leaves the downloaded stock application intact. QuPath operations can still change a researcher's active data when approved; preserving the application does not make every analysis or file operation reversible.
+
+`npm run verify:qupath` verifies the pinned download SHA256, expands it into a temporary directory, compares every regular file, symlink and directory in the stock app, and checks its macOS signature. It then checks the separate launcher's original resource links and every classpath entry (including nested documentation), executable code, icon, exact configuration/metadata additions, isolated preferences and local full-JDK link, plus both clean pinned source/documentation checkouts. Exceptional Git index flags that could hide changes are refused. Executable-signature normalization happens only on temporary copies. The checker never repairs, resets, opens an image or restarts either app. A mismatch fails with inspection guidance. It currently verifies default bootstrap paths; custom `LUMA_QUPATH_APP` / `LUMA_JAVA_HOME` installations require their own trusted baseline.
+
+The stock bundle's full signature and the launcher's copied executable signature are checked separately. External resource links prevent the development launcher from being a strictly sealed distributable macOS bundle; this is not a notarized installer or release package. This verifies installed artifacts, not loaded classes in an existing process, foreground UI behavior, audio or scientific validity. Follow the normal save/quit/rebuild/relaunch procedure to load adapter updates.
+
+The first development launcher used `java.util.prefs.userRoot`, which macOS ignores. The current package uses QuPath’s own override instead. A running instance keeps its old preference node until normal restart. Earlier preference isolation was therefore not established, and existing user preferences have not been reset or repaired. Contract tests now use an entirely in-memory preference factory and verify that the real QuPath API honors the separate node. This isolates QuPath-managed settings; it is not a sandbox for arbitrary plugins or scripts.
+
+## Provider and budget policy
+
+The separate Realtime and GPT-Live transports and provider-injected backend are locally protocol-tested; see VOICE.md. Neither transport is constructed by the production server. A provider factory and native capture/playback wiring remain. Provider configuration is not proof of AWS credit eligibility. A verified local funding attestation, endpoint and hard session duration limit are required before opening a paid session. No automatic provider fallback can introduce cash billing.
+
+The separate researcher-text route uses the implemented AWS-credit Bedrock adapter with the shared tool backend. Each request rechecks account/credit/access/pricing eligibility and retains a conservative attempt reservation. Its working text path does not establish funding or wiring for the GPT-Live audio frontend. See [AWS-TEXT.md](AWS-TEXT.md).
+
+## Application profiles
+
+The gateway drives one scientific application per process, chosen by `LUMA_APP` (`qupath`, the default, or `fiji`). Everything application-specific lives in `packages/gateway/src/apps/`: a profile declares the tool list (`<prefix>_*`), the agent instructions, the bridge port, the launcher and bridge-build artifacts, the knowledge folders, the macOS bundle id the desktop tools bring forward, the instant spoken routes, acknowledgments and local result sentences, pre-dispatch checks for data/code tools and a hook that settles dialogs the application raises after an action. The generic modules (runtime, backend, server, MCP, knowledge, bridge, readiness) read the active profile and contain no application names; the `Runtime` carries its profile so tests and tooling can exercise another application without changing the environment. `/health` reports `app` (id, display name, bundle id) and `npm run doctor` checks the selected application's artifacts and that the running gateway drives the same one.
+
+The QuPath profile is the original behaviour moved verbatim (tools in `apps/qupath-tools.ts`, instructions in `apps/qupath-instructions.ts`, voice and dialog logic in `apps/qupath.ts`). The Fiji profile (`apps/fiji*.ts`) implements the contract in [FIJI-PROTOCOL.md](FIJI-PROTOCOL.md): one `fiji_*` tool per bridge operation (the `stack` operation is exposed twice, as the display-only `fiji_stack` and the pixel-producing `fiji_project_stack`), an adapter on port 49557 sharing the bridge token file, readiness against `dist/luma-fiji-bridge.jar` and `.local/fiji-bridge-build.json`, knowledge from `skills/fiji` and `.local/upstream/imagej-docs`, and a hook that confirms a Bio-Formats/Open dialog with its default settings after `fiji_open_path` or `fiji_run_command`. Start it with `LUMA_APP=fiji npm run dev` (or export `LUMA_APP=fiji` before the companion launches its gateway) and `./script/run-fiji.sh`. The generated references are [TOOL-REFERENCE.md](TOOL-REFERENCE.md) for QuPath and [TOOL-REFERENCE-FIJI.md](TOOL-REFERENCE-FIJI.md) for Fiji; `npm run docs:check` verifies both.
+
+Adding an application means one new profile module and its Java bridge; MCP discovery, approvals, the audit journal, the companion protocol and the voice pipeline are shared. The Fiji profile is implemented and protocol-tested; its behaviour against the live Fiji bridge is verified separately (see [CAPABILITIES.md](CAPABILITIES.md)).
+
+## Extensibility
+
+The Java extension reports a startup-cached adapter version, protocol, source-input digest and declared low-level operations. Bridge builds compile from a regular-file snapshot of main sources/resources and record the completed JAR hash in `.local/bridge-build.json`. This separates code on disk from classes already loaded by QuPath. Context observations include a read-only `adapterReadiness` comparison, and the doctor checks it independently even when the running gateway is older. Missing/inconsistent metadata cannot be certified current; an older loaded source identity reports the normal save/quit/relaunch step. Nothing is restarted automatically.
+
+This is a source/build diagnostic, not attestation of the exact loaded binary, unbuilt working-tree edits, every declared operation's behavior or scientific validity. The local JAR hash checks the completed artifact; declared operations are checked against the gateway's required operation names. A same-source rebuild can remain compatible. Custom app/JDK overrides still need their own trusted baseline. The metadata contains no file/project paths or credentials.
+
+Application adapters implement capability discovery, context observation and tool execution. QuPath-specific APIs remain in the adapter. Knowledge is Markdown with source references and version notes. Add a narrow structured operation before resorting to general scripting.
+
+The native companion supervises a project-local Node child when no authenticated gateway is available. It reuses external development gateways and terminates only a child it owns. The launcher records the resolved Node executable in the local app bundle. No login item or system service is installed. Quitting the companion does not roll back or cancel QuPath work already underway.

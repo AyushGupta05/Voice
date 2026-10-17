@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-17T02:35:45.914Z",
+  "provider": "Amazon Bedrock InvokeModel",
+  "model": "openai.gpt-oss-120b-1:0",
+  "inference": "actual OpenAI text model; not a scripted response",
+  "funding": "fresh authenticated eligible-credit/access/price checks before each request",
+  "application": "real QuPath",
+  "operation": "display-only exact focus; scientific data tools refused by fixture",
+  "center": [
+    51100,
+    27100
+  ],
+  "hierarchyUnchanged": true,
+  "approvalProposals": 0,
+  "executedTools": [
+    "qupath_context",
+    "qupath_context",
+    "qupath_context",
+    "qupath_focus",
+    "qupath_context",
+    "qupath_context"
+  ],
+  "answer": "Viewer centered at x = 51100, y = 27100 with downsample = 3.",
+  "projectAttemptReserveDeltaUSD": 3,
+  "estimatedTokenCostUSD": 0.00140025,
+  "billingReconciled": false,
+  "elapsedMs": 5444,
+  "voice": "not used; GPT-Live remains disabled",
+  "vision": "text-only; no image was sent"
+}
