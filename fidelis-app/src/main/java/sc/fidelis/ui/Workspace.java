@@ -163,8 +163,9 @@ public final class Workspace {
 
             @Override
             public void windowClosed(WindowEvent e) {
-                // A disposed workspace must not keep receiving (and acting on) engine events (#16)
+                // A disposed workspace must not keep receiving (and acting on) engine or speech events (#16)
                 engine.removeListener(engineListener);
+                commandBar.detachSpeech();
             }
         });
 

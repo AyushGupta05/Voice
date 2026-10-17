@@ -33,6 +33,7 @@ public final class UiContext {
     public final Engine engine;
     public final JFrame frame;
     private final Map<String, String> labels = new ConcurrentHashMap<>();
+    private final Map<javax.swing.KeyStroke, String> accelerators = new ConcurrentHashMap<>();
     private StatusBar status;
     private ParametersPanel parameters;
     private CommandBar commandBar;
@@ -63,6 +64,16 @@ public final class UiContext {
     LegacyWindows legacyWindows() { return legacyWindows; }
 
     /** Window title: product name and the focused document (docs D12 UI-01). */
+    /** Remember one of Fiji's own menu accelerators (read from the IJ1 menu bar by {@link MenuBuilder}). */
+    void registerAccelerator(javax.swing.KeyStroke ks, String commandId) {
+        if (ks != null && commandId != null) accelerators.put(ks, commandId);
+    }
+
+    /** The Fiji command bound to a key stroke in the IJ1 menu bar, or null (DEC-031: nothing is re-mapped). */
+    public String commandForShortcut(javax.swing.KeyStroke ks) {
+        return ks == null ? null : accelerators.get(ks);
+    }
+
     void frameTitleChanged() {
         String t = focusedInfo().map(DocumentInfo::title).orElse(null);
         frame.setTitle(t == null ? "Fidelis" : "Fidelis — " + t);
@@ -160,7 +171,7 @@ public final class UiContext {
             notice("The engine is still starting (" + engine.state() + ")", false);
             return;
         }
-        if (Routes.handle(this, commandId)) return;
+        if (Routes.handle(this, commandId, origin)) return;
         Optional<CommandSchema> schema = engine.schema(commandId);
         if (schema.isPresent() && schema.get().schemaComplete() && !schema.get().parameters().isEmpty()) {
             parameters.show(schema.get(), prefill, origin);

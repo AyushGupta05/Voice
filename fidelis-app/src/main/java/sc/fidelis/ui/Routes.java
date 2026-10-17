@@ -31,7 +31,7 @@ final class Routes {
     private Routes() {}
 
     /** @return true when the command was handled by the workspace. */
-    static boolean handle(UiContext ctx, String commandId) {
+    static boolean handle(UiContext ctx, String commandId, Origin origin) {
         String id = commandId.trim();
         DocumentView v = ctx.documents().focusedView();
         switch (id) {
@@ -41,7 +41,15 @@ final class Routes {
                 else ctx.notice("No image is open", false);
             }
             case "ij1:Edit>Undo" -> ctx.submit(
-                    ActionRequest.direct(Origin.MENU, Operations.UNDO, Map.of(), ctx.target()), "Undo");
+                    ActionRequest.direct(origin, Operations.UNDO, Map.of(), ctx.target()), "Undo");
+            // The engine keeps one ROI list per document and loads it into IJ1's ROI Manager only around
+            // Analyze Particles; the IJ1 command would add to the raw singleton, invisible to the document's
+            // list. The ROI panel's Add button already uses ROI_LIST_ADD, so the menu item and its Fiji
+            // shortcut (Ctrl+T) do the same (#16 shortcut parity).
+            case "ij1:Edit>Selection>Add to Manager" -> {
+                if (ctx.target() == null) ctx.notice("No image is open", false);
+                else ctx.submit(ActionRequest.direct(origin, Operations.ROI_LIST_ADD, Map.of(), ctx.target()), "Add to Manager");
+            }
             case "ij1:Image>Zoom>In [+]" -> zoom(ctx, v, () -> v.zoomStep(true, null));
             case "ij1:Image>Zoom>Out [-]" -> zoom(ctx, v, () -> v.zoomStep(false, null));
             case "ij1:Image>Zoom>Original Scale" -> zoom(ctx, v, v == null ? null : v::originalScale);

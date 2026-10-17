@@ -81,10 +81,15 @@ final class MenuBuilder {
                 menu.add(toMenu(c));
             } else {
                 JMenuItem it = c.checkbox() ? new JCheckBoxMenuItem(c.label()) : new JMenuItem(c.label());
-                if (c.accelerator() != null) it.setAccelerator(c.accelerator());
                 String id = c.commandId();
+                if (c.accelerator() != null) {
+                    it.setAccelerator(c.accelerator());
+                    ctx.registerAccelerator(c.accelerator(), id);
+                }
                 it.setToolTipText(id.substring(4));
-                it.addActionListener(e -> ctx.runCommand(id, Origin.MENU));
+                // Swing fires the item with the key event's modifiers when its accelerator triggered it
+                it.addActionListener(e -> ctx.runCommand(id,
+                        (e.getModifiers() & java.awt.event.ActionEvent.CTRL_MASK) != 0 ? Origin.SHORTCUT : Origin.MENU));
                 menu.add(it);
             }
         }
