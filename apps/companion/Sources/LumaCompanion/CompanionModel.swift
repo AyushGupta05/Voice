@@ -53,7 +53,10 @@ final class CompanionModel: ObservableObject {
     private var notedPendingActionIDs = Set<String>()
     /// True from the researcher's Start until their Stop or a voice error. While true, a session the gateway ends on
     /// its own (stream time limit, speech stream closed) is replaced immediately without another click.
-    private var voiceWanted = false
+    /// Once the researcher turns voice on it stays wanted across restarts and reconnects until they press Stop.
+    private var voiceWanted = UserDefaults.standard.bool(forKey: "luma.voiceWanted") {
+        didSet { UserDefaults.standard.set(voiceWanted, forKey: "luma.voiceWanted") }
+    }
     private let root: URL
     private var token = ""
     private var gateway: GatewaySupervisor?
@@ -134,6 +137,7 @@ final class CompanionModel: ObservableObject {
             bridgeConnected = health["bridgeError"] == nil
             voiceReason = (health["voice"] as? [String: Any])?["reason"] as? String ?? "Voice funding has not been verified."
             voiceReady = (health["voice"] as? [String: Any])?["enabled"] as? Bool ?? false
+            armVoiceIfWanted()
             let text = health["text"] as? [String: Any] ?? [:]
             textReady = text["configured"] as? Bool ?? false
             textReason = text["reason"] as? String ?? "Text needs verified AWS credits."
@@ -213,7 +217,7 @@ final class CompanionModel: ObservableObject {
     }
     private func receive(_ event: [String: Any]) {
         switch event["type"] as? String {
-        case "connected": eventsReady = true
+        case "connected": eventsReady = true; armVoiceIfWanted()
         case "desktop_request":
             guard let requestID = event["requestId"] as? String else { return }
             let op = event["op"] as? String ?? "", args = event["args"] as? [String: Any] ?? [:]
@@ -423,10 +427,16 @@ final class CompanionModel: ObservableObject {
         else { startVoice() }
     }
     private func startVoice() {
-        guard voiceReady && eventsReady else { voiceWanted = false; return }
         voiceWanted = true
+        // Not ready yet (gateway or funding still connecting): armVoiceIfWanted() starts it as soon as both are.
+        guard voiceReady && eventsReady else { return }
         let id = UUID().uuidString; voiceRequestID = id; voiceStarting = true
         send(["type": "start_voice", "requestId": id])
+    }
+    /// Hands-free: re-arm the microphone after a companion/gateway restart or reconnect when voice was left on.
+    private func armVoiceIfWanted() {
+        guard voiceWanted, voiceReady, eventsReady, voiceSessionID == nil, !voiceStarting, voiceRequestID == nil else { return }
+        startVoice()
     }
     /// The gateway closes a session itself at the speech stream's time limit or when the stream closes; neither is a user stop.
     static func isGatewayEndedSession(_ reason: String) -> Bool {
