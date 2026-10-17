@@ -153,6 +153,11 @@ public final class DefaultEngine implements Engine {
         events.remove(listener);
     }
 
+    /** The registered listeners, in registration order (implementation-only; test isolation and diagnostics). */
+    public List<EngineListener> listeners() {
+        return events.snapshot();
+    }
+
     @Override
     public void quit(boolean discardUnsaved) {
         quit(discardUnsaved, worker::shutdown, () -> {
@@ -566,6 +571,14 @@ public final class DefaultEngine implements Engine {
     @Override
     public List<MeasurementRow> results() {
         return results.all();
+    }
+
+    /**
+     * Re-read the IJ1 system Results table after it was changed outside any engine action (a reset by other code):
+     * a shorter table rebuilds the engine rows from row 0 (implementation-only; test isolation).
+     */
+    public void resyncResults() {
+        results.markSeen();
     }
 
     @Override
