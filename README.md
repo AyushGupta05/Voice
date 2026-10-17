@@ -2,13 +2,19 @@
 
 **Make scientific software conversational.**
 
-Penny is a native companion for QuPath, inspired by [Clicky](https://github.com/farzaa/clicky). It bridges a researcher's intent and the application's actual state through a reusable agent interface. The researcher keeps using the original scientific software.
+Penny is a voice-native companion for scientific software, inspired by [Clicky](https://github.com/farzaa/clicky). You keep using the real application; you talk, Penny acts in it, points at what it did with its own cursor, and answers in one spoken sentence with the application's real numbers. **Fiji (ImageJ)** is the demo application; QuPath is the second supported profile. The same bar, voice stack, instant routes and desktop control serve both; only the application adapter differs.
 
 Built for [Reinvent the Wheel: Tools for Science](https://luma.com/vdq0qw9u), 16–18 October 2026.
 
 ![Actual QuPath viewer with threshold-positive cells on the public OS-2 sample](docs/images/ki67-positive-view.png)
 
-## Current prototype
+## Fiji (current demo application)
+
+- `LUMA_APP=fiji` (written to `.local/state/app` by `./script/run-fiji.sh`) switches the agent to the Fiji profile: ~60 `fiji_*` tools over a 51-operation bridge plugin (open/samples, ROIs, measure, threshold, Analyze Particles, one-shot `segment_cells`, filters, stacks, zoom, highlight, overlays, display, commands/dialogs, macros and scripts, Macro Recorder → saved workflows, checkpoints/undo, tracking, intensity over time, tumour region, colocalisation, positivity, dynamic macros) plus the Accessibility desktop tools.
+- Verified by voice-style turns on the Blobs sample: "segment the cells" → 67 cells outlined, "how many and the mean intensity" → 67 / 190 (from the original pixels), "make it stricter / looser" → instant re-segmentation with the new count (~40 ms, no model round), "go back", "save this as a macro" → `.ijm` written. See [DEMO-FIJI.md](docs/DEMO-FIJI.md), [FIJI-SETUP.md](docs/FIJI-SETUP.md) and the [bridge contract](docs/FIJI-PROTOCOL.md).
+- Say "Penny, …" to address it in a noisy room; follow-ups within 30 s need no name; "zoom in", "undo", "stricter" always work.
+
+## QuPath profile
 
 - A compact bar at the top of the screen shows short status text. Expand it for conversation, measured results and action history. The companion follows the active QuPath image and selection.
 - **33 implemented MCP tools** expose context, objects, measurements, navigation, display, highlights, analysis, recovery, live menus, JavaFX dialogs and reviewed Groovy execution.
