@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Runtime, type Action } from '../src/runtime.js';
@@ -223,4 +223,46 @@ test('classification owns arguments before a pending preview can yield to caller
     assert.equal((action.context.reviewTarget as any).candidateCount,49);assert.equal((action.context.reviewTarget as any).existingClassFilter,'Existing');
     await runtime.decide(proposal.actionId,false);
   }finally{release();await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('an approval audit failure settles as unexecuted rather than leaving a running action',async()=>{
+  const f=await fixture();try {
+    const proposal=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    await rm(join(f.directory,'actions.jsonl'));await mkdir(join(f.directory,'actions.jsonl'));
+    const events:Action[]=[];f.runtime.on('action',action=>events.push(structuredClone(action)));
+    const action=await f.runtime.decide(proposal.actionId,true);
+    assert.equal(action.status,'failed');assert.match(action.error??'',/nothing was executed/i);
+    assert.equal(f.adapter.mutations,0);assert.equal(events.at(-1)?.status,'failed');
+    await assert.rejects(f.runtime.decide(proposal.actionId,true),/no longer awaiting/);
+  }finally{await f.clean();}
+});
+test('post-execution audit failure preserves the actual result and emits one terminal outcome',async()=>{
+  const directory=await mkdtemp(join(tmpdir(),'luma-final-audit-'));let mutations=0;
+  const runtime=new Runtime({execute:async operation=>{
+    if(operation==='context')return{contextKey:'fixture',image:{name:'Synthetic'}};
+    mutations++;await rm(join(directory,'actions.jsonl'));await mkdir(join(directory,'actions.jsonl'));return{created:'actual-object'};
+  }},new Knowledge(),directory);
+  try{
+    const proposal=await runtime.call('qupath_annotate',annotation) as {actionId:string};
+    const events:Action[]=[];runtime.on('action',action=>events.push(structuredClone(action)));
+    const action=await runtime.decide(proposal.actionId,true);
+    assert.equal(action.status,'completed');assert.deepEqual(action.result,{created:'actual-object'});
+    assert.match(action.auditWarning??'',/could not be recorded/);assert.equal(action.error,undefined);
+    assert.equal(mutations,1);assert.equal(events.filter(event=>event.status==='completed').length,1);
+    assert.equal(events.at(-1)?.auditWarning,action.auditWarning);
+    await assert.rejects(runtime.decide(proposal.actionId,true),/no longer awaiting/);assert.equal(mutations,1);
+  }finally{await rm(directory,{recursive:true,force:true});}
+});
+test('denied and expired approvals settle even when their terminal audit cannot be appended',async()=>{
+  const f=await fixture();try{
+    const denied=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    const expired=await f.runtime.call('qupath_annotate',annotation) as {actionId:string};
+    f.runtime.actions.get(expired.actionId)!.expiresAt=new Date(0).toISOString();
+    await rm(join(f.directory,'actions.jsonl'));await mkdir(join(f.directory,'actions.jsonl'));
+    const events:Action[]=[];f.runtime.on('action',action=>events.push(structuredClone(action)));
+    const declined=await f.runtime.decide(denied.actionId,false);assert.equal(declined.status,'denied');assert(declined.auditWarning);
+    await assert.rejects(f.runtime.decide(expired.actionId,true),/expired/);
+    assert.deepEqual(events.map(action=>action.status),['denied','expired']);assert(events.every(action=>action.auditWarning));assert.equal(f.adapter.mutations,0);
+  }finally{await f.clean();}
 });

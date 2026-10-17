@@ -1,8 +1,10 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { tools as toolDefinitions } from '../src/tools.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ResponsesBackend, type BackendClient, type BackendRequest } from '../src/backend.js';
@@ -25,7 +27,7 @@ async function runtimeFixture(adapter?:Adapter){
     if(operation==='context')return {contextKey:'fixture',image:{name:'Synthetic image'}};
     mutations++;return {created:true};
   }},new Knowledge(),directory);
-  return {runtime,mutations:()=>mutations,clean:()=>rm(directory,{recursive:true,force:true})};
+  return {directory,runtime,mutations:()=>mutations,clean:()=>rm(directory,{recursive:true,force:true})};
 }
 
 test('backend waits for the real human decision and continues with actual tool results',async()=>{
@@ -275,4 +277,111 @@ test('a text-only backend cannot request viewer vision or receive image input',a
     return {output:[],output_text:'I can use the measured metadata and focus the real viewer, but this backend has no image input.'};
   }};
   try{await new ResponsesBackend(f.runtime,client,'text-only',()=>{},4096).run(task().value);assert.equal(f.mutations(),0);}finally{await f.clean();}
+});
+
+
+test('backend receives an audit-blocked approval outcome instead of waiting forever', {timeout:3000}, async()=>{
+  const f=await runtimeFixture();const cancellation=new AbortController();const t=task(cancellation.signal);let requests=0;
+  const client:BackendClient={complete:async request=>{
+    if(++requests===1)return{output:[annotate]};
+    const output=JSON.parse(String(request.input.find(item=>item.type==='function_call_output')!.output));
+    assert.equal(output.status,'failed');assert.match(output.error,/nothing was executed/);assert.match(output.auditWarning,/could not be recorded/);
+    return{output:[],output_text:'Nothing was executed; local audit storage needs attention.'};
+  }};
+  try{
+    const pending=once(f.runtime,'action');const running=new ResponsesBackend(f.runtime,client,'test-model',()=>{}).run(t.value);
+    const action=(await pending)[0] as Action;await new Promise(resolve=>setImmediate(resolve));
+    await rm(join(f.directory,'actions.jsonl'));await mkdir(join(f.directory,'actions.jsonl'));
+    await f.runtime.decide(action.id,true);await running;
+    assert.equal(f.mutations(),0);assert.equal(requests,2);assert.equal(f.runtime.listenerCount('action'),0);
+  }finally{cancellation.abort();await f.clean();}
+});
+test('backend preserves completed results and journal warnings in the answer and follow-up memory', {timeout:3000}, async()=>{
+  let directory='';let mutations=0;
+  const f=await runtimeFixture({execute:async operation=>{
+    if(operation==='context')return{contextKey:'fixture'};
+    mutations++;await rm(join(directory,'actions.jsonl'));await mkdir(join(directory,'actions.jsonl'));return{created:'actual-object'};
+  }});directory=f.directory;
+  const cancellation=new AbortController();let requests=0;
+  const client:BackendClient={complete:async request=>{
+    if(++requests===1)return{output:[annotate]};
+    if(requests===2){
+      const output=JSON.parse(String(request.input.find(item=>item.type==='function_call_output')!.output));
+      assert.equal(output.status,'completed');assert.deepEqual(output.result,{created:'actual-object'});assert.match(output.auditWarning,/could not be recorded/);
+    }else{
+      const observation=JSON.parse(String((request.input.at(-1)!.content as any[])[0].text));
+      const prior=observation.previousTasks.tasks[0].calls[0].output;
+      assert.equal(prior.status,'completed');assert.equal(prior.result.created,'actual-object');assert(prior.auditWarning);
+    }
+    return{output:[],output_text:'The object was created. Its final local audit update failed; inspect QuPath before a new action.'};
+  }};
+  try{
+    const backend=new ResponsesBackend(f.runtime,client,'test-model',()=>{});
+    const pending=once(f.runtime,'action');const running=backend.run(task(cancellation.signal).value);
+    const action=(await pending)[0] as Action;await f.runtime.decide(action.id,true);await running;
+    const follow=task(cancellation.signal).value;follow.id='follow-up-recording-warning';await backend.run(follow);
+    assert.equal(mutations,1);assert.equal(requests,3);assert.equal(f.runtime.listenerCount('action'),0);
+  }finally{cancellation.abort();await f.clean();}
+});
+
+
+test('a near-expiry denial waits for its claimed journal write instead of reporting expiry', {timeout:4000,skip:process.platform==='win32'}, async t=>{
+  t.mock.timers.enable({apis:['Date','setTimeout'],now:0});
+  const f=await runtimeFixture();const cancellation=new AbortController();let requests=0;
+  const client:BackendClient={complete:async request=>{
+    if(++requests===1)return{output:[annotate]};
+    const output=JSON.parse(String(request.input.find(item=>item.type==='function_call_output')!.output));
+    assert.equal(output.status,'denied');assert.equal(output.error,undefined);
+    return{output:[],output_text:'The researcher declined the operation.'};
+  }};
+  // Shorten the fixture proposal before awaitHuman observes it; production keeps five minutes.
+  f.runtime.on('action',(action:Action)=>{if(action.status==='pending')action.expiresAt=new Date(Date.now()+150).toISOString();});
+  try{
+    const pending=once(f.runtime,'action');
+    let settled=false;
+    const running=new ResponsesBackend(f.runtime,client,'test-model',()=>{}).run(task(cancellation.signal).value)
+      .then(()=>{settled=true;return{ok:true,error:undefined};},error=>{settled=true;return{ok:false,error};});
+    const action=(await pending)[0] as Action;
+    const journal=join(f.directory,'actions.jsonl');await rm(journal);await promisify(execFile)('mkfifo',[journal]);
+    const deciding=f.runtime.decide(action.id,false);
+    assert.equal(f.runtime.actions.get(action.id)!.status,'denied','Denial is claimed before the delayed append');
+    // Advance only the approval clock while the genuine appendFile is blocked.
+    t.mock.timers.tick(151);await new Promise(resolve=>setImmediate(resolve));
+    const settledAtDeadline=settled;
+    // Always release the FIFO before asserting, including against a regressed implementation.
+    const [outcome,denied,record]=await Promise.all([running,deciding,readFile(journal,'utf8')]);
+    assert.equal(settledAtDeadline,false,'Claimed denial must await its terminal outcome');
+    assert.equal(outcome.ok,true,String(outcome.error));
+    assert.equal(denied.status,'denied');assert.equal(JSON.parse(record.trim()).status,'denied');
+    assert.equal(f.mutations(),0);assert.equal(requests,2);assert.equal(f.runtime.listenerCount('action'),1,'Only fixture expiry-shortening listener remains');
+  }finally{cancellation.abort();await f.clean();}
+});
+
+
+test('interrupted-proposal history refreshes a denial after its late audit failure', {timeout:3000}, async()=>{
+  const f=await runtimeFixture();const cancellation=new AbortController();let requests=0;let release!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const client:BackendClient={complete:async request=>{
+    if(++requests===1)return{output:[annotate]};
+    const observation=JSON.parse(String((request.input.at(-1)!.content as any[])[0].text));
+    const original=observation.previousTasks.tasks.find((entry:{id:string})=>entry.id==='delegated-task');
+    const prior=original.calls[0].output;assert.equal(prior.status,'denied');
+    if(requests===2)assert.equal(prior.auditWarning,undefined,'Journal update has not settled');
+    else assert.match(prior.auditWarning,/could not be recorded/);
+    return{output:[],output_text:'The operation was declined.'};
+  }};
+  try{
+    const backend=new ResponsesBackend(f.runtime,client,'test-model',()=>{});
+    const pending=once(f.runtime,'action');const running=backend.run(task(cancellation.signal).value);const rejected=assert.rejects(running,{name:'AbortError'});
+    const action=(await pending)[0] as Action;await new Promise(resolve=>setImmediate(resolve));cancellation.abort();await rejected;
+    // Delay only this temporary fixture's audit method, then invoke its genuine filesystem append failure.
+    const originalAudit=Reflect.get(f.runtime,'audit').bind(f.runtime) as (action:Action)=>Promise<void>;
+    Reflect.set(f.runtime,'audit',async(current:Action)=>{if(current.id===action.id&&current.status==='denied')await gate;await originalAudit(current);});
+    const deciding=f.runtime.decide(action.id,false);
+    const early=task().value;early.id='during-denial-audit';await backend.run(early);
+    await rm(join(f.directory,'actions.jsonl'));await mkdir(join(f.directory,'actions.jsonl'));release();
+    const denied=await deciding;assert.equal(denied.status,'denied');assert(denied.auditWarning);
+    const late=task().value;late.id='after-denial-audit';await backend.run(late);
+    assert.equal(requests,3);assert.equal(f.mutations(),0);
+  }finally{release();await f.clean();}
 });

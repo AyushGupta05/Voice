@@ -8,7 +8,7 @@ import type { Knowledge } from './knowledge.js';
 
 export type Action = {
   id: string; tool: string; arguments: Arguments; risk: Tool['risk']; status: 'pending' | 'running' | 'completed' | 'denied' | 'failed' | 'expired';
-  createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string;
+  createdAt: string; expiresAt: string; context: Context; result?: unknown; error?: string; auditWarning?: string;
 };
 export class Runtime extends EventEmitter {
   readonly actions = new Map<string, Action>();
@@ -103,13 +103,19 @@ export class Runtime extends EventEmitter {
     const action = this.actions.get(id);
     if (!action || action.status !== 'pending') throw new Error('Action is no longer awaiting approval.');
     if (Date.now() >= Date.parse(action.expiresAt)) {
-      action.status = 'expired'; await this.audit(action); this.emit('action',action); throw new Error('Approval expired. Request a new action.');
+      action.status = 'expired'; await this.terminal(action); throw new Error('Approval expired. Request a new action.');
     }
     // Claim before the first await: two clicks cannot execute an approved action twice.
     action.status = approved ? 'running' : 'denied';
+    if (!approved) { await this.terminal(action); return action; }
     this.emit('action',action);
-    await this.audit(action);
-    if (!approved) return action;
+    try { await this.audit(action); }
+    catch {
+      // Without a recorded human decision, fail before the adapter is called.
+      // Wake backend/UI waiters even when the journal itself is unavailable.
+      action.status='failed'; action.error='The approval decision could not be recorded; nothing was executed. Request a fresh action after fixing local audit storage.';
+      action.auditWarning=this.auditWarning; this.emit('action',action); return action;
+    }
     return this.serial(async () => {
       try {
         const spec = validateTool(action.tool, action.arguments);
@@ -117,9 +123,15 @@ export class Runtime extends EventEmitter {
         action.status = 'completed';
         this.emit('tool',{name: action.tool, arguments: action.arguments, result: action.result});
       } catch (error) { action.status = 'failed'; action.error = error instanceof Error ? error.message : String(error); }
-      await this.audit(action); this.emit('action',action);
+      await this.terminal(action);
       return action;
     });
+  }
+  private readonly auditWarning='Local audit update could not be recorded. Use the actual status/result below; no operation was retried. Inspect QuPath before any new action. Persistence is unconfirmed.';
+  private async terminal(action:Action) {
+    try { await this.audit(action); } catch { action.auditWarning=this.auditWarning; }
+    // Recording failure cannot erase a completed operation or strand its waiter.
+    this.emit('action',action);
   }
   private async serial<T>(operation: () => Promise<T>): Promise<T> {
     const next = this.operationQueue.then(operation,operation);

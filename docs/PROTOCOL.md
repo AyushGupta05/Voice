@@ -40,6 +40,8 @@ Threshold classification proposals include the actual eligible-detection count, 
 
 A failed operation can have partial effects. Inspect QuPath and the checkpoint before retrying. Network timeouts do not prove the operation stopped.
 
+Human approval must be appended to the local audit journal before adapter execution. If that write fails, the claimed action settles as `failed` with an explicit “nothing was executed” error; the old approval cannot be reused. After adapter execution, an audit failure cannot change its actual status/result or cause replay. The terminal event and `qupath_action_status` preserve that outcome with a separate `auditWarning`, also passed to the agent and retained follow-up history. Denial/expiry still notify waiters if their journal append fails. The companion displays these warnings. Terminal persistence is then unconfirmed and the outcome survives only in the current gateway’s memory; inspect QuPath before a new action. No automatic journal repair or operation retry occurs.
+
 ## Bridge HTTP
 
 Authenticated `GET /health` reports the original QuPath version, adapter version and startup-cached adapter identity. The same `adapter` object is in context even without an open image. Protocol 1 includes `sourceSha256` and declared operation IDs. New gateway context responses add `adapterReadiness` from the local completed-build manifest/JAR. These fields diagnose loaded-code mismatches; they neither grant execution permission nor trigger a restart. Low-level operation IDs can differ from MCP tool names (for example `detect` / `qupath_detect_cells`).

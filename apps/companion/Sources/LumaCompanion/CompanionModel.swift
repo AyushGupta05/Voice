@@ -179,8 +179,11 @@ final class CompanionModel: ObservableObject {
             Task { await refresh() }
         case "action":
             if let action = event["action"] as? [String: Any], action["status"] as? String == "pending" { selectedTab = 1 }
-            if let action = event["action"] as? [String: Any], let status = action["status"] as? String, ["failed", "denied", "completed"].contains(status) {
-                activities.insert(Activity(title: status.capitalized, detail: action["error"] as? String ?? friendly(action["tool"] as? String ?? "Action"), isError: status == "failed"), at: 0)
+            if let action = event["action"] as? [String: Any], let status = action["status"] as? String, ["failed", "denied", "completed", "expired"].contains(status) {
+                let detail = action["error"] as? String ?? friendly(action["tool"] as? String ?? "Action")
+                let warning = action["auditWarning"] as? String
+                activities.insert(Activity(title: status.capitalized, detail: detail + (warning.map { "\n" + $0 } ?? ""), isError: status == "failed" || warning != nil), at: 0)
+                activities = Array(activities.prefix(40))
             }
             Task { await refresh() }
         case "error":

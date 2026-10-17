@@ -48,7 +48,13 @@ function awaitHuman(runtime: Runtime, actionId: string, signal: AbortSignal): Pr
     const current = runtime.actions.get(actionId);
     if (!current) { clean(); reject(new Error('Approval proposal was not found.')); return; }
     if (!['pending', 'running'].includes(current.status)) { changed(current); return; }
-    if (current.status === 'pending') expiry = setTimeout(() => { clean(); reject(new Error('Human approval expired.')); }, Math.max(1, Date.parse(current.expiresAt) - Date.now()));
+    if (current.status === 'pending') expiry = setTimeout(() => {
+      // Runtime claims decisions synchronously, then records them before its terminal event.
+      // A near-deadline denial is already decided; wait for its outcome/audit warning.
+      const latest=runtime.actions.get(actionId);
+      if(latest&&latest.status!=='pending')return;
+      clean(); reject(new Error('Human approval expired.'));
+    }, Math.max(1, Date.parse(current.expiresAt) - Date.now()));
   });
 }
 
@@ -81,9 +87,11 @@ export class ResponsesBackend implements DelegationBackend {
   private previousTasks(excludeId: string) {
     for (const memory of this.memories) for (const call of memory.calls) {
       const output = call.output as { actionId?: unknown; status?: unknown } | null;
-      if (!output || typeof output.actionId !== 'string' || !['approval_required','pending','running'].includes(String(output.status))) continue;
+      // A claimed terminal status can precede its final audit outcome. Refresh every
+      // retained action ID so a later recording warning is not frozen out of history.
+      if (!output || typeof output.actionId !== 'string') continue;
       const current = this.runtime.actions.get(output.actionId);
-      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, result: current.result, error: current.error };
+      if (current) call.output = { actionId: current.id, tool: current.tool, status: current.status, result: current.result, error: current.error, auditWarning: current.auditWarning };
     }
     this.trimMemory();
     const entries = this.memories.filter(memory => memory.id !== excludeId);
@@ -179,7 +187,7 @@ export class ResponsesBackend implements DelegationBackend {
           if (result && typeof result === 'object' && 'status' in result && result.status === 'approval_required' && 'actionId' in result) {
             task.update({ content: 'The exact action is ready for human review in the companion. It has not executed.', spoken: true });
             const decision = await awaitHuman(this.runtime, String(result.actionId), task.signal);
-            result = { actionId: decision.id, tool: decision.tool, status: decision.status, result: decision.result, error: decision.error };
+            result = { actionId: decision.id, tool: decision.tool, status: decision.status, result: decision.result, error: decision.error, auditWarning: decision.auditWarning };
           }
         } catch (error) {
           task.signal.throwIfAborted();
