@@ -156,6 +156,8 @@ final class PennyOps {
     });
     private final AtomicReference<Plan> pending = new AtomicReference<>();
     private final AtomicReference<Plan> running = new AtomicReference<>();
+    /** The last plan discarded without running, and why ({planId, reason}), so a late confirm can say so. */
+    private final AtomicReference<String[]> discarded = new AtomicReference<>();
 
     PennyOps(Engine engine, ConfirmMode mode) {
         this.engine = engine;
@@ -242,9 +244,14 @@ final class PennyOps {
         p.reasons = List.copyOf(reasons);
     }
 
+    private void discard(Plan old, String reason) {
+        discarded.set(new String[] {old.id, reason});
+        ui(() -> PennyUi.current().clearPlan(old.id));
+    }
+
     private Map<String, Object> hold(Plan p) {
         Plan old = pending.getAndSet(p);
-        if (old != null && old != p) ui(() -> PennyUi.current().clearPlan(old.id));
+        if (old != null && old != p) discard(old, "a newer plan (" + p.call.operation() + ") replaced it");
         ui(() -> PennyUi.current().showPlan(card(p), false));
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", "awaiting_confirmation");
@@ -263,7 +270,8 @@ final class PennyOps {
     /** Runs the plan on the plan thread and waits for it (bounded); the plan keeps running if the wait times out. */
     private Map<String, Object> start(Plan p, boolean confirmed) {
         Plan old = pending.get();
-        if (old != null && old != p && pending.compareAndSet(old, null)) ui(() -> PennyUi.current().clearPlan(old.id));
+        if (old != null && old != p && pending.compareAndSet(old, null))
+            discard(old, "another action (" + p.call.operation() + ") ran after it, so the image, selection or results changed");
         if (!running.compareAndSet(null, p)) {
             Plan r = running.get();
             throw new Failure(409, "Penny is still running a plan in Fidelis" + (r == null ? "" : " (" + r.call.operation() + ", " + r.id + ")")
@@ -364,15 +372,21 @@ final class PennyOps {
 
     private Map<String, Object> confirm(String planId) {
         Plan p = pending.get();
-        if (p == null) throw new Failure(409, "Nothing is waiting for confirmation.");
+        if (p == null) {
+            String[] d = discarded.get();
+            if (d != null && (planId == null || planId.isBlank() || planId.equals(d[0])))
+                throw new Failure(409, "Nothing is waiting for confirmation: plan " + d[0] + " was discarded because " + d[1] + ". Ask again.",
+                        Map.of("discarded", d[0]));
+            throw new Failure(409, "Nothing is waiting for confirmation.");
+        }
         if (planId != null && !planId.isBlank() && !planId.equals(p.id))
             throw new Failure(409, "Plan " + planId + " is not the one waiting (waiting: " + p.id + ").", Map.of("pending", p.id));
         if (System.currentTimeMillis() - p.created > PENDING_TTL_MS) {
-            if (pending.compareAndSet(p, null)) ui(() -> PennyUi.current().clearPlan(p.id));
+            if (pending.compareAndSet(p, null)) discard(p, "it waited longer than " + PENDING_TTL_MS / 60_000 + " min");
             throw new Failure(409, "The plan waited too long and was discarded; ask again.");
         }
         if (!contextKey().equals(p.contextKey)) {
-            if (pending.compareAndSet(p, null)) ui(() -> PennyUi.current().clearPlan(p.id));
+            if (pending.compareAndSet(p, null)) discard(p, "the image, selection, results or history changed");
             throw new Failure(409, "The image, selection, results or history changed since the plan was made; it was discarded. Ask again.");
         }
         if (!pending.compareAndSet(p, null)) throw new Failure(409, "The plan was already confirmed or cancelled.");
@@ -402,7 +416,7 @@ final class PennyOps {
             out.put("note", "nothing was waiting" + (planId == null ? "" : " under " + planId));
             return out;
         }
-        ui(() -> PennyUi.current().clearPlan(p.id));
+        discard(p, "it was cancelled");
         out.put("cancelled", true);
         out.put("planId", p.id);
         return out;
@@ -782,7 +796,7 @@ final class PennyOps {
         Map<String, Object> m = new LinkedHashMap<>();
         HistoryRecord rec = r == null ? null : r.record();
         m.put("actionId", rec == null ? null : rec.actionId());
-        m.put("label", rec == null ? s.label() : rec.label());
+        m.put("label", s.label());
         m.put("commandId", rec == null ? (s.request().commandId() != null ? s.request().commandId() : s.request().operation()) : rec.commandId());
         m.put("outcome", r == null ? null : String.valueOf(r.state()));
         m.put("durationMs", r == null ? null : r.durationMs());
