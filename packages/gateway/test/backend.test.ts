@@ -558,3 +558,11 @@ test('local sentences come only from real numbers',()=>{
   assert.equal(requestContinuesAfter('qupath_detect_cells','Detect the cells in this region.'),false);
   assert.equal(requestContinuesAfter('qupath_classify','Use a stricter threshold.'),false);
 });
+
+test('local sentences cover restore, exports, saves and positive-cell detection without a model round',()=>{
+  assert.equal(localSentenceFor('qupath_restore',{},{status:'completed',result:{result:{restored:'x',counts:{cells:294,'class:Positive':23}}}}),'Went back to the earlier result. 23 of 294 cells positive.');
+  assert.equal(localSentenceFor('qupath_export_measurements',{},{status:'completed',result:{result:{path:'/tmp/out/cells.csv',rows:294}}}),'Exported 294 rows to cells.csv.');
+  assert.equal(localSentenceFor('qupath_save',{},{status:'completed',result:{result:{saved:true}}}),'Saved.');
+  assert.equal(localSentenceFor('qupath_detect_positive_cells',{},{status:'completed',result:{result:{counts:{cells:200,'class:Positive':50}}}}),'Detected 200 cells, 50 positive (25%).');
+  assert.equal(localSentenceFor('qupath_restore',{},{status:'failed',error:'nope'}),undefined);
+});

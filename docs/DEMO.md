@@ -17,14 +17,15 @@ Everything below ran end to end on this slide. Times are from the end of your se
 
 | You say | What happens | Measured |
 |---|---|---|
+| "Open the OS-2 slide." | Finds the file by name, opens it, and settles QuPath's "Set image type" dialog itself (H-DAB) | voice ~3 s |
 | "Zoom in a little." | Instant route, no model round. Luma says "Zooming in." as the viewer moves | voice 0.4 s, action 8 ms after transcript |
-| "Highlight the middle of this slide." | Agent calls `qupath_highlight`; cursor flies there with a label | voice ~1.7 s |
-| "Create a small square region in the centre of this slide, about 2000 pixels wide." | Luma says "Drawing the region." and the annotation appears | action ~2.4 s after transcript |
-| "Select that region and detect the cells in it." | "Detecting cells." Calibrated watershed parameters (µm) run at once; a checkpoint is taken first | 294 cells |
-| "Mark the cells in this region with a DAB mean above 0.2 as positive." | "Classifying." Agent matches "DAB mean" to the exact `Cell: DAB OD mean` | 19 Positive / 275 Negative |
-| "Show me the positive cells." | Display only: each visible positive cell is outlined, cursor points at the group; Luma: "Here are the 19 positive cells." | voice ~3.9 s |
-| "How many are positive?" | Read-only answer from real class counts | one model round |
-| "Undo that." / "Compare with the earlier result." | Checkpoint compare / restore of the object hierarchy | |
+| "Create a small tumour region in the centre of the slide and analyse the cells in it." | "Drawing the region." then detection and threshold classification run in one request | 294 cells, 23 positive |
+| "Show me the positive cells." | Each positive cell is outlined, the cursor points at the group: "Here: positive cells." | voice ~3.9 s |
+| "What percentage of the cells are positive?" | QuPath-computed class summary: "7.8% of the cells are positive." | voice ~3.9 s |
+| "That threshold looks too sensitive, make it stricter." | "Classifying." Same measurement, threshold ×1.5: "18 of 294 cells are positive (6%)." | final sentence 3.9 s |
+| "Actually, go back to the previous threshold." | "Restoring." Checkpoint before the last change restored: 23 positive again | voice ~4 s |
+| "Save this procedure as a workflow so I can use it on other samples." | "Saving the workflow." QuPath's history (image type, stains, detection, classification) written as Groovy to `.local/workflows/` | voice ~3.8 s |
+| "Add a tumor annotation on the right." | One `qupath_annotate` with class Tumor, placed from the viewer's visible area | action 2.6 s |
 
 You can interrupt Luma at any time by speaking; it stops talking and stops the running task. Actions execute immediately by default (`LUMA_APPROVALS=auto`); every one is journaled and hierarchy changes get a checkpoint first. Set `LUMA_APPROVALS=review` before launching if you want approval cards for data changes.
 

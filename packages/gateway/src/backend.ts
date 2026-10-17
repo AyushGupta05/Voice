@@ -79,6 +79,26 @@ export function localSentenceFor(name: string, args: Record<string, unknown>, re
     if (positive === undefined || negative === undefined || positive + negative === 0) return undefined;
     return `${positive} of ${positive + negative} cells are positive (${Math.round(positive * 100 / (positive + negative))}%).`;
   }
+  const counts = (inner?.counts && typeof inner.counts === 'object' ? inner.counts : undefined) as Record<string, unknown> | undefined;
+  const describeCounts = () => {
+    if (!counts) return '';
+    const cells = finite(counts.cells), positive = finite(counts['class:Positive']), annotations = finite(counts.annotations);
+    if (cells !== undefined && positive !== undefined) return ` ${positive} of ${cells} cells positive.`;
+    if (cells !== undefined) return ` ${cells} cells.`;
+    if (annotations !== undefined) return ` ${annotations} annotation${annotations === 1 ? '' : 's'}.`;
+    return '';
+  };
+  if (name === 'qupath_restore') return `Went back to the earlier result.${describeCounts()}`;
+  if (name === 'qupath_delete_objects') { const removed = finite(inner?.deleted ?? inner?.removed); return removed === undefined ? `Deleted them.${describeCounts()}` : `Deleted ${removed} object${removed === 1 ? '' : 's'}.`; }
+  if (name === 'qupath_export_measurements' || name === 'qupath_export_objects' || name === 'qupath_export_image') {
+    const path = typeof inner?.path === 'string' ? inner.path.split('/').pop() : undefined; const rows = finite(inner?.rows ?? inner?.objects);
+    return path ? `Exported${rows !== undefined ? ` ${rows} rows` : ''} to ${path}.` : 'Exported.';
+  }
+  if (name === 'qupath_save') return 'Saved.';
+  if (name === 'qupath_detect_positive_cells') { const cells = finite(counts?.cells), positive = finite(counts?.['class:Positive']); return cells === undefined ? undefined : positive === undefined ? `Detected ${cells} cells.` : `Detected ${cells} cells, ${positive} positive (${Math.round(positive * 100 / cells)}%).`; }
+  if (name === 'qupath_image_type') return 'Image type set.';
+  if (name === 'qupath_set_stains' || name === 'qupath_estimate_stains') return 'Stain vectors updated.';
+  if (name === 'qupath_display') return 'Display updated.';
   return undefined;
 }
 /** A request whose wording asks for more than this call delivers must go back to the model. */
