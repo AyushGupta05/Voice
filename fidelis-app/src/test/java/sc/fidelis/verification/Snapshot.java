@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import ij.ImagePlus;
 import ij.Prefs;
 import ij.WindowManager;
@@ -51,6 +53,46 @@ public record Snapshot(List<Img> images, Table results, List<RoiSnap> rois, Map<
         globals.put("measurements", Analyzer.getMeasurements());
         globals.put("precision", Analyzer.getPrecision());
         return new Snapshot(images, table(Analyzer.getResultsTable()), rois, globals);
+    }
+
+    /** Rebuild a snapshot from a dumper JSON step (verification/dumper.js), so two dumps can be compared. */
+    public static Snapshot fromDump(JsonNode step) {
+        List<Img> images = new ArrayList<>();
+        for (JsonNode i : step.get("images")) {
+            List<String> planes = new ArrayList<>();
+            i.get("planeSha256").forEach(p -> planes.add(p.asText()));
+            images.add(new Img(i.get("title").asText(), i.get("bitDepth").asInt(), i.get("width").asInt(),
+                    i.get("height").asInt(), i.get("allPlanesSha256").asText(), planes));
+        }
+        LinkedHashMap<String, double[]> columns = new LinkedHashMap<>();
+        int rows = 0;
+        JsonNode results = step.get("results");
+        if (results != null && !results.isNull()) {
+            rows = results.get("rows").asInt();
+            for (JsonNode c : results.get("columns")) {
+                if (c.has("labels")) continue;
+                double[] v = new double[rows];
+                for (int r = 0; r < rows; r++) v[r] = Double.parseDouble(c.get("values").get(r).asText());
+                columns.put(c.get("name").asText(), v);
+            }
+        }
+        List<RoiSnap> rois = new ArrayList<>();
+        JsonNode manager = step.get("roiManager");
+        if (manager != null && manager.isArray()) {
+            for (JsonNode r : manager) {
+                float[] xs = new float[r.get("xs").size()];
+                float[] ys = new float[xs.length];
+                for (int k = 0; k < xs.length; k++) {
+                    xs[k] = Float.parseFloat(r.get("xs").get(k).asText());
+                    ys[k] = Float.parseFloat(r.get("ys").get(k).asText());
+                }
+                rois.add(new RoiSnap(r.get("name").isNull() ? null : r.get("name").asText(), xs, ys,
+                        r.get("maskSha256").isNull() ? null : r.get("maskSha256").asText()));
+            }
+        }
+        Map<String, Object> globals = new LinkedHashMap<>();
+        step.get("globals").fields().forEachRemaining(e -> globals.put(e.getKey(), e.getValue().asText()));
+        return new Snapshot(images, new Table(rows, columns, List.of()), rois, globals);
     }
 
     public static Img image(ImagePlus imp) {

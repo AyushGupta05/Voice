@@ -88,10 +88,15 @@ def kill_tree(pid: int) -> None:
         os.kill(pid, 9)
 
 
-def launch(out: Path, timeout: float) -> tuple[int | None, bool, float]:
+BLOBS = ROOT / "fixtures" / "cache" / "FX-003" / "blobs.gif"
+
+
+def launch(out: Path, timeout: float, open_file: Path | None, size: str) -> tuple[int | None, bool, float]:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.unlink(missing_ok=True)
-    cmd = [sys.executable, "-I", str(RUN_PY), "--isolated-home", "--", "--screenshot", str(out)]
+    cmd = [sys.executable, "-I", str(RUN_PY), "--isolated-home", "--", "--screenshot", str(out), "--size", size]
+    if open_file is not None:
+        cmd += ["--open", str(open_file)]
     start = time.monotonic()
     process = subprocess.Popen(cmd, cwd=ROOT)  # only this process tree is ever killed
     try:
@@ -107,6 +112,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=str(ROOT / "verification" / "runs" / "gui-smoke.png"))
     ap.add_argument("--timeout", type=float, default=120.0)
+    ap.add_argument("--open", default=str(BLOBS), help="image the app opens before the screenshot (default: cached Blobs)")
+    ap.add_argument("--size", default="1280x800")
     ap.add_argument("--force", action="store_true", help="launch even if the sources do not mention --screenshot")
     ap.add_argument("--check-png", help="only analyse this PNG")
     args = ap.parse_args()
@@ -119,8 +126,13 @@ def main() -> int:
         print("SKIP: the application does not implement --screenshot yet (no '\"--screenshot\"' in "
               "fidelis-app/src/main); the UI agent adds it. Use --force to launch anyway.")
         return SKIP
-    code, timed_out, seconds = launch(out, args.timeout)
+    open_file = Path(args.open)
+    if not open_file.is_file():
+        print(f"SKIP: {open_file} is not cached (python -I verification/fetch_fixtures.py --only FX-003)")
+        return SKIP
+    code, timed_out, seconds = launch(out, args.timeout, open_file, args.size)
     report = analyse_png(out)
+    report["opened"] = str(open_file)
     report.update({"exit_code": code, "timed_out": timed_out, "seconds": round(seconds, 1)})
     if timed_out:
         report["problems"].append(f"application did not exit within {args.timeout:.0f} s")
