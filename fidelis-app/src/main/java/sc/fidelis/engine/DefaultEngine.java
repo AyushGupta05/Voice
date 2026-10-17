@@ -20,6 +20,8 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
 import ij.gui.ImageWindow;
+import ij.gui.Roi;
+import ij.macro.Interpreter;
 import net.imagej.ImageJ;
 import sc.fidelis.Bootstrap;
 import sc.fidelis.engine.api.ActionRequest;
@@ -60,6 +62,15 @@ public final class DefaultEngine implements Engine {
     private volatile DocumentId focused;
     private volatile boolean reconcileQueued;
     private volatile Catalogue catalogue = Catalogue.empty();
+    final Results results = new Results(events);
+    final RoiLists roiLists = new RoiLists();
+    final Snapshots snapshots = new Snapshots();
+    final CommandRunner runner = new CommandRunner(this);
+    final DirectOps direct = new DirectOps(this);
+    final CodeRunner code = new CodeRunner(this);
+    private volatile Op running;
+    private volatile Guard guard;
+    private volatile Interpreter interpreter;
 
     private DefaultEngine(ImageJ ij) {
         this.ij = ij;
@@ -104,6 +115,11 @@ public final class DefaultEngine implements Engine {
     /** Block until the catalogue is built (tests and start-up code). */
     public boolean awaitReady(long timeout, TimeUnit unit) throws InterruptedException {
         return ready.await(timeout, unit) && state == EngineState.READY;
+    }
+
+    /** Rebuild the catalogue from the live IJ1 command table (after plugins were added at run time). */
+    public void refreshCatalogue() {
+        catalogue = Catalogue.buildFromRuntime();
     }
 
     private void buildCatalogue() {
@@ -186,7 +202,56 @@ public final class DefaultEngine implements Engine {
     @Override
     public void cancel(String operationId) {
         Op op = ops.get(operationId);
-        if (op != null) op.cancelRequested = true;
+        if (op == null) return;
+        op.cancelRequested = true;
+        if (running == op) {
+            if (op.request.kind() == ActionKind.CODE) {
+                Interpreter.abort();
+            } else {
+                CommandRunner.requestEscape();
+            }
+            Guard g = guard;
+            if (g != null) g.disposePending(); // a pending native dialog must not keep the worker blocked
+        }
+    }
+
+    // ---- plumbing used by the runners --------------------------------------------------------------
+
+    Catalogue cat() {
+        return catalogue;
+    }
+
+    void setRunning(Op op) {
+        running = op;
+    }
+
+    void setGuard(Guard g) {
+        guard = g;
+    }
+
+    void setInterpreter(Interpreter i) {
+        interpreter = i;
+    }
+
+    /** Make the document IJ1 current image (EXP-02: a focus click on a re-hosted canvas does not do it). */
+    void makeCurrent(Doc d) {
+        Edt.run(() -> {
+            ImageWindow w = d.win;
+            if (w != null) WindowManager.setCurrentWindow(w);
+        });
+    }
+
+    /** Window policy: registered documents keep hidden windows (a macro ending in setBatchMode(false) re-shows them). */
+    void rehideWindows() {
+        List<ImageWindow> wins = new ArrayList<>();
+        for (Doc d : registry.all()) {
+            ImageWindow w = d.win;
+            if (w != null && w.isVisible()) wins.add(w);
+        }
+        if (wins.isEmpty()) return;
+        Edt.run(() -> {
+            for (ImageWindow w : wins) w.setVisible(false);
+        });
     }
 
     private ActionResult runOp(Op op) {
@@ -200,7 +265,9 @@ public final class DefaultEngine implements Engine {
             emitState(op, OperationState.VALIDATING, null);
             Outcome o = switch (op.request.kind()) {
                 case SESSION -> runSession(op);
-                case DIRECT, COMMAND, CODE -> Outcome.failed(ErrorCode.UNSUPPORTED_IN_MODE, op.request.kind() + " is not available yet");
+                case COMMAND -> runner.run(op, false);
+                case DIRECT -> direct.runDirect(op);
+                case CODE -> code.run(op);
             };
             return finish(op, o, t0);
         } finally {
@@ -227,6 +294,8 @@ public final class DefaultEngine implements Engine {
         return switch (r.operation()) {
             case ActionRequest.Operations.OPEN -> sessionOpen(op);
             case ActionRequest.Operations.CLOSE -> sessionClose(op);
+            case ActionRequest.Operations.SAVE_AS -> direct.saveAs(op);
+            case ActionRequest.Operations.NEW_IMAGE -> direct.newImage(op);
             default -> Outcome.failed(ErrorCode.VALIDATION_FAILED, "unknown session operation " + r.operation());
         };
     }
@@ -236,11 +305,23 @@ public final class DefaultEngine implements Engine {
         Object p = r.params().get("path");
         if (!(p instanceof String path) || path.isBlank())
             return Outcome.failed(ErrorCode.VALIDATION_FAILED, "OPEN needs params.path");
-        Path file = Path.of(path).toAbsolutePath().normalize();
+        return openFile(op, Path.of(path));
+    }
+
+    Outcome openFile(Op op, Path path) {
+        ActionRequest r = op.request;
+        Path file = path.toAbsolutePath().normalize();
         if (!Files.isRegularFile(file)) return Outcome.failed(ErrorCode.IO_ERROR, "file not found: " + file);
         Map<String, String> gBefore = Globals.capture();
         emitState(op, OperationState.RUNNING, null);
-        ImagePlus imp = IJ.openImage(file.toString());
+        Guard guard = Guard.begin(null);
+        ImagePlus imp;
+        try {
+            imp = IJ.openImage(file.toString());
+        } finally {
+            Guard.Report rep = guard.end();
+            if (rep.failed()) return Outcome.failed(ErrorCode.IO_ERROR, "ImageJ could not open " + file + ": " + rep.errorText());
+        }
         if (imp == null) return Outcome.failed(ErrorCode.IO_ERROR, "ImageJ could not read the image: " + file);
         imp.changes = false;
         Doc d = registry.register(imp, file);
@@ -249,7 +330,8 @@ public final class DefaultEngine implements Engine {
         String actionId = history.nextId();
         HistoryRecord rec = History.record(actionId, r.origin(), Provenance.TYPED, ActionRequest.Operations.OPEN,
                 "Open", Map.of("path", file.toString().replace('\\', '/'), "document", d.id.value()), null,
-                List.of(), true, gBefore, Map.of(), OperationState.COMPLETED, null);
+                List.of("open(\"" + Options.macroString(file.toString().replace('\\', '/')) + "\");"), true, gBefore, Map.of(),
+                OperationState.COMPLETED, null);
         history.add(rec);
         StateDigest digest = new StateDigest(List.of(d.id), List.of(), List.of(), 0, Map.of(), List.of(), List.of(), List.of());
         return Outcome.ok(digest, rec);
@@ -320,7 +402,7 @@ public final class DefaultEngine implements Engine {
         if (d != null) focusDoc(d);
     }
 
-    private void focusDoc(Doc d) {
+    void focusDoc(Doc d) {
         Edt.run(() -> {
             ImageWindow w = d.win;
             if (w != null) WindowManager.setCurrentWindow(w);
@@ -346,22 +428,26 @@ public final class DefaultEngine implements Engine {
 
     @Override
     public List<RoiGeometry> rois(DocumentId id) {
-        return List.of();
+        Doc d = registry.get(id);
+        return d == null ? List.of() : RoiLists.geometries(d);
     }
 
     @Override
     public Optional<RoiGeometry> activeRoi(DocumentId id) {
-        return Optional.empty();
+        Doc d = registry.get(id);
+        if (d == null) return Optional.empty();
+        Roi roi = d.imp.getRoi();
+        return roi == null ? Optional.empty() : Optional.of(RoiCodec.toGeometry(roi));
     }
 
     @Override
     public List<MeasurementRow> results() {
-        return List.of();
+        return results.all();
     }
 
     @Override
     public MeasurementRow.Columns resultColumns() {
-        return new MeasurementRow.Columns(List.of(), 3);
+        return results.columns();
     }
 
     // ---- catalogue (E2) ---------------------------------------------------------------------
@@ -400,7 +486,7 @@ public final class DefaultEngine implements Engine {
 
     @Override
     public long[] undoBudget() {
-        return new long[] {0, 0};
+        return snapshots.budget();
     }
 
     // ---- reconcile scheduling ---------------------------------------------------------------

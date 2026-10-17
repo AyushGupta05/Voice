@@ -80,6 +80,7 @@ final class Registry {
         HostCanvas canvas = new HostCanvas(imp);
         ImageWindow.setNextLocation(new Point(-30000, -30000));
         ImageWindow win = imp.getStackSize() > 1 ? new StackWindow(imp, canvas) : new ImageWindow(imp, canvas);
+        win.setLayout(null); // EXP-01..05: with canEnlarge()==null, a null layout stops unzoom/pack degenerating the hosted canvas
         win.setVisible(false);
         return win;
     }

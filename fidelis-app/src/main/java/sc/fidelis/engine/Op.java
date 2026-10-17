@@ -12,6 +12,8 @@ final class Op {
     volatile boolean cancelRequested;
     /** Set while this operation is a CODE action; nested commands record this as {@code parentActionId}. */
     volatile String actionId;
+    /** For commands nested under a CODE action: the CODE action id. */
+    volatile String parentActionId;
 
     Op(String id, ActionRequest request) {
         this.id = id;
