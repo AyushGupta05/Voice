@@ -32,12 +32,12 @@ public struct BarStatus: Equatable {
                 voiceActive: Bool, runningActions: Int = 0,
                 voiceStarting: Bool = false, voiceSpeaking: Bool = false,
                 executingText: String = "", resultText: String = "", liveTranscript: String = "",
-                voiceReady: Bool = true, voiceReason: String = "") {
+                voiceReady: Bool = true, voiceReason: String = "", appName: String = "QuPath") {
         let ack = executingText.trimmingCharacters(in: .whitespacesAndNewlines)
         let result = resultText.trimmingCharacters(in: .whitespacesAndNewlines)
         let transcript = liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         if working || runningActions > 0 {
-            self.init(.executing, ack.isEmpty ? Self.workingTitle : ack, speaking: voiceSpeaking)
+            self.init(.executing, ack.isEmpty ? "Working in \(appName)" : ack, speaking: voiceSpeaking)
         } else if !result.isEmpty {
             self.init(.executing, result, showsResult: true, speaking: voiceSpeaking)
         } else if voiceSpeaking {
@@ -49,7 +49,7 @@ public struct BarStatus: Equatable {
         } else {
             let note = !connected ? "Connecting to Luma" : !eventsReady ? "Reconnecting"
                 : !voiceReady ? (voiceReason.isEmpty ? "Voice is unavailable" : voiceReason)
-                : !bridgeConnected ? "Open QuPath" : ""
+                : !bridgeConnected ? "Open \(appName)" : ""
             self.init(.idle, Self.idleInvitation, note: note, ready: connected && eventsReady && voiceReady)
         }
     }

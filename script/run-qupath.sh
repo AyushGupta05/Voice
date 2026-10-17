@@ -10,6 +10,8 @@ else
   if [[ $PROCESS_STATUS -ne 1 ]]; then echo 'Could not verify QuPath process state; nothing was launched or changed.' >&2; exit "$PROCESS_STATUS"; fi
 fi
 mkdir -p .local/state
+# Tell the companion-owned gateway which application profile to load (LUMA_APP overrides).
+printf qupath > .local/state/app
 if [[ ! -f .local/state/bridge-token ]]; then (umask 077; openssl rand -hex 32 > .local/state/bridge-token); fi
 if [[ ! -f dist/luma-qupath-bridge.jar ]]; then ./script/build-bridge.sh; fi
 # Refresh configuration/resources only after normal exit; packaging rechecks

@@ -309,3 +309,11 @@ Companion diagnostics from the user's own live mic session at 11:36–11:37 BST 
 - Spoken actions finish in one model round (locally templated sentences); a companion reconnect keeps the running conversation for 90 s and replays missed events; tool events are capped at 64 KB.
 - The Java bridge grew to 46 operations (exports, stains, display, object editing, plugins, classifiers, positive-cell detection, save, auto-focusing highlights, whole-image fallback for summaries). Five Accessibility desktop tools let the agent operate OS dialogs and plugin windows. 57 tools total; 146 gateway, 27 Swift, 7 Java contract tests pass.
 - Luma quit QuPath's own "Save changes?" prompt through `qupath_ui_action` to load the new extension, then reopened OS-2 by voice; the image-type dialog is now settled automatically after opening an image.
+
+## 17 October 2026, 14:20 BST — view follows the work; pivot to Fiji
+
+Verified the whole flow against live QuPath through a typed harness that runs requests as voice turns (`script/text-drive.ts`) with viewer snapshots after each step: region → 596 cells → 24 positive, highlights, Hierarchy tab switch via `qupath_ui_action`, overlays, zoom. The one thing that killed the "magic" was that the viewer never moved: analysis happened in a 10-pixel speck at whole-slide zoom. The adapter now zooms to what it acts on (new regions, detection parents, classified cells, highlights that would be invisible) and keeps the analysed region selected. Snapshots confirm the region, red detections and blue/yellow positives fill the view.
+
+Remaining agent fault handed to the gateway session: after the zoom, the model redrew its region repeatedly (sizes alternating 1000/1500 px) because "a small region" was defined relative to the visible rect; fix is absolute sizes plus a duplicate-call guard in the backend.
+
+The owner then switched the target application to Fiji. The companion and gateway are application-agnostic by design; docs/FIJI-PROTOCOL.md defines the Fiji bridge contract, and three sessions build the Java plugin + launcher, the gateway app profiles (`LUMA_APP=fiji`, `.local/state/app`), and the Fiji skill/knowledge. The companion now takes the application's display name from `/health` instead of hard-coding QuPath.

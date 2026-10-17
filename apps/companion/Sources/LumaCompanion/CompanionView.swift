@@ -35,7 +35,7 @@ struct CompanionView: View {
                 Image(systemName: "waveform").font(.system(size: 26)).foregroundStyle(mint)
                 Text("Voice connection").font(.system(size: 24, weight: .semibold))
                 Text(model.voiceReason).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                Text(model.textReady ? "Type in Luma to operate QuPath until voice is available." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
+                Text(model.textReady ? "Type in Luma to operate \(model.appName) until voice is available." : "You can still use the quick actions and connect an MCP client to operate QuPath locally.").foregroundStyle(.secondary)
                 Button("Got it") { showingFunding = false }.buttonStyle(.borderedProminent).tint(mint).foregroundStyle(.black)
             }.padding(28).frame(width: 360)
         }
@@ -47,7 +47,7 @@ struct CompanionView: View {
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(model.bridgeConnected ? mint : Color.orange).frame(width: 5, height: 5)
-                Text(model.bridgeConnected ? "QuPath connected" : model.connected ? "Waiting for QuPath" : "Gateway offline").font(.system(size: 10, weight: .medium)).foregroundStyle(secondaryText)
+                Text(model.bridgeConnected ? "\(model.appName) connected" : model.connected ? "Waiting for \(model.appName)" : "Gateway offline").font(.system(size: 10, weight: .medium)).foregroundStyle(secondaryText)
             }
             Button { NSApp.hide(nil) } label: { Image(systemName: "minus").font(.system(size: 11)).foregroundStyle(secondaryText) }
                 .buttonStyle(.plain).help("Hide Luma; reopen from the menu bar")
@@ -108,7 +108,7 @@ struct CompanionView: View {
                 Spacer(minLength: 0)
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "cursorarrow.rays").foregroundStyle(mint)
-                    Text("Select something in QuPath. Luma follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(secondaryText).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                    Text("Select something in \(model.appName). Luma follows the image, region and objects you’re working with.").font(.system(size: 12)).foregroundStyle(secondaryText).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 }.padding(14).background(mint.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
                 Spacer(minLength: 0)
             }
@@ -125,7 +125,7 @@ struct CompanionView: View {
     private var knowledge: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TextField("Find a QuPath workflow…", text: $model.knowledgeQuery).textFieldStyle(.plain).onSubmit { Task { await model.search() } }
+                TextField("Find a \(model.appName) workflow…", text: $model.knowledgeQuery).textFieldStyle(.plain).onSubmit { Task { await model.search() } }
                 Button { Task { await model.search() } } label: { Image(systemName: "magnifyingglass").foregroundStyle(mint) }.buttonStyle(.plain).help("Search QuPath guidance")
             }.padding(12).background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
             if model.knowledgeResults.isEmpty {

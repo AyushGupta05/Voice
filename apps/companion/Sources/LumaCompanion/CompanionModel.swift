@@ -19,12 +19,14 @@ final class CompanionModel: ObservableObject {
     @Published var connected = false
     @Published var bridgeConnected = false
     @Published var imageName = "No image open"
-    @Published var selectionLabel = "Select a region in QuPath"
+    @Published var selectionLabel = "Select a region"
     @Published var activities: [Activity] = []
     @Published var context: [String: Any] = [:]
     @Published var voiceReason = "Checking voice connection…"
     @Published var voiceActive = false
     @Published var voiceReady = false
+    /// Display name of the scientific application the gateway is driving (QuPath, Fiji, …), from /health.
+    @Published var appName = "QuPath"
     @Published var voiceStarting = false
     @Published var voiceSpeaking = false
     @Published var textReady = false
@@ -137,6 +139,7 @@ final class CompanionModel: ObservableObject {
             bridgeConnected = health["bridgeError"] == nil
             voiceReason = (health["voice"] as? [String: Any])?["reason"] as? String ?? "Voice funding has not been verified."
             voiceReady = (health["voice"] as? [String: Any])?["enabled"] as? Bool ?? false
+            if let name = (health["app"] as? [String: Any])?["displayName"] as? String, !name.isEmpty { appName = name }
             armVoiceIfWanted()
             let text = health["text"] as? [String: Any] ?? [:]
             textReady = text["configured"] as? Bool ?? false
@@ -145,12 +148,12 @@ final class CompanionModel: ObservableObject {
             if let dispatch = context["lastDispatch"] as? [String: Any], dispatch["status"] as? String == "failed",
                let id = dispatch["id"] as? String, id != lastDispatchFailure {
                 lastDispatchFailure = id
-                activities.insert(Activity(title: "QuPath action stopped", detail: dispatch["error"] as? String ?? "Review the action again.", isError: true), at: 0)
+                activities.insert(Activity(title: "\(appName) action stopped", detail: dispatch["error"] as? String ?? "Review the action again.", isError: true), at: 0)
             }
             imageName = (context["image"] as? [String: Any])?["name"] as? String ?? "No image open"
             let selected = context["selection"] as? [[String: Any]] ?? []
             let selectionCount = context["selectionCount"] as? Int ?? selected.count
-            if selectionCount == 0 { selectionLabel = "Select a region in QuPath" }
+            if selectionCount == 0 { selectionLabel = "Select a region" }
             else if selectionCount == 1 && !selected.isEmpty { selectionLabel = selected[0]["name"] as? String ?? "1 \(selected[0]["kind"] as? String ?? "object") selected" }
             else { selectionLabel = "\(selectionCount) objects selected" }
             let actions = health["actions"] as? [[String: Any]] ?? []
@@ -523,7 +526,7 @@ final class CompanionModel: ObservableObject {
         }
         if toolName == "qupath_analysis_catalog" { return "Measurement names: \(value["measurementNameCount"] ?? 0) · Classes: \(value["classificationCount"] ?? 0)" }
         if toolName == "qupath_detect_cells", let counts = value["counts"] as? [String: Any], let cells = counts["cells"] {
-            return "Detected \(cells) cells · inspect segmentation in QuPath"
+            return "Detected \(cells) cells · inspect segmentation in \(appName)"
         }
         if let positive = value["positive"], let negative = value["negative"] { return "\(positive) positive · \(negative) negative" }
         if let workflow = value["workflow"] as? [String: Any] {
@@ -542,15 +545,15 @@ final class CompanionModel: ObservableObject {
         if toolName == "qupath_inspect_import" { return "\(value["annotations"] ?? 0) annotations validated for review. No objects imported." }
         if let imported = value["imported"] { return "\(imported) annotations imported" }
         if value["alreadyActive"] as? Bool == true { return "That image is already active" }
-        if value["dispatched"] as? Bool == true { return "Dispatched to QuPath. Inspect the application to confirm completion." }
+        if value["dispatched"] as? Bool == true { return "Dispatched to \(appName). Inspect the application to confirm completion." }
         if value["completionVerified"] as? Bool == false { return "Operation finished. Inspect the result and log in QuPath." }
         if let total = value["total"] { return "\(total) objects in scope" }
         if let selected = value["selected"] { return "\(selected) objects selected" }
         if let counts = value["counts"] as? [String: Any] { return counts.keys.sorted().prefix(3).map { "\(counts[$0]!) \($0)" }.joined(separator: " · ") }
         if value["pointer"] != nil { return "Centered on your selected region" }
-        if value["updated"] != nil { return "Display updated in QuPath" }
+        if value["updated"] != nil { return "Display updated in \(appName)" }
         if let label = value["label"] as? String { return label }
-        return "Operation returned from QuPath"
+        return "Operation returned from \(appName)"
     }
 }
 

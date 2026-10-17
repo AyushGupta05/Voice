@@ -28,6 +28,10 @@ final class GatewaySupervisor {
         child.currentDirectoryURL = root
         var environment = ProcessInfo.processInfo.environment
         environment["LUMA_ROOT"] = root.path
+        // `open -n` drops the shell environment, so the active application comes from the launcher's state file.
+        if environment["LUMA_APP"] == nil,
+           let app = try? String(contentsOf: root.appendingPathComponent(".local/state/app"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+           !app.isEmpty { environment["LUMA_APP"] = app }
         child.environment = environment
         child.standardOutput = handle; child.standardError = handle
         do { try child.run() }

@@ -30,7 +30,7 @@ private struct VoiceBar: View {
                   voiceActive: model.voiceActive, runningActions: model.runningActionIDs.count,
                   voiceStarting: model.voiceStarting, voiceSpeaking: model.voiceSpeaking,
                   executingText: model.executingText, resultText: model.resultText, liveTranscript: model.liveTranscript,
-                  voiceReady: model.voiceReady, voiceReason: model.voiceReason)
+                  voiceReady: model.voiceReady, voiceReason: model.voiceReason, appName: model.appName)
     }
     private var voiceOn: Bool { model.voiceActive || model.voiceStarting }
     private var transition: AnyTransition { reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)).combined(with: .scale(scale: 0.96)) }
