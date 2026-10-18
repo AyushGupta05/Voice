@@ -84,6 +84,7 @@ export class TextConversation {
      active.controller.signal.throwIfAborted();
      const hit=found?.matches?.find(match=>match.kind==='folder'&&typeof match.path==='string');
      if(hit){folder=hit.path as string;folderName=`the ${String(hit.name)} folder`;}
+     else{const reply=`I could not find a folder called ${folderQuery}; say it again or open an image from it.`;active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,outcome:'failed',fastPath:true});return;}
     }
     if(!folder){
      const path=(context as {document?:{path?:unknown}}|undefined)?.document?.path;

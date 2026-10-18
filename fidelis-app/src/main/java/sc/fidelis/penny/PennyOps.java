@@ -1378,8 +1378,17 @@ final class PennyOps {
         // the run that counted it: its rows (one per ROI when they match), its size floor, and the threshold before it
         List<HistoryRecord> h = engine.history();
         HistoryRecord particles = null;
-        for (int i = h.size() - 1; i >= 0 && particles == null; i--)
-            if (PennyCommands.ANALYZE_PARTICLES.equals(h.get(i).commandId()) && h.get(i).outcome() == OperationState.COMPLETED) particles = h.get(i);
+        // the run that produced this document's list: a segmentation copies the mask's particles onto it (resultsOf), or
+        // Analyze Particles ran on the document itself; another document's run never explains this one
+        String resultsOf = null;
+        for (int i = h.size() - 1; i >= 0 && resultsOf == null && particles == null; i--) {
+            HistoryRecord r = h.get(i);
+            boolean mine = r.target() != null && d.id().equals(r.target().document()) && r.outcome() == OperationState.COMPLETED;
+            if (!mine) continue;
+            if (Operations.ROI_LIST_ADD.equals(r.commandId()) && r.params().get("resultsOf") instanceof String ro && !ro.isBlank()) resultsOf = ro;
+            else if (PennyCommands.ANALYZE_PARTICLES.equals(r.commandId())) particles = r;
+        }
+        if (resultsOf != null) for (HistoryRecord r : h) if (resultsOf.equals(r.actionId())) particles = r;
         List<MeasurementRow> rows = List.of();
         if (particles != null) {
             String id = particles.actionId();
@@ -1448,8 +1457,18 @@ final class PennyOps {
             if (at == null) throw new Failure(409, "Point at the object first: the pointer is not over the image.");
             how = "pointer";
         }
-        for (int i = 0; i < all.size(); i++) if (Highlight.contains(all.get(i), at.x + 0.5, at.y + 0.5)) return new Located(i, at, how);
+        for (int i = 0; i < all.size(); i++)
+            if (onDisplayedPlane(d, all.get(i)) && Highlight.contains(all.get(i), at.x + 0.5, at.y + 0.5)) return new Located(i, at, how);
         throw new Failure(409, "No object at " + at.x + "," + at.y + " on " + d.title() + "; it was not counted.");
+    }
+
+    /** A ROI with a plane (channel, slice, frame; 0 = any) is a candidate only on the plane the document shows. */
+    private boolean onDisplayedPlane(DocumentInfo d, RoiGeometry g) {
+        int[] p = g.position();
+        if (p == null || p.length != 3 || (p[0] == 0 && p[1] == 0 && p[2] == 0)) return true;
+        ImagePlus imp = imp(d.id());
+        if (imp == null) return true;
+        return (p[0] == 0 || p[0] == imp.getC()) && (p[1] == 0 || p[1] == imp.getZ()) && (p[2] == 0 || p[2] == imp.getT());
     }
 
     /**
@@ -1468,6 +1487,7 @@ final class PennyOps {
         // a piece is a real object, not a sliver: at least a fifth of the original (or the caller's minPart in pixels)
         int minPart = PennyJson.has(a, "minPart") ? PennyJson.integer(a, "minPart", 1, 1, 1_000_000) : Math.max(4, (int) Math.round(areaPixels * 0.2));
         double[] used = new double[1];
+        if (Split.outline(g) == null) throw new Failure(409, "Object " + (loc.index + 1) + " is not a simple outline (a composite or a line); split it by hand.");
         List<RoiGeometry> pieces = Split.pieces(g, minPart, used);
         if (pieces.isEmpty()) throw new Failure(409, "Object " + (loc.index + 1) + " does not separate: its distance-map watershed finds one object (pieces under "
                 + minPart + " pixels are not objects). Draw the boundary by hand, or lower minPart.");
@@ -1534,7 +1554,7 @@ final class PennyOps {
             second = -1;
             double best = Double.MAX_VALUE;
             for (int i = 0; i < all.size(); i++) {
-                if (i == first) continue;
+                if (i == first || !onDisplayedPlane(d, all.get(i))) continue;
                 Rectangle2D o = Highlight.bounds(all.get(i));
                 if (o == null) continue;
                 Rectangle2D near = new Rectangle2D.Double(o.getX() - 2, o.getY() - 2, o.getWidth() + 4, o.getHeight() + 4);
@@ -1544,6 +1564,8 @@ final class PennyOps {
             }
             if (second < 0) throw new Failure(409, "Object " + (first + 1) + " touches no other object; name both with indices, or point between them.");
         }
+        if (Split.outline(all.get(first)) == null || Split.outline(all.get(second)) == null)
+            throw new Failure(409, "Objects " + (first + 1) + " and " + (second + 1) + " are not simple outlines (a composite or a line); merge them by hand.");
         RoiGeometry merged = Split.union(all.get(first), all.get(second), 2);
         if (merged == null) throw new Failure(409, "Objects " + (first + 1) + " and " + (second + 1) + " do not touch, so they stay two objects.");
         Plan p = new Plan(c, d.id());
@@ -1575,6 +1597,12 @@ final class PennyOps {
             return m;
         };
         return p;
+    }
+
+    /** A path inside a double-quoted macro string: backslashes and quotes escaped; a path with a newline is refused. */
+    static String macroString(String value) {
+        if (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) throw new IllegalArgumentException("a path cannot contain line breaks");
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     static final List<String> FOLDER_IMAGE_EXTENSIONS = List.of(".tif", ".tiff", ".png", ".jpg", ".jpeg", ".gif", ".bmp");
@@ -1617,26 +1645,34 @@ final class PennyOps {
             String line = lines[i];
             String t = line.trim();
             if (t.isEmpty()) continue;
-            boolean outline = t.startsWith("makeSelection(") || t.startsWith("makeRectangle(") || t.startsWith("makeOval(") || t.startsWith("makePolygon(");
+            // a literal outline is one the next line puts into the manager (the copy block, a split/merge piece); a selection
+            // a later command needs (a measured region) stays
+            boolean selection = t.startsWith("makeSelection(") || t.startsWith("makeRectangle(") || t.startsWith("makeOval(") || t.startsWith("makePolygon(");
+            String next = i + 1 < lines.length ? lines[i + 1].trim() : "";
+            boolean outline = selection && next.equals("roiManager(\"add\");");
             boolean afterOutline = i > 0 && lines[i - 1].trim().startsWith("make") && t.equals("roiManager(\"add\");");
-            boolean resetBeforeOutlines = t.equals("roiManager(\"reset\");") && i + 1 < lines.length && lines[i + 1].trim().startsWith("make");
-            boolean indexEdit = t.matches("roiManager\\(\"Select\", \\d+\\); roiManager\\(\"Delete\"\\);");
-            if (outline || afterOutline || resetBeforeOutlines || indexEdit) { if (outline || indexEdit) literal++; continue; }
+            boolean resetBeforeOutlines = t.equals("roiManager(\"reset\");") && next.startsWith("make") && i + 2 < lines.length && lines[i + 2].trim().equals("roiManager(\"add\");");
+            boolean indexEdit = t.matches("roiManager\\(\"[Ss]elect\", \\d+\\);( roiManager\\(\"[Dd]elete\"\\);)?") || t.equals("roiManager(\"delete\");");
+            if (outline || afterOutline || resetBeforeOutlines || indexEdit) { if (outline || t.startsWith("roiManager(\"delete")) literal++; continue; }
             if (!t.startsWith("//")) steps++;
             body.add("  " + line);
         }
         if (steps == 0) throw new Failure(409, "Nothing was done to the image after opening it; analyse it first, then apply that to the folder.");
         String out = PennyJson.str(a, "output", folder.resolve("penny-folder-results.csv").toString());
+        if (out.chars().anyMatch(ch -> ch < 32)) throw new IllegalArgumentException("'output' contains control characters");
         String dir = folder.toString().replace("\\", "/") + "/";
+        String folderName = String.valueOf(folder.getFileName() == null ? folder : folder.getFileName()).replaceAll("[\\r\\n]+", " ");
         StringBuilder sb = new StringBuilder();
         sb.append("// Penny: the session's steps applied to every image of a folder (").append(images.size()).append(images.size() == 1 ? " image" : " images")
-                .append(" in ").append(folder.getFileName() == null ? folder : folder.getFileName()).append(")\n");
+                .append(" in ").append(folderName.replace(")", "")).append(")\n");
         sb.append(header);
         sb.append("// ---- Folder ----\n");
-        sb.append("dir = \"").append(dir).append("\";\n");
-        sb.append("out = \"").append(out.replace("\\", "/")).append("\";\n");
+        sb.append("dir = \"").append(macroString(dir)).append("\";\n");
+        sb.append("out = \"").append(macroString(out.replace("\\", "/"))).append("\";\n");
         sb.append("list = getFileList(dir);\n");
         sb.append("setBatchMode(true);\n");
+        // the images already open stay open and untouched: only what an iteration opened is closed
+        sb.append("keep = newArray(nImages); for (k = 1; k <= nImages; k++) { selectImage(k); keep[k - 1] = getImageID(); }\n");
         sb.append("Table.create(\"Penny folder\");\n");
         sb.append("row = 0;\n");
         sb.append("for (i = 0; i < list.length; i++) {\n");
@@ -1644,6 +1680,7 @@ final class PennyOps {
         StringBuilder test = new StringBuilder();
         for (String e : FOLDER_IMAGE_EXTENSIONS) test.append(test.length() > 0 ? " || " : "").append("endsWith(lower, \"").append(e).append("\")");
         sb.append("  if (!(").append(test).append(")) continue;\n");
+        sb.append("  run(\"Clear Results\");\n"); // each image's Results are its own
         sb.append("  open(dir + name);\n");
         sb.append("  id1 = getImageID();\n");
         for (String line : body) sb.append(line).append("\n");
@@ -1654,7 +1691,7 @@ final class PennyOps {
         sb.append("  mean = 0; if (count > 0) mean = sum / count;\n");
         sb.append("  Table.set(\"MeanArea\", row, mean, \"Penny folder\");\n");
         sb.append("  row++;\n");
-        sb.append("  while (nImages > 0) { selectImage(nImages); close(); }\n");
+        sb.append("  for (k = nImages; k >= 1; k--) { selectImage(k); id = getImageID(); mine = true; for (j = 0; j < keep.length; j++) if (keep[j] == id) mine = false; if (mine) close(); }\n");
         sb.append("}\n");
         sb.append("Table.update(\"Penny folder\");\n");
         sb.append("Table.save(out, \"Penny folder\");\n");

@@ -31,7 +31,7 @@ final class Split {
         Roi roi = outline(g);
         if (roi == null) return List.of();
         for (double tolerance : TOLERANCES) {
-            List<RoiGeometry> parts = split(roi, tolerance, minPart);
+            List<RoiGeometry> parts = split(roi, tolerance, minPart, g.position());
             if (parts.size() >= 2) {
                 used[0] = tolerance;
                 return parts;
@@ -40,15 +40,25 @@ final class Split {
         return List.of();
     }
 
-    private static Roi outline(RoiGeometry g) {
+    /** The outline as IJ1 draws it: rectangles and ovals from their bounds, polygons from their vertices; a composite (holes,
+     *  several blobs) or a line is not one outline and gives null. */
+    static Roi outline(RoiGeometry g) {
+        if (g == null) return null;
+        String t = g.type();
+        if ("RECTANGLE".equals(t) || "OVAL".equals(t)) {
+            double[] b = g.bounds();
+            if (b == null || b.length != 4) return null;
+            return "OVAL".equals(t) ? new ij.gui.OvalRoi(b[0], b[1], b[2], b[3]) : new Roi(b[0], b[1], b[2], b[3]);
+        }
+        if (!("TRACED".equals(t) || "POLYGON".equals(t) || "FREEHAND".equals(t))) return null;
         if (g.xs() == null || g.ys() == null || g.xs().size() < 3) return null;
         int n = g.xs().size();
         float[] xs = new float[n], ys = new float[n];
         for (int i = 0; i < n; i++) { xs[i] = g.xs().get(i); ys[i] = g.ys().get(i); }
-        return new PolygonRoi(xs, ys, n, "TRACED".equals(g.type()) ? Roi.TRACED_ROI : Roi.POLYGON);
+        return new PolygonRoi(xs, ys, n, "TRACED".equals(t) ? Roi.TRACED_ROI : "FREEHAND".equals(t) ? Roi.FREEROI : Roi.POLYGON);
     }
 
-    private static List<RoiGeometry> split(Roi roi, double tolerance, int minPart) {
+    private static List<RoiGeometry> split(Roi roi, double tolerance, int minPart, int[] position) {
         Rectangle b = roi.getBounds();
         int w = b.width + 2, h = b.height + 2;
         ByteProcessor mask = new ByteProcessor(w, h);
@@ -78,7 +88,8 @@ final class Split {
             List<Float> xs = new ArrayList<>(), ys = new ArrayList<>();
             for (int i = 0; i < p.npoints; i++) { xs.add(p.xpoints[i]); ys.add(p.ypoints[i]); }
             // a composite (holes, several blobs) is kept as its outer polygon: the pieces of one object are simple shapes
-            pieces.add(new RoiGeometry("TRACED", xs, ys, null, null, roi.getPosition() > 0 ? new int[] {0, roi.getPosition(), 0} : null, null));
+            // the pieces stay on the object's plane (channel, slice, frame), as the object was
+            pieces.add(new RoiGeometry("TRACED", xs, ys, null, null, position == null ? null : position.clone(), null));
         }
         return pieces.size() >= 2 ? pieces : List.of();
     }

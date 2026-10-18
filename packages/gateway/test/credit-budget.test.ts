@@ -100,3 +100,17 @@ test('an explicit renewal archives the exhausted ledger with its reconciliation 
   assert.equal(again.lifetimeReservedUSD,4);
  }finally{await f.clean();}
 });
+
+test('a renewal refuses a ledger with a record outside the rules and waits for the reserve lock',async()=>{
+ const f=await fixture();try{
+  await f.budget.reserve(observation(),new AbortController().signal);await f.budget.reserve(observation(),new AbortController().signal);
+  const path=join(f.root,'credit-budget.json');const good=await readFile(path,'utf8');
+  const corrupt=JSON.parse(good);corrupt.reservations.push({});await writeFile(path,JSON.stringify(corrupt));
+  await assert.rejects(renewBudget(f.root,{capUSD:2,lifetimeCapUSD:10}),/outside the ledger rules/);
+  await writeFile(path,good);
+  await mkdir(join(f.root,'credit-budget.lock'));
+  await assert.rejects(renewBudget(f.root,{capUSD:2,lifetimeCapUSD:10}),/locked/);
+  await rm(join(f.root,'credit-budget.lock'),{recursive:true});
+  const renewed=await renewBudget(f.root,{capUSD:2,lifetimeCapUSD:10});assert.equal(renewed.reservedUSD,2);
+ }finally{await f.clean();}
+});

@@ -13,6 +13,26 @@ export const reserveUSD = (maximumRequestUSD: number) => Math.min(100, Math.max(
 type Ledger = { version: 1; accountHash: string; reservations: Reservation[] };
 export type UsageReceipt = { inputTokens?: number; outputTokens?: number; estimatedUSD?: number; outcome: 'completed' | 'unconfirmed' };
 
+/** The ledger's own rules, shared by reserve() and the researcher's renewal: a torn or forged record never counts as zero. */
+function validLedger(ledger: unknown, accountHash?: string): ledger is Ledger {
+  const l = ledger as Ledger;
+  return !!l && l.version === 1 && typeof l.accountHash === 'string' && /^[a-f0-9]{64}$/.test(l.accountHash) && (accountHash === undefined || l.accountHash === accountHash)
+    && Array.isArray(l.reservations) && l.reservations.length <= 100_000
+    && !l.reservations.some(entry => !entry || typeof entry.id !== 'string' || !/^[a-f0-9-]{36}$/.test(entry.id) || !Number.isFinite(Date.parse(entry.at)) || typeof entry.amountUSD !== 'number' || !Number.isInteger(cents(entry.amountUSD)) || Math.abs(cents(entry.amountUSD) - entry.amountUSD * 100) > 1e-6 || entry.amountUSD < 0.01 || entry.amountUSD > 1)
+    && new Set(l.reservations.map(entry => entry.id)).size === l.reservations.length;
+}
+/** The same lock reserve() takes (a directory; a stale one is reported, never stolen). */
+async function withLedgerLock<T>(lockPath: string, work: () => Promise<T>): Promise<T> {
+  const deadline = Date.now() + 3_000;
+  for (;;) {
+    try { await mkdir(lockPath, { mode: 0o700 }); break; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() >= deadline) throw new Error('Credit budget is locked or unavailable. Inspect local state; no model request was sent.');
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+  }
+  try { return await work(); } finally { await rmdir(lockPath); }
+}
 /** Conservative durable attempt budget. Reservations are never refunded automatically. */
 export class CreditBudget {
   private readonly ledgerPath: string;
@@ -27,16 +47,8 @@ export class CreditBudget {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     // Two conversations reserve at the same moment (a voice turn while a typed request runs, or a second companion);
     // the second waits briefly for the lock instead of failing its request. A lock older than the wait is reported.
-    const deadline = Date.now() + 3_000;
-    for (;;) {
-      try { await mkdir(this.lockPath, { mode: 0o700 }); break; }
-      catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || Date.now() >= deadline) throw new Error('Credit budget is locked or unavailable. Inspect local state; no model request was sent.');
-        await new Promise(resolve => setTimeout(resolve, 25)); signal.throwIfAborted();
-      }
-    }
     const temporary = join(this.directory, `.credit-budget-${randomUUID()}.tmp`);
-    try {
+    return withLedgerLock(this.lockPath, async () => { try {
       signal.throwIfAborted();
       const age = Date.now() - observation.observedAt;
       if (!/^[a-f0-9]{64}$/.test(observation.accountHash) || !Number.isFinite(age) || age < 0 || age > 30_000) throw new Error('Fresh authenticated credit proof is required.');
@@ -47,9 +59,7 @@ export class CreditBudget {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('Credit budget is unreadable. Preserve it for reconciliation; no request was sent.');
         ledger = { version: 1, accountHash: observation.accountHash, reservations: [] };
       }
-      if (!ledger || ledger.version !== 1 || ledger.accountHash !== observation.accountHash || !Array.isArray(ledger.reservations)
-        || ledger.reservations.length > 100_000 || ledger.reservations.some(entry => !entry || typeof entry.id !== 'string' || !/^[a-f0-9-]{36}$/.test(entry.id) || !Number.isFinite(Date.parse(entry.at)) || typeof entry.amountUSD !== 'number' || !Number.isInteger(cents(entry.amountUSD)) || Math.abs(cents(entry.amountUSD) - entry.amountUSD * 100) > 1e-6 || entry.amountUSD < 0.01 || entry.amountUSD > 1)
-        || new Set(ledger.reservations.map(entry => entry.id)).size !== ledger.reservations.length) throw new Error('Credit budget account or records do not match. No request was sent.');
+      if (!validLedger(ledger, observation.accountHash)) throw new Error('Credit budget account or records do not match. No request was sent.');
       const amount = reserveUSD(observation.maximumRequestUSD);
       const reservedCents = ledger.reservations.reduce((sum, entry) => sum + cents(entry.amountUSD), 0);
       if (reservedCents + cents(amount) > this.maximumReservedUSD * 100) throw new Error(`The $${this.maximumReservedUSD} project attempt reserve is exhausted. Reconcile usage before requesting a new budget.`);
@@ -67,8 +77,7 @@ export class CreditBudget {
       return { id: reservation.id, reservedUSD: amount, totalReservedUSD: (reservedCents + cents(amount)) / 100 };
     } finally {
       await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
-      await rmdir(this.lockPath);
-    }
+    } });
   }
   async receipt(id: string, usage: UsageReceipt) {
     // Receipts never lower the authoritative reservation count, including network errors/abort.
@@ -116,18 +125,22 @@ const sumCents = (entries: Reservation[]) => entries.reduce((sum, entry) => sum 
 export async function renewBudget(directory: string, options: { lifetimeCapUSD?: number; capUSD?: number; now?: Date } = {}): Promise<BudgetRenewal> {
   const lifetimeCapUSD = options.lifetimeCapUSD ?? 1000, capUSD = options.capUSD ?? 200, now = options.now ?? new Date();
   const ledgerPath = join(directory, 'credit-budget.json');
-  const ledger = JSON.parse(await readFile(ledgerPath, 'utf8')) as Ledger;
-  if (!ledger || ledger.version !== 1 || !/^[a-f0-9]{64}$/.test(ledger.accountHash) || !Array.isArray(ledger.reservations)) throw new Error('Credit budget is unreadable; preserve it and reconcile by hand.');
+  // the gateway's reserve() holds the same lock: a reservation made while the ledger is archived is never lost
+  return withLedgerLock(join(directory, 'credit-budget.lock'), async () => {
+  const ledger = JSON.parse(await readFile(ledgerPath, 'utf8')) as unknown;
+  if (!validLedger(ledger)) throw new Error('Credit budget is unreadable or has records outside the ledger rules; preserve it and reconcile by hand.');
   const reservedCents = sumCents(ledger.reservations);
   if (reservedCents < capUSD * 100 * 0.9) throw new Error(`The current ledger has $${(reservedCents / 100).toFixed(2)} of $${capUSD} reserved; it does not need renewing.`);
   const { readdir } = await import('node:fs/promises');
   let archivedCents = 0;
   for (const name of await readdir(directory)) {
     if (!/^credit-budget\.archive-.*\.json$/.test(name)) continue;
-    const old = JSON.parse(await readFile(join(directory, name), 'utf8')) as { ledger?: Ledger };
-    if (old.ledger?.accountHash === ledger.accountHash && Array.isArray(old.ledger.reservations)) archivedCents += sumCents(old.ledger.reservations);
+    const old = JSON.parse(await readFile(join(directory, name), 'utf8')) as { ledger?: unknown };
+    if (!validLedger(old.ledger)) throw new Error(`Archived ledger ${name} has records outside the ledger rules; reconcile by hand.`);
+    if (old.ledger.accountHash === ledger.accountHash) archivedCents += sumCents(old.ledger.reservations);
   }
   const lifetimeCents = archivedCents + reservedCents;
+  if (!Number.isFinite(lifetimeCents) || !Number.isInteger(lifetimeCents)) throw new Error('Reservation totals are not whole cents; reconcile by hand.');
   if (lifetimeCents + capUSD * 100 > lifetimeCapUSD * 100) throw new Error(`Renewing would allow $${((lifetimeCents + capUSD * 100) / 100).toFixed(2)} of reservations in total, over the $${lifetimeCapUSD} lifetime authorization. No new budget.`);
   let receipts = 0, estimatedCents = 0;
   for (const file of ['credit-usage.jsonl', 'speech-usage.jsonl']) {
@@ -148,4 +161,5 @@ export async function renewBudget(directory: string, options: { lifetimeCapUSD?:
   try { await out.writeFile(JSON.stringify(fresh) + '\n'); await out.sync(); } finally { await out.close(); }
   await rename(temporary, ledgerPath);
   return { archive, reservedUSD: record.reservedUSD, receipts, estimatedSpendUSD: record.estimatedSpendUSD, lifetimeReservedUSD: record.lifetimeReservedUSD, lifetimeCapUSD };
+  });
 }

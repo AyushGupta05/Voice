@@ -231,6 +231,10 @@ final class DirectOps {
                             doc.roiList.add((Roi) roi.clone());
                             params.put("index", doc.roiList.size() - 1);
                         }
+                        // the selection the macro has just made goes into the manager: the ROI Manager line is Fidelis's
+                        // ROI list in classic Fiji (a replay keeps the list's bookkeeping, e.g. a split's pieces)
+                        lines.add("roiManager(\"add\");");
+                        exact = false;
                     }
                 }
                 case Operations.ROI_LIST_SELECT -> {
@@ -254,6 +258,9 @@ final class DirectOps {
                         doc.roiList.remove(i);
                     }
                     params.put("index", i);
+                    lines.add("roiManager(\"select\", " + i + ");");
+                    lines.add("roiManager(\"delete\");");
+                    exact = false;
                 }
                 case Operations.ROI_LIST_RENAME -> {
                     int i = index(doc, r);

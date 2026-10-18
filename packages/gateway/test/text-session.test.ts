@@ -194,6 +194,11 @@ test('"apply this analysis to the whole folder" reads the folder macro for the f
   assert.equal(spoken[0].text,'Ready to run this on 2 images in set; say yes to go ahead.');assert.equal(spoken[0].outcome,undefined);
   const run=calls.find(([operation])=>operation==='run_macro');assert(run);assert.match(String(run![1].code),/every image of a folder/);
   assert(!calls.some(([operation])=>operation==='find_images'),'no folder was named, so none was searched');
+  // a named folder that cannot be found stops the request: never this image's folder instead
+  const before=calls.length;await conversation.submit('Run this on the Zzqx folder.',true);
+  const last=events.filter(event=>event.type==='text_result').at(-1)!;
+  assert.match(String(last.text),/could not find a folder called zzqx/);assert.equal(last.outcome,'failed');
+  assert(!calls.slice(before).some(([operation])=>operation==='folder_macro'||operation==='run_macro'));
  }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
 });
 

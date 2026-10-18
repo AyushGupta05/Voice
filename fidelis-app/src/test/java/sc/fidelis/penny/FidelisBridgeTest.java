@@ -511,7 +511,7 @@ class FidelisBridgeTest {
         assertEquals(1, engine.rois(id).size(), "the clump is one object again");
         assertEquals("clump", engine.rois(id).get(0).name());
         // a disc on its own has no waist: refused, nothing recorded
-        http.exec("select_roi", args("type", "oval", "x", 40, "y", 2, "width", 16, "height", 16), null, null).result();
+        http.exec("select_roi", args("type", "oval", "x", 48, "y", 0, "width", 12, "height", 12), null, null).result(); // clear of the clump by more than 2 px
         assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.ROI_LIST_ADD,
                 java.util.Map.of(), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
         int before = engine.history().size();
