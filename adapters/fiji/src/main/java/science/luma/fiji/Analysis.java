@@ -839,7 +839,9 @@ final class Analysis {
         for (int i = 0; i < n; i++) {
             if (!targets.contains(i)) { out.add(rois[i]); continue; }
             double[] tolerance = {0.5};
-            var pieces = asserted ? Pipeline.splitAsserted(rois[i], minPart, tolerance) : Pipeline.splitRoi(rois[i], 0.5, minPart);
+            // Oversized clumps (a dense cluster traced as one object) rarely split at ImageJ's default tolerance: ease it, but only into real-sized pieces.
+            var pieces = asserted ? Pipeline.splitAsserted(rois[i], minPart, tolerance)
+                    : Pipeline.splitOversized(rois[i], Math.max(minPart, (int) Math.round(0.35 * median)), tolerance);
             if (pieces.isEmpty()) { out.add(rois[i]); continue; }
             for (var piece : pieces) Operations.tag(piece, imp);
             split++; out.addAll(pieces); newParts.addAll(pieces);
