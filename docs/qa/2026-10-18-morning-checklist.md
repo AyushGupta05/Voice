@@ -93,7 +93,17 @@ Fidelis 470/0, gateway 256/0 (37 tools; Act 2 and the corrections + folder flow 
 stub), stand-alone Fiji bridge tests pass (pipeline contract incl. split at the pointer and apply_analysis to a
 folder), companion `swift build` clean, `verification/test_verification.py` OK.
 
-## 4. Not seen with eyes tonight
+## 4. Seen on screen (09:06 BST, after the unlock)
+
+`docs/images/fidelis/2026-10-18-final-build-after-voice-folder-run.jpg`: the final build after the voice folder run —
+Penny strip, blobs.gif with its 67 numbered outlines, the ROI list, History with the folder run's steps, the generated
+macro. `docs/images/fidelis/2026-10-18-final-build-plan-card.jpg`: a plan waiting for "yes" ("Convert to mask." by
+voice): the card quotes the request, shows the exact macro line and the policy's reasons, with Cancel / Confirm and
+run; "No." by voice cancelled it. Two things the screen showed that were then fixed or noted: a long session's macro
+(every outline of every segmentation is in it) can exceed run_macro's 32 kB — "Run this macro" now says so instead of
+a validation error — and the folder run replaces the Results table (its own per-image rows); the ROI list stays.
+
+## 4b. Not seen with eyes overnight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were
 read through the bridge instead. Open Fidelis once before the demo and look: strip under the command bar, outlines

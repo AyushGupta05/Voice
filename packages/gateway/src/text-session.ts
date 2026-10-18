@@ -71,6 +71,8 @@ export class TextConversation {
     const {macroFromHistory:_macro,...rest}=route;
     const code=typeof exported?.macro==='string'&&exported.macro.trim()?exported.macro:undefined;
     if(!code){const reply='There is no macro yet: nothing has been recorded in History.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
+    // run_macro takes 32000 characters: a long session (every outline of every segmentation is in it) is exported, not replayed in one go
+    if(code.length>32000){const reply=`The session's macro is ${code.split('\n').length} lines, too long to run as one step; export it from the History tab, or start a fresh session for a replay.`;active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,outcome:'failed',fastPath:true});return;}
     route={...rest,arguments:{...rest.arguments,code}};
    }
    if(route?.folderMacro){

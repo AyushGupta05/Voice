@@ -204,7 +204,7 @@ test('"apply this analysis to the whole folder" reads the folder macro for the f
 
 test('Act 2 by instant routes against a stateful Fidelis stub: open, nuclei, go back, run this macro, yes \u2014 no model, confirm bound to the pending plan',async()=>{
  const root=await mkdtemp(join(tmpdir(),'penny-act2-session-'));const events:Record<string,unknown>[]=[];const calls:string[]=[];
- const state={open:false,rois:0,rows:0,history:0,pending:null as null|{planId:string},version:0};
+ const state={open:false,rois:0,rows:0,history:0,pending:null as null|{planId:string},version:0};let longMacro=false;
  const runtime=new Runtime({execute:async(operation,args)=>{
   calls.push(operation);
   if(operation==='context')return{contextKey:'k'+state.version,application:'Fidelis',...(state.open?{document:{id:'doc-1',title:'blobs.gif',width:256,height:254,unit:'pixel',path:'/data/blobs.gif'},documents:[{id:'doc-1',title:'blobs.gif',focused:true}]}:{documents:[]}),counts:{rois:state.rois,resultsRows:state.rows,history:state.history},pending:state.pending,running:null};
@@ -212,7 +212,7 @@ test('Act 2 by instant routes against a stateful Fidelis stub: open, nuclei, go 
   if(operation==='open_path'){if(!/blobs\.gif$/.test(String((args as {path?:unknown}).path)))throw new Error('open_path args '+JSON.stringify(args));state.open=true;state.history++;state.version++;return{status:'completed',planId:'plan-open',opened:true,document:{id:'doc-1',title:'blobs.gif',width:256,height:254}};}
   if(operation==='segment_cells'){state.rois=67;state.rows=67;state.history+=9;state.version++;return{status:'completed',planId:'plan-seg',count:67,averageSize:327,unit:'pixel',undoSteps:1};}
   if(operation==='undo'){state.rois=0;state.rows=0;state.history++;state.version++;return{status:'completed',planId:'plan-undo',step:{label:'Undo'},undoneActionIds:['act-9'],restored:{rois:{before:67,after:0},resultsRows:{before:67,after:0}}};}
-  if(operation==='macro')return{macro:'open("/data/blobs.gif");\nid1 = getImageID();\nrun("Gaussian Blur...", "sigma=2");',steps:state.history};
+  if(operation==='macro')return{macro:longMacro?'// long\n'+'makeSelection("traced", newArray(1,2,3), newArray(1,2,3));\n'.repeat(700):'open("/data/blobs.gif");\nid1 = getImageID();\nrun("Gaussian Blur...", "sigma=2");',steps:state.history};
   if(operation==='run_macro'){state.pending={planId:'plan-run'};state.version++;return{status:'awaiting_confirmation',planId:'plan-run',operation:'run_macro',steps:[{label:'Run macro (3 lines)'}],reasons:['macro code runs with full privileges']};}
   if(operation==='confirm'){assert.equal((args as {planId?:unknown}).planId,'plan-run','the assent is bound to the plan that was pending');state.pending=null;state.rois=67;state.rows=67;state.version++;return{status:'completed',planId:'plan-run',step:{label:'Run macro (3 lines)'},resultsRowsAdded:67,documentsAdded:['doc-2']};}
   throw new Error('unexpected operation '+operation);
@@ -236,6 +236,10 @@ test('Act 2 by instant routes against a stateful Fidelis stub: open, nuclei, go 
   assert.equal(state.pending,null);assert.equal(state.rois,67);
   assert(!events.some(event=>event.type==='text_result'&&event.outcome==='failed'),JSON.stringify(events.filter(e=>e.type==='text_result')));
   assert.deepEqual(calls.filter(c=>c!=='context'),['open_path','segment_cells','undo','macro','run_macro','confirm']);
+  // a session whose macro no longer fits run_macro is told so, before anything is sent
+  longMacro=true;at=events.length;await conversation.submit('Run this macro.',true);
+  assert.match(String(spokenSince(at)[0][1]),/too long to run as one step; export it from the History tab/);
+  assert.equal(calls.filter(c=>c==='run_macro').length,1,'run_macro was not called with the oversized text');
  }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
 });
 
