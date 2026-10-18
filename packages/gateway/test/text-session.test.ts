@@ -196,3 +196,40 @@ test('"apply this analysis to the whole folder" reads the folder macro for the f
   assert(!calls.some(([operation])=>operation==='find_images'),'no folder was named, so none was searched');
  }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
 });
+
+test('Act 2 by instant routes against a stateful Fidelis stub: open, nuclei, go back, run this macro, yes \u2014 no model, confirm bound to the pending plan',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'penny-act2-session-'));const events:Record<string,unknown>[]=[];const calls:string[]=[];
+ const state={open:false,rois:0,rows:0,history:0,pending:null as null|{planId:string},version:0};
+ const runtime=new Runtime({execute:async(operation,args)=>{
+  calls.push(operation);
+  if(operation==='context')return{contextKey:'k'+state.version,application:'Fidelis',...(state.open?{document:{id:'doc-1',title:'blobs.gif',width:256,height:254,unit:'pixel',path:'/data/blobs.gif'},documents:[{id:'doc-1',title:'blobs.gif',focused:true}]}:{documents:[]}),counts:{rois:state.rois,resultsRows:state.rows,history:state.history},pending:state.pending,running:null};
+  // fidelis_find_images is the gateway's own search (Penny's data folder, fixtures), not a bridge operation: any blobs.gif it finds will do
+  if(operation==='open_path'){if(!/blobs\.gif$/.test(String((args as {path?:unknown}).path)))throw new Error('open_path args '+JSON.stringify(args));state.open=true;state.history++;state.version++;return{status:'completed',planId:'plan-open',opened:true,document:{id:'doc-1',title:'blobs.gif',width:256,height:254}};}
+  if(operation==='segment_cells'){state.rois=67;state.rows=67;state.history+=9;state.version++;return{status:'completed',planId:'plan-seg',count:67,averageSize:327,unit:'pixel',undoSteps:1};}
+  if(operation==='undo'){state.rois=0;state.rows=0;state.history++;state.version++;return{status:'completed',planId:'plan-undo',step:{label:'Undo'},undoneActionIds:['act-9'],restored:{rois:{before:67,after:0},resultsRows:{before:67,after:0}}};}
+  if(operation==='macro')return{macro:'open("/data/blobs.gif");\nid1 = getImageID();\nrun("Gaussian Blur...", "sigma=2");',steps:state.history};
+  if(operation==='run_macro'){state.pending={planId:'plan-run'};state.version++;return{status:'awaiting_confirmation',planId:'plan-run',operation:'run_macro',steps:[{label:'Run macro (3 lines)'}],reasons:['macro code runs with full privileges']};}
+  if(operation==='confirm'){assert.equal((args as {planId?:unknown}).planId,'plan-run','the assent is bound to the plan that was pending');state.pending=null;state.rois=67;state.rows=67;state.version++;return{status:'completed',planId:'plan-run',step:{label:'Run macro (3 lines)'},resultsRowsAdded:67,documentsAdded:['doc-2']};}
+  throw new Error('unexpected operation '+operation);
+ }},new Knowledge(fidelis),root,{autoApprove:true,profile:fidelis});
+ const conversation=new TextConversation(runtime,{complete:async()=>{throw new Error('No model call expected in Act 2.');}},'synthetic',event=>events.push(event));
+ const spokenSince=(from:number)=>events.slice(from).filter(event=>event.type==='text_ack'||event.type==='text_result').map(event=>[event.type,event.text]);
+ try{
+  let at=events.length;await conversation.submit('Open the blobs image.',true);
+  assert.deepEqual(spokenSince(at),[['text_ack','Opening it.'],['text_result','Opened blobs, 256 by 254.']]);
+  at=events.length;await conversation.submit('Find all the nuclei.',true);
+  assert.deepEqual(spokenSince(at),[['text_ack','Finding the nuclei.'],['text_result','Found 67 nuclei, mean area 327 square pixels.']]);
+  at=events.length;await conversation.submit('Go back.',true);
+  assert.deepEqual(spokenSince(at),[['text_result','Undid: 67 nuclei \u2192 0, Results cleared.']]);
+  at=events.length;await conversation.submit('Yes.',true);
+  assert.deepEqual(spokenSince(at),[],'a "yes" with nothing pending is not a request (nothing is run, nothing is said)');
+  at=events.length;await conversation.submit('Run this macro.',true);
+  assert.deepEqual(spokenSince(at),[['text_result','Ready to run 1 step; say yes to go ahead.']]);
+  assert.equal(state.pending?.planId,'plan-run');
+  at=events.length;await conversation.submit('Yes.',true);
+  assert.deepEqual(spokenSince(at),[['text_ack','Running it.'],['text_result','Ran the macro: 67 result rows, 1 new image.']]);
+  assert.equal(state.pending,null);assert.equal(state.rois,67);
+  assert(!events.some(event=>event.type==='text_result'&&event.outcome==='failed'),JSON.stringify(events.filter(e=>e.type==='text_result')));
+  assert.deepEqual(calls.filter(c=>c!=='context'),['open_path','segment_cells','undo','macro','run_macro','confirm']);
+ }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
+});
