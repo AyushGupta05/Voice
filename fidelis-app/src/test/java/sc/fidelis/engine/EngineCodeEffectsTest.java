@@ -225,6 +225,55 @@ class EngineCodeEffectsTest {
     }
 
     @Test
+    void recreatedIdenticalRoisKeepTheSelectionAndAClosedManagersEditsReachTheDocument() throws Exception {
+        String make = "makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nmakeRectangle(6, 6, 2, 2);\nroiManager(\"Add\");\nrun(\"Select None\");\n";
+        assertEquals(OperationState.COMPLETED, code(make).state());
+        // the same two ROIs recreated: no content change to report, but the document must take the new objects
+        ActionResult again = code("roiManager(\"reset\");\n" + make + "roiManager(\"Select\", 0);\n");
+        assertEquals(OperationState.COMPLETED, again.state(), String.valueOf(again.error()));
+        assertTrue(again.digest().changed().isEmpty(), "same content, nothing to report: " + again.digest().changed());
+        ActionResult del = code("roiManager(\"Delete\");\n");
+        assertEquals(OperationState.COMPLETED, del.state(), String.valueOf(del.error()));
+        assertEquals(1, engine.rois(doc).size(), "the selection survived into the next run: " + engine.rois(doc));
+        // a macro that closes the manager window: its last content still reaches the document
+        ActionResult closedAfterReset = code("roiManager(\"reset\");\nclose(\"ROI Manager\");\n");
+        assertEquals(OperationState.COMPLETED, closedAfterReset.state(), String.valueOf(closedAfterReset.error()));
+        assertEquals(0, engine.rois(doc).size(), "the reset before the close reached the document");
+        ActionResult closedAfterAdd = code("makeRectangle(4, 4, 2, 2);\nroiManager(\"Add\");\nrun(\"Select None\");\nclose(\"ROI Manager\");\n");
+        assertEquals(OperationState.COMPLETED, closedAfterAdd.state(), String.valueOf(closedAfterAdd.error()));
+        assertEquals(1, engine.rois(doc).size(), "the addition before the close reached the document");
+        assertEquals(List.of(4.0, 4.0, 2.0, 2.0), bounds(engine.rois(doc).get(0)));
+    }
+
+    @Test
+    void mirroringTheDocumentIntoTheManagerKeepsUnboundPositionsAndStyle() throws Exception {
+        ActionResult n = engine.submit(ActionRequest.session(Origin.PANEL, Operations.NEW_IMAGE, new java.util.LinkedHashMap<>(
+                Map.of("title", "stack-for-rois", "type", "8-bit", "width", 16, "height", 16, "fill", "Black", "slices", 3)), null))
+                .get(30, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, n.state(), String.valueOf(n.error()));
+        DocumentId stack = n.digest().added().get(0);
+        engine.focus(stack);
+        engine.imagePlus(stack).setSlice(2);
+        Doc d = engine.registry.get(stack);
+        ij.gui.Roi unbound = new ij.gui.Roi(2, 2, 5, 5);
+        unbound.setStrokeWidth(3);
+        synchronized (d.roiList) {
+            d.roiList.add(unbound);
+        }
+        ActionResult print = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing\");\n", TargetScope.of(stack), null)).get(60, TimeUnit.SECONDS);
+        print = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing\");\n", TargetScope.of(stack), print.confirmationToken())).get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, print.state(), String.valueOf(print.error()));
+        assertTrue(print.digest().changed().isEmpty(), "a print changes no ROI: " + print.digest().changed());
+        synchronized (d.roiList) {
+            assertEquals(1, d.roiList.size());
+            assertEquals(0, d.roiList.get(0).getPosition(), "an ROI without a plane stays without one (IJ1's add would bind it to slice 2)");
+            assertFalse(d.roiList.get(0).hasHyperStackPosition());
+            assertEquals(3.0f, d.roiList.get(0).getStrokeWidth(), "the document's stroke width stands");
+        }
+        assertEquals(List.of(0, 0, 0), List.of(engine.rois(stack).get(0).position()[0], engine.rois(stack).get(0).position()[1], engine.rois(stack).get(0).position()[2]));
+    }
+
+    @Test
     void anUntargetedMacroWorksOnTheCurrentDocumentsListNotTheLastLoadedOne() throws Exception {
         DocumentId a = doc;
         ActionResult onA = code("makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nrun(\"Select None\");\n");

@@ -38,7 +38,18 @@ final class RoiLists {
         RoiManager rm = manager();
         rm.reset();
         synchronized (d.roiList) {
-            for (Roi r : d.roiList) rm.addRoi((Roi) r.clone());
+            for (Roi r : d.roiList) {
+                int before = rm.getCount();
+                rm.addRoi((Roi) r.clone());
+                if (rm.getCount() != before + 1) continue;
+                // IJ1's add binds an ROI without a position to the current plane of a stack and applies its default
+                // stroke: the document's ROI is the truth, so the manager's copy keeps the document's position and style
+                Roi added = rm.getRoi(before);
+                if (added == null) continue;
+                if (r.getPosition() == 0 && !r.hasHyperStackPosition()) added.setPosition(0);
+                added.setStrokeWidth(r.getStrokeWidth());
+                added.setStrokeColor(r.getStrokeColor());
+            }
         }
     }
 
@@ -47,7 +58,11 @@ final class RoiLists {
      * leaves (the document list then <em>is</em> the manager's content), until either side changes.
      */
     boolean mirrors(Doc d) {
-        RoiManager rm = RoiManager.getRawInstance();
+        return mirrors(d, RoiManager.getRawInstance());
+    }
+
+    /** {@link #mirrors(Doc)} against a given manager (one a macro closed is no longer the singleton but still holds its list). */
+    boolean mirrors(Doc d, RoiManager rm) {
         if (rm == null) return false;
         Roi[] arr = rm.getRoisAsArray();
         synchronized (d.roiList) {
@@ -70,7 +85,11 @@ final class RoiLists {
 
     /** Read the singleton back into the document list (after the action); returns the new size. */
     int syncBack(Doc d) {
-        RoiManager rm = manager();
+        return syncBack(d, manager());
+    }
+
+    /** {@link #syncBack(Doc)} from a given manager (one a macro closed is no longer the singleton but still holds its list). */
+    int syncBack(Doc d, RoiManager rm) {
         Roi[] arr = rm.getRoisAsArray();
         synchronized (d.roiList) {
             d.roiList.clear();

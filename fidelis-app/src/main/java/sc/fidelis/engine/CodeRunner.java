@@ -161,7 +161,10 @@ final class CodeRunner {
             // IJ1's private one) and is empty, so a closed document's leftovers never flow into one the macro opens
             eng.roiLists.manager().reset();
         }
-        List<String> managerBefore = managerContent();
+        // the manager the macro starts with: should the macro close it (close("ROI Manager")), it is no longer the
+        // singleton but still holds what the macro left, and that is what the document must receive
+        RoiManager managerUsed = RoiManager.getRawInstance();
+        List<String> managerBefore = content(managerUsed);
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
@@ -211,8 +214,10 @@ final class CodeRunner {
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
         List<StateDigest.DocumentChange> changed = List.of();
-        List<String> managerAfter = managerContent();
-        if (managerAfter != null && !managerAfter.equals(managerBefore)) {
+        RoiManager managerNow = RoiManager.getRawInstance();
+        RoiManager managerSource = managerNow != null ? managerNow : managerUsed;
+        List<String> managerAfter = content(managerSource);
+        if (managerSource != null) {
             Doc roiDoc = roiOwner;
             if (roiDoc == null) {
                 // no document when the macro started: the one it left current (an image it opened or selected)
@@ -220,8 +225,12 @@ final class CodeRunner {
                 roiDoc = cur == null ? null : eng.registry.byImp(cur);
             }
             if (roiDoc != null && eng.registry.all().contains(roiDoc)) {
-                eng.roiLists.syncBack(roiDoc);
-                changed = List.of(new StateDigest.DocumentChange(roiDoc.id, false, false, false, true, false));
+                boolean contentChanged = !managerAfter.equals(managerBefore);
+                // the document takes the manager's objects whenever they differ, even when their content is the same
+                // (a reset that recreated the same ROIs): the next macro then finds the manager mirroring the document
+                // and keeps its selection; a changed content is also reported
+                if (contentChanged || !eng.roiLists.mirrors(roiDoc, managerSource)) eng.roiLists.syncBack(roiDoc, managerSource);
+                if (contentChanged) changed = List.of(new StateDigest.DocumentChange(roiDoc.id, false, false, false, true, false));
             }
         }
         boolean cancelled = op.cancelRequested && op.abortIssued;
@@ -275,13 +284,12 @@ final class CodeRunner {
     }
 
     /**
-     * The ROI Manager singleton's content as comparable text, or null when no manager exists. Each entry is IJ1's own
+     * A ROI Manager's content as comparable text, or null without a manager. Each entry is IJ1's own
      * serialisation ({@code RoiEncoder}: type, coordinates, name, position, stroke width and colours, fill, properties)
      * so a macro that resets the manager and adds the same number of other ROIs, moves, renames or restyles one
      * ({@code roiManager("Set Line Width", 5)}) is seen as a change although the count is unchanged.
      */
-    private static List<String> managerContent() {
-        RoiManager rm = RoiManager.getRawInstance();
+    private static List<String> content(RoiManager rm) {
         return rm == null ? null : content(List.of(rm.getRoisAsArray()));
     }
 
