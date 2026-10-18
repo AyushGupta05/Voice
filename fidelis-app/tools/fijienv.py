@@ -124,6 +124,16 @@ def jvm_flags(fiji: Path | None = None, heap: str = "4g", user_home: Path | None
     return flags
 
 
+def speech_python() -> Path | None:
+    """The repository's speech interpreter (`.venv-stt`, created per docs/setup), or None when it is not set up.
+
+    The venv's launcher lives under Scripts on Windows and bin elsewhere; the Java default
+    (sc.fidelis.speech.WhisperSpeechService) looks in the same place, this is the explicit `-Dfidelis.stt.python`.
+    """
+    candidate = REPO_DIR / ".venv-stt" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    return candidate if candidate.is_file() else None
+
+
 def write_argfile(path: Path, args: list[str]) -> Path:
     """Write a java/javac @argfile (quotes every argument; handles backslashes and spaces)."""
     path.parent.mkdir(parents=True, exist_ok=True)

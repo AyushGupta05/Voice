@@ -27,6 +27,17 @@ For speech, with uv available:
     uv pip sync --python .venv-stt/Scripts/python.exe --require-hashes speech/requirements.lock.txt
     ./.venv-stt/Scripts/python.exe scripts/setup_speech.py
 
+On macOS and Linux (tested on macOS, Apple silicon, Python 3.11.15), the same lock installs with pip's hash checking, and
+the venv's interpreter is `.venv-stt/bin/python`:
+
+    python3.11 -m venv .venv-stt
+    .venv-stt/bin/pip install --require-hashes -r speech/requirements.lock.txt
+    .venv-stt/bin/python -I scripts/setup_speech.py
+
+`sc.fidelis.speech.WhisperSpeechService` defaults to `<repo>/.venv-stt/bin/python` there (`Scripts/python.exe` on
+Windows), and `fidelis-app/tools/test.py` passes that interpreter as `-Dfidelis.stt.python` whenever the venv exists, so
+the speech tests run instead of being skipped. `-Dfidelis.stt.python` / `FIDELIS_STT_PYTHON` still override it.
+
 The model is about 75 MB. The setup downloads only the pinned Hugging Face revision, then validates local file hashes. Normal inference is local and does not use a hosted speech API. CPU inference is the tested baseline; CUDA is not required or configured.
 
 The installed speech tree was checked against the lock with a hash-enforced sync. Do not move an existing virtual environment between directories; recreate it when moving the checkout.
