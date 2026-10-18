@@ -18,10 +18,13 @@ relaunch, or `./script/build_and_run.sh`) so the gateway re-reads the ledger.
 
 The 24-hour funding proofs were renewed at 04:31 BST and are valid until 04:31 BST on 19 Oct, so they need nothing.
 
-## 2. What is running now
+## 2. What is running now (06:15 BST)
 
-Fidelis from main `01dd27a` (pid 94077) with the gateway in the `fidelis` profile; the companion's microphone is off.
-Leave it, or relaunch from the tip with `./script/run-fidelis.sh` after killing the old one.
+Fidelis from main `6d5f435` — the tip, every fix of the night included — with the gateway in the `fidelis` profile
+(34 bridge operations, 37 tools); the companion's microphone is off. Typed on it after the relaunch: open blobs (0.4 s),
+67 nuclei, "Apply this analysis to the whole folder" → "Ready to run this on 5 images in imagej; say yes to go ahead."
+(28 ms), "Which one is the biggest?" → object 61, 848 px² (13 ms), go back → 0. Leave it as it is; after the budget
+renewal only the companion needs restarting.
 
 ## 3. Act 2 by voice, verified tonight on the merged build
 
