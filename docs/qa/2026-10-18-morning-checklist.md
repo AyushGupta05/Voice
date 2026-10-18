@@ -2,6 +2,24 @@
 
 Written at 05:00 BST while Ayush was asleep. Everything below is on `main` (origin and publish).
 
+## 00. The clean pass (09:10 BST, fresh instance from main 5e756bd, nothing fixed in between)
+
+Nine lines by real AWS voice in one go, empty History at the start:
+
+| Said | Penny | Speech end → audio |
+|---|---|---|
+| "Open the blobs image." | "Opened blobs, 256 by 254." | 1.1 s |
+| "Find all the nuclei." | "Found 67 nuclei, mean area 327 square pixels." | 1.1 s |
+| "Which one is the biggest?" | "The largest is object 61, 848 square pixels." (flashed) | 1.8 s |
+| "Go back." | "Undid: 67 objects → 0, Results cleared." | 1.7 s |
+| "Run this macro." | "Ready to run 1 step; say yes to go ahead." | 2.4 s |
+| "Yes." | "Ran the macro: 67 result rows, 1 new image." | 1.2 s |
+| "Apply this analysis to the whole folder." | "Ready to run this on 5 images in imagej; say yes to go ahead." | 2.8 s |
+| "Yes." | "Ran it on 1 image (4 stacks skipped); the results are in penny-folder-results.csv." | 0.6 s |
+| "What am I looking at?" | "Blobs: 256 by 254, 8-bit; one channel; 67 objects outlined." | 2.5 s |
+
+The CSV lists blobs 67 / 326.657 and the four stacks as skipped. The instance is left in that state for the demo.
+
 ## 0. Done at 08:10 BST — voice is back and the whole script passed by voice
 
 Ayush authorised the renewal ("do it, ensure all money comes from aws credits"): `npm run budget:renew --
