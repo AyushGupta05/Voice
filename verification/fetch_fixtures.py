@@ -5,7 +5,7 @@ Usage (repo root, repo venv python):
     python -I verification/fetch_fixtures.py --only FX-003 [--only FX-040 ...] [--pin]
     python -I verification/fetch_fixtures.py            # every fixture allowed by the policy
 
-Rules (docs A29, D18 section 5):
+Rules:
   * Files go to fixtures/cache/<id>/<name>; zip members are extracted to fixtures/cache/<id>/extracted/.
   * A file whose digest is not pinned in fixtures/manifest.json is refused unless --pin is given
     (no trust on first use in CI). --pin records size and digest into the manifest.

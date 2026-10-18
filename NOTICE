@@ -25,14 +25,14 @@ It does NOT apply to, and does not relicense, any of the following:
 4. fixtures/invert-command.wav, a short test stimulus synthesised with Microsoft
    Windows speech synthesis (System.Speech). No rights in the synthesised voice
    output are claimed or licensed by the Fidelis authors.
-5. Screenshots of the Fiji user interface and probe outputs that reproduce
-   metadata from third-party software (for example, plugin indexes and licence
-   scans) in docs/. They depict or describe third-party
+5. Screenshots of the Fiji and QuPath user interfaces and catalogue data that
+   reproduce metadata from third-party software (for example, the command
+   catalogue in docs/data) in docs/. They depict or describe third-party
    software and are included for analysis and attribution only.
 
 "Fiji" and "ImageJ" are names of their respective projects. Fidelis is an
 independent project and is not endorsed by the Fiji or ImageJ developers.
 
 This notice is a good-faith description of licence scope. It is not legal
-advice. Open licensing questions are tracked as decision DEC-005 in the project
-documentation.
+advice. A bundled redistribution policy (Fiji, JDK, speech runtime and models)
+has not been chosen.

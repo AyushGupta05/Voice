@@ -1,22 +1,9 @@
----
-id: INT-01
-title: Fidelis bridge contract (Penny voice over the Fidelis engine)
-stage: 03-development
-status: Implemented on integration/fidelis-penny (verification in progress)
-priority: P0
-source_revisions: [integration/fidelis-penny]
-related_requirements: [FR-NL-001, FR-SPEECH-004, FR-HIST-002, FR-MACRO-001]
-related_decisions: [DEC-048]
-last_reviewed: 2026-10-17
-approval: Integration contract written by Ayush's session; review by Arnav (engine) and Alex (UI) pending
----
-
 # Fidelis bridge contract (Penny × Fidelis)
 
 Penny's gateway drives the **Fidelis workstation** (`fidelis-app/`) the same way it drives stand-alone Fiji
 (`docs/FIJI-PROTOCOL.md`), through a local bridge — but every change goes through the Fidelis engine
 (`Engine.submit`), so Fidelis's history, undo, provenance and macro export stay authoritative. This page is the contract
-the three integration parts build against: the Java bridge (`sc.fidelis.penny`), the gateway profile (`LUMA_APP=fidelis`)
+the three integration parts are built against: the Java bridge (`sc.fidelis.penny`), the gateway profile (`LUMA_APP=fidelis`)
 and the workspace voice surface (`sc.fidelis.penny.ui`).
 
 ## Process and transport
@@ -91,8 +78,8 @@ step slot provenance), using its value-aware constructor `ConfirmationPolicy(eng
   it when its worker dequeues the request and refuses with PRECONDITION_FAILED / subcode `STATE_CHANGED` if anything else
   entered the history in between (a workspace action queued just ahead of it), so the approval holds at execution, not
   only at admission (verified: a workspace CLEAR_ROI queued before step 3 of segment_cells ran, step 3 was refused,
-  nothing after it ran). This is an additive, opt-in engine change (`DefaultEngine.runOp`, `Options.RESERVED`) for
-  the engine owner's review; requests without the key are unaffected. The selection is bound too: every step carries the reserved key `expectedRoi`, the `sc.fidelis.engine.RoiSignature`
+  nothing after it ran). This is an additive, opt-in engine change (`DefaultEngine.runOp`, `Options.RESERVED`);
+  requests without the key are unaffected. The selection is bound too: every step carries the reserved key `expectedRoi`, the `sc.fidelis.engine.RoiSignature`
   of its target document's active selection (`none`, or `TYPE:x,y,w,h:HASH`) — the selection at approval for the first
   step, the selection the previous step left for the rest. The engine reads the live selection on the EDT when the worker
   starts the step and refuses it (`STATE_CHANGED`) if it differs, so a selection drawn on the canvas in the last moment
@@ -203,7 +190,7 @@ still blocked on it after 500 ms, with HTTP 200:
   was recorded as `LEGACY_DIALOG`/`NL_SPOKEN` with the task's `transcriptRef`.
 - `run_macro` (CODE, always explicit) remains the route for anything a dialog cannot express.
 
-### Notes for the other integration parts (17 Oct 2026)
+### Notes for the other integration parts
 
 - Gateway: the bridge now declares **30** operations: add `fidelis_dialog` (read) and `fidelis_dialog_action` (data:
   `dialogId`, `fields`, `press`) and handle `status:"dialog"` (speak the dialog title and fields, fill from the user's answer, or
@@ -215,12 +202,12 @@ still blocked on it after 500 ms, with HTTP 200:
 - Workspace: register a `PennyUi` at launch; wire *Confirm and run* / *Cancel* on a waiting card to
   `PennyPlans.confirm(planId)` / `PennyPlans.cancel(planId)`. Single-step view plans (select_roi, display, stack, undo) also
   produce a running card and `planFinished`; showing those briefly or not at all is the workspace's choice.
-- Engine (for its owner): `CodeRunner.scan` reports `exec, eval, call, runMacro` for a plain `run("Invert");`, so the
+- Engine: `CodeRunner.scan` reports `exec, eval, call, runMacro` for a plain `run("Invert");`, so the
   macro card's engine reason over-states the capabilities; the bridge passes the engine's wording through unchanged.
 
 ## Voice in the workspace
 
-The workspace shows Penny's conversation in a strip under the command bar (the planned voice panel, #18): live transcript,
+The workspace shows Penny's conversation in a strip under the command bar: live transcript,
 what Penny is doing (listening · thinking · running "Step 2 of 6" · speaking), the spoken answer, and the plan card with
 Confirm when a plan is explicit. It connects to the gateway's `/events` websocket (`ws://127.0.0.1:49555/events`,
 `Authorization: Bearer <.local/state/companion-token>`): client `hello`, `start_voice{requestId}`, `audio{sessionId,

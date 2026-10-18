@@ -1,10 +1,10 @@
-"""Independent reference macro for journey J-12 (docs D16) on a fixture (docs A30 CR-A30-02).
+"""Independent reference macro for journey J-12 on a fixture (docs/FIDELIS-VERIFICATION.md).
 
 Hand-written and table-driven: every step carries its explicit option string, taken from
 docs/data/commands-core-parameters.csv. Booleans that are absent are false (macro mode). Nothing here
 imports or shares templates with the product's macro generator.
 
-Step order follows the verification brief (T3):
+Step order:
   open -> Subtract Background (rolling=50) -> Gaussian Blur (sigma=2) -> setAutoThreshold("Otsu dark")
   -> Convert to Mask -> Watershed -> Set Measurements -> Measure -> Analyze Particles -> saveAs Tiff
 BlackBackground is set explicitly before the first step (D16 J-12 step 7 records it as a global).

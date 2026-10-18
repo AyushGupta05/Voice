@@ -1,6 +1,6 @@
 """Shared environment for the Fidelis Java build and launch tools.
 
-Fidelis runs *inside* the pinned Fiji runtime (docs: A21 option O2, ADR-002). These helpers locate
+Fidelis runs *inside* the pinned Fiji runtime (docs/FIDELIS-ENGINE.md). These helpers locate
 that runtime, reproduce the JVM flags Fiji's own launcher (Jaunch) uses, and build the classpath:
 every jar under Fiji/jars (and subfolders) and Fiji/plugins (and subfolders), plus our classes.
 The installed Fiji is never modified.
@@ -89,7 +89,7 @@ def fiji_classpath(fiji: Path | None = None) -> list[str]:
 
 def jvm_flags(fiji: Path | None = None, heap: str = "4g", user_home: Path | None = None,
               extra_props: dict[str, str] | None = None, background: bool = False) -> list[str]:
-    """JVM options matching Fiji's launcher dry-run (docs/01-analysis/references/probes/P40), plus ours."""
+    """JVM options matching Fiji's launcher dry-run (`fiji --dry-run`), plus ours."""
     fiji = fiji or fiji_dir()
     f = str(fiji)
     exe = str(fiji / LAUNCHER)

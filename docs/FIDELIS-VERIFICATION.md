@@ -1,40 +1,28 @@
----
-id: DEV-03
-title: Verification results
-stage: 03-development
-status: Living record
-priority: P0
-source_revisions: [Fiji archive 20261013-1517 (lock f6695397 / 9403b619 LF), imagej/ImageJ@v1.54p, integration branch development/fidelis-workstation]
-related_requirements: [NFR-FID-001, NFR-FID-002, NFR-FID-003, NFR-FID-004, FR-MEAS-003, FR-MACRO-001]
-related_decisions: [DEC-010, ADR-010]
-last_reviewed: 2026-10-17
-approval: Development record (not a design approval)
----
+# Fidelis verification results
 
-# VERIFICATION RESULTS — Fidelis workstation (agent A4)
+Status as of 2026-10-17. Every number below was produced by a run; the commands are given so that each can be
+repeated. The harness lives in `verification/` (reference runner, dumper, comparators, baselines) and
+`fidelis-app/src/test/java/sc/fidelis/{testkit,verification}`. Two kinds of evidence are kept apart on purpose:
 
-Status as of 2026-10-17. Every number below was produced by a run in this worktree (`agent/verify`); the
-commands are given so that each can be repeated. Two kinds of evidence are kept apart on purpose:
-
-- **Fiji parity (E1–E7, docs A30)** is exact equality with a reference execution of the pinned Fiji. It proves
+- **Fiji parity (E1–E7)** is exact equality with a reference execution of the pinned Fiji. It proves
   that the *invocation* is faithful. Pass or fail.
 - **Biological or analytical plausibility (E9)** compares a workflow's output with independent ground truth
   (BBBC counts). It is **reported, never pass/fail**: a workflow can be faithful to Fiji and still be a poor
-  biological method (A30 section 1).
+  biological method.
 
-## 1. Fixtures obtained (`fixtures/manifest.json`, `python -I verification/fetch_fixtures.py --list`)
+## 1. Fixtures obtained (`fixtures/manifest.json`, `python3 -I verification/fetch_fixtures.py --list`)
 
 | Id | Fixture | Obtained | Bytes | SHA-256 (first 16) | Licence | Policy |
 |---|---|---|---|---|---|---|
-| FX-001 | `fixtures/two-squares.png` | in repo | 133 | e251d96a332e33cf | project work (DEC-005 open) | committed |
+| FX-001 | `fixtures/two-squares.png` | in repo | 133 | e251d96a332e33cf | project work | committed |
 | FX-003 | ImageJ sample `blobs.gif` | **downloaded** | 25,765 | 507d168e317a6b80 | none stated by imagej.net (UNKNOWN) | cache only |
 | FX-004 | `FluorescentCells.zip` | downloaded | 436,133 | 38507fab9787016f | UNKNOWN; Molecular Probes slide | cache only |
 | FX-005 | `hela-cells.zip` | downloaded | 1,374,676 | 9d121c922be1dedad | UNKNOWN | cache only |
 | FX-030 | BBBC001 v1 TIFF zip + `counts.txt` | **downloaded** (832 kB zip) | 854,168 + 303 | d6d4ad4743dc8dfd, b246712302 | **CC BY-NC-SA 3.0** | cache only, never committed |
 | FX-031 | BBBC004 v1, overlap 0.00: images zip + foreground zip | **downloaded** (13.0 MB + 0.48 MB) | 13,034,200 + 479,591 | 9156756acddba488, cdc55860766a4bba | **CC BY-NC-SA 3.0** | cache only, never committed |
-| FX-040 | OME-TIFF `single-channel.ome.tif` | **downloaded** | 76,095 | 8188f23c90bbdebc | CC BY 4.0 (OME Consortium) | cache only until DEC-005 |
+| FX-040 | OME-TIFF `single-channel.ome.tif` | **downloaded** | 76,095 | 8188f23c90bbdebc | CC BY 4.0 (OME Consortium) | cache only |
 
-Sizes equal those recorded in `docs/data/datasets.csv` (A29). Digests are pinned in the manifest by an explicit
+Sizes equal those recorded in `docs/data/datasets.csv`. Digests are pinned in the manifest by an explicit
 `--pin` after the first fetch; later fetches verify and delete a mismatching file. Zip members are extracted with
 a path-traversal guard to `fixtures/cache/<id>/extracted/`. The cache and the NC-licensed baseline folders are
 git-ignored (only aggregate `summary.json` files for FX-030/FX-031 are committed).
@@ -54,16 +42,16 @@ Observed facts (each from a run, not from documentation):
 
 | Question | Result |
 |---|---|
-| Does `-Duser.home` pass through the Jaunch launcher? | Yes: `getDirectory("home")` returned the run directory. IJ1 prefs therefore stay in `<run>/home` (VD18-1 answered for this runtime). |
+| Does `-Duser.home` pass through the Jaunch launcher? | Yes: `getDirectory("home")` returned the run directory. IJ1 prefs therefore stay in `<run>/home` (answered for this runtime). |
 | Is stdout captured from the launcher? | No (GUI-subsystem exe, even with `--console`). Macro errors are invisible in headless mode and show a **modal "Macro Error" dialog in GUI mode**, so every reference macro writes a done marker last and the runner uses a hard timeout and kills only the PID tree it started. |
 | How does a GUI-mode reference run terminate? | `eval("script","System.exit(0);")` leaves the process alive (killed after 5 s). `run("Quit")` exits in 3.7 s with exit code 1. `eval("script","java.lang.Runtime.getRuntime().halt(0);")` exits in 3.5 s with code 0 after the done marker: **used for GUI mode**. Headless: `System.exit(0)` works (exit 0). |
 | Macro number printing precision | `"" + x` and `print(x)`: 4 significant decimals (`1/3` → `0.3333`, `1e10/3` → `3.3333E9`). `d2s(x, n)` is capped at 9 decimals (`d2s(1/3,12)` → `0.333333333`). **Macros cannot dump full precision.** The dumper therefore calls Java through `eval("js", ...)` (Rhino, with full `Packages.*` access) and writes `Double.toString` (round-trips exactly) plus `Double.toHexString`. |
 | Which script engines are reachable from a macro? | `eval("js", …)` works in headless and GUI mode. `eval("bsh", …)` did not run (aborted the macro; BeanShell not usable here). |
 | Macro functions that do not exist | `is("Black Background")` is invalid (aborts the macro). The global is read in the dumper from `Prefs.blackBackground`. |
-| Reference mode per step (from `docs/data/commands.csv`, `headless_probe`) | Open… `fail`, Subtract Background `pass`, Gaussian Blur `pass`, Threshold… `fail`, Convert to Mask `pass`, Watershed `untested`, Set Measurements `pass`, Measure `pass`, Analyze Particles `partial`, Save As Tiff `pass` → **GUI** for the chain (DEC-043). The runner picks headless only if every command is `pass`. |
+| Reference mode per step (from `docs/data/commands.csv`, `headless_probe`) | Open… `fail`, Subtract Background `pass`, Gaussian Blur `pass`, Threshold… `fail`, Convert to Mask `pass`, Watershed `untested`, Set Measurements `pass`, Measure `pass`, Analyze Particles `partial`, Save As Tiff `pass` → **GUI** for the chain. The runner picks headless only if every command is `pass`. |
 | Time per run | 5–8 s per mode (JVM start dominates), 11 dump points. |
 
-Note on the lock hash: `verify_runtime` returns SHA-256 of `external/fiji.lock.json` = `9403b6197ac4bf751e46921d2af6f12624809b0d2ee553d811491791f04c84a5` (file is LF in git, `sha256sum` of the blob and the working copy agree). The documentation (F02, F03, A02, A30) quotes `f6695397…`. The file in this branch does not hash to that value. Baselines are keyed by the first 16 hex digits of the **computed** value (`9403b6197ac4bf75`); the lead should reconcile the documented value or confirm that the lock file changed after those documents were written.
+Note on the lock hash: `verify_runtime` returns SHA-256 of `external/fiji.lock.json` = `9403b6197ac4bf751e46921d2af6f12624809b0d2ee553d811491791f04c84a5` (file is LF in git, `sha256sum` of the blob and the working copy agree). Earlier documentation quoted `f6695397…`; the file does not hash to that value. Baselines are keyed by the first 16 hex digits of the **computed** value (`9403b6197ac4bf75`).
 
 ## 3. Baselines for journey J-12 (`verification/baselines/<fixture>/9403b6197ac4bf75/`)
 
@@ -87,7 +75,7 @@ globals. Raw planes are kept in git-ignored `raw/` folders.
 | FX-003 variant `Otsu` (no `dark`) | Mean 91.82494156003936 | **66 particles**, Total Area 23399, %Area 35.98517470472441 | stored as `FX-003-otsu-light`; see finding F2 |
 | FX-001 two-squares 64×64 | Area 4096, Mean 30.87890625, IntDen 126480 | 2 particles, areas 192 and 304, Total Area 496 | after blur and Otsu the two 256 px squares are no longer equal-area objects |
 | FX-030 BBBC001 A03f00d0 512×512 | Area 262144, Mean 40.20853042602539 | **345 particles**, Total Area 41297, %Area 15.7536 | E9 below |
-| FX-031 BBBC004 `1GRAY` (overlap 0.00) 950×950 | Area 902500, Mean 27.857584487534627 | **300 particles**, Total Area 98594 | E9 below; 950×950 confirmed (902,500 px), settling the A29 INFERRED dimension |
+| FX-031 BBBC004 `1GRAY` (overlap 0.00) 950×950 | Area 902500, Mean 27.857584487534627 | **300 particles**, Total Area 98594 | E9 below; 950×950 confirmed (902,500 px), confirming the previously inferred dimension |
 
 Repeatability and mode equivalence (compare.py, exact):
 
@@ -100,7 +88,7 @@ Repeatability and mode equivalence (compare.py, exact):
 "n/a" means the headless side has no ROI Manager or Summary window, never counted as a pass. **Headless and
 GUI produce identical pixels and Results for every step on all four fixtures**, including Analyze Particles
 without `add` in headless mode (the same 71, 2, 345 and 300 particles). Only `add` (ROI Manager) and the
-Summary window need the GUI, which agrees with A08 op 11.
+Summary window need the GUI.
 
 ## 4. In-JVM cross-check (no engine involved)
 
@@ -145,21 +133,20 @@ shows they fail on a one-ulp Results change, a one-ulp ROI vertex, a flipped pix
 | Java, `EngineParityTest` with the self-check adapter | `FIDELIS_PARITY_SELFCHECK=1` | 2 passed |
 | GUI smoke | `python -I verification/gui_smoke.py` | **skipped** (exit 77): the app source has no `--screenshot` yet. Tested separately: blank 800×600 PNG fails, a rendered-looking PNG passes, a missing file fails; with `--force` the launch/timeout/kill path ran (45 s timeout, tree killed, no java process left). |
 
-## 7. Findings other agents must know
+## 7. Findings
 
 - **F1. Option strings.** Every option string above was accepted by the pinned Fiji in both modes. Absent
   booleans are false in macro mode; `scaled` is omitted for uncalibrated images; Convert to Mask and Watershed
   take no options for single images. Nothing failed headless except `add` (the ROI Manager) and the Summary window.
 - **F2. Threshold polarity on Blobs.** The specified `setAutoThreshold("Otsu dark")` on `blobs.gif` (inverting
   LUT) gives 71 particles covering 61.2% of the image; `"Otsu"` without `dark` gives 66 particles covering 36.0%.
-  Both are Fiji-faithful. This is the UP-04 hazard (D16 step 4: "whether *dark* is needed is UNKNOWN") made
-  concrete: the parity baseline must use what the user chose, and the demo should show the overlay before Set.
+  Both are Fiji-faithful. This is the threshold-polarity hazard made concrete: the parity baseline must use what the user chose, and the demo should show the overlay before Set.
 - **F3. Saved Tiff after `add`.** In GUI mode the saved Tiff carries the ROI Manager list as an overlay; a
   hidden-window engine may or may not reproduce this. The parity test compares pixels strictly and reports the
   overlay count.
 - **F4. Analyze Particles `clear`.** After `clear` the live table holds only the 71 particle rows (the Measure
-  row is dropped). `engine.results()` is compared as "last N rows equal"; A1 should decide whether the capture
-  log keeps the dropped row and document it.
+  row is dropped). `engine.results()` is compared as "last N rows equal"; whether the capture log keeps the
+  dropped row is an engine decision to document.
 - **F5. Document order.** The comparison assumes `Engine.documents()` lists documents in creation order (the
   mask output of Analyze Particles comes after the source image).
 - **F6. Lock hash.** See section 2 (computed 9403b619… versus documented f6695397…).
@@ -186,7 +173,7 @@ single planes only; FX-004, FX-005 and FX-040 are cached but have no baselines y
 git-ignored), `fidelis-app/src/test/java/sc/fidelis/testkit/{Fixtures,PixelHash,IjState,HarnessSelfCheckEngine}.java`,
 `fidelis-app/src/test/java/sc/fidelis/verification/*.java`, `.gitignore` (cache and raw dumps).
 
-## 10. Verification on the real engine (T7, 2026-10-17, branch `agent/verify` merged with `development/fidelis-workstation` 913629a)
+## 10. Verification on the real engine (2026-10-17)
 
 All of the following was run against `sc.fidelis.engine.DefaultEngine`, obtained from `sc.fidelis.testkit.ProductEngine.get()`
 (one engine per test JVM, registered with `EngineProvider`). The stub-era notes of the earlier version of this section
@@ -207,7 +194,7 @@ the saved Tiff is read back and compared by pixel hash):
 | FX-030 | BBBC001 `..._A03f00d0.tif` | exact at s01-s10 | **345** | manual counts 350 / 362 |
 | FX-031 | BBBC004 `1GRAY.tif` (overlap 0.00) | exact at s01-s10 | **300** | ground truth 300 |
 
-The brief called BBBC001/BBBC004 FX-004/FX-005; in `fixtures/manifest.json` they are FX-030 and FX-031 (FX-004 is
+In `fixtures/manifest.json` BBBC001/BBBC004 are FX-030 and FX-031 (FX-004 is
 FluorescentCells.tif, FX-005 the 48-bit RGB HeLa image). J-12 was not run on FX-004/FX-005: it is a grey-level
 threshold-and-count journey and those two are colour images, so it would need a colour conversion the journey does not define and
 no baseline exists. Published counts are never pass/fail: BBBC001 345 against 350/362 and BBBC004 300 against 300 are reported figures.
@@ -222,7 +209,7 @@ session (E1/E4/E5/E6): passes (replay about 4.8 s, 71 Results rows and 2 images 
 
 **Results TSV precision.** Exact (bit equality of `Double.doubleToLongBits`) in the Results panel; also `MeasurementRow` doubles equal the baseline.
 
-**Speech to execution** (`SpeechToExecutionTest`, D08): `invert-command.wav` -> `WhisperSpeechService.transcribeFile`
+**Speech to execution** (`SpeechToExecutionTest`): `invert-command.wav` -> `WhisperSpeechService.transcribeFile`
 ("Invert the image.") -> `DefaultNlService` (READY, `run("Invert");`, `ij1:Edit>Invert`, origin NL_SPOKEN) -> consequence class checked <= AC3 -> `engine.submit` on a
 64x32 8-bit ramp: pixel SHA-256 `b0593af6...7d1d` before and `a6ba55d9...2a9e` after, the latter equal to the hash of the ramp inverted by
 255-v computed in the test (not by Fiji); the history record carries origin NL_SPOKEN. `silence-5s.wav` yields NEEDS_CLARIFICATION, no request and unchanged pixels.
@@ -233,7 +220,7 @@ Skipped by assumption when the worker is UNAVAILABLE. An AC4+ proposal is never 
 "Engine: ready" is present and "stub" absent: the status bar reads `Engine: ready`. I inspected the image: menu bar, command bar, tool palette, tabs
 blobs.gif / two-squares.png / synthetic-16bit, Parameters, History and macro panels. Observation: the screenshot run adds a scripted UI scenario
 (synthetic-16bit, history rows with origins M/P/C), so the front document is not Blobs; this is the UI's debug scenario, not the engine. The robot
-capture is black without an interactive session, and the PNG is then composited from components (smoke evidence only, CR-A30-08).
+capture is black without an interactive session, and the PNG is then composited from components (smoke evidence only).
 
 **Known limitations, exactly.**
 - Strict no-op rule: after `Invert`, `Gaussian Blur...`, `Unsharp Mask...`, `Smooth`, `Sharpen` and `Find Edges` the engine treats unchanged pixels as a silent failure (ROLLED_BACK). A blur of a flat image, or a legitimate identity, is therefore reported as a failure.
@@ -242,7 +229,7 @@ capture is black without an interactive session, and the PNG is then composited 
 - Not verified: live microphone, headless-mode engine, FX-004/FX-005/FX-040 through the engine, GUI interaction by a person.
 - Whole-suite runtime is about 5 minutes (the replay test starts the reference Fiji twice).
 
-## 11. macOS (Apple silicon), 17 October 2026 (branch `integration/engine-fixes`)
+## 11. macOS (Apple silicon), 17 October 2026
 
 Machine: macOS 26 (Darwin 25.5), Apple silicon; Fiji at `.local/fiji/Fiji.app` (macOS distribution of the same archive),
 bundled Zulu 21.42.19 / JDK 21.0.7; Python 3.10 on the PATH.
@@ -271,9 +258,9 @@ third failed once in `InteractiveJourneyTest` at the Threshold adjuster step ("t
 0.0-143.0 on the image": the adjuster did not apply the method within 30 s; seen once more earlier in a solo run of the
 class, which otherwise passes; open, timing of the adjuster's own thread, not a parity difference).
 14 cases are aborted by assumption in every run, all speech: the speech worker's interpreter defaults to
-`C:\Users\arnav\...\.venv-stt\Scripts\python.exe` (set `-Dfidelis.stt.python`; voice stream). The aborted cases are
-counted in "finished" and are not passes. Reported for this Mac before these fixes (integrator's run of the same
-command on the pre-merge branch): 395 tests, 6 failed; the first full runs in this session also aborted on the AppKit
+`C:\Users\arnav\...\.venv-stt\Scripts\python.exe` (set `-Dfidelis.stt.python`). The aborted cases are
+counted in "finished" and are not passes. Reported for this Mac before these fixes (an earlier run of the same
+command): 395 tests, 6 failed; the first full runs in this session also aborted on the AppKit
 text-input race below.
 
 **Fixed on the way (engine and test harness; details in the commit messages).**

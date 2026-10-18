@@ -1,7 +1,0 @@
-# P63 run 2026-10-17T08:11:39+01:00
-run 1 wall_ms=955 out={"text": "Invert the image.", "language": "en", "duration": 1.944125, "model": "Systran/faster-whisper-tiny.en", "device": "cpu"}
-run 2 wall_ms=942 out={"text": "Invert the image.", "language": "en", "duration": 1.944125, "model": "Systran/faster-whisper-tiny.en", "device": "cpu"}
-run 3 wall_ms=967 out={"text": "Invert the image.", "language": "en", "duration": 1.944125, "model": "Systran/faster-whisper-tiny.en", "device": "cpu"}
-run 4 wall_ms=956 out={"text": "Invert the image.", "language": "en", "duration": 1.944125, "model": "Systran/faster-whisper-tiny.en", "device": "cpu"}
-run 5 wall_ms=1008 out={"text": "Invert the image.", "language": "en", "duration": 1.944125, "model": "Systran/faster-whisper-tiny.en", "device": "cpu"}
-sha256_all_model_files_s=0.032

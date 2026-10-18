@@ -1,6 +1,0 @@
-single 8-bit Invert: before=160 afterInvert=95 afterUndo=160
-single 8-bit Gaussian: afterBlur=160 afterUndo=160
-two-step Invert then Add 5: after=100 afterUndo1=95 afterUndo2=95
-stack Invert (stack): before=160 afterInvert=95 afterUndo=95
-16-bit->8-bit conversion: before=40960 after=255 bitDepth=8 afterUndo=40960 bitDepthAfterUndo=16
-random 8-bit Gaussian sigma=4: before=140 afterBlur=129 afterUndo=140
