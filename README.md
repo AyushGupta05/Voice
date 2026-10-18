@@ -1,4 +1,4 @@
-# Penny × Fidelis
+# Penny
 
 **Make scientific software conversational.** You keep using the real application; you talk, Penny acts in it, points at
 what it did with its own cursor, and answers in one spoken sentence with the application's real numbers. Nothing is
