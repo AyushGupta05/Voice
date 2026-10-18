@@ -249,6 +249,15 @@ class EngineCodeEffectsTest {
         assertEquals(OperationState.COMPLETED, replaced.state(), String.valueOf(replaced.error()));
         assertEquals(1, engine.rois(doc).size(), "the replacement manager's entry reached the document: " + engine.rois(doc));
         assertEquals(List.of(7.0, 7.0, 3.0, 3.0), bounds(engine.rois(doc).get(0)));
+        // a command that constructs a manager itself (To ROI Manager), then closed: its content reaches the document too
+        ij.gui.Overlay overlay = new ij.gui.Overlay();
+        overlay.add(new ij.gui.Roi(1, 1, 2, 2));
+        overlay.add(new ij.gui.Roi(5, 5, 3, 3));
+        engine.imagePlus(doc).setOverlay(overlay);
+        ActionResult converted = code("roiManager(\"reset\");\nclose(\"ROI Manager\");\nrun(\"To ROI Manager\");\nroiManager(\"Show None\");\nclose(\"ROI Manager\");\n");
+        assertEquals(OperationState.COMPLETED, converted.state(), String.valueOf(converted.error()));
+        assertEquals(2, engine.rois(doc).size(), "the overlay converted by a directly created manager reached the document: " + engine.rois(doc));
+        assertEquals(List.of(5.0, 5.0, 3.0, 3.0), bounds(engine.rois(doc).get(1)));
     }
 
     @Test

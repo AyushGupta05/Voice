@@ -104,6 +104,12 @@ final class RoiLists {
         return rm;
     }
 
+    /** Note the manager registered right now (the guard's poll every 100 ms): one a command created directly. */
+    synchronized void noteManagerSeen() {
+        RoiManager rm = RoiManager.getRawInstance();
+        if (rm != null && !createdDuringAction.contains(rm)) createdDuringAction.add(rm);
+    }
+
     /** The newest manager noted during the action, or null. */
     synchronized RoiManager latestCreatedDuringAction() {
         return createdDuringAction.isEmpty() ? null : createdDuringAction.get(createdDuringAction.size() - 1);
