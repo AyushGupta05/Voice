@@ -168,6 +168,32 @@ class EngineCodeEffectsTest {
     }
 
     @Test
+    void aManagerSelectionSurvivesIntoTheNextMacroAndAClosedDocumentsEntriesDoNotFlowIntoANewOne() throws Exception {
+        ActionResult two = code("makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nmakeRectangle(6, 6, 2, 2);\nroiManager(\"Add\");\n"
+                + "run(\"Select None\");\nroiManager(\"Select\", 0);\n");
+        assertEquals(OperationState.COMPLETED, two.state(), String.valueOf(two.error()));
+        assertEquals(2, engine.rois(doc).size());
+        // the manager still mirrors this document: it is not reloaded, so the selection stands and Delete removes one
+        ActionResult del = code("roiManager(\"Delete\");\n");
+        assertEquals(OperationState.COMPLETED, del.state(), String.valueOf(del.error()));
+        assertEquals(1, engine.rois(doc).size(), "Delete removed the selected entry only: " + engine.rois(doc));
+        assertEquals(List.of(6.0, 6.0, 2.0, 2.0), bounds(engine.rois(doc).get(0)));
+        // close the document: its entry stays in IJ1's manager, but a macro that starts with no document gets an empty one
+        engine.submit(ActionRequest.session(Origin.PANEL, Operations.CLOSE, Map.of("discard", true), TargetScope.of(doc))).get(30, TimeUnit.SECONDS);
+        assertTrue(engine.documents().isEmpty());
+        String text = "open(\"" + EngineFixture.repoFile("fixtures/two-squares.png").toString().replace("\\", "/") + "\");\n"
+                + "makeRectangle(2, 2, 4, 4);\nroiManager(\"Add\");\nrun(\"Select None\");\n";
+        ActionResult first = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, null)).get(60, TimeUnit.SECONDS);
+        ActionResult opened = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, first.confirmationToken())).get(120, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, opened.state(), String.valueOf(opened.error()));
+        assertEquals(1, engine.documents().size(), "the macro's open() produced the document");
+        DocumentId b = engine.documents().get(0).id();
+        doc = b; // for tearDown
+        assertEquals(1, engine.rois(b).size(), "only the macro's own rectangle: " + engine.rois(b));
+        assertEquals(List.of(2.0, 2.0, 4.0, 4.0), bounds(engine.rois(b).get(0)));
+    }
+
+    @Test
     void anUntargetedMacroWorksOnTheCurrentDocumentsListNotTheLastLoadedOne() throws Exception {
         DocumentId a = doc;
         ActionResult onA = code("makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nrun(\"Select None\");\n");
@@ -195,8 +221,10 @@ class EngineCodeEffectsTest {
         // what Fiji's start-up leaves behind: Interpreter.instance set, no macro thread anywhere
         java.lang.reflect.Field f = ij.macro.Interpreter.class.getDeclaredField("instance");
         f.setAccessible(true);
-        f.set(null, new ij.macro.Interpreter());
-        assertTrue(IJ.isMacro(), "IJ reports a macro while the stale reference stands");
+        synchronized (MacroState.class) { // the observer's sweep (clearStale is synchronized on the class) waits for this block
+            f.set(null, new ij.macro.Interpreter());
+            assertTrue(IJ.isMacro(), "IJ reports a macro while the stale reference stands");
+        }
         waitFor("the engine to clear the stale interpreter", () -> ij.macro.Interpreter.getInstance() == null, 5);
         assertFalse(IJ.isMacro());
         // a macro that is running is never touched: its instance stays set until it ends
