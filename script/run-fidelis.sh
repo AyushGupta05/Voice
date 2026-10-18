@@ -50,7 +50,8 @@ printf fidelis > .local/state/app
 # The bridge reads its token from <luma.root>/.local/state/bridge-token; fidelis.penny=true starts it explicitly.
 # --isolated-home keeps ImageJ preferences away from the real profile (one Fidelis/Fiji JVM per checkout).
 # FIDELIS_PENNY_GATEWAY points the workspace's voice client at another gateway (default ws://127.0.0.1:49555/events).
+# ${arr[@]+"${arr[@]}"}: macOS bash 3.2 treats an empty array as unbound under set -u, which aborted the launch line.
 GATEWAY_PROP=()
 if [[ -n "${FIDELIS_PENNY_GATEWAY:-}" ]]; then GATEWAY_PROP=(--prop "fidelis.penny.gateway=$FIDELIS_PENNY_GATEWAY"); fi
-nohup python3 -I fidelis-app/tools/run.py --isolated-home --prop "luma.root=$PWD" --prop fidelis.penny=true "${GATEWAY_PROP[@]}" -- "$@" >> .local/fidelis.log 2>&1 &
+nohup python3 -I fidelis-app/tools/run.py --isolated-home --prop "luma.root=$PWD" --prop fidelis.penny=true ${GATEWAY_PROP[@]+"${GATEWAY_PROP[@]}"} -- "$@" >> .local/fidelis.log 2>&1 &
 echo "Started Fidelis (pid $!); Penny bridge on 127.0.0.1:$PORT, log in .local/fidelis.log"
