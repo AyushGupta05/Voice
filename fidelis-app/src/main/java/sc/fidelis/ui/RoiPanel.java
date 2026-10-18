@@ -109,11 +109,72 @@ public final class RoiPanel extends JPanel {
                     model.addRow(new Object[] {i + 1, g.name() == null ? "" : g.name(), g.type().toLowerCase(Locale.ROOT), bounds(g)});
                 }
                 if (keep >= 0 && keep < model.getRowCount()) table.setRowSelectionInterval(keep, keep);
+                outlineOnCanvas(info.get().id(), rois);
             }
         } finally {
             programmatic = false;
         }
         updateButtons();
+    }
+
+    /**
+     * The ROI list drawn on the canvas as the image's overlay (green outlines, numbered up to 200), refreshed with the
+     * list so it always shows what History says: an undo that empties the list clears the canvas too. View only — the
+     * overlay is not pixels, not a History step, and never measured by the engine.
+     */
+    private void outlineOnCanvas(DocumentId id, List<RoiGeometry> rois) {
+        ij.ImagePlus imp = ctx.engine.imagePlus(id);
+        if (imp == null) return;
+        String signature = rois.size() + ":" + rois.hashCode();
+        if (signature.equals(imp.getProperty("fidelis.outlines"))) return;
+        imp.setProperty("fidelis.outlines", signature);
+        if (rois.isEmpty()) {
+            if (imp.getOverlay() != null && Boolean.TRUE.equals(imp.getProperty("fidelis.outlines.own"))) imp.setOverlay(null);
+            imp.setProperty("fidelis.outlines.own", Boolean.FALSE);
+            return;
+        }
+        ij.gui.Overlay overlay = new ij.gui.Overlay();
+        overlay.drawLabels(rois.size() <= 200);
+        overlay.drawNames(false);
+        overlay.setLabelColor(java.awt.Color.WHITE);
+        overlay.setLabelFont(new Font(Font.SANS_SERIF, Font.BOLD, 9), true);
+        for (RoiGeometry g : rois) {
+            ij.gui.Roi roi = toRoi(g);
+            if (roi == null) continue;
+            roi.setStrokeColor(OUTLINE);
+            roi.setStrokeWidth(1.5);
+            overlay.add(roi);
+        }
+        imp.setOverlay(overlay);
+        imp.setProperty("fidelis.outlines.own", Boolean.TRUE);
+    }
+
+    private static final java.awt.Color OUTLINE = new java.awt.Color(11, 125, 102);
+
+    private static ij.gui.Roi toRoi(RoiGeometry g) {
+        try {
+            String t = g.type();
+            if ("COMPOSITE".equals(t)) return g.encoded() == null ? null : ij.io.RoiDecoder.openFromByteArray(g.encoded());
+            if ("RECTANGLE".equals(t) || "OVAL".equals(t)) {
+                double[] b = g.bounds();
+                if (b == null || b.length != 4) return null;
+                return "OVAL".equals(t) ? new ij.gui.OvalRoi(b[0], b[1], b[2], b[3]) : new ij.gui.Roi(b[0], b[1], b[2], b[3]);
+            }
+            int n = g.xs().size();
+            if (n < 2 || g.ys().size() < n) return null;
+            float[] xs = new float[n], ys = new float[n];
+            for (int i = 0; i < n; i++) { xs[i] = g.xs().get(i); ys[i] = g.ys().get(i); }
+            int kind = switch (t) {
+                case "TRACED" -> ij.gui.Roi.TRACED_ROI;
+                case "FREEHAND" -> ij.gui.Roi.FREEROI;
+                case "POLYLINE" -> ij.gui.Roi.POLYLINE;
+                case "FREELINE" -> ij.gui.Roi.FREELINE;
+                default -> ij.gui.Roi.POLYGON;
+            };
+            return new ij.gui.PolygonRoi(xs, ys, n, kind);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static String bounds(RoiGeometry g) {

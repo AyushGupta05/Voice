@@ -131,8 +131,10 @@ Full suite after the change: 468 tests, 0 failed (two runs); Codex autoreview of
 
 Penny's conversation runs inside the Fidelis workspace. A **Demo** button beside the Mic opens the demo image
 (`<root>/.local/data/fiji/imagej/blobs.gif`, or `-Dfidelis.demo.image`) through the engine — recorded in History like any
-open, focused if already open — so a demo starts with one click. There is a one-line **Penny strip** under
-the command bar, and it grows into a **plan card** while the bridge shows a plan. The **Mic** button gives Penny the
+open, focused if already open — so a demo starts with one click. The document's ROI list is drawn on the canvas as Fiji's overlay (green outlines,
+numbered up to 200), refreshed with the list, so a segmentation shows its objects at once and an undo that empties the
+list clears the canvas; the overlay is view state, never pixels, never a History step. There is a one-line **Penny
+strip** under the command bar, and it grows into a **plan card** while the bridge shows a plan. The **Mic** button gives Penny the
 microphone, and typed requests reach her through an **Ask Penny** row. The code is in `fidelis-app/src/main/java/sc/fidelis/penny/voice`
 (the gateway client and audio) and `.../penny/ui` (the strip, the canvas highlight and the `PennyUi` hooks). The workspace
 changes are small and additive: `LiveVoice`, plus hooks in `CommandBar`, `Banners`, `Workspace` and `ScreenshotRun`.
