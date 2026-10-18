@@ -8,6 +8,7 @@ import { Runtime, type Action } from '../src/runtime.js';
 import { Knowledge } from '../src/knowledge.js';
 import type { BackendClient, BackendResponse } from '../src/backend.js';
 import { fiji } from '../src/apps/fiji.js';
+import { fidelis } from '../src/apps/fidelis.js';
 import type { AppProfile } from '../src/apps/profile.js';
 
 async function eventually(predicate:()=>boolean){const deadline=Date.now()+2000;while(!predicate()){assert(Date.now()<deadline,'Expected text event');await new Promise(resolve=>setTimeout(resolve,5));}}
@@ -174,4 +175,24 @@ test('opening another image preserves its real friendly name and resets the prev
   await f.conversation.submit('Open the nuclei image.',true);assert.equal(f.last()?.text,'Opened hela cells, 672 by 512.');
   await f.conversation.submit('How many are left?',true);assert.equal(f.last()?.text,'4 objects.');
  }finally{await f.clean();}
+});
+
+test('"apply this analysis to the whole folder" reads the folder macro for the focused document\u2019s folder and hands it to run_macro, which waits',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'penny-folder-session-'));const events:Record<string,unknown>[]=[];const calls:Array<[string,Record<string,unknown>]>=[];
+ const runtime=new Runtime({execute:async(operation,args)=>{
+  calls.push([operation,args as Record<string,unknown>]);
+  if(operation==='context')return{contextKey:'k1',application:'Fidelis',document:{id:'doc-1',title:'a-squares.png',path:'/data/set/a-squares.png',width:64,height:64},counts:{rois:2},adapter:{operations:['context','folder_macro','run_macro']}};
+  if(operation==='folder_macro'){assert.equal((args as {folder?:unknown}).folder,'/data/set');return{macro:"// Penny: the session's steps applied to every image of a folder (2 images in set)\nsetBatchMode(true);",folder:'/data/set',images:2,output:'/data/set/penny-folder-results.csv',stepsPerImage:2,writes:['/data/set/penny-folder-results.csv']};}
+  if(operation==='run_macro')return{status:'awaiting_confirmation',planId:'plan-1',operation:'run_macro',steps:[{label:'Run macro (3 lines)'}],reasons:['macro code runs with full privileges'],contextKey:'k2'};
+  throw new Error('unexpected operation '+operation);
+ }},new Knowledge(fidelis),root,{autoApprove:true,profile:fidelis});
+ const conversation=new TextConversation(runtime,{complete:async()=>{throw new Error('No model call expected.');}},'synthetic',event=>events.push(event));
+ try{
+  await conversation.submit('Apply this analysis to the whole folder.',true);
+  const spoken=events.filter(event=>event.type==='text_ack'||event.type==='text_result');
+  assert.deepEqual(spoken.map(event=>event.type),['text_result']);
+  assert.equal(spoken[0].text,'Ready to run this on 2 images in set; say yes to go ahead.');assert.equal(spoken[0].outcome,undefined);
+  const run=calls.find(([operation])=>operation==='run_macro');assert(run);assert.match(String(run![1].code),/every image of a folder/);
+  assert(!calls.some(([operation])=>operation==='find_images'),'no folder was named, so none was searched');
+ }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
 });

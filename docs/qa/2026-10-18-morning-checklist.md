@@ -61,7 +61,11 @@ undo → 67; the largest blob (object 61) is refused as one object.
 "Apply this analysis to the whole folder" (or "… to the BBBC008 folder"): Penny builds the session's steps into a
 macro over every image of the folder, shows it ("Ready to run this on 12 images in the BBBC008 folder; say yes to go
 ahead.") and after "Yes" writes `penny-folder-results.csv` (Image, Count, MeanArea) into that folder. Engine-tested on a
-two-image folder (both counted like the session, CSV with two rows); typed-only so far.
+two-image folder segmented with the demo's own segment_cells (both counted like the session, CSV with two rows). The
+first live try (05:45) hit run_macro's 32 kB limit because the session macro carries every outline of the segmentation
+literally; the folder macro now keeps the rule and skips literal outlines and hand corrections. Typed "yes" cannot be
+checked with the text-drive tool (each run is a new conversation); the confirmation path is engine-tested and is the
+same one "Run this macro" → "Yes" used by voice.
 
 ## 4. Not seen with eyes tonight
 

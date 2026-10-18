@@ -98,7 +98,7 @@ export class TextConversation {
     if(!code){const reply='There is no analysis to apply yet.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
     const {arguments:args,...other}=rest;
     const {folder:_f,...cleanArgs}=args as Record<string,unknown>;
-    route={...other,arguments:{...cleanArgs,code},reply:`Ready to run this on ${typeof prepared?.images==='number'?`${prepared.images} images in `:''}${folderName}; say yes to go ahead.`};
+    route={...other,arguments:{...cleanArgs,code},reply:`Preparing it for ${folderName}.`};
    }
    if(route?.folderQuery){
     // A folder the utterance names is resolved locally; the first matching folder replaces the default (the active image's).

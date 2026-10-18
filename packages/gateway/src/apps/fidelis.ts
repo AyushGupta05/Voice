@@ -182,7 +182,12 @@ function confirmSentence(inner: Record<string, unknown>, context?: unknown): str
 /** Spoken outcome built from the real result; '' stays silent, undefined asks the model to phrase or continue. */
 function localSentenceFor(name: string, args: Record<string, unknown>, result: unknown, context?: unknown): string | undefined {
   if (!result || typeof result !== 'object' || (result as { error?: unknown }).error != null) return undefined;
-  const plan = awaitingConfirmation(result); if (plan) return awaitingSentence(plan);
+  const plan = awaitingConfirmation(result);
+  if (plan) {
+    // a folder macro (fidelis_folder_macro's header) waits with its image count and folder, not "1 step"
+    const folder = name === 'fidelis_run_macro' && typeof args.code === 'string' ? args.code.match(/^\/\/ Penny: the session's steps applied to every image of a folder \((\d+) images? in ([^)\n]+)\)/) : null;
+    return folder ? `Ready to run this on ${plural(Number(folder[1]), 'image')} in ${folder[2]}; say yes to go ahead.` : awaitingSentence(plan);
+  }
   // A waiting dialog is not an outcome: the model continues and fills it with fidelis_dialog_action.
   if (dialogWaiting(result) || name === 'fidelis_dialog') return undefined;
   const cancelled = cancelledAtDialog(result);

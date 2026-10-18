@@ -227,6 +227,7 @@ test('local sentences speak only real results, and a waiting plan says how many 
   const say = (name: string, result: unknown, args: Record<string, unknown> = {}) => fidelis.localSentenceFor(name, args, result);
   const plan = { status: 'awaiting_confirmation', planId: 'plan-7', reasons: ['step 1 (run_macro) is code'], steps: [{ label: 'Run macro' }] };
   assert.equal(say('fidelis_run_macro', completed(plan), { code: 'x' }), 'Ready to run 1 step; say yes to go ahead.');
+  assert.equal(say('fidelis_run_macro', completed(plan), { code: "// Penny: the session's steps applied to every image of a folder (12 images in bbbc008)\nsetBatchMode(true);" }), 'Ready to run this on 12 images in bbbc008; say yes to go ahead.');
   assert.equal(say('fidelis_segment_cells', completed({ ...plan, steps: new Array(9).fill({}) })), 'Ready to run 9 steps; say yes to go ahead.');
   assert.equal(awaitingSentence({ status: 'awaiting_confirmation' }), 'Ready to run it; say yes to go ahead.');
   assert.equal(say('fidelis_segment_cells', completed({ count: 64, averageSize: 351.42, unit: 'pixel', steps: [], highlight: {} })), 'Found 64 cells, mean area 351 square pixels.');

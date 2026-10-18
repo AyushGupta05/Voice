@@ -1608,19 +1608,29 @@ final class PennyOps {
         int openAt = -1;
         for (int i = 0; i < lines.length; i++) if (lines[i].trim().startsWith("open(\"")) openAt = i;
         if (openAt < 0) throw new Failure(409, "The session does not start by opening an image, so there is nothing to apply to each image of the folder: open an image and analyse it first.");
+        // Only the rule generalises to other images. Literal outlines — the ROI-list copy a segmentation records
+        // (reset, makeSelection per object, add), and hand corrections (split/merge pieces, index deletes) — belong to
+        // this image: pasted onto another they would be wrong, and 67 polygons blow the macro past run_macro's limit.
         List<String> body = new ArrayList<>();
-        int steps = 0;
+        int steps = 0, literal = 0;
         for (int i = openAt + 1; i < lines.length; i++) {
             String line = lines[i];
-            if (line.isBlank()) continue;
-            if (!line.trim().startsWith("//")) steps++;
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            boolean outline = t.startsWith("makeSelection(") || t.startsWith("makeRectangle(") || t.startsWith("makeOval(") || t.startsWith("makePolygon(");
+            boolean afterOutline = i > 0 && lines[i - 1].trim().startsWith("make") && t.equals("roiManager(\"add\");");
+            boolean resetBeforeOutlines = t.equals("roiManager(\"reset\");") && i + 1 < lines.length && lines[i + 1].trim().startsWith("make");
+            boolean indexEdit = t.matches("roiManager\\(\"Select\", \\d+\\); roiManager\\(\"Delete\"\\);");
+            if (outline || afterOutline || resetBeforeOutlines || indexEdit) { if (outline || indexEdit) literal++; continue; }
+            if (!t.startsWith("//")) steps++;
             body.add("  " + line);
         }
         if (steps == 0) throw new Failure(409, "Nothing was done to the image after opening it; analyse it first, then apply that to the folder.");
         String out = PennyJson.str(a, "output", folder.resolve("penny-folder-results.csv").toString());
         String dir = folder.toString().replace("\\", "/") + "/";
         StringBuilder sb = new StringBuilder();
-        sb.append("// Penny: the session's steps applied to every image of a folder (").append(images.size()).append(" images)\n");
+        sb.append("// Penny: the session's steps applied to every image of a folder (").append(images.size()).append(images.size() == 1 ? " image" : " images")
+                .append(" in ").append(folder.getFileName() == null ? folder : folder.getFileName()).append(")\n");
         sb.append(header);
         sb.append("// ---- Folder ----\n");
         sb.append("dir = \"").append(dir).append("\";\n");
@@ -1650,8 +1660,12 @@ final class PennyOps {
         sb.append("Table.save(out, \"Penny folder\");\n");
         sb.append("setBatchMode(false);\n");
         sb.append("print(\"PENNY_FOLDER images=\" + row + \" csv=\" + out);\n");
-        return map("macro", sb.toString(), "folder", folder.toString(), "images", images.size(), "imageNames", images.size() > 50 ? images.subList(0, 50) : images,
+        String macro = sb.toString();
+        if (macro.length() > 32_000) throw new Failure(409, "The folder macro is " + macro.length() + " characters, over the 32000 run_macro accepts; the session has too many steps to apply as one macro.");
+        Map<String, Object> out2 = map("macro", macro, "folder", folder.toString(), "images", images.size(), "imageNames", images.size() > 50 ? images.subList(0, 50) : images,
                 "output", out, "stepsPerImage", steps, "writes", List.of(out));
+        if (literal > 0) out2.put("literalOutlinesSkipped", literal);
+        return out2;
     }
 
     private Map<String, Object> history(JsonObject a) {

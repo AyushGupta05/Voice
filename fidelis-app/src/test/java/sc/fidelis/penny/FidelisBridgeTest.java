@@ -544,15 +544,20 @@ class FidelisBridgeTest {
         Files.writeString(dir.resolve("notes.txt"), "not an image");
         JsonObject opened = http.change("open_path", args("path", dir.resolve("a-squares.png").toString())).result();
         assertEquals("completed", opened.get("status").getAsString(), opened.toString());
-        http.change("threshold", args("method", "Otsu", "dark", true)).result();
-        JsonObject counted = http.change("analyze_particles", args()).result();
-        int perImage = counted.get("count").getAsInt();
-        assertTrue(perImage > 0, counted.toString());
+        // the demo's own segmentation: its ROI-list copy records every outline literally, which must not reach the folder
+        JsonObject segmented = http.change("segment_cells", args("watershed", false)).result();
+        assertEquals("completed", segmented.get("status").getAsString(), segmented.toString());
+        int perImage = segmented.get("count").getAsInt();
+        assertTrue(perImage > 0, segmented.toString());
         JsonObject folder = http.read("folder_macro", args("folder", dir.toString()));
+        assertTrue(folder.has("literalOutlinesSkipped") && folder.get("literalOutlinesSkipped").getAsInt() == perImage, "the copied outlines are skipped: " + folder);
         assertEquals(2, folder.get("images").getAsInt(), folder.toString());
         assertEquals(dir.resolve("penny-folder-results.csv").toString(), folder.get("output").getAsString());
         String macro = folder.get("macro").getAsString();
         assertTrue(macro.contains("list = getFileList(dir);") && macro.contains("open(dir + name);") && macro.contains("Table.save(out, \"Penny folder\");"), macro);
+        assertFalse(macro.contains("makeSelection("), "no literal outline in the folder macro:\n" + macro);
+        assertTrue(macro.contains("Analyze Particles"), "the rule is kept:\n" + macro);
+        assertTrue(macro.length() < 4000, "a rule, not a dump: " + macro.length());
         assertFalse(macro.contains("a-squares.png"), "the session's own open() is replaced by the loop:\n" + macro);
         assertTrue(folder.get("stepsPerImage").getAsInt() >= 2, folder.toString());
         assertFalse(macro.contains("Coloc 2"), "only this image's analysis, not earlier sessions' steps:\n" + macro);
