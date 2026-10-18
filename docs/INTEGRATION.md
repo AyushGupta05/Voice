@@ -416,7 +416,12 @@ open, and `fidelis_run_macro` (always confirmed) for anything else.
 | "brighter / darker" | `fidelis_display {min, max}` from `document.displayRange` |
 | "auto contrast" | `fidelis_display {auto: true}` |
 | "next / previous slice" | `fidelis_stack {slice}` from `document.position` |
-| "undo / go back", "undo the last N steps", "redo" | `fidelis_undo {}`, `fidelis_undo {steps: N}` (≤ 20), `fidelis_redo` |
+| "undo / go back", "undo the last N steps", "redo" (also heard as "Rido") | `fidelis_undo {}`, `fidelis_undo {steps: N}` (≤ 20), `fidelis_redo`; with nothing to undo Penny says "nothing to go back to on this image; a macro's changes are not taken back" |
+| "switch to / go back to the X image" | like "open the X image": `fidelis_activate_image` when it is open |
+| "zoom in on the image" | `fidelis_zoom {direction: "in"}` |
+| "convert to mask" (with or without "it") | `fidelis_command {Process>Binary>Convert to Mask}` (waits for confirmation under Fidelis's policy) |
+| "which one is the biggest / smallest", "highlight the largest cell", "where's the smallest" | `fidelis_highlight {rois: "largest" / "smallest"}`: flashes that outline and says "The largest is object 12, 657 square pixels." |
+| "run this macro" | `fidelis_macro` then `fidelis_run_macro` with the session's macro; waits for "yes" |
 
 Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model. Every
 Fidelis instant route is bound to the context it was chosen from (`bindInstantRoutes`): if the `contextKey` changed
