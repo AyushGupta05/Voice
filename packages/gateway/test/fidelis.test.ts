@@ -708,6 +708,5 @@ test('"run this macro" routes to fidelis_run_macro with the session macro as its
   assert.equal(fidelis.fastRoute('replay the workflow again', context)?.macroFromHistory, true);
   assert.equal(fidelis.fastRoute('run this macro and measure', context), undefined);
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (12 lines)', commandId: null }, resultsRowsAdded: 67, documentsAdded: ['doc-2'] })), 'Ran the macro: 67 result rows, 1 new image.');
-  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (12 lines)', commandId: null }, resultsRowsAdded: 67, documentsAdded: ['doc-2'], focused: 'doc-2' })), 'Ran the macro: 67 result rows, 1 new image on screen.');
   assert.equal(fidelis.localSentenceFor('fidelis_run_macro', {}, completed({ step: { label: 'Run macro (3 lines)' }, resultsRowsAdded: 0, documentsAdded: [] })), 'Ran the macro.');
 });

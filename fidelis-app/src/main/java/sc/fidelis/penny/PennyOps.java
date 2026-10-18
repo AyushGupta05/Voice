@@ -2316,14 +2316,10 @@ final class PennyOps {
             if (x.digest() != null) {
                 m.put("resultsRowsAdded", x.digest().resultsRowsAdded());
                 m.put("log", x.digest().newLogLines().size() > 50 ? x.digest().newLogLines().subList(0, 50) : x.digest().newLogLines());
-                List<DocumentId> added = x.digest().added();
-                m.put("documentsAdded", added.stream().map(DocumentId::value).toList());
-                // a replay that re-opens the file works on its own copy: show that copy, so the result is on screen
-                if (!added.isEmpty()) {
-                    DocumentId shown = added.get(added.size() - 1);
-                    engine.focus(shown);
-                    m.put("focused", shown.value());
-                }
+                // focus stays on the plan's document: a replay that re-opens its file measures a copy, but the ROI
+                // entries it leaves in the manager are taken over by the document the macro started on (CodeRunner),
+                // so that is where the outlines are
+                m.put("documentsAdded", x.digest().added().stream().map(DocumentId::value).toList());
             }
             return m;
         };

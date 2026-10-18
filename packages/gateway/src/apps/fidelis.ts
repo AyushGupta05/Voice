@@ -89,7 +89,7 @@ function macroRunSentence(inner: Record<string, unknown>): string {
   const rows = finite(inner.resultsRowsAdded), docs = Array.isArray(inner.documentsAdded) ? inner.documentsAdded.length : finite(inner.documentsAdded);
   const parts: string[] = [];
   if (rows !== undefined && rows > 0) parts.push(`${plural(rows, 'result row')}`);
-  if (docs !== undefined && docs > 0) parts.push(`${plural(docs, 'new image')}${typeof inner.focused === 'string' ? ' on screen' : ''}`);
+  if (docs !== undefined && docs > 0) parts.push(`${plural(docs, 'new image')}`);
   return parts.length ? `Ran the macro: ${parts.join(', ')}.` : 'Ran the macro.';
 }
 /** The exported macro, summarised: a Fidelis session can hold hundreds of steps, which is not a spoken answer. */
