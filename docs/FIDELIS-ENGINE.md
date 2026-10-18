@@ -166,3 +166,10 @@ python3 -I fidelis-app/tools/test.py [--select-class FQCN ...] [--timeout SEC]  
 
 The commands are the same on Windows (`python -I`, Fiji at `FIDELIS_FIJI_DIR`) and macOS (Apple silicon). Never modify
 the Fiji installation, the Windows registry or system-wide Java settings.
+
+## ROI-list bookkeeping in the macro (18 Oct 2026)
+
+`ROI_LIST_ADD` of the active selection records `roiManager("add");` and `ROI_LIST_DELETE` records
+`roiManager("select", i); roiManager("delete");` as classic-Fiji equivalents (`macroExact: false`), so a replayed
+session keeps a correction's bookkeeping (a split's pieces replace the clump) instead of only its selections.
+
