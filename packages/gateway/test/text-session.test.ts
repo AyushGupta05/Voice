@@ -233,3 +233,32 @@ test('Act 2 by instant routes against a stateful Fidelis stub: open, nuclei, go 
   assert.deepEqual(calls.filter(c=>c!=='context'),['open_path','segment_cells','undo','macro','run_macro','confirm']);
  }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
 });
+
+test('corrections and the folder run as one conversation on the Fidelis stub: split, explain, apply to the folder, yes',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'penny-corrections-session-'));const events:Record<string,unknown>[]=[];const calls:string[]=[];
+ const state={rois:67,pending:null as null|{planId:string},version:0};
+ const runtime=new Runtime({execute:async(operation,args)=>{
+  calls.push(operation);
+  if(operation==='context')return{contextKey:'k'+state.version,application:'Fidelis',document:{id:'doc-1',title:'blobs.gif',width:256,height:254,unit:'pixel',path:'/data/imagej/blobs.gif'},documents:[{id:'doc-1',title:'blobs.gif',focused:true}],counts:{rois:state.rois,resultsRows:67,history:12},pending:state.pending,running:null};
+  if(operation==='split_object'){state.rois=68;state.version++;return{status:'completed',planId:'plan-split',index:27,by:'pointer',pieces:2,pieceAreas:[340,334],unit:'pixel',total:68,undoSteps:3,highlight:{}};}
+  if(operation==='explain_object')return{index:27,by:'pointer',area:340,unit:'pixel',areaRatio:1.02,circularity:0.81,verdict:'typical',thresholdMethod:'Otsu',sizeFloor:0,total:68,highlight:{}};
+  if(operation==='folder_macro'){if((args as {folder?:unknown}).folder!=='/data/imagej')throw new Error('folder '+JSON.stringify(args));return{macro:"// Penny: the session's steps applied to every image of a folder (5 images in imagej)\nsetBatchMode(true);",folder:'/data/imagej',images:5,output:'/data/imagej/penny-folder-results.csv',stepsPerImage:9,literalOutlinesSkipped:67,writes:['/data/imagej/penny-folder-results.csv']};}
+  if(operation==='run_macro'){state.pending={planId:'plan-folder'};state.version++;return{status:'awaiting_confirmation',planId:'plan-folder',operation:'run_macro',steps:[{label:'Run macro (40 lines)'}],reasons:['macro code runs with full privileges']};}
+  if(operation==='confirm'){if((args as {planId?:unknown}).planId!=='plan-folder')throw new Error('confirm '+JSON.stringify(args));state.pending=null;state.version++;return{status:'completed',planId:'plan-folder',step:{label:'Run macro (40 lines)'},resultsRowsAdded:0,documentsAdded:[],log:['PENNY_FOLDER images=5 csv=/data/imagej/penny-folder-results.csv']};}
+  throw new Error('unexpected operation '+operation);
+ }},new Knowledge(fidelis),root,{autoApprove:true,profile:fidelis});
+ const conversation=new TextConversation(runtime,{complete:async()=>{throw new Error('No model call expected.');}},'synthetic',event=>events.push(event));
+ const spokenSince=(from:number)=>events.slice(from).filter(event=>event.type==='text_ack'||event.type==='text_result').map(event=>[event.type,event.text]);
+ try{
+  let at=events.length;await conversation.submit('Those are actually two separate cells.',true);
+  assert.deepEqual(spokenSince(at),[['text_result','Split object 28 into 2 (340 square pixels and 334 square pixels); 68 objects now.']]);
+  at=events.length;await conversation.submit('Why did you count this as a cell?',true);
+  assert.deepEqual(spokenSince(at),[['text_result','Object 28: 340 square pixels, about the median size, circularity 0.81. Otsu threshold, no size floor.']]);
+  at=events.length;await conversation.submit('Apply this analysis to the entire folder.',true);
+  assert.deepEqual(spokenSince(at),[['text_result','Ready to run this on 5 images in imagej; say yes to go ahead.']]);
+  at=events.length;await conversation.submit('Yes.',true);
+  assert.deepEqual(spokenSince(at),[['text_ack','Running it.'],['text_result','Ran it on 5 images; the results are in penny-folder-results.csv.']]);
+  assert(!events.some(event=>event.type==='text_result'&&event.outcome==='failed'),JSON.stringify(events.filter(e=>e.type==='text_result')));
+  assert.deepEqual(calls.filter(c=>c!=='context'),['split_object','explain_object','folder_macro','run_macro','confirm']);
+ }finally{conversation.stop();await rm(root,{recursive:true,force:true});}
+});

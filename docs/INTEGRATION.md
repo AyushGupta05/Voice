@@ -425,7 +425,7 @@ open, and `fidelis_run_macro` (always confirmed) for anything else.
 | "why did you count this (as a cell)?", "what's this one?", "explain this" | `fidelis_explain_object {}`: the object under the pointer, flashed, with "Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching objects. Otsu threshold, size floor 20." |
 | "which one is the biggest / smallest", "highlight the largest cell", "where's the smallest" | `fidelis_highlight {rois: "largest" / "smallest"}`: flashes that outline and says "The largest is object 12, 657 square pixels." |
 | "run this macro" | `fidelis_macro` then `fidelis_run_macro` with the session's macro; waits for "yes" |
-| "apply this analysis to the whole folder", "run this on the BBBC008 folder", "apply this to the rest of the images" | `fidelis_folder_macro {folder}` (the named folder, else the focused document's) then `fidelis_run_macro` with that macro: "Ready to run this on 12 images in the BBBC008 folder; say yes to go ahead."; the CSV lands in the folder |
+| "apply this analysis to the whole folder", "run this on the BBBC008 folder", "apply this to the rest of the images" | `fidelis_folder_macro {folder}` (the named folder, else the focused document's) then `fidelis_run_macro` with that macro: "Ready to run this on 12 images in bbbc008; say yes to go ahead."; after "yes": "Ran it on 12 images; the results are in penny-folder-results.csv." (from the macro's own `PENNY_FOLDER` log line) |
 
 Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model. Every
 Fidelis instant route is bound to the context it was chosen from (`bindInstantRoutes`): if the `contextKey` changed

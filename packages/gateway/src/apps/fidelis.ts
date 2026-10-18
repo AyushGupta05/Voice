@@ -110,6 +110,10 @@ function countSentence(inner: Record<string, unknown>): string | undefined {
 const skippedSave = (inner: Record<string, unknown>) => inner.cancelledFileDialog === true ? ' Fiji asked where to save a file; Penny skipped that.' : '';
 /** A macro that ran: what it produced (Results rows, images) from the engine's own counts. */
 function macroRunSentence(inner: Record<string, unknown>): string {
+  // a folder run (fidelis_folder_macro) prints its own summary line: the images done and where the CSV is
+  const log = Array.isArray(inner.log) ? inner.log.filter((line): line is string => typeof line === 'string') : [];
+  const folder = log.map(line => line.match(/^PENNY_FOLDER images=(\d+) csv=(.+)$/)).find(Boolean);
+  if (folder) { const csv = folder[2].trim(); return `Ran it on ${plural(Number(folder[1]), 'image')}; the results are in ${csv.slice(csv.lastIndexOf('/') + 1)}.`; }
   const rows = finite(inner.resultsRowsAdded), docs = Array.isArray(inner.documentsAdded) ? inner.documentsAdded.length : finite(inner.documentsAdded);
   const parts: string[] = [];
   if (rows !== undefined && rows > 0) parts.push(`${plural(rows, 'result row')}`);
