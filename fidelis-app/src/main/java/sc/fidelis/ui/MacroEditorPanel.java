@@ -242,10 +242,8 @@ public final class MacroEditorPanel extends JPanel {
             return;
         }
         lastResult = r;
-        // Log lines written during the run arrive with the result (StateDigest.newLogLines); live LogLine events,
-        // when the engine emits them, are appended by handle() as they come
-        if (r.digest() != null && r.digest().newLogLines() != null)
-            for (String line : r.digest().newLogLines()) append("  " + line);
+        // Log lines written during the run arrived as live LogLine events (handle() appends them as they come; the engine
+        // flushes the last ones before it completes the result), so the digest's newLogLines are not appended again.
         switch (r.state()) {
             case AWAITING_CONFIRMATION -> {
                 pending = req;

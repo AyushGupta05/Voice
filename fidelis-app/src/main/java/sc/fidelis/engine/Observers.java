@@ -92,6 +92,7 @@ final class Observers {
                 onUpdated(imp);
             }
         });
+        timer.scheduleWithFixedDelay(this::flushLog, LOG_POLL_MS, LOG_POLL_MS, TimeUnit.MILLISECONDS);
         try {
             java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(e -> {
                 try {
@@ -406,6 +407,39 @@ final class Observers {
         }
         eng.recordObserved(History.record(eng.history.nextId(), Origin.OBSERVED, Provenance.NATIVE, opName, "Threshold", params,
                 TargetScope.of(doc.id), lines, true, Globals.capture(), Map.of(), OperationState.COMPLETED, null));
+    }
+
+    // ---- the IJ1 Log -----------------------------------------------------------------------------------
+
+    private static final long LOG_POLL_MS = 200;
+    /** Lines of IJ1's Log already reported as {@link EngineEvent.LogLine}. */
+    private List<String> logSeen = List.of();
+
+    /**
+     * Report what IJ1's Log gained since the last look as {@link EngineEvent.LogLine} events: a macro's {@code print},
+     * a plugin's {@code IJ.log}, the engine's own notes. IJ1 offers no listener for Log additions, so the Log text
+     * ({@code IJ.getLog()}, null while no Log exists) is compared every {@value #LOG_POLL_MS} ms on the observer timer
+     * and at the end of every CODE action. Lines are reported from the first one that differs from the last look:
+     * appended lines once each, a line rewritten in place ({@code print("\\Update:...")}) again with its new text, and
+     * after a clear ({@code print("\\Clear")}, the Log window closed) only what is written afterwards.
+     */
+    synchronized void flushLog() {
+        String text;
+        try {
+            text = ij.IJ.getLog();
+        } catch (RuntimeException e) {
+            return;
+        }
+        List<String> now = text == null || text.isEmpty() ? List.of() : List.of(text.split("\\R", -1));
+        if (!now.isEmpty() && now.get(now.size() - 1).isEmpty()) now = now.subList(0, now.size() - 1); // trailing line break
+        int same = 0;
+        while (same < now.size() && same < logSeen.size() && now.get(same).equals(logSeen.get(same))) same++;
+        List<String> fresh = now.subList(same, now.size());
+        logSeen = List.copyOf(now);
+        for (String line : fresh) {
+            if (line.isBlank()) continue;
+            eng.events.emit(seq -> new EngineEvent.LogLine(seq, line));
+        }
     }
 
     /** Drop per-image state of a closed document (the maps are strong, identity-keyed and would pin the pixel data). */

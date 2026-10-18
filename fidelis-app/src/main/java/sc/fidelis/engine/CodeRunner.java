@@ -16,9 +16,11 @@ import java.util.regex.Pattern;
 import ij.ImagePlus;
 import ij.Macro;
 import ij.macro.Interpreter;
+import ij.macro.MacroConstants;
 import ij.macro.Program;
 import ij.macro.Symbol;
 import ij.macro.Tokenizer;
+import ij.plugin.frame.RoiManager;
 import sc.fidelis.engine.api.ActionRequest;
 import sc.fidelis.engine.api.ActionResult.EngineError;
 import sc.fidelis.engine.api.ActionResult.StateDigest;
@@ -51,25 +53,52 @@ final class CodeRunner {
         this.eng = eng;
     }
 
-    /** Capabilities found in the macro text (token scan plus a text scan for dotted names). */
+    /**
+     * Capabilities the macro text really calls, in the order of {@link #CAPABILITIES}. The text is tokenized by IJ1's
+     * own {@link Tokenizer} (comments vanish, string constants are opaque tokens), and a capability counts only when
+     * its name token is followed by {@code (}: {@code exec("ls")} and {@code File.delete(p)} do, while
+     * {@code print("call this eval later")}, {@code // exec(...)}, {@code exec = 3} and {@code myexec(1)} do not.
+     * The symbol table is <em>not</em> consulted: it lists every built-in function whether the text uses it or not.
+     * Text IJ1 cannot tokenize at all reports no capabilities; the interpreter then reports the syntax error.
+     */
     static List<String> scan(String text) {
-        Set<String> found = new LinkedHashSet<>();
+        List<String> names = new ArrayList<>();
         try {
             Program pgm = new Tokenizer().tokenize(text);
+            int[] code = pgm.getCode();
             Symbol[] table = pgm.getSymbolTable();
-            Set<String> symbols = new LinkedHashSet<>();
-            if (table != null) for (Symbol s : table) if (s != null && s.str != null) symbols.add(s.str);
-            for (String cap : CAPABILITIES) {
-                if (symbols.contains(cap) || pgm.hasWord(cap)) found.add(cap);
+            for (int i = 0; code != null && i < code.length; i++) {
+                int tok = code[i] & MacroConstants.TOK_MASK;
+                if (tok == MacroConstants.EOF) break;
+                String name = identifier(tok, code[i] >> MacroConstants.TOK_SHIFT, table);
+                if (name == null) continue;
+                // File.delete: WORD/function "File", '.', WORD "delete"
+                if (i + 2 < code.length && (code[i + 1] & MacroConstants.TOK_MASK) == '.') {
+                    String member = identifier(code[i + 2] & MacroConstants.TOK_MASK, code[i + 2] >> MacroConstants.TOK_SHIFT, table);
+                    if (member != null && isCall(code, i + 3)) names.add(name + "." + member);
+                    continue;
+                }
+                if (isCall(code, i + 1)) names.add(name);
             }
         } catch (RuntimeException e) {
-            // the interpreter will report syntax errors; the text scan below still applies
+            // IJ1 could not tokenize the text: the interpreter reports the syntax error; no capability can be named
         }
-        for (String cap : CAPABILITIES) {
-            String re = cap.contains(".") ? "\\b" + Pattern.quote(cap) + "\\s*\\(" : "\\b" + Pattern.quote(cap) + "\\s*\\(";
-            if (Pattern.compile(re).matcher(text).find()) found.add(cap);
-        }
+        Set<String> found = new LinkedHashSet<>();
+        for (String cap : CAPABILITIES) if (names.contains(cap)) found.add(cap);
         return new ArrayList<>(found);
+    }
+
+    private static boolean isCall(int[] code, int at) {
+        return at < code.length && (code[at] & MacroConstants.TOK_MASK) == '(';
+    }
+
+    /** The name of an identifier token (a user word or a built-in function), else null (operators, constants, keywords). */
+    private static String identifier(int tok, int address, Symbol[] table) {
+        boolean named = tok == MacroConstants.WORD || tok == MacroConstants.PREDEFINED_FUNCTION || tok == MacroConstants.NUMERIC_FUNCTION
+                || tok == MacroConstants.STRING_FUNCTION || tok == MacroConstants.ARRAY_FUNCTION || tok == MacroConstants.USER_FUNCTION
+                || tok == MacroConstants.VARIABLE_FUNCTION;
+        if (!named || table == null || address < 0 || address >= table.length || table[address] == null) return null;
+        return table[address].str;
     }
 
     private static String sha(String text) {
@@ -111,6 +140,10 @@ final class CodeRunner {
         Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
         ij.WindowManager.setTempCurrentImage(null);
         if (target != null) eng.makeCurrent(target);
+        // ROI Manager entries the macro adds or removes (roiManager("Add"), Analyze Particles with add) are taken over
+        // into the document's ROI list afterwards, exactly as after a native command (DefaultEngine.afterNative)
+        RoiManager managerBefore = RoiManager.getRawInstance();
+        int managerCountBefore = managerBefore == null ? -1 : managerBefore.getCount();
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
@@ -155,9 +188,25 @@ final class CodeRunner {
             Macro.setOptions(null);
         }
         Guard.Report rep = guard.end();
+        eng.observers.flushLog(); // the macro's last Log lines reach listeners before its result does
         showBatchImages();
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
+        List<StateDigest.DocumentChange> changed = List.of();
+        RoiManager managerAfter = RoiManager.getRawInstance();
+        int managerCountAfter = managerAfter == null ? -1 : managerAfter.getCount();
+        if (managerCountAfter >= 0 && managerCountAfter != managerCountBefore) {
+            // the macro's document: its target, else the image it left current (one it opened or selected)
+            Doc roiDoc = target;
+            if (roiDoc == null) {
+                ImagePlus cur = ij.WindowManager.getCurrentImage();
+                roiDoc = cur == null ? null : eng.registry.byImp(cur);
+            }
+            if (roiDoc != null && eng.registry.all().contains(roiDoc)) {
+                eng.roiLists.syncBack(roiDoc);
+                changed = List.of(new StateDigest.DocumentChange(roiDoc.id, false, false, false, true, false));
+            }
+        }
         boolean cancelled = op.cancelRequested && op.abortIssued;
         boolean macroError = interp.wasError() || (ret != null && ret.equals("[aborted]"));
         String message = null;
@@ -203,7 +252,7 @@ final class CodeRunner {
         for (Doc d : change.added()) added.add(d.id);
         List<DocumentId> removed = new ArrayList<>();
         for (Doc d : change.removed()) removed.add(d.id);
-        StateDigest digest = new StateDigest(added, removed, List.of(), Math.max(0, rows), Globals.delta(gBefore, gAfter),
+        StateDigest digest = new StateDigest(added, removed, changed, Math.max(0, rows), Globals.delta(gBefore, gAfter),
                 rep.newLogLines(), rep.windowsOpened(), rep.windowsClosed());
         return new Outcome(state, error, digest, rec, null);
     }
