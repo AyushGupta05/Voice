@@ -12,7 +12,10 @@ export type FastRoute = { tool: string; arguments: Record<string, unknown>; repl
   folderQuery?: string;
   /** An image the utterance names ("open the hela cells image"): the host resolves it with `<prefix>_find_images` and
    * passes the first image match as `arguments.path`; when nothing matches, the model takes the request instead. */
-  imageQuery?: string };
+  imageQuery?: string;
+  /** "Run this macro": the host reads the session's macro with `<prefix>_macro` and passes its text as `arguments.code`
+   * before dispatching the route (Fidelis); when there is no macro yet the request is answered with that. */
+  macroFromHistory?: boolean };
 /** Inputs for a profile's pre-dispatch check of a data/code tool. `check()` re-validates the request after every
  * adapter read (abort signal, conversation revision, context) and must be called after each one. */
 export type PrepareInput = { name: string; args: Arguments; context: Context; adapter: Adapter; check: () => void };

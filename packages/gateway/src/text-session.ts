@@ -64,6 +64,15 @@ export class TextConversation {
     const {imageQuery:_image,...rest}=route;
     route=image?{...rest,arguments:{...rest.arguments,path:image.path}}:undefined;
    }
+   if(route?.macroFromHistory){
+    // "Run this macro": the session's exported macro is the code, read locally; the run itself still waits for "yes".
+    const exported=await this.runtime.call(`${profile.toolPrefix}_macro`,{},active.controller.signal).catch(()=>undefined) as {macro?:unknown}|undefined;
+    active.controller.signal.throwIfAborted();
+    const {macroFromHistory:_macro,...rest}=route;
+    const code=typeof exported?.macro==='string'&&exported.macro.trim()?exported.macro:undefined;
+    if(!code){const reply='There is no macro yet: nothing has been recorded in History.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
+    route={...rest,arguments:{...rest.arguments,code}};
+   }
    if(route?.folderQuery){
     // A folder the utterance names is resolved locally; the first matching folder replaces the default (the active image's).
     const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:route.folderQuery},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;

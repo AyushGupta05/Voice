@@ -44,7 +44,36 @@ outlines could not be captured in a screenshot without raising the Fidelis windo
 MCP: `tools/list` over stdio with `LUMA_APP=fidelis LUMA_GATEWAY_PORT=49565` lists the 33 `fidelis_*` tools and
 `fidelis_context` answers with the live context (`.local/qa/mcp-list.ts`).
 
-## Act 2 script (integrator's demo order), typed as spoken turns
+## Act 2 script by voice (18 Oct, after the undo work; AWS session restored)
+
+Real voice turns through my gateway (`script/voice-pipeline-smoke.ts --say`: Polly speaks the line, AWS Transcribe hears
+it, the agent acts, Polly reads the answer), on my Fidelis instance from an empty workspace. "Speech end → reply audio"
+is the latency the researcher hears.
+
+| Line | Heard | Tools | Reply | Speech end → reply audio | Fidelis afterwards | Verdict |
+|---|---|---|---|---|---|---|
+| "Open the blobs image." | "Open the blob's image." | `fidelis_open_path` (blobs.gif) | "Opened blobs, 256 by 254." | 1.07 s | blobs.gif open, History 1 (Open, NL_SPOKEN) | PASS |
+| "Find all the nuclei." | "Find all the nuclei" | `fidelis_segment_cells {}` | "Found 67 nuclei, mean area 327 square pixels." | 1.06 s | 67 ROIs on blobs.gif, 67 Results rows, 10 History steps NL_SPOKEN with the task's transcriptRef, mask closed, plan card ran | PASS |
+| "Go back." | "Go back" | `fidelis_undo {}` | "Undid: 67 objects → 0, Results cleared." | 2.81 s | 0 ROIs, 0 rows, History 11 (Undo NL_SPOKEN) | PASS (engine undo of ROI-list/Results changes, below) |
+| Export .ijm / Open in editor | — | `fidelis_macro` (what the panel exports) | 30 lines from 11 steps; the undone copy appears as `// step 9 undone: ROI_LIST_ADD` | — | — | PASS by replay below |
+| "Run this macro." | "Run this macro." | `fidelis_macro` → `fidelis_run_macro {code}` | "Ready to run 1 step; say yes to go ahead." | 1.40 s | pending plan, plan card waiting with Confirm | PASS (paused) |
+| "Yes." | "Yes," | `fidelis_confirm {planId}` | "Ran the macro: 67 result rows, 1 new image." | 1.14 s | blobs-1.gif opened by the replay, 67 rows (the same count), History 21 with the macro's steps as MACRO/NATIVE children of the NL_SPOKEN CODE step; no dialog open | PASS |
+
+Before the fixes the first "Run this macro." went to the model, which asked "Which macro would you like me to run?"; the
+instant route now reads the session macro itself. The earlier typed-as-spoken pass of the same script is kept below.
+
+### Undo of ROI-list and Results changes (engine, 18 Oct)
+
+The engine's undo stack (pixel snapshots) now also records the ROI list before ROI_LIST_ADD / DELETE / RENAME and
+Analyze Particles with `add`, and what Measure, Analyze Particles with `display` and Clear Results do to the Results
+table. UNDO rebuilds the ROI list, removes the rows that action appended (per action: other documents' rows keep their
+place and attribution) and puts back rows it cleared; REDO re-runs the step. segment_cells' copy of the objects names
+its Analyze Particles (`resultsOf`), so one "go back" removes the objects and their rows together; `undoSteps` is 1.
+`EngineUndoRoiTest` (4), `EngineScienceTest`, `FidelisBridgeJourneyTest` and `FidelisBridgeTest`: 42 tests, 0 failed
+(one JVM). Limits: a redo of the copy fails once its mask was closed; a second segmentation's undo brings the first
+segmentation's objects back (its rows were cleared by the second Analyze Particles and are gone).
+
+## Act 2 script (integrator's demo order), typed as spoken turns (before the undo work)
 
 | Line | Result |
 |---|---|
@@ -77,12 +106,11 @@ Ask Penny), and this battery drove a separate client. The plan card (a bridge ho
 
 ## Blockers and what still fails
 
-1. **AWS session expired** at ~00:04 UTC: no voice pass (Transcribe/Polly) and no model rounds could be run after that.
-   Items 5, 12, 16–18 and Act 2's "Run this macro" wait for a fresh `aws login` by the user; re-run with
+1. **AWS session expired** at ~00:04 UTC and was restored later: the Act 2 script was then run by voice (above); the
+   rest of the battery (items 5, 12, 16–18 and the FluorescentCells channel re-run) still waits for a voice pass:
    `LUMA_GATEWAY_PORT=49565 npm run smoke:voice-pipeline -- --authorized-aws-speech --say="…"`.
-2. **"Go back" / "Undo" after a segmentation** fails in the engine (no pixel snapshot on the original). Needs an engine
-   decision: an undo record for ROI_LIST_ADD / CLOSE (restore the ROI list, reopen the mask) or a bridge-level
-   "undo the last Penny plan" that clears the objects it added. Not fixable from the bridge or gateway honestly.
+2. ~~"Go back" / "Undo" after a segmentation fails in the engine~~ fixed (engine undo of ROI-list and Results changes,
+   above); the closed mask is not reopened by the undo.
 3. The nuclear-channel and segmented-channel measurement fixes are protocol-tested (2-channel composite) but the live
    FluorescentCells re-run ("find all the nuclei" → "mean intensity of the nuclei" on channel 3) is still to do once
    voice is back.

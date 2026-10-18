@@ -84,6 +84,14 @@ function countSentence(inner: Record<string, unknown>): string | undefined {
 }
 /** "Fiji wanted to save a file" after a command: the bridge cancelled the OS chooser itself (docs/FIDELIS-PROTOCOL.md). */
 const skippedSave = (inner: Record<string, unknown>) => inner.cancelledFileDialog === true ? ' Fiji asked where to save a file; Penny skipped that.' : '';
+/** A macro that ran: what it produced (Results rows, images) from the engine's own counts. */
+function macroRunSentence(inner: Record<string, unknown>): string {
+  const rows = finite(inner.resultsRowsAdded), docs = Array.isArray(inner.documentsAdded) ? inner.documentsAdded.length : finite(inner.documentsAdded);
+  const parts: string[] = [];
+  if (rows !== undefined && rows > 0) parts.push(`${plural(rows, 'result row')}`);
+  if (docs !== undefined && docs > 0) parts.push(`${plural(docs, 'new image')}`);
+  return parts.length ? `Ran the macro: ${parts.join(', ')}.` : 'Ran the macro.';
+}
 /** The exported macro, summarised: a Fidelis session can hold hundreds of steps, which is not a spoken answer. */
 function macroSentence(raw: Record<string, unknown>): string | undefined {
   const macro = text(raw.macro); if (!macro) return undefined;
@@ -142,7 +150,8 @@ function confirmSentence(inner: Record<string, unknown>, context?: unknown): str
     const measured = measureSentence({ scope: !inner.lastRow || (rows !== undefined && rows > 1) ? 'rois' : undefined }, inner); if (measured) return measured;
   }
   const name = stepName(inner.step, record(inner.step)?.commandId);
-  if (name) return /macro/i.test(name) ? 'Ran the macro.' : `Ran ${name}.`;
+  if (name && /macro/i.test(name)) return macroRunSentence(inner);
+  if (name) return `Ran ${name}.`;
   if (Array.isArray(inner.steps) && inner.steps.length) return `Ran ${plural(inner.steps.length, 'step')}.`;
   return 'Done.';
 }
@@ -202,7 +211,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fidelis_filter') return 'Filter applied.';
   if (name === 'fidelis_convert') return typeof args.to === 'string' ? `Converted to ${args.to}.` : 'Converted.';
   if (name === 'fidelis_duplicate') return 'Duplicated.';
-  if (name === 'fidelis_run_macro') return 'Ran the macro.';
+  if (name === 'fidelis_run_macro') return macroRunSentence(inner);
   if (name === 'fidelis_confirm') { const sentence = confirmSentence(inner, context); return sentence === undefined ? undefined : `${sentence}${skippedSave(inner)}`; }
   return undefined;
 }
@@ -335,6 +344,8 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
     return { tool: 'fidelis_command', arguments: { commandId: 'ij1:Process>Binary>Convert to Mask', params }, reply: 'Converting to a mask.' };
   }
   if (/^(?:show (?:me )?|what is |what's |give me |export |save |print )?(?:the )?(?:workflow|macro|script|steps so far|recorded (?:macro|steps))(?: so far| for this| please)?$/.test(said)) return { tool: 'fidelis_macro', arguments: {}, reply: 'Here is the macro.' };
+  // "Run this macro": the session's own macro (History → macro) is the code; the bridge always holds it for "yes".
+  if (/^(?:run|replay|execute|play|rerun|re run) (?:this|the|that|my|the whole|this whole) (?:macro|workflow|script|recorded (?:macro|steps))(?: again| now)?$/.test(said)) return { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing the macro.', macroFromHistory: true };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {
     const slices = finite(doc.slices), current = finite(doc.position?.slice);

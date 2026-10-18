@@ -697,3 +697,12 @@ test('an undo says what the engine put back: the ROI list, the Results rows and 
   assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-3', undoneActionIds: ['act-3'], restored: { pixels: false, resultsRows: { before: 5, after: 4 } } })), 'Undid: Results 5 → 4 rows.');
   assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-3', undoneActionIds: ['act-3'] })), 'Undone.');
 });
+
+test('"run this macro" routes to fidelis_run_macro with the session macro as its code, and a run says what it produced', () => {
+  const context = { document: { id: 'doc-1', title: 'blobs.gif', width: 256, height: 254, channels: 1, bitDepth: 8 }, documents: [], counts: { rois: 0 }, pending: null, running: null };
+  assert.deepEqual(fidelis.fastRoute('Run this macro.', context), { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing the macro.', macroFromHistory: true });
+  assert.equal(fidelis.fastRoute('replay the workflow again', context)?.macroFromHistory, true);
+  assert.equal(fidelis.fastRoute('run this macro and measure', context), undefined);
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (12 lines)', commandId: null }, resultsRowsAdded: 67, documentsAdded: ['doc-2'] })), 'Ran the macro: 67 result rows, 1 new image.');
+  assert.equal(fidelis.localSentenceFor('fidelis_run_macro', {}, completed({ step: { label: 'Run macro (3 lines)' }, resultsRowsAdded: 0, documentsAdded: [] })), 'Ran the macro.');
+});
