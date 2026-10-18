@@ -45,7 +45,10 @@ Only the researcher's own "yes" confirms: the gateway refuses `fidelis_confirm` 
 - "The right side", "top-left": a third of the document in that direction. Clamp to `document.width/height`.
 - Objects found by `fidelis_segment_cells` or `fidelis_analyze_particles` are in the ROI list (`fidelis_rois`) and the
   Results table (`fidelis_results`, summarised by `fidelis_object_stats`). "How many" reads them; never re-segment while
-  the ROI list holds objects unless asked.
+  the ROI list holds objects unless asked. "Why did you count this?" is `fidelis_explain_object` (the object under the
+  pointer; `index` or `x,y` otherwise): its area against the median, circularity, the threshold and size floor that
+  picked it, with a verdict ("large and irregular: possibly two touching objects"); "which is the biggest" is
+  `fidelis_highlight {rois: "largest"}`.
 - `fidelis_measure` takes Set Measurements keys (`area`, `mean`, `min`, `integrated`, `shape`, `feret's`, …) and a scope:
   `roi` (the active selection), `all` (the whole document) or `rois` (every ROI-list entry).
 - `fidelis_segment_cells` works on a duplicate (`<title>-mask`) that it closes again once the objects are copied to the

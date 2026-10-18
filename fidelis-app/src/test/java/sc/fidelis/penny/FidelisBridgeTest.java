@@ -216,6 +216,28 @@ class FidelisBridgeTest {
             assertEquals(1, pick.get("total").getAsInt());
             assertEquals(which + ": 256 pixel\u00b2", pick.getAsJsonObject("highlight").get("label").getAsString(), pick.toString());
         }
+        // "why did you count this": by index, by an image point inside the first square, and the pointer when it is away
+        JsonObject why = http.read("explain_object", args("index", 0));
+        assertEquals(0, why.get("index").getAsInt(), why.toString());
+        assertEquals("index", why.get("by").getAsString());
+        assertEquals(256.0, why.get("area").getAsDouble(), 1.0, why.toString());
+        assertEquals("Otsu", why.get("thresholdMethod").getAsString(), why.toString());
+        assertEquals(0.0, why.get("sizeFloor").getAsDouble(), why.toString());
+        assertEquals(0.785, why.get("circularity").getAsDouble(), 0.01, "a 16 x 16 square from its outline (shape descriptors are not measured): " + why);
+        assertEquals("outline", why.get("circularityFrom").getAsString());
+        assertEquals(1.0, why.get("areaRatio").getAsDouble(), 0.01, "equal squares: the median is its own area " + why);
+        assertEquals("typical", why.get("verdict").getAsString());
+        assertEquals(1, why.getAsJsonObject("highlight").getAsJsonArray("targets").size(), why.toString());
+        JsonObject bounds = engineRoiBounds(id, 0);
+        JsonObject byPoint = http.read("explain_object", args("x", bounds.get("x").getAsInt() + 2, "y", bounds.get("y").getAsInt() + 2));
+        assertEquals(0, byPoint.get("index").getAsInt(), byPoint.toString());
+        assertEquals("point", byPoint.get("by").getAsString());
+        BridgeHttp.Resp miss = http.exec("explain_object", args("x", 0, "y", 0), null, null);
+        assertEquals(409, miss.status(), miss.body().toString());
+        assertTrue(miss.error().contains("not counted"), miss.error());
+        BridgeHttp.Resp noPointer = http.exec("explain_object", args(), null, null);
+        assertEquals(409, noPointer.status(), noPointer.body().toString());
+        assertTrue(noPointer.error().contains("Point at the object"), noPointer.error());
         // without add the ROI list is not this run's: the highlight shows the image, never older objects
         JsonObject noAdd = http.change("analyze_particles", args("add", false, "size", "0-Infinity")).result();
         assertEquals(shown.get("count").getAsInt(), noAdd.get("count").getAsInt());
@@ -431,6 +453,16 @@ class FidelisBridgeTest {
         JsonObject none = http.exec("highlight", args("rois", "active"), null, null).result().getAsJsonObject("highlight");
         assertEquals(0, none.getAsJsonArray("targets").size());
         assertTrue(none.get("viewer").isJsonNull());
+    }
+
+    private JsonObject engineRoiBounds(sc.fidelis.engine.api.DocumentId doc, int index) {
+        sc.fidelis.engine.api.RoiGeometry g = engine.rois(doc).get(index);
+        double x = Double.MAX_VALUE, y = Double.MAX_VALUE;
+        for (int i = 0; i < g.xs().size(); i++) { x = Math.min(x, g.xs().get(i)); y = Math.min(y, g.ys().get(i)); }
+        JsonObject o = new JsonObject();
+        o.addProperty("x", (int) Math.floor(x));
+        o.addProperty("y", (int) Math.floor(y));
+        return o;
     }
 
     private HistoryRecord last() {

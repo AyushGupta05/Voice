@@ -62,9 +62,9 @@ import sc.fidelis.nl.NlService.Proposal;
 final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
-            "results", "object_stats", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
+            "results", "object_stats", "explain_object", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
             "confirm", "cancel_plan", "dialog", "dialog_action");
-    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "history", "macro", "dialog");
+    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
     /** DIRECT operations that depend on the plane (pinned to the approved one; the engine applies a TargetScope plane). */
     static final Set<String> PLANE_DIRECT = Set.of(Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD,
@@ -280,6 +280,7 @@ final class PennyOps {
             case "rois" -> { return roiList(a); }
             case "results" -> { return resultsTable(a); }
             case "object_stats" -> { return objectStats(); }
+            case "explain_object" -> { return explainObject(a); }
             case "history" -> { return history(a); }
             case "macro" -> { return macro(); }
             case "dialog" -> { return dialogRead(); }
@@ -1350,6 +1351,94 @@ final class PennyOps {
             if (s != null) out.put(col[1], s);
         }
         if (rows.isEmpty()) out.put("note", "the Results table is empty; segment or measure first");
+        return out;
+    }
+
+    /**
+     * "Why did you count this as a cell?": the object under the pointer (or {@code index}, or image point {@code x,y}),
+     * with the numbers that made it one — its area against the median of the same Analyze Particles run, circularity,
+     * the threshold method and the size floor from History — and a flash on the canvas. Read only.
+     */
+    private Map<String, Object> explainObject(JsonObject a) {
+        DocumentInfo d = requireDoc();
+        List<RoiGeometry> all = engine.rois(d.id());
+        if (all.isEmpty()) throw new Failure(409, "The ROI list is empty; segment or add regions first.");
+        Integer index = PennyJson.has(a, "index") ? PennyJson.integer(a, "index", 0, 0, Math.max(0, all.size() - 1)) : null;
+        java.awt.Point at = null;
+        String how;
+        if (index != null) how = "index";
+        else if (PennyJson.has(a, "x") && PennyJson.has(a, "y")) { at = new java.awt.Point((int) Math.floor(PennyJson.num(a, "x")), (int) Math.floor(PennyJson.num(a, "y"))); how = "point"; }
+        else {
+            PennyUi ui = PennyUi.current();
+            at = ui == null ? null : ui.pointer(d.id());
+            if (at == null) throw new Failure(409, "Point at the object first: the pointer is not over the image.");
+            how = "pointer";
+        }
+        if (index == null) {
+            for (int i = 0; i < all.size() && index == null; i++) if (Highlight.contains(all.get(i), at.x + 0.5, at.y + 0.5)) index = i;
+            if (index == null) throw new Failure(409, "No object at " + at.x + "," + at.y + " on " + d.title() + "; it was not counted.");
+        }
+        RoiGeometry g = all.get(index);
+        double areaPixels = Highlight.areaPixels(g);
+        double calibration = d.pixelWidth() * d.pixelHeight();
+        Map<String, Object> out = map("index", index, "name", g.name(), "by", how, "document", d.id().value(), "unit", d.unit(),
+                "area", areaPixels * calibration, "areaPixels", areaPixels);
+        if (at != null) out.put("at", map("x", at.x, "y", at.y));
+        // the run that counted it: its rows (one per ROI when they match), its size floor, and the threshold before it
+        List<HistoryRecord> h = engine.history();
+        HistoryRecord particles = null;
+        for (int i = h.size() - 1; i >= 0 && particles == null; i--)
+            if (PennyCommands.ANALYZE_PARTICLES.equals(h.get(i).commandId()) && h.get(i).outcome() == OperationState.COMPLETED) particles = h.get(i);
+        List<MeasurementRow> rows = List.of();
+        if (particles != null) {
+            String id = particles.actionId();
+            rows = engine.results().stream().filter(x -> id.equals(x.actionId())).toList();
+            Object size = particles.params() == null ? null : particles.params().get("size");
+            if (size != null) {
+                String[] range = String.valueOf(size).split("-");
+                try { out.put("sizeFloor", Double.parseDouble(range[0].trim())); } catch (NumberFormatException ignored) { out.put("sizeFloor", String.valueOf(size)); }
+            }
+            Object circ = particles.params() == null ? null : particles.params().get("circularity");
+            if (circ != null) out.put("circularityRange", String.valueOf(circ));
+            for (int i = h.indexOf(particles) - 1; i >= 0 && i >= h.indexOf(particles) - 12; i--) {
+                HistoryRecord r = h.get(i);
+                Object method = r.params() == null ? null : r.params().get("method");
+                boolean threshold = (r.label() != null && r.label().toLowerCase(Locale.ROOT).contains("threshold"))
+                        || (r.commandId() != null && r.commandId().contains("Threshold"));
+                if (threshold && method != null) {
+                    out.put("thresholdMethod", String.valueOf(method));
+                    if (r.params().get("dark") != null) out.put("darkBackground", Boolean.TRUE.equals(r.params().get("dark")));
+                    break;
+                }
+            }
+        }
+        if (rows.size() == all.size() && index < rows.size()) {
+            MeasurementRow row = rows.get(index);
+            for (String[] col : new String[][] {{"Mean", "mean"}, {"Circ.", "circularity"}, {"Perim.", "perimeter"}, {"Area", "measuredArea"}})
+                if (row.values().containsKey(col[0])) out.put(col[1], row.values().get(col[0]));
+        }
+        if (!out.containsKey("circularity")) {
+            // not in the Results (shape descriptors off): from the outline itself, as IJ1 defines it (4π·area/perimeter²)
+            double perimeter = Highlight.perimeterPixels(g);
+            if (perimeter > 0) {
+                out.put("circularity", Math.min(1.0, Math.round(4 * Math.PI * areaPixels / (perimeter * perimeter) * 1000) / 1000.0));
+                out.put("circularityFrom", "outline");
+            }
+        }
+        List<Double> areas = new ArrayList<>();
+        for (RoiGeometry x : all) areas.add(Highlight.areaPixels(x) * calibration);
+        Map<String, Object> st = stats(areas);
+        if (st != null && st.get("median") instanceof Number med && med.doubleValue() > 0) {
+            double ratio = areaPixels * calibration / med.doubleValue();
+            out.put("medianArea", med.doubleValue());
+            out.put("areaRatio", Math.round(ratio * 100) / 100.0);
+            Object c = out.get("circularity");
+            String verdict = ratio >= 1.7 && (c instanceof Number n ? n.doubleValue() < 0.75 : true) ? "large and irregular: possibly two touching objects"
+                    : ratio <= 0.4 ? "small: near the size floor" : "typical";
+            out.put("verdict", verdict);
+        }
+        out.put("total", all.size());
+        out.put("highlight", Highlight.rois(d.id(), List.of(g), "object " + (index + 1), HIGHLIGHT_LIMIT, true));
         return out;
     }
 

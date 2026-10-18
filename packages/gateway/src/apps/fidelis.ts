@@ -25,12 +25,28 @@ const acknowledgments: Record<string, string> = {
   fidelis_filter: 'Applying the filter.', fidelis_open_path: 'Opening it.', fidelis_command: 'On it.', fidelis_select_roi: 'Selecting the region.', fidelis_zoom: 'Zooming.',
   fidelis_undo: 'Undoing.', fidelis_redo: 'Redoing.', fidelis_run_macro: 'Preparing the macro.', fidelis_confirm: 'Running it.', fidelis_cancel_plan: 'Cancelling.',
   fidelis_convert: 'Converting.', fidelis_duplicate: 'Duplicating.', fidelis_display: 'Adjusting the display.', fidelis_stack: 'Changing slice.', fidelis_activate_image: 'Switching image.',
-  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.',
+  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.', fidelis_explain_object: 'Looking at it.',
   fidelis_commands: 'Looking it up.', fidelis_macro: 'Here is the macro.', fidelis_dialog: 'Checking the dialog.', fidelis_dialog_action: 'Filling in the dialog.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
   if (name === 'fidelis_highlight') return highlightAcknowledgment(args);
   return acknowledgments[name];
+}
+/** "Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching objects. Otsu threshold, size floor 20." */
+function explainSentence(raw: Record<string, unknown>): string | undefined {
+  const index = finite(raw.index), area = finite(raw.area); if (index === undefined || area === undefined) return undefined;
+  const ratio = finite(raw.areaRatio), circ = finite(raw.circularity), floor = finite(raw.sizeFloor), method = text(raw.thresholdMethod), verdict = text(raw.verdict);
+  const parts = [`${spokenArea(area, raw.unit)}`];
+  if (ratio !== undefined) parts.push(ratio >= 0.95 && ratio <= 1.05 ? 'about the median size' : `${ratio.toFixed(1)} times the median`);
+  if (circ !== undefined) parts.push(`circularity ${circ.toFixed(2)}`);
+  let sentence = `Object ${index + 1}: ${parts.join(', ')}`;
+  if (verdict && verdict !== 'typical') sentence += ` — ${verdict}`;
+  sentence += '.';
+  const picked: string[] = [];
+  if (method) picked.push(`${method} threshold`);
+  if (floor !== undefined) picked.push(floor > 0 ? `size floor ${round(floor)}` : 'no size floor');
+  if (picked.length) sentence += ` ${picked.join(', ').replace(/^./, c => c.toUpperCase())}.`;
+  return sentence;
 }
 /** Engine diagnostics that list their possible causes, as one spoken sentence. */
 function failurePhrase(name: string, reason: string): string | undefined {
@@ -192,6 +208,7 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const area = record(raw.area), mean = finite(area?.mean), median = finite(area?.median);
     return `${plural(n, 'object')}${mean !== undefined ? `, mean area ${spokenArea(mean, raw.unit)}` : ''}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}.`;
   }
+  if (name === 'fidelis_explain_object') return explainSentence(raw);
   if (name === 'fidelis_cancel_plan') return raw.dialogCancelled ? 'Cancelled the waiting dialog.' : 'Cancelled; nothing ran.';
   if (name === 'fidelis_macro') return macroSentence(raw);
   if (inner === undefined) return undefined;
@@ -334,6 +351,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
+  // "Why did you count this (as a cell)?" / "what is this one": the object under the pointer, explained and flashed
+  if (/^(?:so )?(?:why (?:did|do) you (?:count|pick|include|call|keep) (?:this|that|it)(?: one)?(?: as (?:a |an )?(?:cell|nucleus|object))?|why (?:was|is) (?:this|that|it)(?: one)? (?:counted|picked|included|a cell|a nucleus|an object|here)|(?:what is|what's|tell me about) (?:this|that) one|explain (?:this|that)(?: one| cell| nucleus| object)?)$/.test(said))
+    return { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' };
   const extreme = said.match(/^(?:(?:which|what)(?: one| cell| nucleus| object)? is|what's|show(?: me)?|highlight|outline|point (?:at|out|to)|find|where is|where's) (?:the )?(biggest|largest|smallest|tiniest)(?: (?:cell|nucleus|object|one|region|blob))?$/);
   if (extreme) return { tool: 'fidelis_highlight', arguments: { rois: /small|tin/.test(extreme[1]) ? 'smallest' : 'largest' }, reply: 'Looking.' };
   if (objects && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here)?$/.test(said)) return { tool: 'fidelis_highlight', arguments: { rois: 'all', label: `${objects} objects` }, reply: 'Here they are.' };

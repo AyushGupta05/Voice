@@ -21,6 +21,43 @@ final class Highlight {
     static final double MIN_TARGET = 8;
 
     /** Image-pixel bounds of a ROI: its rectangle/oval bounds, else the box around its vertices; null when it has none. */
+    /** Whether an image point lies inside the outline (the polygon when it has one, an oval's ellipse, else its bounds). */
+    static boolean contains(RoiGeometry g, double x, double y) {
+        if (g == null) return false;
+        List<Float> xs = g.xs(), ys = g.ys();
+        if (!"OVAL".equals(g.type()) && !"RECTANGLE".equals(g.type()) && xs != null && ys != null && xs.size() >= 3 && ys.size() >= xs.size()) {
+            java.awt.geom.Path2D.Double path = new java.awt.geom.Path2D.Double();
+            path.moveTo(xs.get(0), ys.get(0));
+            for (int i = 1; i < xs.size(); i++) path.lineTo(xs.get(i), ys.get(i));
+            path.closePath();
+            return path.contains(x, y);
+        }
+        Rectangle2D b = bounds(g);
+        if (b == null) return false;
+        return "OVAL".equals(g.type()) ? new java.awt.geom.Ellipse2D.Double(b.getX(), b.getY(), b.getWidth(), b.getHeight()).contains(x, y) : b.contains(x, y);
+    }
+
+    /** Outline perimeter in pixels: the polygon's edge length, an oval's Ramanujan approximation, else the bounds' perimeter. */
+    static double perimeterPixels(RoiGeometry g) {
+        if (g == null) return 0;
+        List<Float> xs = g.xs(), ys = g.ys();
+        if (!"OVAL".equals(g.type()) && !"RECTANGLE".equals(g.type()) && xs != null && ys != null && xs.size() >= 3 && ys.size() >= xs.size()) {
+            double length = 0;
+            for (int i = 0, n = xs.size(); i < n; i++) {
+                int j = (i + 1) % n;
+                length += Math.hypot((double) xs.get(j) - xs.get(i), (double) ys.get(j) - ys.get(i));
+            }
+            return length;
+        }
+        Rectangle2D b = bounds(g);
+        if (b == null) return 0;
+        if ("OVAL".equals(g.type())) {
+            double a = b.getWidth() / 2, c = b.getHeight() / 2, h = Math.pow(a - c, 2) / Math.pow(a + c, 2);
+            return Math.PI * (a + c) * (1 + 3 * h / (10 + Math.sqrt(4 - 3 * h)));
+        }
+        return 2 * (b.getWidth() + b.getHeight());
+    }
+
     /** Outline area in pixels: the polygon's (shoelace) when it has three or more vertices, an oval's ellipse, else its bounds. */
     static double areaPixels(RoiGeometry g) {
         if (g == null) return 0;

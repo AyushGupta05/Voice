@@ -113,7 +113,7 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_duplicate', {}); ok('fidelis_duplicate', { title: 'copy' });
   ok('fidelis_select_roi', { type: 'rectangle', x: 10, y: 10, width: 50, height: 40 }); ok('fidelis_select_roi', { type: 'polygon', points: [[0, 0], [10, 0], [5, 8]] }); ok('fidelis_select_roi', { type: 'none' });
   bad('fidelis_select_roi', { type: 'line', x: 1 }); bad('fidelis_select_roi', { x: 1 });
-  ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); bad('fidelis_object_stats', { plot: false });
+  ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); ok('fidelis_explain_object', {}); ok('fidelis_explain_object', { index: 3 }); bad('fidelis_explain_object', { index: -1 }); bad('fidelis_object_stats', { plot: false });
   ok('fidelis_display', { min: 0, max: 200 }); ok('fidelis_display', { auto: true }); ok('fidelis_stack', { slice: 3, channel: 1, frame: 2 }); bad('fidelis_stack', { slice: 0 });
   ok('fidelis_zoom', { direction: 'in' }); ok('fidelis_zoom', { fit: true }); ok('fidelis_zoom', { selection: true }); bad('fidelis_zoom', { magnification: 2 });
   ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); bad('fidelis_highlight', { rois: 'manager' });
@@ -166,6 +166,12 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
   assert.deepEqual(route('Which one is the biggest?', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'largest' }, reply: 'Looking.' });
+  assert.deepEqual(route('Why did you count this as a cell?', segmented), { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' });
+  assert.deepEqual(route("What's this one?", segmented), { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' });
+  assert.equal(fidelis.localSentenceFor('fidelis_explain_object', {}, { index: 11, area: 657, unit: 'pixel', areaRatio: 1.83, circularity: 0.62, verdict: 'large and irregular: possibly two touching objects', thresholdMethod: 'Otsu', sizeFloor: 20 }),
+    'Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching objects. Otsu threshold, size floor 20.');
+  assert.equal(fidelis.localSentenceFor('fidelis_explain_object', {}, { index: 0, area: 256, unit: 'pixel', areaRatio: 1, circularity: 0.785, verdict: 'typical', thresholdMethod: 'Otsu', sizeFloor: 0 }),
+    'Object 1: 256 square pixels, about the median size, circularity 0.79. Otsu threshold, no size floor.');
   assert.deepEqual(route('Highlight the smallest cell.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'smallest' }, reply: 'Looking.' });
   assert.deepEqual(route('Rido.', segmented), { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' });
   assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'largest' }, { highlight: {}, total: 1, picked: { which: 'largest', index: 11, name: '0012-0040', areaPixels: 657, area: 657, unit: 'pixel' } }), 'The largest is object 12, 657 square pixels.');

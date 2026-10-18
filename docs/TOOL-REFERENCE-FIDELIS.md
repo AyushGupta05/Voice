@@ -24,6 +24,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fidelis_select_roi`](#fidelis-select-roi) | view | No |
 | [`fidelis_rois`](#fidelis-rois) | read | No |
 | [`fidelis_results`](#fidelis-results) | read | No |
+| [`fidelis_explain_object`](#fidelis-explain-object) | read | No |
 | [`fidelis_object_stats`](#fidelis-object-stats) | read | No |
 | [`fidelis_display`](#fidelis-display) | view | No |
 | [`fidelis_stack`](#fidelis-stack) | view | No |
@@ -266,6 +267,18 @@ Read Results table rows (bounded by limit and offset) with their column names an
 |---|---|---|
 | `limit` | No | integer; min 1; max 500 |
 | `offset` | No | integer; min 0 |
+
+<a id="fidelis-explain-object"></a>
+
+## fidelis_explain_object
+
+Why an object was counted: the one under the researcher’s pointer (no arguments), or by ROI index, or at an image point x,y. Returns its area against the median (areaRatio), circularity, the threshold method and size floor from History, a verdict (typical / large and irregular / small) and a highlight. Read only; never re-segments.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `index` | No | integer; min 0 |
+| `x` | No | number; min 0 |
+| `y` | No | number; min 0 |
 
 <a id="fidelis-object-stats"></a>
 
