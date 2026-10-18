@@ -101,3 +101,51 @@ export function sharedObservation<T extends CreditObservation>(observe: (signal:
     return value;
   };
 }
+
+export type BudgetRenewal = {
+  archive: string; reservedUSD: number; receipts: number; estimatedSpendUSD: number; lifetimeReservedUSD: number; lifetimeCapUSD: number;
+};
+const sumCents = (entries: Reservation[]) => entries.reduce((sum, entry) => sum + cents(entry.amountUSD), 0);
+/**
+ * The researcher's explicit "new budget" after the $200 attempt reserve is exhausted (docs/FUNDING.md: $200 before waking,
+ * $1,000 in total). The exhausted ledger is archived next to itself with a reconciliation record (its reservations, the
+ * receipts' estimated spend) — never deleted — and an empty ledger for the same account starts. Refused while the archived
+ * ledgers plus a new $200 cap would exceed the lifetime total, or when the ledger does not need renewing. Never called by
+ * the gateway: only by `npm run budget:renew -- --authorized-new-budget`.
+ */
+export async function renewBudget(directory: string, options: { lifetimeCapUSD?: number; capUSD?: number; now?: Date } = {}): Promise<BudgetRenewal> {
+  const lifetimeCapUSD = options.lifetimeCapUSD ?? 1000, capUSD = options.capUSD ?? 200, now = options.now ?? new Date();
+  const ledgerPath = join(directory, 'credit-budget.json');
+  const ledger = JSON.parse(await readFile(ledgerPath, 'utf8')) as Ledger;
+  if (!ledger || ledger.version !== 1 || !/^[a-f0-9]{64}$/.test(ledger.accountHash) || !Array.isArray(ledger.reservations)) throw new Error('Credit budget is unreadable; preserve it and reconcile by hand.');
+  const reservedCents = sumCents(ledger.reservations);
+  if (reservedCents < capUSD * 100 * 0.9) throw new Error(`The current ledger has $${(reservedCents / 100).toFixed(2)} of $${capUSD} reserved; it does not need renewing.`);
+  const { readdir } = await import('node:fs/promises');
+  let archivedCents = 0;
+  for (const name of await readdir(directory)) {
+    if (!/^credit-budget\.archive-.*\.json$/.test(name)) continue;
+    const old = JSON.parse(await readFile(join(directory, name), 'utf8')) as { ledger?: Ledger };
+    if (old.ledger?.accountHash === ledger.accountHash && Array.isArray(old.ledger.reservations)) archivedCents += sumCents(old.ledger.reservations);
+  }
+  const lifetimeCents = archivedCents + reservedCents;
+  if (lifetimeCents + capUSD * 100 > lifetimeCapUSD * 100) throw new Error(`Renewing would allow $${((lifetimeCents + capUSD * 100) / 100).toFixed(2)} of reservations in total, over the $${lifetimeCapUSD} lifetime authorization. No new budget.`);
+  let receipts = 0, estimatedCents = 0;
+  for (const file of ['credit-usage.jsonl', 'speech-usage.jsonl']) {
+    const text = await readFile(join(directory, file), 'utf8').catch(() => '');
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try { const r = JSON.parse(line) as { estimatedUSD?: unknown }; receipts++; if (typeof r.estimatedUSD === 'number' && Number.isFinite(r.estimatedUSD)) estimatedCents += r.estimatedUSD * 100; } catch { /* a torn line is counted by nothing */ }
+    }
+  }
+  const stamp = now.toISOString().replace(/[:.]/g, '-');
+  const archive = join(directory, `credit-budget.archive-${stamp}.json`);
+  const record = { version: 1, archivedAt: now.toISOString(), authorizedBy: '--authorized-new-budget', reservedUSD: reservedCents / 100, receipts, estimatedSpendUSD: Math.round(estimatedCents) / 100, lifetimeReservedUSD: lifetimeCents / 100, lifetimeCapUSD, ledger };
+  const file = await open(archive, 'wx', 0o600);
+  try { await file.writeFile(JSON.stringify(record) + '\n'); await file.sync(); } finally { await file.close(); }
+  const fresh: Ledger = { version: 1, accountHash: ledger.accountHash, reservations: [] };
+  const temporary = join(directory, `.credit-budget-${randomUUID()}.tmp`);
+  const out = await open(temporary, 'wx', 0o600);
+  try { await out.writeFile(JSON.stringify(fresh) + '\n'); await out.sync(); } finally { await out.close(); }
+  await rename(temporary, ledgerPath);
+  return { archive, reservedUSD: record.reservedUSD, receipts, estimatedSpendUSD: record.estimatedSpendUSD, lifetimeReservedUSD: record.lifetimeReservedUSD, lifetimeCapUSD };
+}

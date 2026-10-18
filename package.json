@@ -18,6 +18,7 @@
     "doctor": "tsx script/doctor.ts",
     "verify:qupath": "python3 script/verify-qupath.py",
     "enable:text": "tsx script/enable-text.ts",
+    "budget:renew": "tsx script/renew-budget.ts",
     "smoke:text": "tsx script/text-smoke.ts",
     "smoke:companion-text": "tsx script/companion-text-smoke.ts",
     "smoke:api": "tsx script/smoke-api.ts",

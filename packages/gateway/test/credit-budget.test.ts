@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CreditBudget, reserveUSD, sharedObservation, type CreditObservation } from '../src/credit-budget.js';
+import { CreditBudget, renewBudget, reserveUSD, sharedObservation, type CreditObservation } from '../src/credit-budget.js';
 
 const observation = (): CreditObservation => ({ accountHash: 'a'.repeat(64), observedAt: Date.now(), availableCreditUSD: 5000, maximumRequestUSD: 0.5 });
 async function fixture() { const root=await mkdtemp(join(tmpdir(),'luma-budget-')); return {root,budget:new CreditBudget(root,2),clean:()=>rm(root,{recursive:true,force:true})}; }
@@ -78,4 +78,25 @@ test('shared credit proofs are reused only while fresh and failures are never ca
  await assert.rejects(observe(new AbortController().signal),/denied/);await assert.rejects(observe(new AbortController().signal),/denied/);assert.equal(calls,4);
  const stopped=new AbortController();stopped.abort();await assert.rejects(observe(stopped.signal));
  assert.throws(()=>sharedObservation(async()=>observation(),30_000));
+});
+
+test('an explicit renewal archives the exhausted ledger with its reconciliation and starts an empty one under the lifetime cap',async()=>{
+ const f=await fixture();try{
+  const first=await f.budget.reserve(observation(),new AbortController().signal);
+  await f.budget.receipt(first.id,{outcome:'completed',estimatedUSD:0.004});
+  await assert.rejects(renewBudget(f.root,{capUSD:2,lifetimeCapUSD:10}),/does not need renewing/);
+  await f.budget.reserve(observation(),new AbortController().signal);
+  await assert.rejects(f.budget.reserve(observation(),new AbortController().signal),/exhausted/);
+  await assert.rejects(renewBudget(f.root,{capUSD:2,lifetimeCapUSD:3}),/lifetime authorization/);
+  const renewed=await renewBudget(f.root,{capUSD:2,lifetimeCapUSD:10,now:new Date('2026-10-18T05:00:00Z')});
+  assert.equal(renewed.reservedUSD,2);assert.equal(renewed.receipts,1);assert.equal(renewed.estimatedSpendUSD,0);assert.equal(renewed.lifetimeReservedUSD,2);
+  const archive=JSON.parse(await readFile(renewed.archive,'utf8'));
+  assert.equal(archive.ledger.reservations.length,2);assert.equal(archive.authorizedBy,'--authorized-new-budget');
+  assert.equal(JSON.parse(await readFile(join(f.root,'credit-budget.json'),'utf8')).reservations.length,0);
+  // the new ledger reserves again for the same account, and a second renewal counts the archive towards the lifetime total
+  await f.budget.reserve(observation(),new AbortController().signal);await f.budget.reserve(observation(),new AbortController().signal);
+  await assert.rejects(renewBudget(f.root,{capUSD:2,lifetimeCapUSD:5}),/lifetime authorization/);
+  const again=await renewBudget(f.root,{capUSD:2,lifetimeCapUSD:6,now:new Date('2026-10-18T06:00:00Z')});
+  assert.equal(again.lifetimeReservedUSD,4);
+ }finally{await f.clean();}
 });

@@ -28,6 +28,26 @@ Official service references: [Transcribe streaming](https://docs.aws.amazon.com/
 
 The standalone Realtime transport and the separate GPT-Live client-delegation transport/backend have local protocol tests. Neither is activated in the production server. The scripted voice-protocol smoke uses only loopback connections and display operations; it is not live AI or microphone verification. See VOICE.md.
 
+### When the $200 attempt reserve is exhausted (18 Oct 2026, 04:50 BST)
+
+The reservation ledger reached $199.63 across 1,780 reservations during the overnight voice verification (the receipts'
+estimated real spend was about $2.53; reservations are worst-case holds that are never refunded). From then on every
+Transcribe, Polly and Bedrock request is refused with "The $200 project attempt reserve is exhausted" — typed instant
+routes still work. This is the "$200 before waking" guard doing its job, and nothing renews it automatically.
+
+A new budget is the researcher's decision, taken awake:
+
+```sh
+npm run budget:renew -- --authorized-new-budget
+```
+
+`renewBudget` (packages/gateway/src/credit-budget.ts) archives the exhausted ledger as
+`.local/state/credit-budget.archive-<time>.json` with a reconciliation record (reservations, receipts, estimated spend)
+and starts an empty $200 ledger for the same account. It refuses when the archived ledgers plus a new $200 would exceed
+the $1,000 lifetime authorization, or when the current ledger is not near its cap. Restart the companion afterwards so
+its gateway re-reads the ledger; the 24-hour `text-funding.json` / `speech-funding.json` proofs are separate
+(`npm run enable:text`, `node --import tsx script/enable-speech.ts --authorized-aws-speech`).
+
 ## What would unblock live voice
 
 Either establish an officially supported AWS-credit-covered OpenAI voice endpoint for this account and implement its authentication/protocol, or obtain a new explicit funding decision from the user for a different credit/prepaid arrangement. Hosting a proxy on AWS, using an OpenAI-shaped SDK, or finding an AWS Marketplace listing does not prove that inference is covered by the user's credits.
