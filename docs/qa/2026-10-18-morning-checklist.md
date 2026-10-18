@@ -69,6 +69,12 @@ go ahead." in 29 ms (macro 2,266 characters, 67 outlines skipped). Typed "yes" c
 checked with the text-drive tool (each run is a new conversation); the confirmation path is engine-tested and is the
 same one "Run this macro" → "Yes" used by voice.
 
+## 3c. Every suite on the final tree (05:50 BST)
+
+Fidelis 470/0, gateway 256/0 (37 tools; Act 2 and the corrections + folder flow as one conversation each on a Fidelis
+stub), stand-alone Fiji bridge tests pass (pipeline contract incl. split at the pointer and apply_analysis to a
+folder), companion `swift build` clean, `verification/test_verification.py` OK.
+
 ## 4. Not seen with eyes tonight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were
