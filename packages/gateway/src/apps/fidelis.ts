@@ -32,6 +32,14 @@ function acknowledgmentFor(name: string, args: Record<string, unknown>): string 
   if (name === 'fidelis_highlight') return highlightAcknowledgment(args);
   return acknowledgments[name];
 }
+/** Engine diagnostics that list their possible causes, as one spoken sentence. */
+function failurePhrase(name: string, reason: string): string | undefined {
+  if ((name === 'fidelis_undo' || name === 'fidelis_redo') && /^nothing to (undo|redo) for this document/.test(reason)) {
+    const back = name === 'fidelis_undo';
+    return `nothing to ${back ? 'go back to' : 'redo'} on this image; a macro's changes are not ${back ? 'taken back' : 'redone'}`;
+  }
+  return undefined;
+}
 const silentFinishTools = new Set(['fidelis_zoom', 'fidelis_highlight', 'fidelis_select_roi', 'fidelis_activate_image', 'fidelis_stack', 'fidelis_display']);
 const round = (value: number) => Number.isInteger(value) ? String(value) : Math.abs(value) >= 100 ? value.toFixed(0) : Math.abs(value) >= 10 ? value.toFixed(1) : value.toFixed(2);
 const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -412,7 +420,7 @@ export const fidelis: AppProfile = {
   launcherScript: './script/run-fidelis.sh', bridgeJar: 'fidelis-app/build/fidelis-app.jar', buildManifest: '', buildScript: 'python3 -I fidelis-app/tools/build.py --no-tests',
   doctorArtifacts: [['fidelis-app/build/fidelis-app.jar', 'Fidelis build'], ['.local/fiji/Fiji.app/jars', 'Fiji runtime for Fidelis']],
   bridgeIdentity: 'operations', conversationEnvelope: true, bindInstantRoutes: true, controlRoutes: true,
-  fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools,
+  fastRoute, acknowledgmentFor, localSentenceFor, requestContinuesAfter, silentFinishTools, failurePhrase,
   pausesRequest: (_name, result) => { const plan = awaitingConfirmation(result); return plan ? awaitingSentence(plan) : undefined; },
   // A waiting dialog, or a confirmed plan whose result has no local sentence (a measured mean on a possible mask), is
   // finished by the model with the real result instead of a bare "Done.".

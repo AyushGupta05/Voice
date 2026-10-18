@@ -86,6 +86,9 @@ export type AppProfile = {
   pausesRequest?(name: string, result: unknown): string | undefined;
   /** A completed call that achieved nothing (e.g. an undo with no checkpoint), as a short spoken reason; undefined when it worked. */
   unsuccessful?(name: string, args: Record<string, unknown>, result: unknown): string | undefined;
+  /** The application's error text as a short spoken reason (an engine diagnostic listing possible causes becomes one
+   * sentence); undefined keeps the text as it is. */
+  failurePhrase?(name: string, reason: string): string | undefined;
   /** Tools whose spoken outcome is the acknowledgment already playing, so a local finish stays silent. */
   silentFinishTools: Set<string>;
   /** Tools that get a spoken "Running it now." once a human approves them under the review policy. */
@@ -140,9 +143,10 @@ export function completedPayload(result: unknown): Record<string, unknown> | und
 }
 /** Why a tool call did not work, as a short sentence, or undefined when it did: a thrown error, a failed or denied
  * decision, a payload reporting `ok:false`/`error`, or the profile's own "completed but achieved nothing" check. */
-export function failureReason(profile: Pick<AppProfile, 'unsuccessful'>, name: string, args: Record<string, unknown>, result: unknown): string | undefined {
+export function failureReason(profile: Pick<AppProfile, 'unsuccessful' | 'failurePhrase'>, name: string, args: Record<string, unknown>, result: unknown): string | undefined {
   const short = (value: unknown, fallback: string) => {
-    const message = typeof value === 'string' && value.trim() ? value.trim().split('\n')[0] : fallback;
+    const raw = typeof value === 'string' && value.trim() ? value.trim().split('\n')[0] : fallback;
+    const message = profile.failurePhrase?.(name, raw) ?? raw;
     return message.length > 140 ? `${message.slice(0, 137).trimEnd()}...` : message;
   };
   if (!result || typeof result !== 'object') return undefined;

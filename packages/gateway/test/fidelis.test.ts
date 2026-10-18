@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { failureReason } from '../src/apps/profile.js';
 import AjvModule from 'ajv';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
@@ -248,6 +249,8 @@ test('local sentences speak only real results, and a waiting plan says how many 
   assert.equal(say('fidelis_convert', completed({ step: {} }), { to: '8-bit' }), 'Converted to 8-bit.');
   assert.equal(say('fidelis_confirm', completed({ count: 64, averageSize: 351.42, unit: 'pixel' })), 'Found 64 cells, mean area 351 square pixels.');
   assert.equal(say('fidelis_confirm', completed({ step: { label: 'Run macro' } })), 'Ran the macro.');
+  assert.equal(failureReason(fidelis, 'fidelis_undo', {}, { error: 'nothing to undo for this document (no snapshot: virtual stack, over budget or no data action yet)' }), "nothing to go back to on this image; a macro's changes are not taken back");
+  assert.equal(failureReason(fidelis, 'fidelis_measure', {}, { error: 'No image is focused in Fidelis; activate one first.' }), 'No image is focused in Fidelis; activate one first.');
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 2, lastRow: { Mean: 90 }, summary: { Mean: { min: 10, max: 90, mean: 50 } } }), grey), 'Mean intensity 50 over 2 regions.', 'a confirmed multi-ROI measurement reports its summary');
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ rows: 1, lastRow: { Mean: 90 }, summary: { Mean: { min: 90, max: 90, mean: 90 } } }), grey), 'Mean intensity 90.', 'one confirmed row names no place it cannot know');
   assert.equal(say('fidelis_confirm', completed({ rows: 1, lastRow: { Mean: 90 } })), undefined, 'no binary flag, no local intensity');
