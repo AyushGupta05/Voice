@@ -2,6 +2,15 @@
 
 Written at 05:00 BST while Ayush was asleep. Everything below is on `main` (origin and publish).
 
+## 000. Demo loader, charts, outlines (09:20–09:40 BST, by voice on the b8a2570 instance)
+
+Load data ▾ (beside Mic) shows *Macros demo — blobs* and *Nuclei demo — BBBC008 (DNA channel)*; captured open:
+`docs/images/fidelis/2026-10-18-load-data-menu.jpg`. Nuclei demo by voice: "Find all the nuclei" → 168 (1.2 s), green
+numbered outlines on the canvas (`…nuclei-outlines-bbbc008.jpg`); "Show me the nuclei" → flash; "Which one is the
+biggest?" → object 145, 179 px²; "Show me the size distribution" → chart (`…nuclei-size-chart.jpg`); "Remove anything
+smaller than 30 pixels" → 161; "Go back" → 168 again. Blobs chart: `…blobs-size-chart.jpg`. What to say for both demos:
+docs/FIDELIS-DEMO-SCRIPT.md.
+
 ## 00. The clean pass (09:10 BST, fresh instance from main 5e756bd, nothing fixed in between)
 
 Nine lines by real AWS voice in one go, empty History at the start:

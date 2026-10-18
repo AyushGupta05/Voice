@@ -19,21 +19,22 @@ Two demos live in that menu. Do the **Nuclei** one first (it is the visual one),
 A 512 × 512 fluorescence image of human cell nuclei (DNA channel), 168 of them.
 
 > **"Find all the nuclei."**
-> *Finding the nuclei.* → *Found 168 nuclei, mean area 70 square pixels.*
+> *Finding the nuclei.* → *Found 168 nuclei, mean area 69.7 square pixels.*
 > Green outlines appear on every nucleus, numbered; the ROI list fills; History shows the eight Fiji steps.
 
 > **"Show me the nuclei."**
 > *Here they are.* — every outline flashes on the canvas.
 
 > **"Which one is the biggest?"**
-> *The largest is object N, … square pixels.* — that nucleus flashes.
+> *The largest is object 145, 179 square pixels.* — that nucleus flashes.
 
 > **"Show me the size distribution."**
-> *Here is the size distribution: 168 objects, median … square pixels, from … to ….* — the histogram opens beside
+> *Here is the size distribution: 168 objects, median 64.5 square pixels, from 2 to 179.* — the histogram opens beside
 > the window.
 
 > **"Remove anything smaller than 30 pixels."**
-> *Segmenting cells.* → *… nuclei remain, all ≥ 30 pixel².* — the debris disappears, the count updates.
+> *Segmenting cells.* → *161 cells, all ≥ 30 pixel area.* — the debris disappears, the count updates (this one takes
+> a few seconds: it re-runs the segmentation).
 
 Move the mouse onto a nucleus that looks like two touching.
 
@@ -47,7 +48,7 @@ Move the mouse onto a small one.
 > size floor 30.*
 
 > **"Go back."** (twice if you want the split undone too)
-> *Undid: …* — outlines and count follow History.
+> *Undid: 161 objects → 168, Results cleared.* — outlines and count follow History.
 
 Say while it works: *"This is the real Fiji. Every step is a Fiji command, recorded in History; the numbers are Fiji's
 own measurements. Corrections are steps in the workflow, not drawings on top — and when I ask why, the answer is the
