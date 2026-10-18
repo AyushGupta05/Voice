@@ -73,6 +73,9 @@ public final class IsolationState {
         int[] ids = WindowManager.getIDList();
         sb.append(" ijImages=").append(ids == null ? 0 : ids.length);
         sb.append(" batchMode=").append(Interpreter.isBatchMode());
+        // a non-null static Interpreter.instance with no macro running makes IJ.isMacro() true for the whole JVM:
+        // every ImagePlus.show() then waits 2 s for an activation that never comes and pins a temporary current image
+        sb.append(" interpreter=").append(Interpreter.getInstance() == null ? "none" : "SET(isMacro=" + ij.IJ.isMacro() + ")");
         RoiManager live = RoiManager.getRawInstance();
         sb.append(" roiManager=").append(live == null ? "none" : live.getCount() + (live.isShowing() ? " shown" : " hidden"));
         sb.append(" staleRoiManagers=").append(staleRoiManagers(live).size());
@@ -125,6 +128,9 @@ public final class IsolationState {
         if (temp != null && (listed == null || java.util.Arrays.stream(listed).noneMatch(id -> id == temp.getID())))
             fixed.add("cleared stale current image '" + temp.getTitle() + "' (" + temp.getID() + ")");
         WindowManager.setTempCurrentImage(null);
+        // a finished interpreter IJ1 still names (Fiji's start-up leaves one) makes IJ.isMacro() true and every show()
+        // on a non-EDT thread wait 2 s and pin a temporary current image; the engine sweeps it, so does every class start
+        if (sc.fidelis.engine.MacroState.clearStale()) fixed.add("cleared a stale macro interpreter (IJ.isMacro() was true)");
 
         RoiManager live = RoiManager.getRawInstance();
         for (RoiManager stale : staleRoiManagers(live)) {

@@ -108,7 +108,11 @@ class EngineCodeEffectsTest {
         assertEquals(List.of(one, two), r.digest().newLogLines(), "the digest still carries the run's lines");
         waitFor("both lines as LogLine events", () -> logLines().contains(one) && logLines().contains(two), 10);
         // the engine flushes the Log before completing the result: both events were sequenced before the run's HistoryAppended
-        long resultSeq = seen.stream().filter(e -> e instanceof EngineEvent.HistoryAppended h && h.record().actionId().equals(r.record().actionId()))
+        // (events reach listeners on the EDT, so the record's event is awaited rather than assumed delivered)
+        String actionId = r.record().actionId();
+        waitFor("the run's HistoryAppended event", () -> seen.stream().anyMatch(e -> e instanceof EngineEvent.HistoryAppended h
+                && h.record().actionId().equals(actionId)), 10);
+        long resultSeq = seen.stream().filter(e -> e instanceof EngineEvent.HistoryAppended h && h.record().actionId().equals(actionId))
                 .mapToLong(EngineEvent::seq).findFirst().orElseThrow();
         for (EngineEvent e : seen) {
             if (e instanceof EngineEvent.LogLine l && (l.line().equals(one) || l.line().equals(two)))
@@ -147,6 +151,29 @@ class EngineCodeEffectsTest {
         ActionResult cleared = code("roiManager(\"reset\");\n");
         assertEquals(OperationState.COMPLETED, cleared.state(), String.valueOf(cleared.error()));
         assertEquals(0, engine.rois(doc).size());
+    }
+
+    // ---- stale macro interpreter -----------------------------------------------------------------------
+
+    @Test
+    void aFinishedInterpreterIjStillNamesIsClearedButARunningMacroKeepsIts() throws Exception {
+        // what Fiji's start-up leaves behind: Interpreter.instance set, no macro thread anywhere
+        java.lang.reflect.Field f = ij.macro.Interpreter.class.getDeclaredField("instance");
+        f.setAccessible(true);
+        f.set(null, new ij.macro.Interpreter());
+        assertTrue(IJ.isMacro(), "IJ reports a macro while the stale reference stands");
+        waitFor("the engine to clear the stale interpreter", () -> ij.macro.Interpreter.getInstance() == null, 5);
+        assertFalse(IJ.isMacro());
+        // a macro that is running is never touched: its instance stays set until it ends
+        java.util.concurrent.Future<ActionResult> running = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "wait(1500);\n", TargetScope.of(doc), null));
+        ActionResult first = running.get(60, TimeUnit.SECONDS);
+        running = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "wait(1500);\n", TargetScope.of(doc), first.confirmationToken()));
+        waitFor("the macro to start", () -> ij.macro.Interpreter.getInstance() != null, 10);
+        Thread.sleep(700); // three sweeps while the macro waits
+        assertNotNull(ij.macro.Interpreter.getInstance(), "the running macro's interpreter is left alone");
+        assertTrue(IJ.isMacro());
+        assertEquals(OperationState.COMPLETED, running.get(60, TimeUnit.SECONDS).state());
+        waitFor("no interpreter after the macro", () -> ij.macro.Interpreter.getInstance() == null, 5);
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------

@@ -93,6 +93,15 @@ final class Observers {
             }
         });
         timer.scheduleWithFixedDelay(this::flushLog, LOG_POLL_MS, LOG_POLL_MS, TimeUnit.MILLISECONDS);
+        // a macro interpreter IJ1 still names after it finished (Fiji's start-up leaves one) would make every show()
+        // wait 2 s for an activation hidden windows never get; see MacroState
+        timer.scheduleWithFixedDelay(() -> {
+            try {
+                if (MacroState.clearStale()) System.err.println("[fidelis-engine] cleared a stale IJ1 macro interpreter (no macro was running)");
+            } catch (Throwable t) {
+                System.err.println("[fidelis-engine] macro state: " + t);
+            }
+        }, LOG_POLL_MS, LOG_POLL_MS, TimeUnit.MILLISECONDS);
         try {
             java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(e -> {
                 try {
@@ -419,9 +428,10 @@ final class Observers {
      * Report what IJ1's Log gained since the last look as {@link EngineEvent.LogLine} events: a macro's {@code print},
      * a plugin's {@code IJ.log}, the engine's own notes. IJ1 offers no listener for Log additions, so the Log text
      * ({@code IJ.getLog()}, null while no Log exists) is compared every {@value #LOG_POLL_MS} ms on the observer timer
-     * and at the end of every CODE action. Lines are reported from the first one that differs from the last look:
-     * appended lines once each, a line rewritten in place ({@code print("\\Update:...")}) again with its new text, and
-     * after a clear ({@code print("\\Clear")}, the Log window closed) only what is written afterwards.
+     * and at the end of every CODE action. Each line position is compared with the last look: appended lines are
+     * reported once each, a line rewritten in place ({@code print("\\Update:...")}, {@code "\\Update3:..."}) again with
+     * its new text and nothing else, and after a clear ({@code print("\\Clear")}, the Log window closed) only what is
+     * written afterwards.
      */
     synchronized void flushLog() {
         String text;
@@ -432,12 +442,11 @@ final class Observers {
         }
         List<String> now = text == null || text.isEmpty() ? List.of() : List.of(text.split("\\R", -1));
         if (!now.isEmpty() && now.get(now.size() - 1).isEmpty()) now = now.subList(0, now.size() - 1); // trailing line break
-        int same = 0;
-        while (same < now.size() && same < logSeen.size() && now.get(same).equals(logSeen.get(same))) same++;
-        List<String> fresh = now.subList(same, now.size());
+        List<String> seen = logSeen;
         logSeen = List.copyOf(now);
-        for (String line : fresh) {
-            if (line.isBlank()) continue;
+        for (int i = 0; i < now.size(); i++) {
+            String line = now.get(i);
+            if (line.isBlank() || (i < seen.size() && line.equals(seen.get(i)))) continue;
             eng.events.emit(seq -> new EngineEvent.LogLine(seq, line));
         }
     }

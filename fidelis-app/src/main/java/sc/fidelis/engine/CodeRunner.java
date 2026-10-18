@@ -140,10 +140,12 @@ final class CodeRunner {
         Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
         ij.WindowManager.setTempCurrentImage(null);
         if (target != null) eng.makeCurrent(target);
-        // ROI Manager entries the macro adds or removes (roiManager("Add"), Analyze Particles with add) are taken over
-        // into the document's ROI list afterwards, exactly as after a native command (DefaultEngine.afterNative)
-        RoiManager managerBefore = RoiManager.getRawInstance();
-        int managerCountBefore = managerBefore == null ? -1 : managerBefore.getCount();
+        // The ROI Manager singleton mirrors the target document's ROI list while the macro runs (as it does for a typed
+        // Analyze Particles with add): the macro sees exactly that document's ROIs, a batch-mode macro writes to this
+        // registered manager instead of IJ1's private one, and what the macro leaves there (roiManager("Add"), a reset,
+        // an Analyze Particles with add) is taken over into the document's list afterwards when its content changed.
+        if (target != null) eng.roiLists.load(target);
+        List<String> managerBefore = managerContent();
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
@@ -193,9 +195,8 @@ final class CodeRunner {
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
         List<StateDigest.DocumentChange> changed = List.of();
-        RoiManager managerAfter = RoiManager.getRawInstance();
-        int managerCountAfter = managerAfter == null ? -1 : managerAfter.getCount();
-        if (managerCountAfter >= 0 && managerCountAfter != managerCountBefore) {
+        List<String> managerAfter = managerContent();
+        if (managerAfter != null && !managerAfter.equals(managerBefore)) {
             // the macro's document: its target, else the image it left current (one it opened or selected)
             Doc roiDoc = target;
             if (roiDoc == null) {
@@ -255,6 +256,23 @@ final class CodeRunner {
         StateDigest digest = new StateDigest(added, removed, changed, Math.max(0, rows), Globals.delta(gBefore, gAfter),
                 rep.newLogLines(), rep.windowsOpened(), rep.windowsClosed());
         return new Outcome(state, error, digest, rec, null);
+    }
+
+    /**
+     * The ROI Manager singleton's content as comparable text (type, geometry, name, position of every entry), or null
+     * when no manager exists: a macro that resets the manager and adds the same number of other ROIs, moves or renames
+     * one, changes the content without changing the count.
+     */
+    private static List<String> managerContent() {
+        RoiManager rm = RoiManager.getRawInstance();
+        if (rm == null) return null;
+        List<String> out = new ArrayList<>();
+        for (ij.gui.Roi r : rm.getRoisAsArray()) {
+            sc.fidelis.engine.api.RoiGeometry g = RoiCodec.toGeometry(r);
+            out.add(g.type() + "|" + g.xs() + "|" + g.ys() + "|" + java.util.Arrays.toString(g.bounds()) + "|" + g.name() + "|"
+                    + java.util.Arrays.toString(g.position()));
+        }
+        return out;
     }
 
     /** Images a macro left in batch mode are shown (as setBatchMode(false) would) so that the registry can adopt them. */
