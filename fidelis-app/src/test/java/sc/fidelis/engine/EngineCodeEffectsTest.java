@@ -243,6 +243,12 @@ class EngineCodeEffectsTest {
         assertEquals(OperationState.COMPLETED, closedAfterAdd.state(), String.valueOf(closedAfterAdd.error()));
         assertEquals(1, engine.rois(doc).size(), "the addition before the close reached the document");
         assertEquals(List.of(4.0, 4.0, 2.0, 2.0), bounds(engine.rois(doc).get(0)));
+        // a manager closed, replaced by the Add and closed again: the replacement's content is the document's
+        ActionResult replaced = code("roiManager(\"reset\");\nclose(\"ROI Manager\");\nmakeRectangle(7, 7, 3, 3);\nroiManager(\"Add\");\n"
+                + "run(\"Select None\");\nclose(\"ROI Manager\");\n");
+        assertEquals(OperationState.COMPLETED, replaced.state(), String.valueOf(replaced.error()));
+        assertEquals(1, engine.rois(doc).size(), "the replacement manager's entry reached the document: " + engine.rois(doc));
+        assertEquals(List.of(7.0, 7.0, 3.0, 3.0), bounds(engine.rois(doc).get(0)));
     }
 
     @Test
@@ -256,7 +262,8 @@ class EngineCodeEffectsTest {
         engine.imagePlus(stack).setSlice(2);
         Doc d = engine.registry.get(stack);
         ij.gui.Roi unbound = new ij.gui.Roi(2, 2, 5, 5);
-        unbound.setStrokeWidth(3);
+        java.awt.BasicStroke dashed = new java.awt.BasicStroke(3f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 10f, new float[] {2f, 2f}, 0f);
+        unbound.setStroke(dashed);
         synchronized (d.roiList) {
             d.roiList.add(unbound);
         }
@@ -269,6 +276,7 @@ class EngineCodeEffectsTest {
             assertEquals(0, d.roiList.get(0).getPosition(), "an ROI without a plane stays without one (IJ1's add would bind it to slice 2)");
             assertFalse(d.roiList.get(0).hasHyperStackPosition());
             assertEquals(3.0f, d.roiList.get(0).getStrokeWidth(), "the document's stroke width stands");
+            assertEquals(dashed, d.roiList.get(0).getStroke(), "the document's stroke object (dashes included) stands");
         }
         assertEquals(List.of(0, 0, 0), List.of(engine.rois(stack).get(0).position()[0], engine.rois(stack).get(0).position()[1], engine.rois(stack).get(0).position()[2]));
     }

@@ -42,13 +42,21 @@ final class RoiLists {
                 int before = rm.getCount();
                 rm.addRoi((Roi) r.clone());
                 if (rm.getCount() != before + 1) continue;
-                // IJ1's add binds an ROI without a position to the current plane of a stack and applies its default
-                // stroke: the document's ROI is the truth, so the manager's copy keeps the document's position and style
+                // IJ1's add binds an ROI without a position to the current plane of a stack and may apply the manager's
+                // default stroke and colour: the document's ROI is the truth, so the manager's copy keeps the document's
+                // position and style (the stroke object itself, so dashes and width scaling survive). The entry's label
+                // stays IJ1's own (an unnamed ROI gets the slice-prefixed label of the plane shown when it is first
+                // mirrored, as it would when added in Fiji); only the position decides the plane the engine measures on.
                 Roi added = rm.getRoi(before);
                 if (added == null) continue;
                 if (r.getPosition() == 0 && !r.hasHyperStackPosition()) added.setPosition(0);
-                added.setStrokeWidth(r.getStrokeWidth());
-                added.setStrokeColor(r.getStrokeColor());
+                if (added.getScaleStrokeWidth() != r.getScaleStrokeWidth()) {
+                    // the float overload marks the width as scalable, the double one as fixed (IJ1's two setters)
+                    if (r.getScaleStrokeWidth()) added.setStrokeWidth(r.getStrokeWidth());
+                    else added.setStrokeWidth((double) r.getStrokeWidth());
+                }
+                if (!java.util.Objects.equals(added.getStroke(), r.getStroke())) added.setStroke(r.getStroke());
+                if (!java.util.Objects.equals(added.getStrokeColor(), r.getStrokeColor())) added.setStrokeColor(r.getStrokeColor());
             }
         }
     }

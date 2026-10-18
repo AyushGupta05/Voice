@@ -161,9 +161,11 @@ final class CodeRunner {
             // IJ1's private one) and is empty, so a closed document's leftovers never flow into one the macro opens
             eng.roiLists.manager().reset();
         }
-        // the manager the macro starts with: should the macro close it (close("ROI Manager")), it is no longer the
-        // singleton but still holds what the macro left, and that is what the document must receive
+        // the manager the macro starts with, and every manager window existing now: should the macro close its manager
+        // (close("ROI Manager")), or close it and let roiManager("Add") create another, the last manager it used is no
+        // longer the singleton but still holds what the macro left, and that is what the document must receive
         RoiManager managerUsed = RoiManager.getRawInstance();
+        Set<java.awt.Window> managersBefore = managerWindows();
         List<String> managerBefore = content(managerUsed);
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
@@ -214,8 +216,12 @@ final class CodeRunner {
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
         List<StateDigest.DocumentChange> changed = List.of();
-        RoiManager managerNow = RoiManager.getRawInstance();
-        RoiManager managerSource = managerNow != null ? managerNow : managerUsed;
+        RoiManager managerSource = RoiManager.getRawInstance();
+        if (managerSource == null) {
+            // closed: the newest manager the macro created (windows are listed in creation order), else the one it started with
+            managerSource = managerUsed;
+            for (java.awt.Window w : managerWindows()) if (!managersBefore.contains(w)) managerSource = (RoiManager) w;
+        }
         List<String> managerAfter = content(managerSource);
         if (managerSource != null) {
             Doc roiDoc = roiOwner;
@@ -289,6 +295,13 @@ final class CodeRunner {
      * so a macro that resets the manager and adds the same number of other ROIs, moves, renames or restyles one
      * ({@code roiManager("Set Line Width", 5)}) is seen as a change although the count is unchanged.
      */
+    /** Every ROI Manager window of this JVM, open or closed (a disposed frame stays listed until it is collected). */
+    private static Set<java.awt.Window> managerWindows() {
+        Set<java.awt.Window> out = new LinkedHashSet<>();
+        for (java.awt.Window w : java.awt.Window.getWindows()) if (w instanceof RoiManager) out.add(w);
+        return out;
+    }
+
     private static List<String> content(RoiManager rm) {
         return rm == null ? null : content(List.of(rm.getRoisAsArray()));
     }
