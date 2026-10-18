@@ -16,43 +16,80 @@ Two demos live in that menu. Do the **Nuclei** one first (it is the visual one),
 
 ## Demo 1 — Nuclei (Load data ▾ → *Nuclei demo — BBBC008*)
 
-A 512 × 512 fluorescence image of human cell nuclei (DNA channel), 168 of them.
+A 512 × 512 fluorescence image of human cell nuclei (DNA channel). Every line below highlights something on the
+canvas; the numbers are what Penny said on this build.
+
+**See it**
 
 > **"Find all the nuclei."**
 > *Finding the nuclei.* → *Found 168 nuclei, mean area 69.7 square pixels.*
-> Green outlines appear on every nucleus, numbered; the ROI list fills; History shows the eight Fiji steps.
+> 168 green numbered outlines appear; the ROI list fills; History shows the eight Fiji steps.
 
 > **"Show me the nuclei."**
-> *Here they are.* — every outline flashes on the canvas.
+> *Here they are.* — all 168 flash at once.
 
 > **"Which one is the biggest?"**
-> *The largest is object 145, 179 square pixels.* — that nucleus flashes.
+> *The largest is object 145, 179 square pixels.* — it flashes.
+
+> **"Highlight the ten biggest."**
+> *These are the 10 largest, from 179 down to … square pixels.* — ten flash together.
+
+> **"Show me anything smaller than 40 pixels."**
+> *… of 168 objects are smaller than 40 square pixels.* — the debris lights up, so you can see what the next line
+> removes.
 
 > **"Show me the size distribution."**
 > *Here is the size distribution: 168 objects, median 64.5 square pixels, from 2 to 179.* — the histogram opens beside
 > the window.
 
-> **"Remove anything smaller than 30 pixels."**
-> *Segmenting cells.* → *161 cells, all ≥ 30 pixel area.* — the debris disappears, the count updates (this one takes
-> a few seconds: it re-runs the segmentation).
+**Shape it**
 
-Move the mouse onto a nucleus that looks like two touching.
+> **"Remove anything smaller than 40 pixels."**
+> *Segmenting cells.* → *… cells, all ≥ 40 pixel area.* — the small ones vanish from the canvas and the count drops
+> (a few seconds: it re-runs the segmentation with the floor).
+
+> **"Zoom in."** → *Zooming in.* (and **"Fit to window."** → *Fitting to the window.* when you want the whole image back)
+
+Move the mouse onto a nucleus that looks like two touching (a peanut).
 
 > **"Those are actually two separate cells."**
-> *Separating them.* → *Split object N into 2 (… and … square pixels); … objects now.*
+> *Separating them.* → *Split object N into 2 (… and … square pixels); … objects now.* — the two pieces flash.
 
-Move the mouse onto a small one.
+Move the mouse onto one of the pieces.
+
+> **"These are one cell."**
+> *Merging them.* → *Merged objects N and M into one of … square pixels; … objects now.*
+
+Move the mouse onto any small nucleus.
 
 > **"Why did you count this as a cell?"**
-> *Object N: … square pixels, 0.4 times the median, circularity 0.7 — small: near the size floor. Otsu threshold,
-> size floor 30.*
+> *Object N: … square pixels, 0.5 times the median, circularity 0.8 — … Otsu threshold, size floor 40.* — it flashes
+> while she explains.
 
-> **"Go back."** (twice if you want the split undone too)
-> *Undid: 161 objects → 168, Results cleared.* — outlines and count follow History.
+**Trust it**
 
-Say while it works: *"This is the real Fiji. Every step is a Fiji command, recorded in History; the numbers are Fiji's
-own measurements. Corrections are steps in the workflow, not drawings on top — and when I ask why, the answer is the
-measurement and the threshold, not an opinion."*
+> **"Go back."** → *Undid: …* (say it again for each correction; the outlines follow History every time)
+
+> **"What am I looking at?"**
+> *… 512 by 512, 8-bit; one channel; … objects outlined.*
+
+> **"Apply this analysis to the whole folder."**
+> *Ready to run this on 24 images in images; say yes to go ahead.* — the BBBC008 folder: 24 single-plane images.
+
+> **"Yes."**
+> *Ran it on 24 images; the results are in penny-folder-results.csv.* (about 20–30 s; the strip shows progress)
+
+**What to say in between** (pick what fits the moment):
+
+- after "Find all the nuclei": *"That was the real Fiji — Gaussian blur, Otsu, watershed, Analyze Particles — recorded
+  step by step in History. The numbers are Fiji's own measurements; Penny never invents one."*
+- after the highlights: *"Everything she says, she shows. Ask about the big ones, the small ones, the distribution —
+  it's on the image before the sentence ends."*
+- after split / merge: *"Corrections aren't drawings on top; they're steps in the workflow, undoable, and they ride along
+  in the macro."*
+- after "why": *"When I ask why, the answer is the measurement and the threshold, not an opinion."*
+- after the folder run: *"Anything that runs code or touches more than this image waits for my yes. The same recipe,
+  24 images, a CSV — hands never left the mouse."*
 
 ---
 

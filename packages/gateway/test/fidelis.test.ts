@@ -116,7 +116,7 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); ok('fidelis_explain_object', {}); ok('fidelis_size_chart', {}); ok('fidelis_explain_object', { index: 3 }); bad('fidelis_explain_object', { index: -1 }); ok('fidelis_split_object', {}); ok('fidelis_split_object', { x: 25, y: 29, minPart: 40 }); bad('fidelis_split_object', { minPart: 0 }); ok('fidelis_merge_objects', {}); ok('fidelis_merge_objects', { indices: [0, 1] }); bad('fidelis_merge_objects', { indices: [0] }); bad('fidelis_object_stats', { plot: false });
   ok('fidelis_display', { min: 0, max: 200 }); ok('fidelis_display', { auto: true }); ok('fidelis_stack', { slice: 3, channel: 1, frame: 2 }); bad('fidelis_stack', { slice: 0 });
   ok('fidelis_zoom', { direction: 'in' }); ok('fidelis_zoom', { fit: true }); ok('fidelis_zoom', { selection: true }); bad('fidelis_zoom', { magnification: 2 });
-  ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); bad('fidelis_highlight', { rois: 'manager' });
+  ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); ok('fidelis_highlight', { rois: 'top', count: 10 }); ok('fidelis_highlight', { rois: 'smaller', area: 40 }); bad('fidelis_highlight', { rois: 'manager' }); bad('fidelis_highlight', { rois: 'smaller', area: 0 });
   ok('fidelis_undo', {}); ok('fidelis_redo', {}); ok('fidelis_history', { limit: 20 }); ok('fidelis_macro', {});
   ok('fidelis_run_macro', { code: 'run("Invert");' }); bad('fidelis_run_macro', {}); ok('fidelis_folder_macro', { folder: '/data/set' }); bad('fidelis_folder_macro', {});
   ok('fidelis_confirm', {}); ok('fidelis_confirm', { planId: 'plan-7' }); ok('fidelis_cancel_plan', {});
@@ -188,6 +188,13 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.equal(fidelis.localSentenceFor('fidelis_explain_object', {}, { index: 0, area: 256, unit: 'pixel', areaRatio: 1, circularity: 0.785, verdict: 'typical', thresholdMethod: 'Otsu', sizeFloor: 0 }),
     'Object 1: 256 square pixels, about the median size, circularity 0.79. Otsu threshold, no size floor.');
   assert.deepEqual(route('Highlight the smallest cell.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'smallest' }, reply: 'Looking.' });
+  assert.deepEqual(route('Highlight the ten biggest.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'top', count: 10 }, reply: 'Looking.' });
+  assert.deepEqual(route('Show me the 5 smallest nuclei.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'bottom', count: 5 }, reply: 'Looking.' });
+  assert.deepEqual(route('Show me anything smaller than 40 pixels.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'smaller', area: 40 }, reply: 'Looking.' });
+  assert.deepEqual(route('Highlight the nuclei bigger than 100 square pixels.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'larger', area: 100 }, reply: 'Looking.' });
+  assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'top', count: 10 }, { highlight: {}, total: 10, picked: { which: 'top', count: 10, indices: [], unit: 'pixel', firstArea: 179, lastArea: 120 } }), 'These are the 10 largest, from 179 down to 120 square pixels.');
+  assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'smaller', area: 40 }, { highlight: {}, total: 12, picked: { which: 'smaller', area: 40, count: 12, of: 168, indices: [], unit: 'pixel' } }), '12 of 168 objects are smaller than 40 square pixels.');
+  assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'larger', area: 900 }, { highlight: {}, total: 0, picked: { which: 'larger', area: 900, count: 0, of: 168, indices: [], unit: 'pixel' } }), 'None of the 168 objects is larger than 900 square pixels.');
   assert.deepEqual(route('Rido.', segmented), { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' });
   assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'largest' }, { highlight: {}, total: 1, picked: { which: 'largest', index: 11, name: '0012-0040', areaPixels: 657, area: 657, unit: 'pixel' } }), 'The largest is object 12, 657 square pixels.');
   assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'all' }, { highlight: {}, total: 64 }), '');

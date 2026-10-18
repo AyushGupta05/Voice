@@ -210,6 +210,11 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   if (name === 'fidelis_highlight' && record(raw.picked)) {
     const picked = record(raw.picked)!; const index = finite(picked.index), area = finite(picked.area);
     if (index !== undefined && area !== undefined) return `The ${picked.which === 'smallest' ? 'smallest' : 'largest'} is object ${index + 1}, ${spokenArea(area, picked.unit)}.`;
+    const count = finite(picked.count), of = finite(picked.of), first = finite(picked.firstArea), last = finite(picked.lastArea);
+    if (picked.which === 'top' && count !== undefined) return `These are the ${count} largest${first !== undefined && last !== undefined ? `, from ${round(first)} down to ${spokenArea(last, picked.unit)}` : ''}.`;
+    if (picked.which === 'bottom' && count !== undefined) return `These are the ${count} smallest${first !== undefined && last !== undefined ? `, from ${round(first)} up to ${spokenArea(last, picked.unit)}` : ''}.`;
+    if ((picked.which === 'smaller' || picked.which === 'larger') && count !== undefined && area !== undefined && of !== undefined)
+      return count === 0 ? `None of the ${of} objects is ${picked.which} than ${spokenArea(area, picked.unit)}.` : `${count} of ${of} objects are ${picked.which} than ${spokenArea(area, picked.unit)}.`;
   }
   if (silentFinishTools.has(name)) return '';
   // A zero is a real answer and keeps its digit, so an instant route speaks it instead of its "Counting." placeholder.
@@ -392,6 +397,12 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "Why did you count this (as a cell)?" / "what is this one": the object under the pointer, explained and flashed
   if (/^(?:so )?(?:why (?:did|do) you (?:count|pick|include|call|keep) (?:this|that|it)(?: one)?(?: as (?:a |an )?(?:cell|nucleus|object))?|why (?:was|is) (?:this|that|it)(?: one)? (?:counted|picked|included|a cell|a nucleus|an object|here)|(?:what is|what's|tell me about) (?:this|that) one|explain (?:this|that)(?: one| cell| nucleus| object)?)$/.test(said))
     return { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' };
+  // "Highlight the ten biggest" / "show me the five smallest": the N extremes; "show me anything smaller than 40 pixels": a size band
+  const topN = raw.match(/^(?:show (?:me )?|highlight |point (?:at|out) |flash |outline )(?:the )?(\d+|two|three|four|five|six|seven|eight|nine|ten|twenty) (biggest|largest|smallest|tiniest)(?: (?:ones|nuclei|cells|objects))?$/);
+  if (topN) { const words: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twenty: 20 }; const count = words[topN[1]] ?? Number(topN[1]);
+    if (count >= 1 && count <= 1000) return { tool: 'fidelis_highlight', arguments: { rois: /small|tin/.test(topN[2]) ? 'bottom' : 'top', count }, reply: 'Looking.' }; }
+  const band = raw.match(/^(?:show (?:me )?|highlight |point (?:at|out) |flash |outline )(?:anything|everything|the ones|all the ones|objects|nuclei|cells|the nuclei|the cells)? ?(smaller|bigger|larger) than (\d+(?:\.\d+)?) (?:square )?(pixels?|px|microns?|µm|um|micrometers?)(?: squared| square)?$/);
+  if (band) { const area = Number(band[2]); if (area > 0) return { tool: 'fidelis_highlight', arguments: { rois: band[1] === 'smaller' ? 'smaller' : 'larger', area }, reply: 'Looking.' }; }
   const extreme = said.match(/^(?:(?:which|what)(?: one| cell| nucleus| object)? is|what's|show(?: me)?|highlight|outline|point (?:at|out|to)|find|where is|where's) (?:the )?(biggest|largest|smallest|tiniest)(?: (?:cell|nucleus|object|one|region|blob))?$/);
   if (extreme) return { tool: 'fidelis_highlight', arguments: { rois: /small|tin/.test(extreme[1]) ? 'smallest' : 'largest' }, reply: 'Looking.' };
   if (objects && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here)?$/.test(said)) return { tool: 'fidelis_highlight', arguments: { rois: 'all', label: `${objects} objects` }, reply: 'Here they are.' };

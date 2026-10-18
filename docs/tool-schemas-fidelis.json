@@ -809,7 +809,7 @@
     },
     {
       "name": "fidelis_highlight",
-      "description": "Point at what you are talking about: flash all ROI-list entries (rois all), the given indices (rois indices), the active selection (rois active), or the largest / smallest outline by area (rois largest|smallest; returns picked {index, name, area, unit}) on the Fidelis canvas, with a short label beside Penny’s cursor. Display only.",
+      "description": "Point at what you are talking about on the Fidelis canvas: all ROI-list entries (rois all), given indices, the active selection, the largest / smallest by area (returns picked {index, name, area, unit}), the N largest or smallest (top|bottom with count) or every object under / over an area (smaller|larger with area, document units). Display only.",
       "operation": "highlight",
       "risk": "view",
       "inputSchema": {
@@ -822,8 +822,21 @@
               "indices",
               "active",
               "largest",
-              "smallest"
+              "smallest",
+              "top",
+              "bottom",
+              "smaller",
+              "larger"
             ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "area": {
+            "type": "number",
+            "exclusiveMinimum": 0
           },
           "indices": {
             "type": "array",

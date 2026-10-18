@@ -216,6 +216,15 @@ class FidelisBridgeTest {
             assertEquals(1, pick.get("total").getAsInt());
             assertEquals(which + ": 256 pixel\u00b2", pick.getAsJsonObject("highlight").get("label").getAsString(), pick.toString());
         }
+        // the N largest, and everything under / over an area
+        JsonObject top = http.exec("highlight", args("rois", "top", "count", 1), null, null).result();
+        assertEquals(1, top.get("total").getAsInt(), top.toString());
+        assertEquals(256.0, top.getAsJsonObject("picked").get("firstArea").getAsDouble(), 1.0, top.toString());
+        JsonObject under = http.exec("highlight", args("rois", "smaller", "area", 300), null, null).result();
+        assertEquals(engine.rois(id).size(), under.get("total").getAsInt(), "both squares are under 300: " + under);
+        JsonObject over = http.exec("highlight", args("rois", "larger", "area", 300), null, null).result();
+        assertEquals(0, over.get("total").getAsInt(), "nothing over 300, answered rather than refused: " + over);
+        assertEquals(0, over.getAsJsonObject("picked").get("count").getAsInt());
         // "show me the sizes": the areas of the list, drawn by the workspace and summarised
         JsonObject chart = http.read("size_chart", args());
         assertEquals(engine.rois(id).size(), chart.get("n").getAsInt(), chart.toString());

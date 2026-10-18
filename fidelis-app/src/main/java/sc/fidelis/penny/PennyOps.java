@@ -1817,10 +1817,45 @@ final class PennyOps {
                             "area", calibrated, "unit", d.unit());
                 }
             }
-            default -> throw new IllegalArgumentException("rois must be all, indices, active, largest or smallest");
+            case "top", "bottom" -> {
+                // the N largest (or smallest) by outline area, in the document's units
+                int count = PennyJson.integer(a, "count", 10, 1, 1000);
+                double calibration = d.pixelWidth() * d.pixelHeight();
+                List<Integer> order = new ArrayList<>();
+                for (int i = 0; i < all.size(); i++) order.add(i);
+                order.sort((x, y) -> Double.compare(Highlight.areaPixels(all.get(which.equals("top") ? y : x)), Highlight.areaPixels(all.get(which.equals("top") ? x : y))));
+                List<Integer> indices = order.subList(0, Math.min(count, order.size()));
+                for (int i : indices) chosen.add(all.get(i));
+                picked = map("which", which, "count", chosen.size(), "indices", List.copyOf(indices), "unit", d.unit(),
+                        "firstArea", chosen.isEmpty() ? null : Highlight.areaPixels(chosen.get(0)) * calibration,
+                        "lastArea", chosen.isEmpty() ? null : Highlight.areaPixels(chosen.get(chosen.size() - 1)) * calibration);
+            }
+            case "smaller", "larger" -> {
+                // every object under (or over) an area, in the document's units: "show me anything smaller than 40 pixels"
+                double threshold = PennyJson.num(a, "area") == null ? Double.NaN : PennyJson.num(a, "area");
+                if (Double.isNaN(threshold) || threshold <= 0) throw new IllegalArgumentException("rois=" + which + " needs 'area' (> 0, in the document's units)");
+                double calibration = d.pixelWidth() * d.pixelHeight();
+                List<Integer> indices = new ArrayList<>();
+                for (int i = 0; i < all.size(); i++) {
+                    double area = Highlight.areaPixels(all.get(i)) * calibration;
+                    if (which.equals("smaller") ? area < threshold : area > threshold) { indices.add(i); chosen.add(all.get(i)); }
+                }
+                picked = map("which", which, "area", threshold, "count", chosen.size(), "of", all.size(), "indices", indices.size() > 500 ? indices.subList(0, 500) : indices, "unit", d.unit());
+            }
+            default -> throw new IllegalArgumentException("rois must be all, indices, active, largest, smallest, top, bottom, smaller or larger");
         }
-        if (chosen.isEmpty()) throw new Failure(409, which.equals("active") ? "There is no active selection." : "The ROI list is empty; segment or add regions first.");
-        String label = PennyJson.str(a, "label", picked != null ? which + ": " + Math.round((Double) picked.get("area")) + " " + d.unit() + "\u00b2"
+        if (chosen.isEmpty()) {
+            if (picked != null && picked.get("of") != null) {
+                // nothing matches the threshold: an answer, not a failure
+                Map<String, Object> none = map("highlight", Highlight.rois(d.id(), List.of(), "none", limit, false), "total", 0);
+                none.put("picked", picked);
+                return none;
+            }
+            throw new Failure(409, which.equals("active") ? "There is no active selection." : "The ROI list is empty; segment or add regions first.");
+        }
+        String label = PennyJson.str(a, "label", picked != null && picked.get("area") instanceof Double area && picked.get("of") == null ? which + ": " + Math.round(area) + " " + d.unit() + "\u00b2"
+                : picked != null && picked.get("of") != null ? chosen.size() + " " + (which.equals("smaller") ? "under " : "over ") + Math.round((Double) picked.get("area")) + " " + d.unit() + "\u00b2"
+                : picked != null ? chosen.size() + " " + (which.equals("top") ? "largest" : "smallest")
                 : chosen.size() == 1 ? "1 region" : chosen.size() + " regions");
         Map<String, Object> out = map("highlight", Highlight.rois(d.id(), chosen, label, limit, true), "total", chosen.size());
         if (picked != null) out.put("picked", picked);
