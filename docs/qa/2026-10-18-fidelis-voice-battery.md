@@ -116,3 +116,30 @@ Ask Penny), and this battery drove a separate client. The plan card (a bridge ho
    voice is back.
 4. `measure {scope: rois}` records one History step per ROI (172 for FluorescentCells): the macro grows to hundreds of
    kilobytes and History becomes hard to read. A single multi-measure step is a bridge/engine change for the owners.
+
+## Post-merge voice run (18 Oct 2026, 04:30–04:50 BST, Fidelis from main a27a892, real AWS speech)
+
+The engine hardening merge (e199df1) and the Swing-chooser change (a27a892) were live. The demo instance was relaunched
+by the launch session; the companion's gateway respawned with `app=fidelis` (33 tools).
+
+| Said | Heard | Tools | Reply | Speech end → audio | Checked | Result |
+|---|---|---|---|---|---|---|
+| "Find all the nuclei." | same | `fidelis_segment_cells` | "Found 67 nuclei, mean area 327 square pixels." | 1.13 s | Results 67 | PASS |
+| "Go back." | same | `fidelis_undo` | "Undid: 67 objects → 0, Results cleared." | 1.68 s | ROI list 0 | PASS |
+| "Run this macro." | same | `fidelis_macro`, `fidelis_run_macro` | "Ready to run 1 step; say yes to go ahead." | 1.43 s | plan waits | PASS |
+| "Yes." | "Yes," | `fidelis_confirm` | "Ran the macro: 67 result rows, 1 new image on screen." | 1.19 s | `rois` on blobs.gif: **67** (the merge's ROI sync after CODE); blobs-1.gif opened by the replay with 0 ROIs | PASS, one correction below |
+
+Earlier the same evening on f8eb0b3 (01:35 BST) the same five lines passed with the replay leaving the ROI list empty,
+and a twelve-line battery passed by voice: switch image, filter < 100 px (56 remain), mean intensity 103, zoom, brighter,
+Otsu threshold 121–255, undo ×2, count 67, save macro (226 lines from 61 steps); "Convert to mask" went to the model
+(now an instant route, 433a78f).
+
+Correction: a27a892 made a macro run focus the image it opened, which put the empty copy on screen; the replay's ROI
+entries belong to the document the macro started on (`CodeRunner`), so c5909cc removes that focus switch and the
+outlines stay on `blobs.gif`, which stays focused. Not seen on screen tonight: the display was asleep (window captures
+failed), so the overlay was verified by the ROI list count only.
+
+Voice outage before this run: both `.local/state/text-funding.json` and `speech-funding.json` reached their 24-hour
+`expiresAt` (02:35Z); `npm run enable:text` and `node --import tsx script/enable-speech.ts --authorized-aws-speech`
+(read-only proofs, credits route) renewed them to 03:31Z the next day. Renew them before the presentation if it is
+later than that.
