@@ -18,6 +18,7 @@ import javax.swing.SwingUtilities;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.ImageWindow;
 import ij.gui.Roi;
@@ -93,6 +94,11 @@ public final class DefaultEngine implements Engine {
      * INITIALISING, BUILDING_CATALOGUE, READY.
      */
     public static DefaultEngine create(ImageJ ij) {
+        // IJ1's open/save prompts are Swing JFileChoosers in Fidelis, like the workspace's own Open and Export: a Java
+        // dialog the engine and Penny can see and cancel. The macOS AWT FileDialog is a native panel whose creation
+        // blocks the AppKit thread until the panel service answers; a dispose() meanwhile stalled the event thread for
+        // 20 s per call (Coloc 2's "Save as PDF" in FidelisBridgeTest), and it cannot be filled from code at all.
+        Prefs.useJFileChooser = true;
         DefaultEngine e = new DefaultEngine(ij);
         Engines.set(e);
         e.start();

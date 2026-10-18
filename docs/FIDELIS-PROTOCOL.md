@@ -168,14 +168,14 @@ still blocked on it after 500 ms, with HTTP 200:
 
 - Field types: `number`, `string`, `text` (multi-line), `boolean`, `choice` (with `choices`), `radio` (a checkbox group,
   with `choices`). `key` is the macro key ImageJ derives from the label (first word, lower case); `id` is the position.
-  `kind` is `generic` (ImageJ GenericDialog), `awt`, `swing` or `file` (an OS file chooser: only Cancel works).
+  `kind` is `generic` (ImageJ GenericDialog), `awt`, `swing` or `file` (a file chooser: only Cancel works).
 - `dialog_action {dialogId, fields, press}` is bound to that dialog (a later dialog of the same command gets a new
   `dialogId`, and an answer for the earlier one is refused); it sets the values through the components' own events on the EDT (the plugin reads them as
   if typed) and presses the button; the command continues **inside the same engine operation**, so History records it
   (provenance `LEGACY_DIALOG`, the step's origin `NL_SPOKEN`/`NL_TYPED`). Pressing Cancel (or No) ends the plan with
   HTTP 200 `{status:"cancelled", dialog, state, engineMessage, step, completedSteps, note}` (the engine reports the
   plugin's "Macro canceled" as FAILED; the bridge does not present that as a failure).
-- An OS file chooser (`kind: "file"`: AWT `FileDialog`) that a command opens **on its way or at its end** (Coloc 2
+- A file chooser (`kind: "file"`: the Swing `JFileChooser` IJ1 shows in Fidelis — the engine sets `Prefs.useJFileChooser`, so no native macOS panel, whose creation blocks the AppKit thread and cannot be cancelled from code — or an AWT `FileDialog` a plugin builds itself) that a command opens **on its way or at its end** (Coloc 2
   finishes by asking where to save a PDF) is never offered to Penny: the plan thread presses its Cancel at once (18 Oct)
   and the step goes on; the result then carries `cancelledFileDialog: true`, `cancelledFileDialogs: [titles]` and a
   note ("Fiji wanted to save a file; Penny does not drive OS file dialogs, use export instead"). A command that ends

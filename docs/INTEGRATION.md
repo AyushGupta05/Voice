@@ -106,7 +106,7 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 ### Verification (18 Oct 2026, macOS arm64, engine suite on `integration/engine2`)
 
 Follow-up to the status above, on the integrated `main` (18567f8) plus the engine work recorded in
-[VERIFICATION-RESULTS.md section 12](03-development/VERIFICATION-RESULTS.md): the Threshold-adjuster flake of
+[FIDELIS-VERIFICATION.md section 12](FIDELIS-VERIFICATION.md): the Threshold-adjuster flake of
 `InteractiveJourneyTest` fixed in the test's driving (IJ1's adjuster constructor applies its own Default auto-threshold
 after showing the frame; 10 of 10 consecutive runs green), the speech venv and pinned model set up on this Mac so the
 14 speech cases run (fixture WAV transcribed as "Invert the image."), the one order dependence found by
@@ -116,6 +116,16 @@ interpreter in IJ1's static `Interpreter.instance`, which made every off-EDT `sh
 
 Final numbers (`python3 -I fidelis-app/tools/test.py`, branch head 473295a): default order 461 tests, 0 failed, 0 skipped (173 s), twice (the second 174 s); `--random-order 17`, `42` and `7`: 461, 0 failed, 0 skipped each (172-173 s); `--random-order 17 --random-methods`: 461, 0 failed, 0 skipped (173 s). The 461 are the 451 of the integrated `main` plus the 10 of `EngineCodeEffectsTest`; the 14 speech cases that were aborted by assumption before now pass inside these numbers (every run transcribed the fixture WAV).
 `python3 -I verification/test_verification.py`: 14 passed (compare, stored baselines, the headless dumper self-test in the pinned Fiji). Codex autoreview: 15 runs (one reviewer failure, 35 findings over 13 runs checked, fixed or documented as design limits), the final run on the branch head clean.
+
+Merged into `main` on 18 Oct 2026 (merge e199df1). On the merged tree the full suite is 468 tests (461 plus the seven
+bridge tests added since the branch base). One failure appeared only there and only in the full suite:
+`FidelisBridgeTest.aFileChooser…` — Coloc 2's "Save as PDF" is an AWT `FileDialog`, and on this Mac its native panel's
+creation blocked the AppKit thread (`-[NSSavePanel _initBridgeAndStuff]` waiting on the panel service) while the
+bridge's `dispose()` on the event thread waited for AppKit's keyboard-locale answer: 20 s per call, 6 of 6 full runs,
+also on the pre-merge tree, never when the class ran alone. Fix at the source: `DefaultEngine.create` sets
+`Prefs.useJFileChooser = true`, so IJ1's open/save prompts in Fidelis are Swing `JFileChooser`s like the workspace's own
+Open and Export; `DialogDriver.isFileChooser` recognises either kind and cancels a Swing one with `cancelSelection()`.
+Full suite after the change: 468 tests, 0 failed (two runs); Codex autoreview of the change: no findings.
 
 ## Voice in the workspace
 

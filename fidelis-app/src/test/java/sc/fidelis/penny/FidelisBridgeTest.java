@@ -532,7 +532,7 @@ class FidelisBridgeTest {
         assertTrue(done.has("cancelledFileDialog") && done.get("cancelledFileDialog").getAsBoolean(), "the Save as PDF chooser was cancelled by the bridge: " + done);
         assertTrue(done.get("note").getAsString().contains("does not drive OS file dialogs"), done.toString());
         assertTrue(List.of("completed", "cancelled").contains(done.get("status").getAsString()), done.toString());
-        assertTrue(sc.fidelis.penny.DialogDriver.showing().stream().noneMatch(w -> w instanceof java.awt.FileDialog), "no file chooser is left open");
+        assertTrue(sc.fidelis.penny.DialogDriver.showing().stream().noneMatch(sc.fidelis.penny.DialogDriver::isFileChooser), "no file chooser is left open");
         assertTrue(http.read("context", null).get("running").isJsonNull(), "the plan ended");
     }
 }

@@ -451,8 +451,8 @@ final class PennyOps {
                         java.awt.Window w = DialogDriver.find(d.title(), d.dialogClass());
                         // a modal dialog blocks the command; a non-modal tool window (Brightness/Contrast) does not, unless the
                         // command is still waiting half a second later (a non-blocking dialog the plugin waits on)
-                        // an OS file chooser is never offered to the caller: the plan thread cancels it (autoCancelFileDialog)
-                        if (w != null && !(w instanceof java.awt.FileDialog)
+                        // a file chooser is never offered to the caller: the plan thread cancels it (autoCancelFileDialog)
+                        if (w != null && !DialogDriver.isFileChooser(w)
                                 && (DialogDriver.onEdt(() -> ((java.awt.Dialog) w).isModal()) || blockedFor(run, 500)))
                             return dialogResult(p, w, null);
                     }
@@ -665,7 +665,7 @@ final class PennyOps {
         } catch (RuntimeException e) {
             return;
         }
-        if (!(w instanceof java.awt.FileDialog)) return;
+        if (!DialogDriver.isFileChooser(w)) return;
         String title = d.title() == null || d.title().isBlank() ? "file chooser" : d.title();
         try {
             DialogDriver.act(w, Map.of(), "Cancel");

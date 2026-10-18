@@ -29,6 +29,7 @@ import javax.swing.AbstractButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JRadioButton;
 import javax.swing.SwingUtilities;
@@ -116,6 +117,23 @@ final class DialogDriver {
         }
     }
 
+    /**
+     * A file chooser: an AWT {@link FileDialog}, or the dialog IJ1's {@code OpenDialog}/{@code SaveDialog} show around a
+     * {@link JFileChooser} ({@code Prefs.useJFileChooser}, which the engine sets). Neither is filled from Penny.
+     */
+    public static boolean isFileChooser(Window w) {
+        return w instanceof FileDialog || chooserIn(w) != null;
+    }
+
+    private static JFileChooser chooserIn(Component c) {
+        if (c instanceof JFileChooser f) return f;
+        if (c instanceof Container k) for (Component x : k.getComponents()) {
+            JFileChooser f = chooserIn(x);
+            if (f != null) return f;
+        }
+        return null;
+    }
+
     /** Showing dialogs that are not error dialogs (the Guard captures and closes those), oldest first. */
     static List<Window> showing() {
         return onEdt(() -> {
@@ -156,8 +174,9 @@ final class DialogDriver {
 
     private static Described describeOnEdt(Window w) {
         String title = w instanceof Dialog d && d.getTitle() != null ? d.getTitle() : "";
-        if (w instanceof FileDialog fd) {
-            return new Described(w, title, "file", "An operating-system file chooser (" + (fd.getMode() == FileDialog.LOAD ? "open" : "save")
+        if (isFileChooser(w)) {
+            boolean open = w instanceof FileDialog fd ? fd.getMode() == FileDialog.LOAD : chooserIn(w).getDialogType() == JFileChooser.OPEN_DIALOG;
+            return new Described(w, title, "file", "A file chooser (" + (open ? "open" : "save")
                     + "); it cannot be filled from Penny: Cancel it and use open_path, or answer it in Fidelis.", List.of(), List.of("Cancel"));
         }
         List<Field> fields = new ArrayList<>();
@@ -293,10 +312,12 @@ final class DialogDriver {
         return onEdt(() -> {
             if (!w.isShowing()) throw new IllegalStateException("the dialog closed before Penny could answer it");
             Described d = describeOnEdt(w);
-            if (w instanceof FileDialog fd) {
+            if (isFileChooser(w)) {
                 if (press == null || !press.equalsIgnoreCase("Cancel") || !values.isEmpty())
-                    throw new IllegalArgumentException("an operating-system file chooser can only be cancelled from Penny (press: \"Cancel\")");
-                fd.dispose();
+                    throw new IllegalArgumentException("a file chooser can only be cancelled from Penny (press: \"Cancel\")");
+                JFileChooser chooser = chooserIn(w);
+                if (chooser != null) chooser.cancelSelection(); // IJ1's SaveDialog/OpenDialog sees CANCEL_OPTION, as from the button
+                else w.dispose(); // an AWT FileDialog some plugin built itself; on macOS its native panel may outlive this
                 return Map.of("pressed", "Cancel", "set", List.of());
             }
             List<Runnable> edits = new ArrayList<>();
