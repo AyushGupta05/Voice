@@ -121,7 +121,7 @@ public final class LumaBridge implements PlugIn {
             server.createContext("/", this::handle);
             server.start();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
-            System.out.println("Luma bridge listening on 127.0.0.1:" + port);
+            BridgeLog.write("bridge listening on 127.0.0.1:" + port);
         } catch (IOException error) { throw new IllegalStateException("Cannot start Luma bridge on 127.0.0.1:" + port + ": " + error.getMessage(), error); }
     }
     void stop() { if (server != null) server.stop(0); synchronized (LOCK) { if (current == this) current = null; } }
@@ -145,7 +145,7 @@ public final class LumaBridge implements PlugIn {
         } catch (Exception error) {
             var cause = error instanceof ExecutionException ? error.getCause() : error;
             // Unexpected failures (not argument/state refusals) go to .local/fiji.log with their stack so bridge bugs are diagnosable.
-            if (!(cause instanceof IllegalArgumentException || cause instanceof IllegalStateException)) { System.out.println("[Luma] operation failed: " + cause); cause.printStackTrace(System.out); }
+            if (!(cause instanceof IllegalArgumentException || cause instanceof IllegalStateException)) { var trace = new java.io.StringWriter(); cause.printStackTrace(new java.io.PrintWriter(trace)); BridgeLog.write("operation failed: " + cause + "\n" + trace); }
             respond(exchange, cause instanceof IllegalArgumentException ? 400 : 409, Map.of("error", Objects.toString(cause.getMessage(), cause.getClass().getSimpleName())));
         } finally { exchange.close(); }
     }

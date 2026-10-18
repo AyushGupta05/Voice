@@ -687,7 +687,12 @@ final class Analysis {
             g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 13)); g.setColor(MUTED);
             g.drawString("  ·  median " + format(median) + " " + unit + "  ·  " + format(min) + "–" + format(max), 18 + titleWidth, 28);
             int left = 46, right = w - 18, top = 48, bottom = h - 38;
-            double step = niceStep(Math.max(1e-9, max - min), 5), lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step; if (hi <= lo) hi = lo + step;
+            // A few giant objects (merged clumps) must not flatten the rest: the axis ends at the 98th percentile or 4x the
+            // median, whichever is larger, and everything beyond is counted into one marked overflow bar.
+            double p98 = values[(int) Math.min(n - 1, Math.floor(0.98 * (n - 1)))], axisMax = Math.max(p98, 4 * median);
+            boolean overflow = n >= 12 && axisMax < max; if (!overflow) axisMax = max;
+            int beyond = 0; for (double v : values) if (v > axisMax) beyond++;
+            double step = niceStep(Math.max(1e-9, axisMax - min), 5), lo = Math.max(0, Math.floor(min / step) * step), hi = Math.ceil(axisMax / step) * step; if (hi <= lo) hi = lo + step;
             final double fLo = lo, fHi = hi;
             java.util.function.DoubleUnaryOperator x = v -> left + (v - fLo) / (fHi - fLo) * (right - left);
             g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
@@ -699,18 +704,23 @@ final class Analysis {
             g.setColor(AXIS); g.drawLine(left, bottom, right, bottom);
             if (n >= 12) {
                 int bins = Math.max(6, Math.min(24, (int) Math.round(Math.sqrt(n) * 1.5)));
-                int[] counts = new int[bins]; double width = (hi - lo) / bins;
-                for (double v : values) counts[(int) Math.min(bins - 1, Math.max(0, (v - lo) / width))]++;
+                int[] counts = new int[bins + (overflow ? 1 : 0)]; double width = (hi - lo) / bins;
+                for (double v : values) { if (overflow && v > axisMax) counts[bins]++; else counts[(int) Math.min(bins - 1, Math.max(0, (v - lo) / width))]++; }
                 int peak = Arrays.stream(counts).max().orElse(1);
-                double barWidth = (right - left) / (double) bins;
-                for (int i = 0; i < bins; i++) {
+                double barWidth = (right - left) / (double) counts.length;
+                for (int i = 0; i < counts.length; i++) {
                     if (counts[i] == 0) continue;
-                    double barHeight = (bottom - top) * counts[i] / (double) peak;
+                    double barHeight = (bottom - top - 14) * counts[i] / (double) peak;
                     var bar = new java.awt.geom.RoundRectangle2D.Double(left + i * barWidth + 1.5, bottom - barHeight, barWidth - 3, barHeight + 4, 6, 6);
-                    g.setPaint(new java.awt.GradientPaint(0, (float) (bottom - barHeight), ACCENT, 0, bottom, ACCENT_FADE));
+                    boolean tail = overflow && i == bins;
+                    g.setPaint(tail ? new java.awt.GradientPaint(0, (float) (bottom - barHeight), MUTED, 0, bottom, AXIS) : new java.awt.GradientPaint(0, (float) (bottom - barHeight), ACCENT, 0, bottom, ACCENT_FADE));
                     var clip = g.getClip(); g.clipRect(left, top - 2, right - left, bottom - top + 2); g.fill(bar); g.setClip(clip);
+                    // Count above each bar; the overflow bar says what it holds.
+                    g.setColor(MUTED); g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 10));
+                    String label = tail ? counts[i] + " > " + format(axisMax) : (counts[i] == peak ? String.valueOf(counts[i]) : "");
+                    if (!label.isEmpty()) g.drawString(label, (int) (left + i * barWidth + barWidth / 2 - g.getFontMetrics().stringWidth(label) / 2), (int) (bottom - barHeight - 4));
                 }
-                g.setColor(MUTED); g.drawString(String.valueOf(peak), 18, top + 10); g.drawString("0", 30, bottom);
+                g.setColor(MUTED); g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11)); g.drawString("0", 30, bottom);
             } else {
                 // Few objects: every object is a dot (a histogram of four values says nothing).
                 int lane = (top + bottom) / 2;
@@ -723,7 +733,9 @@ final class Analysis {
             int mx = (int) Math.round(x.applyAsDouble(median));
             g.setColor(MEDIAN); g.setStroke(new java.awt.BasicStroke(1.4f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND, 1, new float[]{4, 4}, 0));
             g.drawLine(mx, top - 4, mx, bottom);
-            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11)); g.drawString("median", Math.min(right - 40, mx + 5), top + 6);
+            g.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 11));
+            // The label sits on whichever side of the line has room, below the title line and above the bars' count labels.
+            g.drawString("median", mx + 5 + 40 > right ? mx - 5 - g.getFontMetrics().stringWidth("median") : mx + 5, top - 2);
             g.dispose();
         }
     }
