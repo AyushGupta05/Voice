@@ -118,7 +118,10 @@ final class RoiLists {
      */
     synchronized void noteManagerSeen() {
         RoiManager rm = RoiManager.getRawInstance();
-        if (rm == null && ij.macro.Interpreter.isBatchMode()) rm = ij.macro.Interpreter.getBatchModeRoiManager();
+        // only one that exists: getBatchModeRoiManager() would allocate an empty private manager, which the sync would
+        // then take for the macro's result and empty the document's list
+        if (rm == null && ij.macro.Interpreter.isBatchMode() && ij.macro.Interpreter.isBatchModeRoiManager())
+            rm = ij.macro.Interpreter.getBatchModeRoiManager();
         if (rm != null && !createdDuringAction.contains(rm)) createdDuringAction.add(rm);
     }
 

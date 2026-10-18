@@ -285,6 +285,12 @@ class EngineCodeEffectsTest {
         assertEquals(OperationState.COMPLETED, batch.state(), String.valueOf(batch.error()));
         assertEquals(1, engine.rois(doc).size(), "the private batch manager's entry reached the document: " + engine.rois(doc));
         assertEquals(List.of(2.0, 3.0, 6.0, 5.0), bounds(engine.rois(doc).get(0)));
+        // a batch-mode macro that only closes the manager and waits: no private manager is allocated by the polls, and
+        // the document keeps its list
+        ActionResult onlyClosed = code("roiManager(\"Show None\");\nsetBatchMode(true);\nclose(\"ROI Manager\");\nwait(400);\nsetBatchMode(false);\n");
+        assertEquals(OperationState.COMPLETED, onlyClosed.state(), String.valueOf(onlyClosed.error()));
+        assertEquals(1, engine.rois(doc).size(), "closing the manager removes nothing from the document: " + engine.rois(doc));
+        assertEquals(List.of(2.0, 3.0, 6.0, 5.0), bounds(engine.rois(doc).get(0)));
     }
 
     @Test
