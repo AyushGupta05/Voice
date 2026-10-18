@@ -131,6 +131,13 @@ class EngineCodeEffectsTest {
         IJ.log("after clear " + nonce);
         waitFor("a line written after \\Clear", () -> logLines().contains("after clear " + nonce), 5);
         assertEquals(1, logLines().stream().filter(nativeLine::equals).count(), "no line is re-reported after a clear: " + logLines());
+        // a cleared Log that is shorter than before is a new generation: a first line equal to the old first line is new
+        IJ.log("second " + nonce);
+        IJ.log("third " + nonce);
+        waitFor("three lines mirrored", () -> logLines().contains("third " + nonce), 5);
+        IJ.log("\\Clear");
+        IJ.log("after clear " + nonce);
+        waitFor("the repeated first line reported again", () -> logLines().stream().filter(("after clear " + nonce)::equals).count() == 2, 5);
     }
 
     // ---- ROI list after CODE ---------------------------------------------------------------------------
@@ -147,10 +154,38 @@ class EngineCodeEffectsTest {
         assertEquals(List.of(12.0, 11.0, 4.0, 7.0), bounds(rois.get(1)));
         assertTrue(r.digest().changed().stream().anyMatch(c -> c.id().equals(doc) && c.roiChanged()),
                 "the digest reports the ROI change: " + r.digest().changed());
+        // a restyle changes no geometry and no count, but IJ1 measures lines with their stroke width: it is a change
+        ActionResult restyled = code("roiManager(\"Select\", 0);\nroiManager(\"Set Line Width\", 5);\n");
+        assertEquals(OperationState.COMPLETED, restyled.state(), String.valueOf(restyled.error()));
+        assertTrue(restyled.digest().changed().stream().anyMatch(c -> c.id().equals(doc) && c.roiChanged()), "restyle reported: " + restyled.digest().changed());
+        synchronized (engine.registry.get(doc).roiList) {
+            assertEquals(5.0f, engine.registry.get(doc).roiList.get(0).getStrokeWidth(), "the document's ROI carries the new width");
+        }
         // a macro that removes them is mirrored too
         ActionResult cleared = code("roiManager(\"reset\");\n");
         assertEquals(OperationState.COMPLETED, cleared.state(), String.valueOf(cleared.error()));
         assertEquals(0, engine.rois(doc).size());
+    }
+
+    @Test
+    void anUntargetedMacroWorksOnTheCurrentDocumentsListNotTheLastLoadedOne() throws Exception {
+        DocumentId a = doc;
+        ActionResult onA = code("makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nrun(\"Select None\");\n");
+        assertEquals(OperationState.COMPLETED, onA.state(), String.valueOf(onA.error()));
+        assertEquals(1, engine.rois(a).size());
+        ActionResult opened = engine.open(EngineFixture.repoFile("fixtures/two-squares.png")).get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, opened.state(), String.valueOf(opened.error()));
+        DocumentId b = opened.digest().added().get(0);
+        engine.focus(b);
+        // no target: the manager is loaded from the document that is current (B, empty), not left with A's entry
+        String text = "makeRectangle(5, 5, 2, 2);\nroiManager(\"Add\");\nrun(\"Select None\");\n";
+        ActionResult first = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, null)).get(60, TimeUnit.SECONDS);
+        ActionResult onB = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, first.confirmationToken())).get(120, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, onB.state(), String.valueOf(onB.error()));
+        assertEquals(1, engine.rois(b).size(), "B holds only its own rectangle: " + engine.rois(b));
+        assertEquals(List.of(5.0, 5.0, 2.0, 2.0), bounds(engine.rois(b).get(0)));
+        assertEquals(1, engine.rois(a).size(), "A keeps its list untouched");
+        assertEquals(List.of(1.0, 1.0, 3.0, 3.0), bounds(engine.rois(a).get(0)));
     }
 
     // ---- stale macro interpreter -----------------------------------------------------------------------

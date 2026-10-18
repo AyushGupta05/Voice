@@ -140,11 +140,19 @@ final class CodeRunner {
         Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
         ij.WindowManager.setTempCurrentImage(null);
         if (target != null) eng.makeCurrent(target);
-        // The ROI Manager singleton mirrors the target document's ROI list while the macro runs (as it does for a typed
-        // Analyze Particles with add): the macro sees exactly that document's ROIs, a batch-mode macro writes to this
-        // registered manager instead of IJ1's private one, and what the macro leaves there (roiManager("Add"), a reset,
-        // an Analyze Particles with add) is taken over into the document's list afterwards when its content changed.
-        if (target != null) eng.roiLists.load(target);
+        // The ROI Manager singleton mirrors one document's ROI list while the macro runs (as it does for a typed Analyze
+        // Particles with add): the macro's target, else the document current when it starts. The macro sees exactly that
+        // document's ROIs, a batch-mode macro writes to this registered manager instead of IJ1's private one, and what
+        // the macro leaves there (roiManager("Add"), a reset, an Analyze Particles with add) is taken over into that
+        // document's list afterwards when its content changed. Like a native command (DefaultEngine.afterNative), a macro
+        // that moves to another image keeps its manager entries attributed to the document it started on: IJ1's one
+        // manager carries no per-entry image identity, so the engine cannot split a multi-image macro's additions.
+        Doc roiOwner = target;
+        if (roiOwner == null) {
+            ImagePlus cur = ij.WindowManager.getCurrentImage();
+            roiOwner = cur == null ? null : eng.registry.byImp(cur);
+        }
+        if (roiOwner != null) eng.roiLists.load(roiOwner);
         List<String> managerBefore = managerContent();
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
@@ -197,9 +205,9 @@ final class CodeRunner {
         List<StateDigest.DocumentChange> changed = List.of();
         List<String> managerAfter = managerContent();
         if (managerAfter != null && !managerAfter.equals(managerBefore)) {
-            // the macro's document: its target, else the image it left current (one it opened or selected)
-            Doc roiDoc = target;
+            Doc roiDoc = roiOwner;
             if (roiDoc == null) {
+                // no document when the macro started: the one it left current (an image it opened or selected)
                 ImagePlus cur = ij.WindowManager.getCurrentImage();
                 roiDoc = cur == null ? null : eng.registry.byImp(cur);
             }
@@ -259,18 +267,23 @@ final class CodeRunner {
     }
 
     /**
-     * The ROI Manager singleton's content as comparable text (type, geometry, name, position of every entry), or null
-     * when no manager exists: a macro that resets the manager and adds the same number of other ROIs, moves or renames
-     * one, changes the content without changing the count.
+     * The ROI Manager singleton's content as comparable text, or null when no manager exists. Each entry is IJ1's own
+     * serialisation ({@code RoiEncoder}: type, coordinates, name, position, stroke width and colours, fill, properties)
+     * so a macro that resets the manager and adds the same number of other ROIs, moves, renames or restyles one
+     * ({@code roiManager("Set Line Width", 5)}) is seen as a change although the count is unchanged.
      */
     private static List<String> managerContent() {
         RoiManager rm = RoiManager.getRawInstance();
         if (rm == null) return null;
         List<String> out = new ArrayList<>();
         for (ij.gui.Roi r : rm.getRoisAsArray()) {
-            sc.fidelis.engine.api.RoiGeometry g = RoiCodec.toGeometry(r);
-            out.add(g.type() + "|" + g.xs() + "|" + g.ys() + "|" + java.util.Arrays.toString(g.bounds()) + "|" + g.name() + "|"
-                    + java.util.Arrays.toString(g.position()));
+            byte[] bytes;
+            try {
+                bytes = ij.io.RoiEncoder.saveAsByteArray(r);
+            } catch (RuntimeException e) {
+                bytes = null;
+            }
+            out.add(bytes != null ? java.util.Base64.getEncoder().encodeToString(bytes) : String.valueOf(RoiCodec.toGeometry(r)));
         }
         return out;
     }

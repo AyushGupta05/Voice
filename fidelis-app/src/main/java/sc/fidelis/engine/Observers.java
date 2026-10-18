@@ -430,8 +430,10 @@ final class Observers {
      * ({@code IJ.getLog()}, null while no Log exists) is compared every {@value #LOG_POLL_MS} ms on the observer timer
      * and at the end of every CODE action. Each line position is compared with the last look: appended lines are
      * reported once each, a line rewritten in place ({@code print("\\Update:...")}, {@code "\\Update3:..."}) again with
-     * its new text and nothing else, and after a clear ({@code print("\\Clear")}, the Log window closed) only what is
-     * written afterwards.
+     * its new text and nothing else, and after a clear ({@code print("\\Clear")}, the Log window closed) what is written
+     * afterwards (a Log shorter than at the last look is taken as cleared, so a repeated first line is reported again; a
+     * clear and reprint of the same number of lines between two looks is reported only where the text differs, which is
+     * why a CODE result's digest still carries the run's complete {@code newLogLines}).
      */
     synchronized void flushLog() {
         String text;
@@ -444,9 +446,12 @@ final class Observers {
         if (!now.isEmpty() && now.get(now.size() - 1).isEmpty()) now = now.subList(0, now.size() - 1); // trailing line break
         List<String> seen = logSeen;
         logSeen = List.copyOf(now);
+        // a shorter Log was cleared (or closed and re-created) since the last look: everything in it is new, including a
+        // line that happens to repeat what stood at the same position before
+        boolean newGeneration = now.size() < seen.size();
         for (int i = 0; i < now.size(); i++) {
             String line = now.get(i);
-            if (line.isBlank() || (i < seen.size() && line.equals(seen.get(i)))) continue;
+            if (line.isBlank() || (!newGeneration && i < seen.size() && line.equals(seen.get(i)))) continue;
             eng.events.emit(seq -> new EngineEvent.LogLine(seq, line));
         }
     }
