@@ -288,3 +288,81 @@ text-input race below.
 
 **Not verified here:** speech (no faster-whisper interpreter configured on this Mac), live microphone, OCR of the GUI
 smoke screenshot (Windows OCR only; `gui_smoke.py` reports it as not asserted on macOS), a person driving the GUI.
+
+## 12. macOS (Apple silicon), 18 October 2026 (branch `integration/engine2`, from `main` 18567f8)
+
+Same machine and pinned Fiji as section 11. Goal: the engine and its suite solid on macOS (the known flake, the speech
+tests, random-order stability, three engine robustness items).
+
+**The Threshold-adjuster flake (InteractiveJourneyTest, "timed out waiting for Otsu dark threshold 0.0-143.0").** Root
+cause, from IJ1 1.54p's `ThresholdAdjuster`: its constructor calls `show()`, starts the adjuster thread and *then*
+applies the initial auto-threshold (method Default) on the command's `Executer` thread through `setup(imp, true)`;
+`setup` is not synchronised. The test drove the adjuster as soon as `isShowing()` was true, so the Otsu it chose ran
+on the adjuster thread concurrently with that constructor `setup`, and whichever `setup` wrote last won: with the
+stale Default levels the image kept 0-142 and nothing applied Otsu again. Reproduced with a scratch probe (Subtract
+Background and Gaussian Blur as in the journey, fresh adjuster state each time): 1 failure in 30 when driven on
+`isShowing()` (the command thread was still in the constructor in 9 of the 30), 0 in 40 when the adjuster is driven
+only after the "Threshold..." command thread has returned. The fix is in the test's driving (`finish("Threshold...")`
+before touching the adjuster, which is what a person does: the frame appears a few milliseconds before the constructor
+returns); the engine and its observer were not involved. Proof: the class run 10 times in a row, 10 of 10 green
+(threshold 0.0-143.0 every time).
+
+**Speech.** The repository venv now exists on this Mac (`python3.11 -m venv .venv-stt`, `pip install --require-hashes -r
+speech/requirements.lock.txt`: faster-whisper 1.2.1, ctranslate2 4.8.3, CPU; `scripts/setup_speech.py` fetched the
+pinned `Systran/faster-whisper-tiny.en` revision, 75.5 MB, all five file hashes verified). `WhisperSpeechService`
+defaults to `<repo>/.venv-stt/bin/python` on macOS and Linux (`Scripts/python.exe` stays the Windows default) and
+`test.py` passes the venv as `-Dfidelis.stt.python` when it exists. The worker's own tests pass (`speech/test_server.py`,
+10) and a hand-driven handshake transcribed `fixtures/invert-command.wav` as "Invert the image.". All 14 previously
+aborted JUnit cases now run and pass (`WhisperSpeechServiceTest` 13 incl. the fixture transcription at 139 ms,
+`VoiceToProposalTest.fixtureAudioToReadyInvertProposal`, plus `SpeechToExecutionTest` 2 and
+`NlRealEngineJourneyTest.spokenInvertNeedsConfirmation…`, which were previously skipped by the same assumption).
+
+**Random-order stability.** With the speech tests running, the first set of runs on the branch: default order 455
+tests, 0 failed; `--random-order 42` and `7`: 0 failed; `--random-order 17`: 1 failed,
+`EngineQuitTest.quitRefusesWithUnsavedChangesAndGoesAheadWhenDiscarding` ("expected 0 but was 1" from
+`WindowManager.getImageCount()` after quit). Reproduced deterministically with the new `test.py --class-order` (the
+first seven classes of the seed-17 order) and diagnosed: `getImageCount()` counts one image when the list is empty but
+`getCurrentImage()` still answers, and the JUnit thread held a temporary current image pinned by `ImagePlus.show()`,
+which had waited 2 s for a window activation because `IJ.isMacro()` was true. It was true because IJ1's static
+`Interpreter.instance` still named a *finished* interpreter: Fiji's start-up runs the StartupMacros `AutoRun` macro on
+its own thread while the installer saves the macro set's globals, and `Interpreter.run(String,String)` / `saveGlobals`
+restore the previously saved reference, so the JVM starts with a stale instance that survives until some macro fails
+or an abort times out (in other orders an early macro error cleared it). Fixed at the source for the product and the
+suite: `sc.fidelis.engine.MacroState.clearStale()` drops the reference when no thread is inside `ij.macro`, called from
+the engine's observer timer (200 ms) and at every class start by test isolation, whose `[isolation]` line now reports
+`interpreter=`. No assertion was weakened; `EngineQuitTest` gained a diagnostic message instead.
+
+**Engine robustness (each with a test in `EngineCodeEffectsTest`).** (a) `EngineEvent.LogLine` is emitted: the
+observer timer mirrors IJ1's Log every 200 ms and `CodeRunner` flushes it before a CODE result, comparing line
+positions (appended lines once each, a `\\Update` of a line again with its new text, after `\\Clear` only what follows);
+the editor console no longer appends the digest's lines a second time and the Log tab shows the lines
+(`WorkspaceMacroEditorTest` asserts once / before the result / in the Log tab). (b) The CODE capability scan walks IJ1's
+token stream (a capability is its name token followed by `(`, `File.x` as function-dot-word; comments and string
+contents do not count); the symbol table, which lists every built-in for every text, is no longer consulted, so
+`print("hello")` confirms with no capabilities and `exec("ls")` with `exec`. (c) After a CODE run the ROI Manager is
+synchronised like after a native command: the target document's list is loaded into the manager before the macro (a
+batch-mode macro therefore writes to the registered manager too) and taken back when its content changed
+(`roiManager("Add")` ×2 gives `rois(doc)` = 2 with exact bounds, a reset gives 0, `roiChanged` in the digest).
+
+**Review.** Codex autoreview (`/Users/ayush/.codex/skills/autoreview/scripts/autoreview --mode branch --base 18567f8
+--engine codex`, read-only, 15 runs). Run 1 was a reviewer failure (its one finding used an absolute path and was
+discarded; no review produced). Runs 2-14 reported 1-5 findings each (35 in all, 6 P1); every one was checked against
+the code and IJ1 1.54p's source and, except three rejected as design limits documented in the code, accepted and fixed
+with a test in the same commit: ROI ownership and the manager mirror (load only when the manager does not already
+hold the document's objects, by identity and the names recorded at the last sync; changes detected on IJ1's own ROI
+serialisation, taken on the EDT because the canvas sets a Show All entry's stroke colour while painting; an ownerless
+macro gets an empty registered manager; a manager the macro closed, replaced, or IJ1's private batch-mode manager, is
+still the source; copies keep the document's position, stroke object and width scaling), `MacroState` as a
+compare-and-set with a give-back, the Log mirror's line positions and generations with the editor back-filling
+digest lines, and three test races. Rejected and documented: a macro that moves between images keeps its manager
+entries on the document it started on (the native rule; IJ1's manager carries no per-entry image identity), IJ1's
+slice-prefixed labels for unnamed entries stay IJ1's convention (the engine measures on the ROI's position), and the
+editor console's append-only order in the clear-and-reprint-between-two-polls case (the Log tab and the digest keep
+the true order); residual noted in `CodeRunner`: a manager a command constructs itself and the macro closes within the
+same 100 ms poll interval is not seen. Run 15 (final head): exit 0, no accepted or actionable findings.
+
+**Final results (`python3 -I fidelis-app/tools/test.py`, branch head 473295a).** default order 461 tests, 0 failed, 0 skipped (173 s), twice (the second 174 s); `--random-order 17`, `42` and `7`: 461, 0 failed, 0 skipped each (172-173 s); `--random-order 17 --random-methods`: 461, 0 failed, 0 skipped (173 s). The 461 are the 451 of the integrated `main` plus the 10 of `EngineCodeEffectsTest`; the 14 speech cases that were aborted by assumption before now pass inside these numbers (every run transcribed the fixture WAV).
+`python3 -I verification/test_verification.py`: 14 passed (compare, stored baselines, the headless dumper self-test in the pinned Fiji).
+
+**Not verified here:** a live microphone session, Windows (the Windows defaults are unchanged but were not run), a
+person driving the GUI.

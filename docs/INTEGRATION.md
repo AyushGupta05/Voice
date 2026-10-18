@@ -117,6 +117,20 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 - Not yet tested: with the workspace's `PennyUi` implementation (screen targets are empty until it is registered), with
   the gateway and a voice turn end to end, and `segment_cells` on stacks or multichannel images.
 
+### Verification (18 Oct 2026, macOS arm64, engine suite on `integration/engine2`)
+
+Follow-up to the status above, on the integrated `main` (18567f8) plus the engine work recorded in
+[VERIFICATION-RESULTS.md section 12](03-development/VERIFICATION-RESULTS.md): the Threshold-adjuster flake of
+`InteractiveJourneyTest` fixed in the test's driving (IJ1's adjuster constructor applies its own Default auto-threshold
+after showing the frame; 10 of 10 consecutive runs green), the speech venv and pinned model set up on this Mac so the
+14 speech cases run (fixture WAV transcribed as "Invert the image."), the one order dependence found by
+`--random-order 17` fixed at its source (`sc.fidelis.engine.MacroState`: Fiji's start-up leaves a finished macro
+interpreter in IJ1's static `Interpreter.instance`, which made every off-EDT `show()` wait 2 s), and three engine items
+(live `LogLine` events, a token-based CODE capability scan, ROI Manager sync after CODE), each with a test.
+
+Final numbers (`python3 -I fidelis-app/tools/test.py`, branch head 473295a): default order 461 tests, 0 failed, 0 skipped (173 s), twice (the second 174 s); `--random-order 17`, `42` and `7`: 461, 0 failed, 0 skipped each (172-173 s); `--random-order 17 --random-methods`: 461, 0 failed, 0 skipped (173 s). The 461 are the 451 of the integrated `main` plus the 10 of `EngineCodeEffectsTest`; the 14 speech cases that were aborted by assumption before now pass inside these numbers (every run transcribed the fixture WAV).
+`python3 -I verification/test_verification.py`: 14 passed (compare, stored baselines, the headless dumper self-test in the pinned Fiji). Codex autoreview: 15 runs (one reviewer failure, 35 findings over 13 runs checked, fixed or documented as design limits), the final run on the branch head clean.
+
 ## Voice in the workspace
 
 Penny's conversation runs inside the Fidelis workspace (the planned voice panel, #18). There is a one-line **Penny strip** under
