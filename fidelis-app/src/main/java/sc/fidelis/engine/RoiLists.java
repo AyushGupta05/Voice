@@ -106,9 +106,22 @@ final class RoiLists {
      * closes is known and strongly held until the action's sync, whatever the window inventory still lists.
      */
     synchronized RoiManager noteManagerCommand() {
+        if (ij.macro.Interpreter.isBatchModeRoiManager()) {
+            // a batch-mode macro already works in IJ1's private manager; IJ1's constructor would hand back a detached
+            // frame that is never registered, so the private manager stays the one in use
+            note(ij.macro.Interpreter.getBatchModeRoiManager());
+            return null;
+        }
         RoiManager rm = manager();
-        if (!createdDuringAction.contains(rm)) createdDuringAction.add(rm);
+        if (RoiManager.getRawInstance() == rm) note(rm); // only the registered singleton counts, never a detached frame
         return rm;
+    }
+
+    /** Record a manager as the one most recently in use (moved to the end when seen again). */
+    private void note(RoiManager rm) {
+        if (rm == null) return;
+        createdDuringAction.remove(rm);
+        createdDuringAction.add(rm);
     }
 
     /**
@@ -122,10 +135,10 @@ final class RoiLists {
         // then take for the macro's result and empty the document's list
         if (rm == null && ij.macro.Interpreter.isBatchMode() && ij.macro.Interpreter.isBatchModeRoiManager())
             rm = ij.macro.Interpreter.getBatchModeRoiManager();
-        if (rm != null && !createdDuringAction.contains(rm)) createdDuringAction.add(rm);
+        note(rm);
     }
 
-    /** The newest manager noted during the action, or null. */
+    /** The manager most recently seen in use during the action, or null. */
     synchronized RoiManager latestCreatedDuringAction() {
         return createdDuringAction.isEmpty() ? null : createdDuringAction.get(createdDuringAction.size() - 1);
     }
