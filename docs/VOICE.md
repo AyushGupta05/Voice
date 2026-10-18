@@ -44,7 +44,7 @@ npm run smoke:voice -- --public-fixture
 
 The second command requires the gateway and public OS-2 slide. It uses a loopback mock voice provider and scripted backend responses, changes only the real viewer's focus, checks the resulting coordinates and confirms the hierarchy is unchanged. Its synthetic PCM is neither microphone recording nor played speech. The reported timing measures local glue only, not model or voice latency.
 
-Evidence is written to `.local/evidence/voice-protocol.json`. Never present this fixture as a live AI conversation. The actual cell-analysis fixture and MCP smoke are separate checks described in [REVIEW.md](REVIEW.md).
+Evidence is written to `.local/evidence/voice-protocol.json`. Never present this fixture as a live AI conversation. The actual cell-analysis fixture and MCP smoke are separate checks described in [CONTRIBUTING.md](CONTRIBUTING.md) and [SCIENTIFIC-AGENT-TEST.md](SCIENTIFIC-AGENT-TEST.md).
 
 ## Remaining activation work
 

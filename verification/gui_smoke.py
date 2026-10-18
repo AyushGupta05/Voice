@@ -1,15 +1,15 @@
-"""GUI smoke harness (verification brief T5; docs D18 section 8).
+"""GUI smoke harness (docs/FIDELIS-VERIFICATION.md).
 
 Launches the application through fidelis-app/tools/run.py with an isolated user.home and asks it to write
 a screenshot, then checks that the PNG exists and is not blank (non-trivial size, dimensions, colour
 variance). A screenshot is smoke evidence that the window rendered; it is never scientific evidence of
-equivalence (CR-A30-08).
+equivalence.
 
     python -I verification/gui_smoke.py [--out shot.png] [--timeout 120] [--force]
     python -I verification/gui_smoke.py --check-png existing.png      # only analyse a PNG
 
 Exit codes: 0 pass, 1 fail, 77 skipped (the app does not implement `--screenshot` yet).
-The skip is tolerant on purpose: A2 adds the flag, and until its source mentions it the harness will not
+The skip is tolerant on purpose: until the app source mentions the flag the harness will not
 launch an application that would simply stay open.
 """
 

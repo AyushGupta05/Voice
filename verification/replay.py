@@ -1,4 +1,4 @@
-"""E7 macro replay (docs A30 section 1, D18 3.4): run an exported macro in the pinned reference Fiji (GUI mode)
+"""E7 macro replay (docs/FIDELIS-VERIFICATION.md): run an exported macro in the pinned reference Fiji (GUI mode)
 and dump the final state with the same dumper as the baselines.
 
     python -I verification/replay.py --macro exported.ijm --run-dir DIR [--timeout 240]

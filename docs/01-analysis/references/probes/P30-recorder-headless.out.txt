@@ -1,8 +1,0 @@
-headless=true
-IJ.getInstance()=null
-before: Recorder.record=false IJ.recording()=false Recorder.getInstance()=null
-new Recorder(false) threw: java.awt.HeadlessException: null
-after ctor: Recorder.record=false IJ.recording()=false Recorder.getInstance()=null
-forced Recorder.record=true: IJ.recording()=false
-Recorder.getCommandOptions() after recordOption=sigma=2
-Recorder.getInstance()=null

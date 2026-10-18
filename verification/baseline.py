@@ -1,4 +1,4 @@
-"""Generate reference baselines for journey J-12 (docs A30 section 2, D18 3.5; verification brief T3).
+"""Generate reference baselines for journey J-12 (docs/FIDELIS-VERIFICATION.md).
 
     python -I verification/baseline.py --fixture FX-003 --fixture FX-001 [--modes gui headless]
 

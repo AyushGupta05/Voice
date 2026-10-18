@@ -1,3 +1,0 @@
-after Measure #1: nResults=1
-after Measure #2: nResults=1
-after Measure #3: nResults=1

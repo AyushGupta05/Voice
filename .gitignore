@@ -14,16 +14,14 @@ dist/
 build/
 .env
 .env.*
-!.env.example
 *.log
 data/
 outputs/
 .DS_Store
 Thumbs.db
 
-# Documentation-stage catalogues and probe evidence (DEC-006)
+# The Fiji command catalogue and fixture catalogue (compiled into the Fidelis jar)
 !docs/data/
-!docs/01-analysis/references/probes/*.log
 
 # Fidelis Java application (fidelis-app): build outputs and fetched test runner
 fidelis-app/build/

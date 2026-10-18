@@ -1,2 +1,0 @@
-mode	id	operation	status	detail	rc	elapsed_s
-batch	04	Median...	pass	cks 48776020->48764102	TIMEOUT	120.2

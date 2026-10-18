@@ -1,0 +1,2 @@
+# Python packages the verification harness needs beyond the standard library (python3 -m pip install -r verification/requirements.txt).
+Pillow==12.0.0

@@ -1,16 +1,3 @@
----
-id: INT-02
-title: Penny × Fidelis integration
-stage: 03-development
-status: Implemented on integration/fidelis-penny
-priority: P0
-source_revisions: [integration/fidelis-penny]
-related_requirements: [FR-NL-001, FR-SPEECH-004]
-related_decisions: [DEC-048]
-last_reviewed: 2026-10-17
-approval: Integration record; review by Arnav and Alex pending
----
-
 # Penny × Fidelis integration
 
 How the three integration parts implement [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL.md): the Java bridge inside Fidelis
@@ -55,7 +42,7 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 ### Verification status (bridge, 17 Oct 2026, macOS arm64)
 
-- Engine changes for review (Arnav), all opt-in (requests without the new keys behave as before):
+- Engine changes made for the bridge, all opt-in (requests without the new keys behave as before):
   `DefaultEngine.runOp` refuses a request whose reserved `expectedHistorySize` no longer matches the history
   (PRECONDITION_FAILED, `STATE_CHANGED`) and `Options.RESERVED` lists the key; `CommandRunner.runLegacy` ignores
   reserved keys instead of refusing them; `DirectOps` applies an explicit TargetScope plane to threshold/display
@@ -106,8 +93,7 @@ Only one Fidelis JVM per checkout (and per port) at a time.
   when segment_cells moved to a duplicate). The fourth
   reported 5 (2 P1: the approval must hold when the engine dequeues a step, and the history cursor must be taken before
   submission; 3 P2: dialog answers bound to their dialog, the cancel marker set before the press, the smoke exit status);
-  all accepted and fixed, the first with an opt-in engine check (`expectedHistorySize`, subcode `STATE_CHANGED`) that
-  the engine owner should review. The fifth reported 6 (3 P1: the step baseline taken before validation, undo
+  all accepted and fixed, the first with an opt-in engine check (`expectedHistorySize`, subcode `STATE_CHANGED`). The fifth reported 6 (3 P1: the step baseline taken before validation, undo
   snapshot identities for the automatic replacement, plane binding of threshold/display steps; 3 P2: statistics after a
   competing action, failures without a record, queued EDT edits after a timeout); all accepted and fixed (the
   replacement finding was resolved by segmenting a duplicate, which needs no undo at all). The sixth reported 5: the
@@ -119,7 +105,7 @@ Only one Fidelis JVM per checkout (and per port) at a time.
 
 ## Voice in the workspace
 
-Penny's conversation runs inside the Fidelis workspace (the planned voice panel, #18). There is a one-line **Penny strip** under
+Penny's conversation runs inside the Fidelis workspace. There is a one-line **Penny strip** under
 the command bar, and it grows into a **plan card** while the bridge shows a plan. The **Mic** button gives Penny the
 microphone, and typed requests reach her through an **Ask Penny** row. The code is in `fidelis-app/src/main/java/sc/fidelis/penny/voice`
 (the gateway client and audio) and `.../penny/ui` (the strip, the canvas highlight and the `PennyUi` hooks). The workspace
@@ -127,7 +113,7 @@ changes are small and additive: `LiveVoice`, plus hooks in `CommandBar`, `Banner
 
 ### The strip
 
-Screenshots, all in the default **light** theme: `docs/03-development/screenshots/penny-listening.png`,
+Screenshots, all in the default **light** theme: `docs/images/fidelis/penny-listening.png`,
 `penny-thinking.png`, `penny-running.png`, `penny-answer-flash.png` and `penny-plan-confirm.png`. The opt-in dark theme
 (`--theme dark`) is shown in `penny-plan-confirm-dark.png`. The workspace defaults to FlatLightLaf (`Theme.install`).
 
@@ -266,7 +252,7 @@ Screenshots, all in the default **light** theme: `docs/03-development/screenshot
   list.
 
   ```
-  python3 -I fidelis-app/tools/run.py --isolated-home -- --screenshot docs/03-development/screenshots/penny-answer-flash.png --scenario j12 --theme dark --penny-demo answer
+  python3 -I fidelis-app/tools/run.py --isolated-home -- --screenshot docs/images/fidelis/penny-answer-flash.png --scenario j12 --theme dark --penny-demo answer
   ```
 
 ### Verification (17 Oct 2026, macOS, pinned Fiji)
