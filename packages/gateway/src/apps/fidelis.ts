@@ -277,8 +277,8 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
       if (hit.focused === true) return { tool: 'fidelis_context', arguments: {}, reply: `${name.charAt(0).toUpperCase()}${name.slice(1)} is already open.` };
       if (typeof hit.id === 'string') return { tool: 'fidelis_activate_image', arguments: { id: hit.id }, reply: `Switched to ${name}.` };
     }
-    // ImageJ's built-in samples are catalogue commands (File > Open Samples), which the model finds with fidelis_commands.
-    if (/^blobs(?: sample)?$/.test(opening[1]) && !hit) return undefined;
+    // "Open the blobs image" opens the blobs.gif on disk (Penny's data folder) instantly, like any other image; only
+    // when no file matches does the host ask, and ImageJ's built-in sample (File > Open Samples) stays a catalogue command.
     return { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: opening[1] };
   }
   const doc = state?.document;

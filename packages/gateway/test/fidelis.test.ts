@@ -179,7 +179,7 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('open the hela cells image'), { tool: 'fidelis_activate_image', arguments: { id: 'doc-2' }, reply: 'Switched to hela cells.' });
   assert.deepEqual(route('open blobs'), { tool: 'fidelis_context', arguments: {}, reply: 'Blobs is already open.' });
   assert.deepEqual(route('Open the embryos image.'), { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'embryos' });
-  assert.equal(route('open the blobs sample', { ...blobs, documents: [] }), undefined, 'ImageJ samples are catalogue commands for the model');
+  assert.deepEqual(route('open the blobs image', { ...blobs, documents: [] }), { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'blobs' }, 'the blobs.gif on disk opens instantly');
   assert.deepEqual(route('What am I looking at?'), { tool: 'fidelis_context', arguments: {}, reply: 'Blobs: 256 by 254, 8-bit; one channel.' });
   // Confirmation answers exist only while a plan waits.
   const pending = { ...blobs, pending: { planId: 'plan-7', reasons: ['step 1 (run_macro) is code'] } };
