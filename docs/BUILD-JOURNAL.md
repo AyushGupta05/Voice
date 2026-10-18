@@ -369,3 +369,32 @@ Gateway-only, protocol-tested with a loopback fake bridge (`packages/gateway/tes
 - Readiness for Fidelis reads `adapter.operations` from the bridge's `GET /health` (`operations_match`); `./script/run-fidelis.sh` builds and launches Fidelis with `run.py --prop luma.root=…` (new pass-through). Details and the contract readings the bridge should match: [INTEGRATION.md](INTEGRATION.md).
 - Review passes (Codex autoreview, accepted and fixed): waiting plans are recorded with `outcome: "awaiting_confirmation"`; only the researcher's unambiguous "yes" confirms, bound to the plan pending when it was said; instant routes are bound to their observed `contextKey`; spoken intensities need `document.binary: false` because `segment_cells` leaves the mask in place; zero counts keep their digit; launcher detection handles paths with spaces.
 - `/events`: desktop requests go only to sockets whose hello does not say `desktop: false` (the Fidelis workspace), and a voice clash names the client holding voice.
+
+## 18 October 2026, 01:00–06:10 BST — overnight: engine merge, demo corrections on Fidelis, the budget guard
+
+Real-app-tested by AWS voice until 04:50 (Act 2 on the merged build: open, 67 nuclei, go back, run this macro, yes →
+67 with the outlines back; a twelve-line battery) and by typed instant routes afterwards. Everything is on `main`
+(origin and publish), verified with the Fidelis suite (470 tests, 0 failed) and `npm run check` (254).
+
+- Merged `integration/engine2` (17 commits): live `LogLine` events, token-based macro capability scan, ROI Manager
+  entries a macro adds reach the document's ROI list (so a replay shows its outlines), `MacroState` clears Fiji's stale
+  start-up interpreter, the Threshold-adjuster race and a quit order dependence fixed at the source, the Whisper venv on
+  macOS so the 14 speech tests run.
+- Fidelis shows IJ1's open/save prompts as Swing choosers (`Prefs.useJFileChooser`): the macOS native panel's creation
+  blocked the AppKit thread and the bridge's cancel stalled the event thread 20 s per call (Coloc 2's Save as PDF,
+  6/6 full-suite runs, also pre-merge; thread dumps and `sample` in docs/INTEGRATION.md).
+- New bridge operations, each a plan of recorded, undoable ROI-list steps: `split_object` ("these should be separate",
+  distance-map watershed), `merge_objects` ("these are one cell", union of touching outlines), `explain_object` ("why
+  did you count this": area vs median, circularity, threshold, size floor, verdict), `folder_macro` ("apply this
+  analysis to the whole folder": the session's rule over a folder, CSV summary, run after "yes"; literal outlines and
+  hand corrections skipped — live, 67 polygons had pushed the macro past 32 kB). Split, merge, explain and the folder
+  wait were confirmed live on blobs by typed requests on the relaunched instance.
+- Instant routes: switch to / go back to the X image, zoom in on the image, convert to mask, biggest / smallest
+  (`highlight {rois: largest|smallest}`), run this macro, the undo wording, "Rido" as redo.
+- Voice went down twice: the 24-hour funding proofs expired at 02:35Z (renewed with the documented read-only enables)
+  and, at 04:50, the $200 attempt-reserve ledger filled (1,780 reservations, $199.63; estimated real spend ≈ $2.53).
+  The second is the "$200 before waking" guard: `npm run budget:renew -- --authorized-new-budget` (new, researcher-only)
+  archives the ledger with a reconciliation record and starts a new one under the $1,000 lifetime total. Not run.
+- Not verified tonight: anything by voice after 04:50, and the screen (the display was asleep; captures black).
+  docs/qa/2026-10-18-morning-checklist.md has the order for the morning.
+
