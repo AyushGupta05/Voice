@@ -53,7 +53,7 @@ final class RoiLists {
                 if (added.getScaleStrokeWidth() != r.getScaleStrokeWidth()) {
                     // the float overload marks the width as scalable, the double one as fixed (IJ1's two setters)
                     if (r.getScaleStrokeWidth()) added.setStrokeWidth(r.getStrokeWidth());
-                    else added.setStrokeWidth((double) r.getStrokeWidth());
+                    else added.setUnscalableStrokeWidth(r.getStrokeWidth());
                 }
                 if (!java.util.Objects.equals(added.getStroke(), r.getStroke())) added.setStroke(r.getStroke());
                 if (!java.util.Objects.equals(added.getStrokeColor(), r.getStrokeColor())) added.setStrokeColor(r.getStrokeColor());
@@ -75,9 +75,38 @@ final class RoiLists {
         Roi[] arr = rm.getRoisAsArray();
         synchronized (d.roiList) {
             if (arr.length != d.roiList.size()) return false;
-            for (int i = 0; i < arr.length; i++) if (arr[i] != d.roiList.get(i)) return false;
+            for (int i = 0; i < arr.length; i++) {
+                if (arr[i] != d.roiList.get(i)) return false;
+                // the manager keeps its labels apart from the ROI objects: a workspace rename (ROI_LIST_RENAME changes
+                // the shared object's name) must reach the label too, which only a reload does
+                if (!java.util.Objects.equals(rm.getName(i), arr[i].getName())) return false;
+            }
             return true;
         }
+    }
+
+    /** Managers created by IJ1 while an action ran (a macro's roiManager("Add") after it closed the previous one), strongly held. */
+    private final List<RoiManager> createdDuringAction = new ArrayList<>();
+
+    /** Forget the managers noted for the previous action. */
+    synchronized void beginAction() {
+        createdDuringAction.clear();
+    }
+
+    /**
+     * Called by the command observer when IJ1 is about to run "ROI Manager..." with no manager registered: the hidden
+     * singleton is created here first (IJ1's plugin then finds and keeps it), so the manager a macro creates and later
+     * closes is known and strongly held until the action's sync, whatever the window inventory still lists.
+     */
+    synchronized RoiManager noteManagerCommand() {
+        RoiManager rm = manager();
+        if (!createdDuringAction.contains(rm)) createdDuringAction.add(rm);
+        return rm;
+    }
+
+    /** The newest manager noted during the action, or null. */
+    synchronized RoiManager latestCreatedDuringAction() {
+        return createdDuringAction.isEmpty() ? null : createdDuringAction.get(createdDuringAction.size() - 1);
     }
 
     /**

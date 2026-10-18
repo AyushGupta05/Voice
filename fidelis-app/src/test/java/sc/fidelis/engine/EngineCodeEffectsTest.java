@@ -264,20 +264,34 @@ class EngineCodeEffectsTest {
         ij.gui.Roi unbound = new ij.gui.Roi(2, 2, 5, 5);
         java.awt.BasicStroke dashed = new java.awt.BasicStroke(3f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 10f, new float[] {2f, 2f}, 0f);
         unbound.setStroke(dashed);
+        ij.gui.Roi fixedWidth = new ij.gui.Roi(9, 9, 4, 4);
+        fixedWidth.setUnscalableStrokeWidth(2);
+        fixedWidth.setName("fixed");
         synchronized (d.roiList) {
             d.roiList.add(unbound);
+            d.roiList.add(fixedWidth);
         }
         ActionResult print = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing\");\n", TargetScope.of(stack), null)).get(60, TimeUnit.SECONDS);
         print = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing\");\n", TargetScope.of(stack), print.confirmationToken())).get(60, TimeUnit.SECONDS);
         assertEquals(OperationState.COMPLETED, print.state(), String.valueOf(print.error()));
         assertTrue(print.digest().changed().isEmpty(), "a print changes no ROI: " + print.digest().changed());
         synchronized (d.roiList) {
-            assertEquals(1, d.roiList.size());
+            assertEquals(2, d.roiList.size());
             assertEquals(0, d.roiList.get(0).getPosition(), "an ROI without a plane stays without one (IJ1's add would bind it to slice 2)");
             assertFalse(d.roiList.get(0).hasHyperStackPosition());
             assertEquals(3.0f, d.roiList.get(0).getStrokeWidth(), "the document's stroke width stands");
             assertEquals(dashed, d.roiList.get(0).getStroke(), "the document's stroke object (dashes included) stands");
+            assertEquals(2.0f, d.roiList.get(1).getStrokeWidth());
+            assertFalse(d.roiList.get(1).getScaleStrokeWidth(), "a fixed (unscalable) width stays fixed");
         }
+        // a workspace rename changes the shared object's name: the next macro sees it in the manager's label too
+        synchronized (d.roiList) {
+            d.roiList.get(1).setName("renamed-by-workspace");
+        }
+        ActionResult print2 = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing again\");\n", TargetScope.of(stack), null)).get(60, TimeUnit.SECONDS);
+        print2 = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", "print(\"touch nothing again\");\n", TargetScope.of(stack), print2.confirmationToken())).get(60, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, print2.state(), String.valueOf(print2.error()));
+        assertEquals("renamed-by-workspace", RoiManager.getRawInstance().getName(1), "the manager's label follows the rename");
         assertEquals(List.of(0, 0, 0), List.of(engine.rois(stack).get(0).position()[0], engine.rois(stack).get(0).position()[1], engine.rois(stack).get(0).position()[2]));
     }
 

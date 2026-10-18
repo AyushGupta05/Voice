@@ -129,6 +129,10 @@ final class Observers {
         Doc doc = cur == null ? null : eng.registry.byImp(cur);
         if (op != null) {
             if (op.request.kind() != sc.fidelis.engine.api.Enums.ActionKind.CODE || op.actionId == null) return; // typed: recorded by its runner
+            // a macro's roiManager(...) with no manager registered runs "ROI Manager..." to create one: the engine creates
+            // (and remembers) its hidden singleton first, so the manager the macro fills, even one it closes before the
+            // end, is the one the CODE runner reads back (RoiLists.noteManagerCommand)
+            if ("ROI Manager...".equals(label) && ij.plugin.frame.RoiManager.getRawInstance() == null) eng.roiLists.noteManagerCommand();
             eng.results.noteChildCommand(label, options); // a macro's Clear Results restarts the table it captures
             Map<String, Object> params = new java.util.LinkedHashMap<>();
             params.put("parentActionId", op.actionId);
