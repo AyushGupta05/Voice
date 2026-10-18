@@ -365,6 +365,11 @@ final class Operations {
         var table = results(); int before = table.size();
         Roi saved = imp.getRoi();
         List<Roi> measured = new ArrayList<>();
+        // Intensities come from the requested channel (the bridge passes the segmentation channel when none is given),
+        // not whichever channel happens to be displayed; the display position is restored afterwards.
+        int shownChannel = imp.getC(), channel = integer(args, "channel", shownChannel, 1, Math.max(1, imp.getNChannels()));
+        if (channel != shownChannel) imp.setPositionWithoutUpdate(channel, imp.getZ(), imp.getT());
+        try {
         switch (scope) {
             case "roi" -> { measureInto(imp, flags, table); journal.record("measure", "run(\"Measure\");"); if (saved != null) measured.add(saved); }
             case "all" -> { imp.deleteRoi(); try { measureInto(imp, flags, table); } finally { if (saved != null) imp.setRoi(saved); } journal.record("measure", "run(\"Select None\");\nrun(\"Measure\");"); }
@@ -379,9 +384,10 @@ final class Operations {
             }
             default -> throw new IllegalArgumentException("scope must be roi, manager or all.");
         }
+        } finally { if (channel != shownChannel) imp.setPositionWithoutUpdate(shownChannel, imp.getZ(), imp.getT()); }
         showResults(table);
         var result = summary(table, before, flags);
-        result.put("scope", scope);
+        result.put("scope", scope); result.put("channel", channel);
         Rectangle union = measured.isEmpty() ? new Rectangle(0, 0, imp.getWidth(), imp.getHeight()) : Geometry.union(measured.stream().map(Roi::getBounds).toList());
         result.put("focused", Viewer.follow(imp, union));
         result.put("highlight", measured.isEmpty() ? Viewer.imageHighlight(imp, "Measured the whole image") : Viewer.roiHighlight(imp, measured, "Measured " + measured.size() + (measured.size() == 1 ? " region" : " regions"), 120));

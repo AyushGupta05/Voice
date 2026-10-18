@@ -1,4 +1,4 @@
-// Fidelis reference dumper (docs D18 3.3). Runs inside the pinned Fiji through the macro call
+// Fidelis reference dumper (docs/FIDELIS-VERIFICATION.md). Runs inside the pinned Fiji through the macro call
 //   eval("js", "var DUMP_OUT='...'; var DUMP_TAG='...'; var DUMP_RAW=true;" + File.openAsString(path));
 // It only READS state; it never changes images, selections, tables or globals.
 //

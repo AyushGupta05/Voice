@@ -36,6 +36,8 @@ public final class Pipeline {
     private final List<String> notReplayed = new ArrayList<>();
 
     boolean ready() { return image != null; }
+    /** The channel the cells were segmented on, or null before any segmentation. */
+    Integer channel() { return channel; }
 
     /** Private checkpoint copy: a later correction must not mutate the analysis restored by undo. */
     synchronized Pipeline copy() {
@@ -171,6 +173,19 @@ public final class Pipeline {
             pieces.add(piece);
         }
         return pieces.size() >= 2 ? pieces : List.of();
+    }
+    /** Tolerances for objects that are merely oversized (no researcher assertion): never below 0.15, pieces at least 0.35x the median. */
+    static final double[] OVERSIZED_TOLERANCES = {0.5, 0.3, 0.15};
+    /**
+     * Pieces of an oversized object at the gentlest tolerance that separates it into pieces of at least {@code floor} px
+     * (0.35x the median area: a clump of nuclei splits, a single large nucleus does not crumble). Empty when none does.
+     */
+    static List<Roi> splitOversized(Roi roi, int floor, double[] usedTolerance) {
+        for (double tolerance : OVERSIZED_TOLERANCES) {
+            var pieces = splitRoi(roi, tolerance, floor);
+            if (!pieces.isEmpty()) { usedTolerance[0] = tolerance; return pieces; }
+        }
+        return List.of();
     }
     /** Pieces at the gentlest tolerance that separates the object (for objects the researcher said are several cells). */
     static List<Roi> splitAsserted(Roi roi, int minPart, double[] usedTolerance) {
@@ -457,7 +472,8 @@ public final class Pipeline {
         int minPart = Math.max(4, (int) Math.round(median * 0.15));
         var out = new ArrayList<Roi>();
         for (int i = 0; i < rois.length; i++) {
-            List<Roi> pieces = f > 0 && px[i] > f * median ? splitRoi(rois[i], tol, minPart) : List.of();
+            // The same floor as live: a plan tolerance below ImageJ's 0.5 came from an oversized clump, whose pieces must be real cells.
+            List<Roi> pieces = f > 0 && px[i] > f * median ? splitRoi(rois[i], tol, tol < 0.5 ? Math.max(minPart, (int) Math.round(0.35 * median)) : minPart) : List.of();
             if (pieces.isEmpty()) out.add(rois[i]); else out.addAll(pieces);
         }
         Calibration cal = imp.getCalibration(); double pxArea = cal.pixelWidth * cal.pixelHeight;

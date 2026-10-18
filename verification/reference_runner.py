@@ -1,8 +1,7 @@
-"""Reference runner: executes an independent ImageJ macro in the pinned Fiji (docs A30 section 2, D18 3.1).
+"""Reference runner: executes an independent ImageJ macro in the pinned Fiji (docs/FIDELIS-VERIFICATION.md).
 
 The pinned runtime is verified against external/fiji.lock.json before and after every run
-(`verify_runtime` is copied from backend/src/fidelis/adapters/fiji.py; the prototype package is not
-imported, so the oracle shares no code with it). One JVM per run, isolated user.home and working
+(`verify_runtime` is self-contained; the oracle shares no code with the Fidelis engine). One JVM per run, isolated user.home and working
 directory, updater autocheck disabled, hard timeout, and only the PID this runner started is killed.
 
 Windows (the pinned archive's platform): the lock is checked file by file and Fiji's own launcher runs the macro.
@@ -64,7 +63,7 @@ MAC_PLATFORM = "macos-arm64" if platform.machine() == "arm64" else "macos64"
 MAC_LAUNCHER = f"Fiji.app/Contents/MacOS/fiji-{'macos-arm64' if MAC_PLATFORM == 'macos-arm64' else 'macos-x64'}"
 
 
-# --- runtime pin (copied from backend/src/fidelis/adapters/fiji.py) --------------------------------
+# --- runtime pin (file inventory against external/fiji.lock.json) ----------------------------------
 
 
 def sha256(path: Path) -> str:

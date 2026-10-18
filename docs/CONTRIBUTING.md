@@ -1,6 +1,8 @@
 # Contributing
 
-Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md) and [setup](PENNY-SETUP.md). The aim is to make existing scientific software easier to operate while keeping its real data, algorithms and interface.
+Start with the [README](../README.md), the [product brief](PRODUCT.md), the [capability matrix](CAPABILITIES.md) and [setup](PENNY-SETUP.md). The aim is to make existing scientific software easier to operate while keeping its real data, algorithms and interface. The repository holds Penny (voice gateway, native companion, QuPath and Fiji adapters) and the Fidelis workstation (`fidelis-app/`, `verification/`, `fixtures/`, `speech/`); [AGENTS.md](../AGENTS.md) is the short map and rule sheet for contributors and coding agents.
+
+Never present a proposal as implemented. Record evidence separately from claims: implemented, protocol-tested, real-app-tested or blocked.
 
 ## Add a structured QuPath tool
 
@@ -12,6 +14,14 @@ Start with the [product brief](PRODUCT.md), [capability matrix](CAPABILITIES.md)
 6. Run focused checks and autoreview. Verify the visible application when UI or scientific outcomes change.
 
 The running gateway’s tool list feeds MCP discovery and the conversation transport. MCP must advertise its authenticated `/tools` response, not a potentially newer source registry, and must leave argument validation to that gateway. Do not duplicate provider-specific scientific tool implementations.
+
+## Work on the Fidelis workstation
+
+- Read [FIDELIS-ENGINE.md](FIDELIS-ENGINE.md) first: the architecture invariants and the `sc.fidelis.engine.api` contract. Change the contract additively.
+- Build and test with `python3 -I fidelis-app/tools/build.py` and `python3 -I fidelis-app/tools/test.py` (JUnit 5 inside one live Fiji JVM; `--select-class` for one class, `--timeout` for the full run). Run the app with `python3 -I fidelis-app/tools/run.py --isolated-home`; never modify the Fiji installation or system Java settings; one Fidelis JVM per checkout.
+- Scientific behaviour is verified by numbers against `verification/baselines` (pixels, ROI vertices, Results doubles, globals), never by appearance. `python3 -I verification/test_verification.py` checks the harness; `python3 -I verification/baseline.py --check --fixture FX-003` re-runs a reference baseline without overwriting it. Never weaken or disable a test to go green. See [FIDELIS-VERIFICATION.md](FIDELIS-VERIFICATION.md).
+- Fixtures come through `verification/fetch_fixtures.py` with pinned digests; licence-restricted downloads stay in the git-ignored cache. Do not add upstream Fiji, ImageJ or plugin source, GPL code, model weights or large datasets to the repository.
+- Penny's bridge inside Fidelis (`sc.fidelis.penny`) and the workspace voice surface follow [FIDELIS-PROTOCOL.md](FIDELIS-PROTOCOL.md) and [INTEGRATION.md](INTEGRATION.md); the gateway profile is `packages/gateway/src/apps/fidelis*.ts`.
 
 ## Validation layers
 
@@ -50,9 +60,9 @@ For voice/backend changes, run `npm run check` and read [VOICE.md](VOICE.md). `n
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs `npm ci` / `npm run check` and portable preservation/build/startup fixtures on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
+`.github/workflows/verify.yml` runs `npm ci` / `npm run check` and portable preservation/build/startup fixtures on Ubuntu 24.04 and the offline native PCM tests/build and disposable process-scope fixture on macOS 15. The Fidelis suite and the Fiji bridge contract tests need the pinned Fiji installation and run locally only (`python3 -I fidelis-app/tools/test.py`, `./script/test-fiji-bridge.sh`). It uses pinned official action revisions and standard GitHub-hosted runners only. Jobs are restricted to public repositories, where those runners are [free under GitHub's documented policy](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Private repositories skip both jobs. No provider secrets, image datasets, cache uploads, artifact storage, paid runners or deployment steps are configured.
 
-CI does not launch QuPath, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
+CI does not launch QuPath or Fiji, test native audio hardware or validate a scientific result. Keep the real-app and disposable-fixture checks in the validation layers above. A passing workflow establishes only the commands shown in its logs.
 
 The AWS text-adapter tests use only synthetic credit/price records, mocked inference and intercepted SDK requests. `npm run check` never enables funding or invokes a real model. `npm run enable:text` and `npm run smoke:text -- --public-fixture` are explicit, separate commands; read [AWS-TEXT.md](AWS-TEXT.md) before using them. The latter consumes verified AWS credits and is not a generic CI/setup check.
 
@@ -67,3 +77,7 @@ The separately authorized fixed scientific-model fixture is documented in [SCIEN
 Approval lifecycle tests inject an actual local audit-file failure before execution and after synthetic adapter success. They verify zero dispatch without a recorded decision, preserved completed results, denied/expired notifications, released backend waiters, warning propagation and no retry. These fixtures use temporary directories and synthetic adapters; they never damage the production journal or mutate a scientific application.
 
 Idle-approval tests cover status/health expiry without another proposal or click, single settlement under concurrent reads, journal failure warnings, preserved running/denied decisions and an expired backend result retaining its action ID. Clock-controlled and authenticated HTTP fixtures use temporary state and synthetic adapters; no real approval or QuPath mutation occurs.
+
+## Licence of contributions
+
+By contributing, you agree that your original contributions are licensed under the Apache License 2.0, as scoped in [NOTICE](../NOTICE). Upstream QuPath, Fiji, ImageJ, plugin and model licences are unchanged and their source is never pasted into this repository.

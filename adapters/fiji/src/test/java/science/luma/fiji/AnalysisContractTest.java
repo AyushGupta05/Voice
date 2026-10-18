@@ -216,6 +216,18 @@ public final class AnalysisContractTest {
         var removed = edt(() -> analysis.filterObjects(remove));
         expect(((Number) removed.get("removed")).intValue() == 1 && manager.getCount() == 6, "remove-at-pointer deletes only that cell: " + removed);
         System.out.println("PASS filter_objects (3 specks removed) and split_objects (touching pair -> 2), split/merge/remove at the pointer");
+        // A dense clump (five overlapping discs traced as one object, 30x the median) does not split at ImageJ's default
+        // tolerance; the oversized rule eases the tolerance and splits it into real-sized pieces.
+        manager.reset();
+        for (int i = 0; i < 8; i++) manager.addRoi(new OvalRoi(20 + i * 45, 20, 18, 18));
+        var clump = new ShapeRoi(new OvalRoi(60, 100, 40, 40));
+        for (var c : new int[][]{{88, 104}, {74, 126}, {102, 128}, {118, 108}}) clump = clump.or(new ShapeRoi(new OvalRoi(c[0], c[1], 40, 40)));
+        manager.addRoi(clump);
+        var clumped = new ImagePlus("synthetic-clump.tif", new ByteProcessor(400, 200)); activate(clumped);
+        var eased = edt(() -> analysis.splitObjects(new JsonObject()));
+        System.out.println("  clump: " + eased);
+        expect(((Number) eased.get("split")).intValue() == 1 && ((Number) eased.get("after")).intValue() >= 10 && ((Number) eased.get("tolerance")).doubleValue() <= 0.5, "the clump split into real-sized pieces (tolerance eased only when the default fails): " + eased);
+        System.out.println("PASS oversized clump splits (" + eased.get("after") + " objects, tolerance " + eased.get("tolerance") + ")");
     }
     /** "Remove the tiny ones" when the specks outnumber the cells: 6 cells (r 20) and 20 specks (r 3); the median is a speck. */
     static void filterBimodal() throws Exception {

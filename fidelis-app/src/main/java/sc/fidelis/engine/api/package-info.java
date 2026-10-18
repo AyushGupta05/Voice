@@ -2,8 +2,7 @@
  * The Fidelis engine contract: the single typed interface through which every input modality
  * (menus, tools, typed text, speech, macros, replay) operates on the real Fiji/ImageJ state.
  *
- * <p>Design sources: docs D06 (command contract), D09 (API and events), D05 (state ownership),
- * revised by the architecture-gate review (hybrid B: real IJ1 canvases hosted in the workspace).
+ * <p>The contract is described in docs/FIDELIS-ENGINE.md (hybrid B: real IJ1 canvases hosted in the workspace).
  *
  * <p>Four kinds of interaction are distinguished (see {@link sc.fidelis.engine.api.Provenance}):
  * <ol>
@@ -13,7 +12,7 @@
  *   <li>UNRECORDABLE: operations that cannot be recorded or replayed faithfully.</li>
  * </ol>
  *
- * <p>Stability rule: this package is shared by all workstreams. Changes require lead review and a
- * note in docs/03-development/ACTIVE-DEVELOPMENT.md. Add, do not break.
+ * <p>Stability rule: this package is shared by the engine, the UI, the NL/speech layer and Penny's bridge.
+ * Change it additively (new default methods, operation constants, optional parameters). Add, do not break.
  */
 package sc.fidelis.engine.api;

@@ -1,9 +1,0 @@
-Interpreter.isBatchMode()=true Interpreter.batchMode field=true
-IDs: A=-2 B=-3
-after show: getImageCount=2 getIDList=[-2, -3] current=B A.getWindow()=null
-after setTempCurrentImage(A): current=A
-A.changes after Invert=true
-B pixel(5,5)=10240 displayMin/Max=0.0/100.0
-events=[updated A, updated B]
-after close: getImageCount=0
-IJ.maxMemory()=24696061952 IJ.freeMemory()=164MB of 23552MB (<1%)

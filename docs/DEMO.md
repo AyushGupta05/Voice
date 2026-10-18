@@ -4,6 +4,28 @@
 
 A researcher keeps using QuPath exactly as before. They talk to Penny the way they'd talk to a colleague sitting next to them, and Penny acts in the real application: it moves the viewer, points at things with its own cursor, proposes analyses for approval and reads back real numbers. Nothing is mocked; the counts come from QuPath.
 
+## The bar
+
+Penny's companion surface is a 420 × 56 px bar at the top of the screen with four phases:
+
+| Phase | What you see | Driven by |
+|---|---|---|
+| Idle | Mic glyph, "Hey Penny · tap to talk" (or the connection/setup reason when not ready) | voice off |
+| Listening | Animated waveform from your microphone level and the live partial transcript; the mic glyph becomes Stop | `voice_state: listening`, `voice_transcript` |
+| Executing | The phrase Penny is saying while it acts ("Detecting cells.") with a shimmer, then the one-sentence result for a few seconds | `text_ack`, `task_state`, `text_result` |
+| Speaking | Small animated dots while the reply plays | `voice_speaking` |
+
+Click the status or chevron to expand the details panel: conversation, measured results and action history. Workflow scripts render as monospaced blocks with Copy; class summaries render as a count/percent table. Stop cancels unstarted agent work; completed actions remain. Penny's own cursor flies to what it talks about and outlines matched cells or controls.
+
+## Load the latest build safely
+
+1. Save or discard current work and quit QuPath normally. Replacing the extension JAR does not update a running QuPath.
+2. Run `./script/build-bridge.sh` and `./script/run-qupath.sh`.
+3. Run `./script/build_and_run.sh --verify`. This restarts only this project's companion and its owned gateway.
+4. Run `npm run doctor` and `npm run smoke`. The loaded bridge identity and running schemas must match the current source (`/health` → `context.adapterReadiness.status: matches_build`) before testing new operations.
+
+The Fiji demo is [DEMO-FIJI.md](DEMO-FIJI.md) (`./script/run-fiji.sh`); the Fidelis workstation demo is [FIDELIS-DEMO.md](FIDELIS-DEMO.md) (`./script/run-fidelis.sh`).
+
 ## Preparation
 
 1. Follow [PENNY-SETUP.md](PENNY-SETUP.md); launch the development QuPath and Penny (`./script/run-qupath.sh`, `./script/build_and_run.sh --verify`).
@@ -38,6 +60,7 @@ Penny has 33 tools covering context, objects, measurements, navigation, display,
 - Voice is AWS Transcribe → OpenAI `gpt-oss-120b` on Bedrock → Amazon Polly, paid from AWS credits. It is not GPT-Live; no credit-covered realtime endpoint exists.
 - Counts verify that the software did what was asked. They are not validated segmentation or a clinical Ki-67 score. See [DATASETS.md](DATASETS.md).
 - Checkpoints restore the object hierarchy only, not files or image settings.
+- Do not label text-only or synthetic-audio tests as live microphone sessions; the user's own mic sessions are confirmed through the `science.luma.companion` audio log category.
 
 ## Pitch outline, about three minutes
 

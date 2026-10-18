@@ -1,4 +1,0 @@
-commandExecuting: command=[Invert] thread=[Run$_SciJava-4570826e-Thread-0] Macro.getOptions()=[null]
-commandExecuting: command=[Gaussian Blur...] thread=[Run$_SciJava-4570826e-Thread-0] Macro.getOptions()=[sigma=3 ]
-commandExecuting: command=[Add...] thread=[Run$_SciJava-4570826e-Thread-0] Macro.getOptions()=[value=10 ]
-Macro.getOptions() on thread [Run$_SciJava-4570826e-Thread-0] after setOptions = [sigma=7 ]

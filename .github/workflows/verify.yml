@@ -12,6 +12,8 @@ concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The Fidelis workstation suite (python3 -I fidelis-app/tools/test.py) and the Fiji bridge contract tests
+# (./script/test-fiji-bridge.sh) need the pinned Fiji installation and run locally only.
 jobs:
   gateway:
     # Standard runners are free for public repos. Never consume billed private-repo minutes.

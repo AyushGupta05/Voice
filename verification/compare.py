@@ -1,4 +1,4 @@
-"""Comparators E1, E3, E4, E5, E6 over dumper output directories (docs A30 section 1, D18 3.4).
+"""Comparators E1, E3, E4, E5, E6 over dumper output directories (docs/FIDELIS-VERIFICATION.md).
 
     python -I verification/compare.py REF_DIR CAND_DIR [--report report.json] [--steps s01_open ...]
 

@@ -1,9 +1,0 @@
-# P01 headless start-up timing 2026-10-17T08:16:53
-# NOTE: other research agents may have been running Fiji concurrently; timings are indicative only.
-# cmd: fiji-windows-x64.exe --java-home=<bundled Zulu 21.0.7> --allow-multiple --headless -macro P01-headless-startup.ijm <marker> (cwd=Fiji)
-# wall = process launch to exit (time.perf_counter); machine: Core Ultra 9 285H, 31.4 GB RAM, Windows 11 26200
-run 1: rc=0 wall=4.14s marker='P01 ok IJ 2.18.0/1.54p java 21.0.7 headless true'
-run 2: rc=0 wall=4.69s marker='P01 ok IJ 2.18.0/1.54p java 21.0.7 headless true'
-run 3: rc=0 wall=4.66s marker='P01 ok IJ 2.18.0/1.54p java 21.0.7 headless true'
-run 4: rc=0 wall=4.26s marker='P01 ok IJ 2.18.0/1.54p java 21.0.7 headless true'
-run 5: rc=0 wall=4.38s marker='P01 ok IJ 2.18.0/1.54p java 21.0.7 headless true'

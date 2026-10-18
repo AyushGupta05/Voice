@@ -1,1 +1,0 @@
-overlay size after addSelection=1
