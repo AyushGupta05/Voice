@@ -2316,7 +2316,14 @@ final class PennyOps {
             if (x.digest() != null) {
                 m.put("resultsRowsAdded", x.digest().resultsRowsAdded());
                 m.put("log", x.digest().newLogLines().size() > 50 ? x.digest().newLogLines().subList(0, 50) : x.digest().newLogLines());
-                m.put("documentsAdded", x.digest().added().stream().map(DocumentId::value).toList());
+                List<DocumentId> added = x.digest().added();
+                m.put("documentsAdded", added.stream().map(DocumentId::value).toList());
+                // a replay that re-opens the file works on its own copy: show that copy, so the result is on screen
+                if (!added.isEmpty()) {
+                    DocumentId shown = added.get(added.size() - 1);
+                    engine.focus(shown);
+                    m.put("focused", shown.value());
+                }
             }
             return m;
         };
