@@ -476,9 +476,18 @@ class InteractiveJourneyTest {
      * Image>Adjust>Threshold... as a person uses it: the adjuster frame opens on the current image, Otsu is chosen
      * in the method list and "Dark background" ticked (ItemEvents into the adjuster, which recomputes on its own
      * thread), then the frame is closed. Returns a description of what was driven.
+     *
+     * <p>The adjuster is driven only once the "Threshold..." command has returned. IJ1's {@code ThresholdAdjuster}
+     * constructor shows the frame, starts the adjuster thread and <em>then</em> applies the initial auto-threshold
+     * (method Default) on the command's thread with {@code setup(imp, true)}; {@code setup} is not synchronised. Choosing
+     * Otsu while that is still running makes the adjuster thread apply Otsu concurrently, and whichever {@code setup}
+     * writes last wins: with the stale Default levels the image keeps 0-142 instead of Otsu's 0-143 and nothing applies
+     * Otsu again (reproduced 1 in 30 when driven on {@code isShowing()}, 0 in 40 after the command returned). A person
+     * cannot click inside the few milliseconds the constructor still runs after the frame appears; the test must not either.
      */
     private String thresholdWithTheAdjuster(ImagePlus imp) throws Exception {
         click("Threshold...");
+        finish("Threshold...", null); // the constructor's own Default auto-threshold has been applied on the command thread
         waitFor("Threshold adjuster", () -> adjuster() != null && adjuster().isShowing(), 30);
         ThresholdAdjuster ta = adjuster();
         Choice[] method = new Choice[1];

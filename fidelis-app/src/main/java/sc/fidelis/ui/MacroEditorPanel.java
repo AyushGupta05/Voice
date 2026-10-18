@@ -63,6 +63,8 @@ public final class MacroEditorPanel extends JPanel {
     private String pendingToken;
     private String capabilities = "";
     private String runningRequestId;
+    /** Log lines delivered live during the current run (reconciled with the result's digest in finished()). */
+    private final java.util.List<String> liveLogLines = new java.util.ArrayList<>();
     private String runningOperationId;
     private boolean cancelWhenKnown;
     private ActionResult lastResult;
@@ -217,6 +219,7 @@ public final class MacroEditorPanel extends JPanel {
 
     private void submit(ActionRequest req) {
         runningRequestId = req.requestId();
+        liveLogLines.clear();
         runningOperationId = null;
         cancelWhenKnown = false;
         ctx.registerLabel(req.requestId(), "Run macro");
@@ -242,10 +245,17 @@ public final class MacroEditorPanel extends JPanel {
             return;
         }
         lastResult = r;
-        // Log lines written during the run arrive with the result (StateDigest.newLogLines); live LogLine events,
-        // when the engine emits them, are appended by handle() as they come
-        if (r.digest() != null && r.digest().newLogLines() != null)
-            for (String line : r.digest().newLogLines()) append("  " + line);
+        // Log lines written during the run arrived as live LogLine events (handle() appends them as they come; the engine
+        // flushes the last ones before it completes the result). The digest's newLogLines are the run's complete list:
+        // a line it holds that no live event delivered (a clear and reprint between two looks of the engine's Log mirror)
+        // is appended now, each line once, in the digest's order. The console is append-only, so in that rare case a
+        // back-filled line follows lines printed after it; the Log tab and the digest keep the run's true order.
+        if (r.digest() != null && r.digest().newLogLines() != null) {
+            java.util.List<String> undelivered = new java.util.ArrayList<>(r.digest().newLogLines());
+            for (String live : liveLogLines) undelivered.remove(live);
+            for (String line : undelivered) append("  " + line);
+        }
+        liveLogLines.clear();
         switch (r.state()) {
             case AWAITING_CONFIRMATION -> {
                 pending = req;
@@ -326,6 +336,7 @@ public final class MacroEditorPanel extends JPanel {
                 append("Cancel requested");
             }
         } else if (e instanceof EngineEvent.LogLine l) {
+            liveLogLines.add(l.line());
             append(l.line());
         } else if (e instanceof EngineEvent.OperationProgress p && p.operationId() != null && p.operationId().equals(runningOperationId)
                 && p.statusText() != null && !p.statusText().isBlank()) {

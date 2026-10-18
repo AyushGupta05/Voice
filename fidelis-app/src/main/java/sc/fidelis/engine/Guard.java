@@ -130,7 +130,18 @@ final class Guard {
         return new Report(List.copyOf(errors), logLines, List.copyOf(opened), closed, sawDialog);
     }
 
+    /** Runs on every poll (and once more at the end): the CODE runner notes the ROI Manager singleton of the moment. */
+    volatile Runnable onPoll;
+
     private synchronized void poll() {
+        Runnable hook = onPoll;
+        if (hook != null) {
+            try {
+                hook.run();
+            } catch (Throwable t) {
+                System.err.println("[fidelis-engine] poll hook: " + t);
+            }
+        }
         List<Window> now = new ArrayList<>();
         for (Window w : Window.getWindows()) if (w.isShowing() && !baseline.contains(w)) now.add(w);
         for (Window w : now) {

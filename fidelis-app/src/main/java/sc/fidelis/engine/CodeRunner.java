@@ -16,9 +16,11 @@ import java.util.regex.Pattern;
 import ij.ImagePlus;
 import ij.Macro;
 import ij.macro.Interpreter;
+import ij.macro.MacroConstants;
 import ij.macro.Program;
 import ij.macro.Symbol;
 import ij.macro.Tokenizer;
+import ij.plugin.frame.RoiManager;
 import sc.fidelis.engine.api.ActionRequest;
 import sc.fidelis.engine.api.ActionResult.EngineError;
 import sc.fidelis.engine.api.ActionResult.StateDigest;
@@ -51,25 +53,52 @@ final class CodeRunner {
         this.eng = eng;
     }
 
-    /** Capabilities found in the macro text (token scan plus a text scan for dotted names). */
+    /**
+     * Capabilities the macro text really calls, in the order of {@link #CAPABILITIES}. The text is tokenized by IJ1's
+     * own {@link Tokenizer} (comments vanish, string constants are opaque tokens), and a capability counts only when
+     * its name token is followed by {@code (}: {@code exec("ls")} and {@code File.delete(p)} do, while
+     * {@code print("call this eval later")}, {@code // exec(...)}, {@code exec = 3} and {@code myexec(1)} do not.
+     * The symbol table is <em>not</em> consulted: it lists every built-in function whether the text uses it or not.
+     * Text IJ1 cannot tokenize at all reports no capabilities; the interpreter then reports the syntax error.
+     */
     static List<String> scan(String text) {
-        Set<String> found = new LinkedHashSet<>();
+        List<String> names = new ArrayList<>();
         try {
             Program pgm = new Tokenizer().tokenize(text);
+            int[] code = pgm.getCode();
             Symbol[] table = pgm.getSymbolTable();
-            Set<String> symbols = new LinkedHashSet<>();
-            if (table != null) for (Symbol s : table) if (s != null && s.str != null) symbols.add(s.str);
-            for (String cap : CAPABILITIES) {
-                if (symbols.contains(cap) || pgm.hasWord(cap)) found.add(cap);
+            for (int i = 0; code != null && i < code.length; i++) {
+                int tok = code[i] & MacroConstants.TOK_MASK;
+                if (tok == MacroConstants.EOF) break;
+                String name = identifier(tok, code[i] >> MacroConstants.TOK_SHIFT, table);
+                if (name == null) continue;
+                // File.delete: WORD/function "File", '.', WORD "delete"
+                if (i + 2 < code.length && (code[i + 1] & MacroConstants.TOK_MASK) == '.') {
+                    String member = identifier(code[i + 2] & MacroConstants.TOK_MASK, code[i + 2] >> MacroConstants.TOK_SHIFT, table);
+                    if (member != null && isCall(code, i + 3)) names.add(name + "." + member);
+                    continue;
+                }
+                if (isCall(code, i + 1)) names.add(name);
             }
         } catch (RuntimeException e) {
-            // the interpreter will report syntax errors; the text scan below still applies
+            // IJ1 could not tokenize the text: the interpreter reports the syntax error; no capability can be named
         }
-        for (String cap : CAPABILITIES) {
-            String re = cap.contains(".") ? "\\b" + Pattern.quote(cap) + "\\s*\\(" : "\\b" + Pattern.quote(cap) + "\\s*\\(";
-            if (Pattern.compile(re).matcher(text).find()) found.add(cap);
-        }
+        Set<String> found = new LinkedHashSet<>();
+        for (String cap : CAPABILITIES) if (names.contains(cap)) found.add(cap);
         return new ArrayList<>(found);
+    }
+
+    private static boolean isCall(int[] code, int at) {
+        return at < code.length && (code[at] & MacroConstants.TOK_MASK) == '(';
+    }
+
+    /** The name of an identifier token (a user word or a built-in function), else null (operators, constants, keywords). */
+    private static String identifier(int tok, int address, Symbol[] table) {
+        boolean named = tok == MacroConstants.WORD || tok == MacroConstants.PREDEFINED_FUNCTION || tok == MacroConstants.NUMERIC_FUNCTION
+                || tok == MacroConstants.STRING_FUNCTION || tok == MacroConstants.ARRAY_FUNCTION || tok == MacroConstants.USER_FUNCTION
+                || tok == MacroConstants.VARIABLE_FUNCTION;
+        if (!named || table == null || address < 0 || address >= table.length || table[address] == null) return null;
+        return table[address].str;
     }
 
     private static String sha(String text) {
@@ -111,6 +140,35 @@ final class CodeRunner {
         Doc target = r.target() == null || r.target().document() == null ? null : eng.registry.get(r.target().document());
         ij.WindowManager.setTempCurrentImage(null);
         if (target != null) eng.makeCurrent(target);
+        // The ROI Manager singleton mirrors one document's ROI list while the macro runs (as it does for a typed Analyze
+        // Particles with add): the macro's target, else the document current when it starts. The macro sees exactly that
+        // document's ROIs, a batch-mode macro writes to this registered manager instead of IJ1's private one, and what
+        // the macro leaves there (roiManager("Add"), a reset, an Analyze Particles with add) is taken over into that
+        // document's list afterwards when its content changed. Like a native command (DefaultEngine.afterNative), a macro
+        // that moves to another image keeps its manager entries attributed to the document it started on: IJ1's one
+        // manager carries no per-entry image identity, so the engine cannot split a multi-image macro's additions.
+        Doc roiOwner = target;
+        if (roiOwner == null) {
+            ImagePlus cur = ij.WindowManager.getCurrentImage();
+            roiOwner = cur == null ? null : eng.registry.byImp(cur);
+        }
+        if (roiOwner != null) {
+            // loaded only when the manager does not already hold this document's objects, so a selection the previous
+            // macro left (roiManager("Select", 0), then roiManager("Delete") in the next run) survives as it does in Fiji
+            eng.roiLists.ensureMirrors(roiOwner);
+        } else {
+            // no document to own them: the registered manager exists (a batch-mode macro writes to it rather than to
+            // IJ1's private one) and is empty, so a closed document's leftovers never flow into one the macro opens
+            eng.roiLists.manager().reset();
+        }
+        // the manager the macro starts with: should the macro close its manager (close("ROI Manager")), or close it and
+        // let roiManager("Add") create another (noted by the command observer, RoiLists.noteManagerCommand), the last
+        // manager it used is no longer the singleton but still holds what the macro left, and that is what the document
+        // must receive
+        eng.roiLists.beginAction();
+        RoiManager managerUsed = RoiManager.getRawInstance();
+        if (managerUsed != null) eng.roiLists.noteManagerSeen();
+        List<String> managerBefore = content(managerUsed);
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
@@ -125,6 +183,7 @@ final class CodeRunner {
                 eng.emitState(op, OperationState.RUNNING, null);
             }
         });
+        guard.onPoll = eng.roiLists::noteManagerSeen; // a manager a command creates directly (To ROI Manager) is held too
         eng.setGuard(guard);
         Interpreter interp = new Interpreter();
         eng.setInterpreter(interp);
@@ -155,9 +214,38 @@ final class CodeRunner {
             Macro.setOptions(null);
         }
         Guard.Report rep = guard.end();
+        eng.observers.flushLog(); // the macro's last Log lines reach listeners before its result does
         showBatchImages();
         Registry.Change change = eng.reconcile();
         eng.rehideWindows();
+        List<StateDigest.DocumentChange> changed = List.of();
+        RoiManager managerSource = RoiManager.getRawInstance();
+        if (managerSource == null) {
+            // closed: the newest manager that was the singleton during the run (created on "ROI Manager...", or seen
+            // by the guard's 100 ms poll when a command constructed it itself), else the one the macro started with.
+            // Only managers that served as the singleton count: IJ1 constructs a frame it never registers when
+            // "ROI Manager..." runs while one exists. Residual: a manager a command constructs itself and the macro
+            // closes within the same 100 ms is not seen, and the document then keeps the previous manager's list.
+            RoiManager created = eng.roiLists.latestCreatedDuringAction();
+            managerSource = created != null ? created : managerUsed;
+        }
+        List<String> managerAfter = content(managerSource);
+        if (managerSource != null) {
+            Doc roiDoc = roiOwner;
+            if (roiDoc == null) {
+                // no document when the macro started: the one it left current (an image it opened or selected)
+                ImagePlus cur = ij.WindowManager.getCurrentImage();
+                roiDoc = cur == null ? null : eng.registry.byImp(cur);
+            }
+            if (roiDoc != null && eng.registry.all().contains(roiDoc)) {
+                boolean contentChanged = !managerAfter.equals(managerBefore);
+                // the document takes the manager's objects whenever they differ, even when their content is the same
+                // (a reset that recreated the same ROIs): the next macro then finds the manager mirroring the document
+                // and keeps its selection; a changed content is also reported
+                if (contentChanged || !eng.roiLists.mirrors(roiDoc, managerSource)) eng.roiLists.syncBack(roiDoc, managerSource);
+                if (contentChanged) changed = List.of(new StateDigest.DocumentChange(roiDoc.id, false, false, false, true, false));
+            }
+        }
         boolean cancelled = op.cancelRequested && op.abortIssued;
         boolean macroError = interp.wasError() || (ret != null && ret.equals("[aborted]"));
         String message = null;
@@ -203,9 +291,39 @@ final class CodeRunner {
         for (Doc d : change.added()) added.add(d.id);
         List<DocumentId> removed = new ArrayList<>();
         for (Doc d : change.removed()) removed.add(d.id);
-        StateDigest digest = new StateDigest(added, removed, List.of(), Math.max(0, rows), Globals.delta(gBefore, gAfter),
+        StateDigest digest = new StateDigest(added, removed, changed, Math.max(0, rows), Globals.delta(gBefore, gAfter),
                 rep.newLogLines(), rep.windowsOpened(), rep.windowsClosed());
         return new Outcome(state, error, digest, rec, null);
+    }
+
+    /**
+     * A ROI Manager's content as comparable text, or null without a manager. Each entry is IJ1's own
+     * serialisation ({@code RoiEncoder}: type, coordinates, name, position, stroke width and colours, fill, properties)
+     * so a macro that resets the manager and adds the same number of other ROIs, moves, renames or restyles one
+     * ({@code roiManager("Set Line Width", 5)}) is seen as a change although the count is unchanged.
+     */
+    /**
+     * Serialised on the EDT: while the canvas paints a "Show All" list it sets and restores each ROI's stroke colour
+     * (the highlight of the entry under the pointer), and a serialisation on the worker could catch that transient and
+     * report a change a print-only macro never made.
+     */
+    private static List<String> content(RoiManager rm) {
+        if (rm == null) return null;
+        return Edt.call(() -> content(List.of(rm.getRoisAsArray())));
+    }
+
+    private static List<String> content(List<ij.gui.Roi> rois) {
+        List<String> out = new ArrayList<>();
+        for (ij.gui.Roi r : rois) {
+            byte[] bytes;
+            try {
+                bytes = ij.io.RoiEncoder.saveAsByteArray(r);
+            } catch (RuntimeException e) {
+                bytes = null;
+            }
+            out.add(bytes != null ? java.util.Base64.getEncoder().encodeToString(bytes) : String.valueOf(RoiCodec.toGeometry(r)));
+        }
+        return out;
     }
 
     /** Images a macro left in batch mode are shown (as setBatchMode(false) would) so that the registry can adopt them. */

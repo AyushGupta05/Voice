@@ -92,6 +92,16 @@ final class Observers {
                 onUpdated(imp);
             }
         });
+        timer.scheduleWithFixedDelay(this::flushLog, LOG_POLL_MS, LOG_POLL_MS, TimeUnit.MILLISECONDS);
+        // a macro interpreter IJ1 still names after it finished (Fiji's start-up leaves one) would make every show()
+        // wait 2 s for an activation hidden windows never get; see MacroState
+        timer.scheduleWithFixedDelay(() -> {
+            try {
+                if (MacroState.clearStale()) System.err.println("[fidelis-engine] cleared a stale IJ1 macro interpreter (no macro was running)");
+            } catch (Throwable t) {
+                System.err.println("[fidelis-engine] macro state: " + t);
+            }
+        }, LOG_POLL_MS, LOG_POLL_MS, TimeUnit.MILLISECONDS);
         try {
             java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(e -> {
                 try {
@@ -119,6 +129,10 @@ final class Observers {
         Doc doc = cur == null ? null : eng.registry.byImp(cur);
         if (op != null) {
             if (op.request.kind() != sc.fidelis.engine.api.Enums.ActionKind.CODE || op.actionId == null) return; // typed: recorded by its runner
+            // a macro's roiManager(...) with no manager registered runs "ROI Manager..." to create one: the engine creates
+            // (and remembers) its hidden singleton first, so the manager the macro fills, even one it closes before the
+            // end, is the one the CODE runner reads back (RoiLists.noteManagerCommand)
+            if ("ROI Manager...".equals(label) && ij.plugin.frame.RoiManager.getRawInstance() == null) eng.roiLists.noteManagerCommand();
             eng.results.noteChildCommand(label, options); // a macro's Clear Results restarts the table it captures
             Map<String, Object> params = new java.util.LinkedHashMap<>();
             params.put("parentActionId", op.actionId);
@@ -406,6 +420,44 @@ final class Observers {
         }
         eng.recordObserved(History.record(eng.history.nextId(), Origin.OBSERVED, Provenance.NATIVE, opName, "Threshold", params,
                 TargetScope.of(doc.id), lines, true, Globals.capture(), Map.of(), OperationState.COMPLETED, null));
+    }
+
+    // ---- the IJ1 Log -----------------------------------------------------------------------------------
+
+    private static final long LOG_POLL_MS = 200;
+    /** Lines of IJ1's Log already reported as {@link EngineEvent.LogLine}. */
+    private List<String> logSeen = List.of();
+
+    /**
+     * Report what IJ1's Log gained since the last look as {@link EngineEvent.LogLine} events: a macro's {@code print},
+     * a plugin's {@code IJ.log}, the engine's own notes. IJ1 offers no listener for Log additions, so the Log text
+     * ({@code IJ.getLog()}, null while no Log exists) is compared every {@value #LOG_POLL_MS} ms on the observer timer
+     * and at the end of every CODE action. Each line position is compared with the last look: appended lines are
+     * reported once each, a line rewritten in place ({@code print("\\Update:...")}, {@code "\\Update3:..."}) again with
+     * its new text and nothing else, and after a clear ({@code print("\\Clear")}, the Log window closed) what is written
+     * afterwards (a Log shorter than at the last look is taken as cleared, so a repeated first line is reported again; a
+     * clear and reprint of the same number of lines between two looks is reported only where the text differs, which is
+     * why a CODE result's digest still carries the run's complete {@code newLogLines}).
+     */
+    synchronized void flushLog() {
+        String text;
+        try {
+            text = ij.IJ.getLog();
+        } catch (RuntimeException e) {
+            return;
+        }
+        List<String> now = text == null || text.isEmpty() ? List.of() : List.of(text.split("\\R", -1));
+        if (!now.isEmpty() && now.get(now.size() - 1).isEmpty()) now = now.subList(0, now.size() - 1); // trailing line break
+        List<String> seen = logSeen;
+        logSeen = List.copyOf(now);
+        // a shorter Log was cleared (or closed and re-created) since the last look: everything in it is new, including a
+        // line that happens to repeat what stood at the same position before
+        boolean newGeneration = now.size() < seen.size();
+        for (int i = 0; i < now.size(); i++) {
+            String line = now.get(i);
+            if (line.isBlank() || (!newGeneration && i < seen.size() && line.equals(seen.get(i)))) continue;
+            eng.events.emit(seq -> new EngineEvent.LogLine(seq, line));
+        }
     }
 
     /** Drop per-image state of a closed document (the maps are strong, identity-keyed and would pin the pixel data). */

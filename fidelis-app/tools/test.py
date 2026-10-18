@@ -1,7 +1,7 @@
 """Run the Fidelis JUnit 5 tests inside the pinned Fiji runtime.
 
 Usage:  python fidelis-app/tools/test.py [--select-class FQCN ...] [--tag TAG] [--heap 4g] [--timeout SEC]
-                                        [--random-order SEED [--random-methods]]
+                                        [--random-order SEED [--random-methods]] [--class-order FQCN,FQCN,...]
 
 Tests run in one JVM with the same flags as the application (tools/fijienv.py) and an isolated
 user.home, so ImageJ preferences never touch the developer's profile (NFR-MAINT-004).
@@ -10,7 +10,8 @@ Tests that need a live Fiji context use sc.fidelis.testkit.FijiFixture.
 Every test class starts from the same shared-JVM state: sc.fidelis.testkit.SessionIsolation is registered
 through JUnit's extension autodetection (enabled here) and prints one `[isolation]` line per class.
 --random-order SEED runs the classes in a seeded random order (JUnit's ClassOrderer$Random) to expose
-order dependence; --random-methods also shuffles the methods inside each class with the same seed.
+order dependence; --random-methods also shuffles the methods inside each class with the same seed. --class-order
+runs the named classes first, in that order (sc.fidelis.testkit.ExplicitClassOrder), to reproduce one such dependence.
 """
 
 from __future__ import annotations
@@ -53,7 +54,22 @@ def main() -> None:
             launcher += ["--config",
                          "junit.jupiter.testmethod.order.default=org.junit.jupiter.api.MethodOrderer$Random"]
         print(f"[test] random class order, seed {seed}" + (" (methods shuffled too)" if methods else ""))
+    if "--class-order" in argv:
+        # reproduce an order a seeded run exposed: the named classes first, in this order (selected if not already)
+        order = argv[argv.index("--class-order") + 1]
+        launcher += ["--config", "junit.jupiter.testclass.order.default=sc.fidelis.testkit.ExplicitClassOrder",
+                     "--config", f"fidelis.test.classOrder={order}"]
+        if "--select-class" not in argv:
+            launcher.remove("--scan-classpath")
+            launcher.remove(str(env.TEST_CLASSES))
+            for name in order.split(","):
+                launcher += ["--select-class", name.strip()]
+        print(f"[test] explicit class order: {order}")
     props = {"fidelis.repo.dir": str(env.REPO_DIR), "java.awt.headless": "false"}
+    stt_python = env.speech_python()
+    if stt_python is not None and "FIDELIS_STT_PYTHON" not in os.environ:
+        # the repository's speech venv (speech/setup_speech.py): the speech tests run instead of being skipped
+        props["fidelis.stt.python"] = str(stt_python)
     args = env.jvm_flags(heap=heap, user_home=home, extra_props=props, background=True) + ["-cp", env.CLASSPATH_SEPARATOR.join(cp)] + launcher
     argfile = env.write_argfile(env.BUILD / "test.args", args)
     proc = subprocess.Popen([env.jdk_bin("java"), f"@{argfile}"], cwd=str(env.fiji_dir()))

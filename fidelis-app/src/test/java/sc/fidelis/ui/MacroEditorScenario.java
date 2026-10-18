@@ -213,8 +213,8 @@ final class MacroEditorScenario {
     static void consoleShowsLogLinesAndCancelStopsTheMacro() throws Exception {
         if (engine.focused().isEmpty()) openBlobs();
         MacroEditorPanel editor = ws.editor();
-        // (a) a macro that prints: its Log line reaches the console with the result (the engine reports a run's log
-        //     lines in the digest; it emits no live LogLine events today) and the Log tab
+        // (a) a macro that prints: its Log line reaches the console and the Log tab as a live LogLine event (the engine
+        //     mirrors IJ1's Log additions), exactly once, and before the run's result line
         edt(() -> {
             editor.setText("print(\"editor console check\");\n");
             editor.run();
@@ -224,7 +224,11 @@ final class MacroEditorScenario {
         waitFor("print macro finished", () -> !editor.isRunning() && editor.lastResult() != null
                 && editor.lastResult().state() != OperationState.AWAITING_CONFIRMATION, 60);
         assertEquals(OperationState.COMPLETED, editor.lastResult().state(), String.valueOf(editor.lastResult().error()));
-        assertTrue(editor.consoleText().contains("editor console check"), "console shows the macro's Log line:\n" + editor.consoleText());
+        String console = editor.consoleText();
+        assertTrue(console.contains("editor console check"), "console shows the macro's Log line:\n" + console);
+        assertEquals(1, console.split("editor console check", -1).length - 1, "the Log line appears once in the console:\n" + console);
+        assertTrue(console.indexOf("editor console check") < console.lastIndexOf("Completed"), "the Log line precedes the result:\n" + console);
+        waitFor("Log tab shows the line", () -> ws.log().content().contains("editor console check"), 10);
         // (b) a long macro is cancelled from the editor and ends CANCELLED
         String text = "for (i = 0; i < 1200; i++) { wait(50); }\nprint(\"never printed\");\n";
         int hist = engine.history().size();

@@ -55,7 +55,12 @@ class EngineQuitTest {
         DocumentId a = make("quit-a");
         DocumentId b = make("quit-b");
         engine.imagePlus(b).changes = true; // unsaved edit
+        // IJ.isMacro() must be false here: with a stale Interpreter.instance (MacroState) show() would wait 2 s for an
+        // activation the hidden window never gets and pin this thread's temporary current image
+        String beforeShow = "isMacro=" + IJ.isMacro() + " interpreter=" + ij.macro.Interpreter.getInstance();
+        long t0 = System.nanoTime();
         IJ.createImage("never-hosted", "8-bit white", 8, 8, 1).show(); // an image IJ1 holds that nobody asked to host
+        long showMs = (System.nanoTime() - t0) / 1_000_000;
         Thread.sleep(300);
 
         boolean went = engine.quit(false, stopped::incrementAndGet, terminated::incrementAndGet);
@@ -74,7 +79,12 @@ class EngineQuitTest {
         assertEquals(EngineState.QUITTING, engine.state());
         assertTrue(engine.documents().isEmpty(), "the registry is empty: " + engine.documents());
         assertNull(WindowManager.getIDList(), "no IJ1 image remains");
-        assertEquals(0, WindowManager.getImageCount());
+        // getImageCount() counts one image when the list is empty but getCurrentImage() still answers on this thread
+        assertEquals(0, WindowManager.getImageCount(), () -> "IJ1 still names a current image after quit: current="
+                + WindowManager.getCurrentImage() + " temp(this thread)=" + WindowManager.getTempCurrentImage()
+                + " isMacro=" + IJ.isMacro() + " interpreter=" + ij.macro.Interpreter.getInstance()
+                + " batchMode=" + ij.macro.Interpreter.isBatchMode() + " batchImages=" + ij.macro.Interpreter.getBatchModeImageCount()
+                + "; before show: " + beforeShow + "; show() took " + showMs + " ms");
     }
 
     @Test

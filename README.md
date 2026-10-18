@@ -62,8 +62,11 @@ Without them every local tool, the MCP server and the Fidelis workstation still 
 `fidelis-app/` builds and runs on Windows x64 with the same commands (`python -I` for `python3 -I`): the pinned Fiji is
 extracted outside the repository and named by `FIDELIS_FIJI_DIR`; the build uses Fiji's bundled JDK (no Maven). The
 optional local speech worker is a Python 3.11 virtualenv from `speech/requirements.lock.txt` plus
-`speech/setup_speech.py` for the hash-pinned `tiny.en` model (`-Dfidelis.stt.python` names the interpreter). Penny's
-launch scripts and native companion are macOS only.
+`speech/setup_speech.py` for the hash-pinned `tiny.en` model (`-Dfidelis.stt.python` names the interpreter). On macOS
+and Linux the same lock installs with `python3.11 -m venv .venv-stt && .venv-stt/bin/pip install --require-hashes -r
+speech/requirements.lock.txt`, then `.venv-stt/bin/python -I speech/setup_speech.py`; `WhisperSpeechService` and
+`fidelis-app/tools/test.py` default to `.venv-stt/bin/python` there, so the speech tests run. Penny's launch scripts and
+native companion are macOS only.
 
 ## Verify
 

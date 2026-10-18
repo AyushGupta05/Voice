@@ -33,8 +33,8 @@ import java.util.function.Consumer;
  * <p>Environment (system property, then environment variable, then repository default):
  * <ul>
  *   <li>{@code fidelis.stt.python} / {@code FIDELIS_STT_PYTHON}: speech interpreter; default
- *       {@code <repo>/.venv-stt/Scripts/python.exe}, else the click-to-batch checkout's
- *       {@code .venv-stt} (Python 3.11, faster-whisper 1.2.1, CPU int8);</li>
+ *       {@code <repo>/.venv-stt/Scripts/python.exe} on Windows and {@code <repo>/.venv-stt/bin/python} on macOS and
+ *       Linux, else the click-to-batch checkout's {@code .venv-stt} (Python 3.11, faster-whisper 1.2.1, CPU int8);</li>
  *   <li>{@code fidelis.stt.model} / {@code FIDELIS_STT_MODEL}: model folder; default
  *       {@code <repo>/external/models/tiny.en}, else the click-to-batch checkout's copy;</li>
  *   <li>{@code fidelis.stt.hashes}: pinned hash file; default {@code <repo>/external/stt-model.sha256.json};</li>
@@ -56,7 +56,7 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
 
         public static Config fromSystemProperties() {
             Path repo = repoDir();
-            Path python = pick("fidelis.stt.python", "FIDELIS_STT_PYTHON", repo, ".venv-stt/Scripts/python.exe",
+            Path python = pick("fidelis.stt.python", "FIDELIS_STT_PYTHON", repo, VENV_PYTHON,
                     WINDOWS_DEFAULT_ROOT + "\\.venv-stt\\Scripts\\python.exe");
             Path model = pick("fidelis.stt.model", "FIDELIS_STT_MODEL", repo, "external/models/tiny.en",
                     WINDOWS_DEFAULT_ROOT + "\\external\\models\\tiny.en");
@@ -94,6 +94,10 @@ public final class WhisperSpeechService implements SpeechService, AutoCloseable 
 
     /** Checkout that holds the shared speech venv and model when this worktree has none. */
     private static final String WINDOWS_DEFAULT_ROOT = "C:\\Users\\arnav\\Documents\\dev\\click-to-batch";
+
+    /** The repository's speech interpreter: a venv's launcher lives under {@code Scripts} on Windows, {@code bin} elsewhere. */
+    static final String VENV_PYTHON = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")
+            ? ".venv-stt/Scripts/python.exe" : ".venv-stt/bin/python";
 
     public static final String DEFAULT_PROMPT = "ImageJ commands: Invert, Gaussian Blur, Median, Subtract Background, "
             + "Threshold, Otsu, Convert to Mask, Watershed, Measure, Analyze Particles, sigma, radius, micron";
