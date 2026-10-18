@@ -2,7 +2,22 @@
 
 Written at 05:00 BST while Ayush was asleep. Everything below is on `main` (origin and publish).
 
-## 1. Voice is blocked until you run one command
+## 0. Done at 08:10 BST — voice is back and the whole script passed by voice
+
+Ayush authorised the renewal ("do it, ensure all money comes from aws credits"): `npm run budget:renew --
+--authorized-new-budget` archived the ledger ($199.87 reserved, $2.54 estimated spend) and started a new $200 one;
+no restart was needed (the gateway reads the ledger per request). Every request still re-proves eligible AWS credits
+(STS, Billing GetCredits for Bedrock / Transcribe / Polly, Pricing) before it reserves; no OpenAI or Anthropic API key
+is configured. By real AWS voice on the tip build: "Find all the nuclei" → 67 (1.1 s); "Which one is the biggest?" →
+"The largest is object 61, 848 square pixels."; "Go back" → 67 → 0; "Run this macro" → wait; "Yes" → 67 replayed;
+"Apply this analysis to the whole folder" → "Ready to run this on 5 images in imagej; say yes to go ahead." (1.7 s);
+"Yes" → "Ran it on 1 image (4 stacks skipped); the results are in penny-folder-results.csv." — the CSV lists blobs
+67 / 326.657 and the four stacks as skipped; only blobs.gif stayed open. "Why did you count this as a cell?" with the
+pointer off the image → "Point at the object first: the pointer is not over the image." The first folder "yes" had
+stalled on Fiji's "Process Stack?" for the sample stacks; the macro now records stacks as skipped. Still not seen on
+screen: the Mac is locked.
+
+## 1. Voice was blocked until the renewal (now done)
 
 The $200 attempt-reserve ledger filled up during the overnight verification (1,780 reservations, $199.63; the
 receipts' estimated real spend is about $2.53). Every Transcribe / Polly / Bedrock request is refused until a new
