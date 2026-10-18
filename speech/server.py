@@ -1,4 +1,4 @@
-"""Persistent speech worker for Fidelis (docs D08 section 1.1, IF-06).
+"""Persistent speech worker for Fidelis (see docs/FIDELIS-ENGINE.md, speech).
 
 JSON lines on stdin/stdout, one message per line. The model is verified against the pinned SHA-256
 file and loaded once. Run with the isolated speech interpreter:

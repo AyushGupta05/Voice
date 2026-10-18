@@ -14,7 +14,7 @@ MODEL = ROOT / "external/models/tiny.en"
 
 def main():
     if not (MODEL / "model.bin").is_file():
-        raise RuntimeError("Pinned speech model missing; run scripts/setup_speech.py")
+        raise RuntimeError("Pinned speech model missing; run speech/setup_speech.py")
     expected = json.loads((ROOT / "external/stt-model.sha256.json").read_text())
     for name, digest in expected.items():
         with (MODEL / name).open("rb") as stream:
