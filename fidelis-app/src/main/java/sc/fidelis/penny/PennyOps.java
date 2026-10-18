@@ -62,9 +62,9 @@ import sc.fidelis.nl.NlService.Proposal;
 final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
-            "results", "object_stats", "explain_object", "split_object", "merge_objects", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
+            "results", "object_stats", "explain_object", "split_object", "merge_objects", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "folder_macro", "run_macro",
             "confirm", "cancel_plan", "dialog", "dialog_action");
-    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "dialog");
+    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "folder_macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
     /** DIRECT operations that depend on the plane (pinned to the approved one; the engine applies a TargetScope plane). */
     static final Set<String> PLANE_DIRECT = Set.of(Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD,
@@ -281,6 +281,7 @@ final class PennyOps {
             case "results" -> { return resultsTable(a); }
             case "object_stats" -> { return objectStats(); }
             case "explain_object" -> { return explainObject(a); }
+            case "folder_macro" -> { return folderMacro(a); }
             case "history" -> { return history(a); }
             case "macro" -> { return macro(); }
             case "dialog" -> { return dialogRead(); }
@@ -1574,6 +1575,83 @@ final class PennyOps {
             return m;
         };
         return p;
+    }
+
+    static final List<String> FOLDER_IMAGE_EXTENSIONS = List.of(".tif", ".tiff", ".png", ".jpg", ".jpeg", ".gif", ".bmp");
+
+    /**
+     * "Apply this analysis to the whole folder": the session macro's steps since the last {@code open(...)} — this image's
+     * analysis — inside a loop over the folder's images, each image's Results summarised into a "Penny folder" table saved as CSV. Read only: the text
+     * is what {@code run_macro} runs after the researcher's "yes". 409 when the session does not start by opening an
+     * image, when the folder has no images, or when the folder is not a directory.
+     */
+    private Map<String, Object> folderMacro(JsonObject a) {
+        String raw = PennyJson.str(a, "folder", "");
+        if (raw.isBlank()) throw new IllegalArgumentException("'folder' is required");
+        if (raw.startsWith("~/")) raw = System.getProperty("user.home") + raw.substring(1);
+        Path folder = Path.of(raw).toAbsolutePath().normalize();
+        if (!Files.isDirectory(folder)) throw new IllegalArgumentException("No such folder: " + folder);
+        List<String> images = new ArrayList<>();
+        try (var listing = Files.list(folder)) {
+            listing.filter(Files::isRegularFile).map(x -> x.getFileName().toString()).sorted()
+                    .filter(n -> FOLDER_IMAGE_EXTENSIONS.stream().anyMatch(e -> n.toLowerCase(Locale.ROOT).endsWith(e))).forEach(images::add);
+        } catch (java.io.IOException e) {
+            throw new Failure(409, "Cannot list " + folder + ": " + e.getMessage());
+        }
+        if (images.isEmpty()) throw new Failure(409, "No images in " + folder + " (" + String.join(", ", FOLDER_IMAGE_EXTENSIONS) + ").");
+        String exported = engine.exportMacro();
+        int at = exported.indexOf("// ---- Steps ----\n");
+        if (at < 0) throw new Failure(409, "The session macro has no steps section.");
+        String header = exported.substring(0, at);
+        String[] lines = exported.substring(at + "// ---- Steps ----\n".length()).split("\n");
+        // "this analysis": the steps since the image was last opened, not the whole session
+        int openAt = -1;
+        for (int i = 0; i < lines.length; i++) if (lines[i].trim().startsWith("open(\"")) openAt = i;
+        if (openAt < 0) throw new Failure(409, "The session does not start by opening an image, so there is nothing to apply to each image of the folder: open an image and analyse it first.");
+        List<String> body = new ArrayList<>();
+        int steps = 0;
+        for (int i = openAt + 1; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.isBlank()) continue;
+            if (!line.trim().startsWith("//")) steps++;
+            body.add("  " + line);
+        }
+        if (steps == 0) throw new Failure(409, "Nothing was done to the image after opening it; analyse it first, then apply that to the folder.");
+        String out = PennyJson.str(a, "output", folder.resolve("penny-folder-results.csv").toString());
+        String dir = folder.toString().replace("\\", "/") + "/";
+        StringBuilder sb = new StringBuilder();
+        sb.append("// Penny: the session's steps applied to every image of a folder (").append(images.size()).append(" images)\n");
+        sb.append(header);
+        sb.append("// ---- Folder ----\n");
+        sb.append("dir = \"").append(dir).append("\";\n");
+        sb.append("out = \"").append(out.replace("\\", "/")).append("\";\n");
+        sb.append("list = getFileList(dir);\n");
+        sb.append("setBatchMode(true);\n");
+        sb.append("Table.create(\"Penny folder\");\n");
+        sb.append("row = 0;\n");
+        sb.append("for (i = 0; i < list.length; i++) {\n");
+        sb.append("  name = list[i]; lower = toLowerCase(name);\n");
+        StringBuilder test = new StringBuilder();
+        for (String e : FOLDER_IMAGE_EXTENSIONS) test.append(test.length() > 0 ? " || " : "").append("endsWith(lower, \"").append(e).append("\")");
+        sb.append("  if (!(").append(test).append(")) continue;\n");
+        sb.append("  open(dir + name);\n");
+        sb.append("  id1 = getImageID();\n");
+        for (String line : body) sb.append(line).append("\n");
+        sb.append("  count = nResults; sum = 0;\n");
+        sb.append("  for (r = 0; r < count; r++) sum += getResult(\"Area\", r);\n");
+        sb.append("  Table.set(\"Image\", row, name, \"Penny folder\");\n");
+        sb.append("  Table.set(\"Count\", row, count, \"Penny folder\");\n");
+        sb.append("  mean = 0; if (count > 0) mean = sum / count;\n");
+        sb.append("  Table.set(\"MeanArea\", row, mean, \"Penny folder\");\n");
+        sb.append("  row++;\n");
+        sb.append("  while (nImages > 0) { selectImage(nImages); close(); }\n");
+        sb.append("}\n");
+        sb.append("Table.update(\"Penny folder\");\n");
+        sb.append("Table.save(out, \"Penny folder\");\n");
+        sb.append("setBatchMode(false);\n");
+        sb.append("print(\"PENNY_FOLDER images=\" + row + \" csv=\" + out);\n");
+        return map("macro", sb.toString(), "folder", folder.toString(), "images", images.size(), "imageNames", images.size() > 50 ? images.subList(0, 50) : images,
+                "output", out, "stepsPerImage", steps, "writes", List.of(out));
     }
 
     private Map<String, Object> history(JsonObject a) {

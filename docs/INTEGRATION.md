@@ -318,7 +318,7 @@ It is coded to the bridge's revised contract of 17 October (undo `steps`, `cance
 |---|---|
 | Profile files | `apps/fidelis.ts` (routes, sentences, confirm binding), `apps/fidelis-tools.ts` (schemas), `apps/fidelis-instructions.ts` (model instructions) |
 | Bridge | `http://127.0.0.1:49558`, token `.local/state/bridge-token` (shared with QuPath and Fiji), bearer on every request including `/health` |
-| Tools | 36: `fidelis_<operation>` for each of the 33 operations (the 31 of the contract table plus `dialog` and `dialog_action`), and local `fidelis_knowledge`, `fidelis_find_images`, `fidelis_action_status` ([reference](TOOL-REFERENCE-FIDELIS.md), [registry](tool-schemas-fidelis.json)) |
+| Tools | 37: `fidelis_<operation>` for each of the 34 operations (the 32 of the contract table plus `dialog` and `dialog_action`), and local `fidelis_knowledge`, `fidelis_find_images`, `fidelis_action_status` ([reference](TOOL-REFERENCE-FIDELIS.md), [registry](tool-schemas-fidelis.json)) |
 | Risks | contract kind `read`/`view`/`data`/`code` unchanged; `session` (`open_path`) takes the `data` decision path; `dialog` is read, `dialog_action` data |
 | Guide and knowledge | [skills/fidelis/SKILL.md](../skills/fidelis/SKILL.md) (also the MCP guide resource) and `.local/upstream/imagej-docs` |
 | Launcher | `./script/run-fidelis.sh` (the `launcherHint` in the gateway's `/health`) |
@@ -425,6 +425,7 @@ open, and `fidelis_run_macro` (always confirmed) for anything else.
 | "why did you count this (as a cell)?", "what's this one?", "explain this" | `fidelis_explain_object {}`: the object under the pointer, flashed, with "Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching objects. Otsu threshold, size floor 20." |
 | "which one is the biggest / smallest", "highlight the largest cell", "where's the smallest" | `fidelis_highlight {rois: "largest" / "smallest"}`: flashes that outline and says "The largest is object 12, 657 square pixels." |
 | "run this macro" | `fidelis_macro` then `fidelis_run_macro` with the session's macro; waits for "yes" |
+| "apply this analysis to the whole folder", "run this on the BBBC008 folder", "apply this to the rest of the images" | `fidelis_folder_macro {folder}` (the named folder, else the focused document's) then `fidelis_run_macro` with that macro: "Ready to run this on 12 images in the BBBC008 folder; say yes to go ahead."; the CSV lands in the folder |
 
 Data routes run instantly only under the default `LUMA_APPROVALS=auto`; under `review` they go to the model. Every
 Fidelis instant route is bound to the context it was chosen from (`bindInstantRoutes`): if the `contextKey` changed
@@ -434,7 +435,7 @@ the nuclei": after `segment_cells` the focused document is its mask (below).
 
 ### Readiness
 
-`adapterReadiness` compares the operations the running bridge declares with the 33 the tools need: from
+`adapterReadiness` compares the operations the running bridge declares with the 34 the tools need: from
 `context.adapter.operations`, or the bridge's `GET /health` when the context has none. The status is `operations_match`
 when all are declared (no build-identity comparison: a complete but stale build passes), `restart_required` with
 `missingOperations` otherwise (a bridge without `dialog`/`dialog_action` reports those two), `build_unverified` for a

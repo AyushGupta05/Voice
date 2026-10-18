@@ -36,6 +36,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fidelis_redo`](#fidelis-redo) | data | Yes |
 | [`fidelis_history`](#fidelis-history) | read | No |
 | [`fidelis_macro`](#fidelis-macro) | read | No |
+| [`fidelis_folder_macro`](#fidelis-folder-macro) | read | No |
 | [`fidelis_run_macro`](#fidelis-run-macro) | code | Yes |
 | [`fidelis_confirm`](#fidelis-confirm) | data | Yes |
 | [`fidelis_cancel_plan`](#fidelis-cancel-plan) | view | No |
@@ -403,6 +404,17 @@ Read Fidelis History, newest last: action id, label, command, origin (typed, spo
 Export the recorded History as an ImageJ macro (the reproducible workflow) with its step count. Read only.
 
 Input: `{}`.
+
+<a id="fidelis-folder-macro"></a>
+
+## fidelis_folder_macro
+
+The session’s analysis (its steps since the image was opened) as a macro over every image of a folder: each image opened, analysed the same way, its Results summarised (Image, Count, MeanArea) into a "Penny folder" table saved as CSV in that folder. Read only: returns macro, images, imageNames, output and writes; run it with fidelis_run_macro, which waits for confirmation.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `folder` | Yes | string; min 1 characters; max 4096 characters |
+| `output` | No | string; min 1 characters; max 4096 characters |
 
 <a id="fidelis-run-macro"></a>
 

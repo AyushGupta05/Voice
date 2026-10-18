@@ -534,6 +534,46 @@ class FidelisBridgeTest {
         return o;
     }
 
+    @Test
+    void theSessionMacroAppliesToEveryImageOfAFolderAfterConfirmation() throws Exception {
+        // a folder of two copies of the fixture, and a session that opened one of them and counted its squares
+        Path dir = Files.createTempDirectory("penny-folder");
+        Path png = Fixtures.repoFixture("two-squares.png");
+        Files.copy(png, dir.resolve("a-squares.png"));
+        Files.copy(png, dir.resolve("b-squares.png"));
+        Files.writeString(dir.resolve("notes.txt"), "not an image");
+        JsonObject opened = http.change("open_path", args("path", dir.resolve("a-squares.png").toString())).result();
+        assertEquals("completed", opened.get("status").getAsString(), opened.toString());
+        http.change("threshold", args("method", "Otsu", "dark", true)).result();
+        JsonObject counted = http.change("analyze_particles", args()).result();
+        int perImage = counted.get("count").getAsInt();
+        assertTrue(perImage > 0, counted.toString());
+        JsonObject folder = http.read("folder_macro", args("folder", dir.toString()));
+        assertEquals(2, folder.get("images").getAsInt(), folder.toString());
+        assertEquals(dir.resolve("penny-folder-results.csv").toString(), folder.get("output").getAsString());
+        String macro = folder.get("macro").getAsString();
+        assertTrue(macro.contains("list = getFileList(dir);") && macro.contains("open(dir + name);") && macro.contains("Table.save(out, \"Penny folder\");"), macro);
+        assertFalse(macro.contains("a-squares.png"), "the session's own open() is replaced by the loop:\n" + macro);
+        assertTrue(folder.get("stepsPerImage").getAsInt() >= 2, folder.toString());
+        assertFalse(macro.contains("Coloc 2"), "only this image's analysis, not earlier sessions' steps:\n" + macro);
+        BridgeHttp.Resp nothing = http.exec("folder_macro", args("folder", dir.resolve("empty-" + System.nanoTime()).toString()), null, null);
+        assertEquals(400, nothing.status(), nothing.body().toString());
+        // it runs as any macro: waits for the researcher, then produces the CSV with one row per image
+        JsonObject held = http.change("run_macro", args("code", macro)).result();
+        assertEquals("awaiting_confirmation", held.get("status").getAsString(), held.toString());
+        JsonObject ran = http.change("confirm", args("planId", held.get("planId").getAsString())).result();
+        assertEquals("completed", ran.get("status").getAsString(), ran.toString());
+        Path csv = dir.resolve("penny-folder-results.csv");
+        assertTrue(Files.isRegularFile(csv), "the folder summary was written: " + ran);
+        List<String> rows = Files.readAllLines(csv);
+        assertEquals(3, rows.size(), "header and two images: " + rows);
+        assertTrue(rows.get(0).contains("Image") && rows.get(0).contains("Count") && rows.get(0).contains("MeanArea"), rows.get(0));
+        for (String row : rows.subList(1, 3)) assertTrue(row.contains("squares.png") && row.contains("," + perImage + ","), "each image counted like the session: " + row);
+        assertTrue(ran.get("log").toString().contains("PENNY_FOLDER images=2"), ran.toString());
+        for (Path f : List.of(csv, dir.resolve("a-squares.png"), dir.resolve("b-squares.png"), dir.resolve("notes.txt"))) Files.deleteIfExists(f);
+        Files.deleteIfExists(dir);
+    }
+
     private HistoryRecord last() {
         List<HistoryRecord> h = engine.history();
         assertNotNull(h);

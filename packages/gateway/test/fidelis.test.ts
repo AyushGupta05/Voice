@@ -118,7 +118,7 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_zoom', { direction: 'in' }); ok('fidelis_zoom', { fit: true }); ok('fidelis_zoom', { selection: true }); bad('fidelis_zoom', { magnification: 2 });
   ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); bad('fidelis_highlight', { rois: 'manager' });
   ok('fidelis_undo', {}); ok('fidelis_redo', {}); ok('fidelis_history', { limit: 20 }); ok('fidelis_macro', {});
-  ok('fidelis_run_macro', { code: 'run("Invert");' }); bad('fidelis_run_macro', {});
+  ok('fidelis_run_macro', { code: 'run("Invert");' }); bad('fidelis_run_macro', {}); ok('fidelis_folder_macro', { folder: '/data/set' }); bad('fidelis_folder_macro', {});
   ok('fidelis_confirm', {}); ok('fidelis_confirm', { planId: 'plan-7' }); ok('fidelis_cancel_plan', {});
   assert.throws(() => validateTool('fiji_measure', { scope: 'roi' }, fidelis), /Unknown tool/);
 });
@@ -168,6 +168,9 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('Which one is the biggest?', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'largest' }, reply: 'Looking.' });
   assert.deepEqual(route('Why did you count this as a cell?', segmented), { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' });
   assert.deepEqual(route('These should be separate.', segmented), { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' });
+  assert.deepEqual(route('Apply this analysis to the entire folder.', segmented), { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing it for the folder.', folderMacro: true });
+  assert.deepEqual(route('Run this on the BBBC008 folder.', segmented), { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing it for the folder.', folderMacro: true, folderQuery: 'bbbc008' });
+  assert.deepEqual(route('Apply this to the rest of the images.', segmented)?.folderMacro, true);
   assert.deepEqual(route("Those are actually two separate cells.", segmented), { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' });
   assert.deepEqual(route('Split this one.', segmented), { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' });
   assert.deepEqual(route('These are one cell.', segmented), { tool: 'fidelis_merge_objects', arguments: {}, reply: 'Merging them.' });

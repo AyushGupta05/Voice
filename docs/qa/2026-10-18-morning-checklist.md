@@ -58,6 +58,11 @@ dumbbell outline (2 pieces, undo restores the clump); not yet tried on blobs by 
 The split was checked live on the relaunched instance (06:40): the two-lobed blob at (175, 100) → 2 pieces, 68 objects,
 undo → 67; the largest blob (object 61) is refused as one object.
 
+"Apply this analysis to the whole folder" (or "… to the BBBC008 folder"): Penny builds the session's steps into a
+macro over every image of the folder, shows it ("Ready to run this on 12 images in the BBBC008 folder; say yes to go
+ahead.") and after "Yes" writes `penny-folder-results.csv` (Image, Count, MeanArea) into that folder. Engine-tested on a
+two-image folder (both counted like the session, CSV with two rows); typed-only so far.
+
 ## 4. Not seen with eyes tonight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were

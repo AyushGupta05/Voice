@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fidelis",
   "app": "fidelis",
-  "toolCount": 36,
+  "toolCount": 37,
   "tools": [
     {
       "name": "fidelis_context",
@@ -902,6 +902,31 @@
         "type": "object",
         "properties": {},
         "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_folder_macro",
+      "description": "The session’s analysis (its steps since the image was opened) as a macro over every image of a folder: each image opened, analysed the same way, its Results summarised (Image, Count, MeanArea) into a \"Penny folder\" table saved as CSV in that folder. Read only: returns macro, images, imageNames, output and writes; run it with fidelis_run_macro, which waits for confirmation.",
+      "operation": "folder_macro",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "output": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "folder"
+        ],
         "additionalProperties": false
       }
     },

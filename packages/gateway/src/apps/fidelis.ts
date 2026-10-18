@@ -399,6 +399,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   }
   if (/^(?:show (?:me )?|what is |what's |give me |export |save |print )?(?:the )?(?:workflow|macro|script|steps so far|recorded (?:macro|steps))(?: so far| for this| please)?$/.test(said)) return { tool: 'fidelis_macro', arguments: {}, reply: 'Here is the macro.' };
   // "Run this macro": the session's own macro (History → macro) is the code; the bridge always holds it for "yes".
+  // "Apply this analysis to the whole folder" / "run this on the BBBC008 folder": the session's steps over a folder, run after "yes"
+  const folderRun = raw.match(/^(?:apply|run|do|repeat|use) (?:this|that|the same|it|this analysis|the analysis|this workflow|the workflow|these steps|this macro|the macro)(?: analysis| workflow)? (?:to|on|for|across|over) (?:the |this |my )?(?:whole |entire |same |full )?(?:folder|directory|dataset|(?:rest of the |other )?images(?: in (?:the |this |my )?(?:whole |entire )?folder)?)$|^(?:apply|run|do|repeat|use) (?:this|that|the same|it|this analysis|the analysis|this workflow|the workflow)(?: analysis| workflow)? (?:to|on|for|across|over) (?:the |my )?(.+?) (?:folder|directory|dataset)$/);
+  if (folderRun) return { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing it for the folder.', folderMacro: true, ...(folderRun[1] ? { folderQuery: folderRun[1] } : {}) };
   if (/^(?:run|replay|execute|play|rerun|re run) (?:this|the|that|my|the whole|this whole) (?:macro|workflow|script|recorded (?:macro|steps))(?: again| now)?$/.test(said)) return { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing the macro.', macroFromHistory: true };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {

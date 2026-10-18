@@ -15,7 +15,9 @@ export type FastRoute = { tool: string; arguments: Record<string, unknown>; repl
   imageQuery?: string;
   /** "Run this macro": the host reads the session's macro with `<prefix>_macro` and passes its text as `arguments.code`
    * before dispatching the route (Fidelis); when there is no macro yet the request is answered with that. */
-  macroFromHistory?: boolean };
+  macroFromHistory?: boolean;
+  /** "Apply this to the whole folder": the host reads the session's folder macro (fidelis_folder_macro, `folder` from the route or the focused document's folder) and runs it as code. */
+  folderMacro?: boolean };
 /** Inputs for a profile's pre-dispatch check of a data/code tool. `check()` re-validates the request after every
  * adapter read (abort signal, conversation revision, context) and must be called after each one. */
 export type PrepareInput = { name: string; args: Arguments; context: Context; adapter: Adapter; check: () => void };

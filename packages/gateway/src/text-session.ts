@@ -73,6 +73,33 @@ export class TextConversation {
     if(!code){const reply='There is no macro yet: nothing has been recorded in History.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
     route={...rest,arguments:{...rest.arguments,code}};
    }
+   if(route?.folderMacro){
+    // "Apply this analysis to the whole folder": the session's steps since the image was opened, wrapped over the folder
+    // (the named one, else the focused document's), read locally; the run itself still waits for "yes".
+    const {folderMacro:_folder,folderQuery,...rest}=route;
+    let folder:string|undefined=typeof rest.arguments.folder==='string'?rest.arguments.folder:undefined;
+    let folderName='the folder';
+    if(folderQuery){
+     const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:folderQuery},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;
+     active.controller.signal.throwIfAborted();
+     const hit=found?.matches?.find(match=>match.kind==='folder'&&typeof match.path==='string');
+     if(hit){folder=hit.path as string;folderName=`the ${String(hit.name)} folder`;}
+    }
+    if(!folder){
+     const path=(context as {document?:{path?:unknown}}|undefined)?.document?.path;
+     if(typeof path==='string'&&path.includes('/')){folder=path.slice(0,path.lastIndexOf('/'));folderName='this image\u2019s folder';}
+    }
+    if(!folder){const reply='Which folder? This image was not opened from a file, so name the folder.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
+    let prepared:{macro?:unknown;images?:unknown}|undefined;
+    try{prepared=await this.runtime.call(`${profile.toolPrefix}_folder_macro`,{folder},active.controller.signal) as {macro?:unknown;images?:unknown};}
+    catch(error){const message=error instanceof Error?error.message.trim():'That did not work.';active.answered=true;this.append('assistant',message);this.emit({type:'text_result',taskId:active.id,text:message,outcome:'failed',fastPath:true});return;}
+    active.controller.signal.throwIfAborted();
+    const code=typeof prepared?.macro==='string'?prepared.macro:undefined;
+    if(!code){const reply='There is no analysis to apply yet.';active.answered=true;this.append('assistant',reply);this.emit({type:'text_result',taskId:active.id,text:reply,fastPath:true});return;}
+    const {arguments:args,...other}=rest;
+    const {folder:_f,...cleanArgs}=args as Record<string,unknown>;
+    route={...other,arguments:{...cleanArgs,code},reply:`Ready to run this on ${typeof prepared?.images==='number'?`${prepared.images} images in `:''}${folderName}; say yes to go ahead.`};
+   }
    if(route?.folderQuery){
     // A folder the utterance names is resolved locally; the first matching folder replaces the default (the active image's).
     const found=await this.runtime.call(`${profile.toolPrefix}_find_images`,{query:route.folderQuery},active.controller.signal).catch(()=>undefined) as {matches?:Array<{kind?:unknown;path?:unknown;name?:unknown}>}|undefined;
