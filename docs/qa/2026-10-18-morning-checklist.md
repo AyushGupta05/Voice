@@ -1,0 +1,47 @@
+# Morning checklist before the 13:00 BST presentation (18 Oct 2026)
+
+Written at 05:00 BST while Ayush was asleep. Everything below is on `main` (origin and publish).
+
+## 1. Voice is blocked until you run one command
+
+The $200 attempt-reserve ledger filled up during the overnight verification (1,780 reservations, $199.63; the
+receipts' estimated real spend is about $2.53). Every Transcribe / Polly / Bedrock request is refused until a new
+budget is authorised. This is the "$200 before waking" guard from docs/FUNDING.md, and nothing renews it on its own.
+
+```bash
+npm run budget:renew -- --authorized-new-budget
+```
+
+It archives the exhausted ledger next to itself with a reconciliation record and starts an empty $200 ledger
+(refused if the $1,000 lifetime total would be exceeded). Then restart the companion (quit Penny in the menu bar and
+relaunch, or `./script/build_and_run.sh`) so the gateway re-reads the ledger.
+
+The 24-hour funding proofs were renewed at 04:31 BST and are valid until 04:31 BST on 19 Oct, so they need nothing.
+
+## 2. What is running now
+
+Fidelis from main `01dd27a` (pid 94077) with the gateway in the `fidelis` profile; the companion's microphone is off.
+Leave it, or relaunch from the tip with `./script/run-fidelis.sh` after killing the old one.
+
+## 3. Act 2 by voice, verified tonight on the merged build
+
+| Say | Penny | Time |
+|---|---|---|
+| "Open the blobs image." | "Opened blobs, 256 by 254." | 0.4 s |
+| "Find all the nuclei." | "Found 67 nuclei, mean area 327 square pixels." | 1.1 s |
+| "Go back." | "Undid: 67 objects → 0, Results cleared." | 1.7 s |
+| "Run this macro." | "Ready to run 1 step; say yes to go ahead." | 1.4 s |
+| "Yes." | "Ran the macro: 67 result rows, 1 new image." — blobs.gif keeps focus, 67 outlines back | 1.2 s |
+
+Also verified by voice on the same build: "Which one is the biggest?" (flashes it: "The largest is object 61, 848
+square pixels." — typed check on the final build), "Highlight the smallest cell", "Make the threshold stricter" (68),
+"Remove anything smaller than 100 pixels" (56 remain), "What is the mean intensity?" (103), "Zoom in on the image",
+"Make it brighter", "Threshold the image" (Otsu 121–255), "Convert to mask" (waits for "yes"), "Duplicate this
+image", "What am I looking at?", "Export the macro", and a second "Go back" with nothing left: "nothing to go back to
+on this image; a macro's changes are not taken back."
+
+## 4. Not seen with eyes tonight
+
+The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were
+read through the bridge instead. Open Fidelis once before the demo and look: strip under the command bar, outlines
+on the canvas after "Find all the nuclei", the plan card during "Run this macro".
