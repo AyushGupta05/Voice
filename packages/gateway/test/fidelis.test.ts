@@ -690,3 +690,10 @@ test('battery fixes: convert-to-mask and macro routes, cancel of a running dialo
   assert.equal(fidelis.localSentenceFor('fidelis_dialog_action', {}, completed({ status: 'cancelled', dialog: 'Save as PDF', cancelledFileDialog: true })), 'Fiji asked where to save a file (Save as PDF); Penny does not drive file dialogs, so the command ended there.');
   assert.equal(fidelis.outcomeOf?.('fidelis_dialog_action', completed({ status: 'cancelled', dialog: 'Save as PDF', cancelledFileDialog: true })), 'cancelled');
 });
+
+test('an undo says what the engine put back: the ROI list, the Results rows and the pixels', () => {
+  assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-9', undoneActionIds: ['act-9'], restored: { pixels: false, rois: { before: 67, after: 0 }, resultsRows: { before: 67, after: 0 } } })), 'Undid: 67 objects → 0, Results cleared.');
+  assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-3', undoneActionIds: ['act-3'], restored: { pixels: true } })), 'Undid: pixels restored.');
+  assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-3', undoneActionIds: ['act-3'], restored: { pixels: false, resultsRows: { before: 5, after: 4 } } })), 'Undid: Results 5 → 4 rows.');
+  assert.equal(fidelis.localSentenceFor('fidelis_undo', {}, completed({ step: { label: 'Undo' }, undoneActionId: 'act-3', undoneActionIds: ['act-3'] })), 'Undone.');
+});

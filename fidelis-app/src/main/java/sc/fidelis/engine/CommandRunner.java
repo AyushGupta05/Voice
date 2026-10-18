@@ -192,13 +192,24 @@ final class CommandRunner {
         Snapshots.Snapshot snap = null;
         boolean reversible = "IN_PLACE_PIXELS".equals(family) || "TYPE_CHANGE".equals(family)
                 || (label.equals("Scale...") && !Boolean.TRUE.equals(typed.get("create")));
-        if (reversible && checkDoc != null) snap = eng.snapshots.take(checkDoc, actionId, r, !fromRedo);
+        eng.results.beginTyped(); // rows a native command left are settled under it before this action runs
+        // the ROI list (Analyze Particles with add) and the Results rows (Measure, Analyze Particles with display, Clear
+        // Results) are undoable too: the snapshot of the target document records them before the command runs
+        boolean roisUndo = usesManager && doc != null;
+        boolean restarts = Results.restartsTable(label, null) || (label.equals("Analyze Particles...") && Boolean.TRUE.equals(typed.get("clear")));
+        boolean resultsUndo = doc != null && (RESULTS_COMMANDS.contains(label) && (!label.equals("Analyze Particles...") || Boolean.TRUE.equals(typed.get("display")) || restarts));
+        Doc snapDoc = reversible && checkDoc != null ? checkDoc : (roisUndo || resultsUndo ? doc : null);
+        if (snapDoc != null) {
+            boolean sameDoc = snapDoc == doc;
+            snap = eng.snapshots.take(snapDoc, actionId, r, !fromRedo, reversible && snapDoc == checkDoc, roisUndo && sameDoc,
+                    resultsUndo && sameDoc, resultsUndo && sameDoc && restarts ? eng.results.all() : null, null);
+        }
         Map<String, String> gBefore = Globals.capture();
         boolean oldBlack = ij.Prefs.blackBackground;
         if (singleBlack != null) ij.Prefs.blackBackground = singleBlack;
         State before = checkDoc == null ? null : State.of(checkDoc.imp, hashAll);
         State beforeTarget = doc == null ? null : (doc == checkDoc ? before : State.of(doc.imp, false));
-        eng.results.beginTyped(); // rows a native command left are settled under it before this action runs
+        List<String> roiSigBefore = snap != null && snap.rois != null ? roiSignatures(doc) : null;
         int resultsBefore = Results.tableSize();
         Set<Integer> idsBefore = Registry.liveIds();
         int roiCountBefore = doc == null ? 0 : doc.roiList.size();
@@ -226,7 +237,7 @@ final class CommandRunner {
         }
 
         Outcome result = conclude(op, en, actionId, ts, checkDoc, doc, typed, lines, gBefore, gAfter, before, after, beforeTarget, change,
-                resultsBefore, resultsAfter, ex, failure, snap, outPath, idsBefore);
+                resultsBefore, resultsAfter, ex, failure, snap, roiSigBefore, outPath, idsBefore);
         if (singleBlack != null && result.state() != OperationState.COMPLETED) ij.Prefs.blackBackground = oldBlack;
         return result;
     }
@@ -309,7 +320,7 @@ final class CommandRunner {
         }
         List<String> lines = List.of(Options.runLine(en.label(), null));
         return conclude(op, en, actionId, r.target(), doc, doc, Map.of(), lines, gBefore, gAfter, before, after, before, change,
-                resultsBefore, resultsAfter, ex, failure, null, null, Set.of());
+                resultsBefore, resultsAfter, ex, failure, null, null, null, Set.of());
     }
 
     // ---- preconditions ---------------------------------------------------------------------------------
@@ -461,7 +472,7 @@ final class CommandRunner {
                              Map<String, Object> typed, List<String> lines, Map<String, String> gBefore,
                              Map<String, String> gAfter, State before, State after, State beforeTarget, Registry.Change change,
                              int resultsBefore, int resultsAfter, Execution ex, Failure failure, Snapshots.Snapshot snap,
-                             Path outPath, Object extra) {
+                             List<String> roiSigBefore, Path outPath, Object extra) {
         ActionRequest r = op.request;
         Map<String, String> gDelta = Globals.delta(gBefore, gAfter);
         boolean legacy = en.schema.schemaComplete() ? false : true;
@@ -522,19 +533,31 @@ final class CommandRunner {
         // success: capture results and register the undo snapshot's survival.
         // A command that clears the system table first (Analyze Particles with clear=true) restarts its rows at 0.
         int rowsFrom = Boolean.TRUE.equals(typed.get("clear")) || Results.restartsTable(en.label(), null) ? 0 : resultsBefore;
-        eng.results.capture(rowsFrom, doc == null ? null : doc.id, actionId);
-        if (snap != null && before != null && after != null && before.hash().equals(after.hash())
-                && before.width() == after.width() && before.type() == after.type()) {
-            eng.snapshots.release(snap); // a no-op leaves nothing to undo
+        int captured = eng.results.capture(rowsFrom, doc == null ? null : doc.id, actionId);
+        if (snap != null) {
+            boolean pixelsSame = !snap.hasPixels() || (before != null && after != null && before.hash().equals(after.hash())
+                    && before.width() == after.width() && before.type() == after.type());
+            boolean roisSame = snap.rois == null || (doc != null && roiSignatures(doc).equals(roiSigBefore));
+            boolean resultsSame = !snap.results || (captured == 0 && rowsFrom == resultsBefore);
+            if (pixelsSame && roisSame && resultsSame) eng.snapshots.release(snap); // a no-op leaves nothing to undo
         }
         return Outcome.ok(digest(en, doc, before, after, change, rowsFrom, resultsAfter, gDelta, ex, true), rec);
+    }
+
+    /** Commands whose Results rows (or the rows they clear) an undo puts back. */
+    static final Set<String> RESULTS_COMMANDS = Set.of("Measure", "Analyze Particles...", "Clear Results");
+
+    private static List<String> roiSignatures(Doc doc) {
+        List<String> out = new ArrayList<>();
+        for (RoiGeometry g : RoiLists.geometries(doc)) out.add(RoiSignature.of(g));
+        return out;
     }
 
     private OperationState restoreOrPartial(Doc checkDoc, Snapshots.Snapshot snap, State before, State after,
                                             OperationState failed) {
         if (snap != null && checkDoc != null && eng.registry.all().contains(checkDoc)) {
             try {
-                Snapshots.restore(snap);
+                Snapshots.restore(snap, eng.results);
                 eng.snapshots.release(snap);
                 return OperationState.ROLLED_BACK;
             } catch (RuntimeException e) {

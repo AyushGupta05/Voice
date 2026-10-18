@@ -214,7 +214,7 @@ class FidelisBridgeJourneyTest {
         String original = PixelHash.sha256(engine.imagePlus(doc));
         int history = engine.history().size();
         JsonObject seg = http.change("segment_cells", args("keepMask", true)).result();
-        assertEquals(0, seg.get("undoSteps").getAsInt(), "nothing to undo on the original: " + seg);
+        assertEquals(1, seg.get("undoSteps").getAsInt(), "the copy of the objects to the original is the one restorable step: " + seg);
         assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
         String maskId = seg.getAsJsonObject("mask").get("id").getAsString();
         http.exec("activate_image", args("id", maskId), null, null).result();
@@ -263,6 +263,24 @@ class FidelisBridgeJourneyTest {
         JsonObject again = http.change("segment_cells", args("method", "Li")).result();
         assertEquals(open, engine.documents().size(), "a second segmentation leaves no extra tab either");
         assertEquals(68, again.get("count").getAsInt());
+        // "Go back": the engine undoes the second copy (the 68 objects and their rows go; the first segmentation's 67
+        // objects come back, their rows were already cleared by the second Analyze Particles), then the first copy
+        int rowsBefore = engine.results().size();
+        JsonObject undo = http.change("undo", args()).result();
+        assertEquals("completed", undo.get("status").getAsString(), undo.toString());
+        JsonObject restored = undo.getAsJsonObject("restored");
+        assertEquals(68, restored.getAsJsonObject("rois").get("before").getAsInt(), undo.toString());
+        assertEquals(67, restored.getAsJsonObject("rois").get("after").getAsInt(), undo.toString());
+        assertEquals(rowsBefore, restored.getAsJsonObject("resultsRows").get("before").getAsInt());
+        assertEquals(rowsBefore - 68, restored.getAsJsonObject("resultsRows").get("after").getAsInt(), "the 68 particle rows left with the objects");
+        JsonObject undo2 = http.change("undo", args()).result();
+        assertEquals(67, undo2.getAsJsonObject("restored").getAsJsonObject("rois").get("before").getAsInt(), undo2.toString());
+        assertEquals(0, undo2.getAsJsonObject("restored").getAsJsonObject("rois").get("after").getAsInt(), undo2.toString());
+        JsonObject ctx = http.read("context", null);
+        assertEquals(0, ctx.getAsJsonObject("counts").get("rois").getAsInt(), "context after the undos: " + ctx.getAsJsonObject("counts"));
+        assertEquals(rowsBefore - 68, ctx.getAsJsonObject("counts").get("resultsRows").getAsInt());
+        assertEquals(doc, engine.focused().orElseThrow());
+        System.out.println("[penny-journey] undo after segment_cells: " + restored + " then " + undo2.getAsJsonObject("restored"));
         assertTrue(seg.get("channel") == null || seg.get("channel").isJsonNull(), "a single-channel image reports no channel choice: " + seg);
         System.out.println("[penny-journey] default segment_cells closed " + seg.getAsJsonObject("mask") + "; documents open: " + engine.documents().size());
     }

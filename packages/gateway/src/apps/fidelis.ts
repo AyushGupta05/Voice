@@ -188,6 +188,14 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const ids = inner.undoneActionIds ?? inner.redoneActionIds;
     if (Array.isArray(ids) && ids.length > 1) return `${undo ? 'Undid' : 'Redid'} ${ids.length} steps.`;
     const what = stepName(inner.step)?.replace(undo ? /^undo\b[:\s-]*/i : /^redo\b[:\s-]*/i, '').trim();
+    // The engine says what an undo put back (18 Oct): the ROI list, Results rows, pixels.
+    const restored = record(inner.restored); const parts: string[] = [];
+    const rois = record(restored?.rois), rows = record(restored?.resultsRows);
+    const roisBefore = finite(rois?.before), roisAfter = finite(rois?.after), rowsBefore = finite(rows?.before), rowsAfter = finite(rows?.after);
+    if (roisBefore !== undefined && roisAfter !== undefined && roisBefore !== roisAfter) parts.push(`${roisBefore} objects → ${roisAfter}`);
+    if (rowsBefore !== undefined && rowsAfter !== undefined && rowsBefore !== rowsAfter) parts.push(rowsAfter === 0 ? 'Results cleared' : `Results ${rowsBefore} → ${rowsAfter} rows`);
+    if (restored?.pixels === true) parts.push('pixels restored');
+    if (undo && parts.length) return `Undid${what ? ` ${what}` : ''}: ${parts.join(', ')}.`;
     return what ? `${undo ? 'Undid' : 'Redid'} ${what}.` : undo ? 'Undone.' : 'Redone.';
   }
   if (name === 'fidelis_command' || name === 'fidelis_dialog_action') { const what = stepName(inner.step, args.commandId); return `${what ? `Ran ${what}.` : 'Done.'}${skippedSave(inner)}`; }

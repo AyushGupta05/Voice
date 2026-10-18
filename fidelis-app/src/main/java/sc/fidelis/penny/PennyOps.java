@@ -351,6 +351,9 @@ final class PennyOps {
 
     /** Steps the policy does not assess: the plan's own clean-up of a document it created. */
     static final Set<String> HOUSEKEEPING_ROLES = Set.of("closeMask");
+    /** Steps the engine can undo without a pixel change: ROI-list edits and the commands that add or clear Results rows. */
+    static final Set<String> RESTORABLE_DIRECT = Set.of(Operations.ROI_LIST_ADD, Operations.ROI_LIST_DELETE, Operations.ROI_LIST_RENAME);
+    static final Set<String> RESTORABLE_COMMANDS = Set.of(PennyCommands.MEASURE, PennyCommands.ANALYZE_PARTICLES, "ij1:Analyze>Clear Results");
 
     /** The channel the last segment_cells plan segmented, per document: intensities of the objects come from it. */
     private final Map<DocumentId, Integer> segmentedChannel = new java.util.concurrent.ConcurrentHashMap<>();
@@ -588,7 +591,14 @@ final class PennyOps {
                 if (q.kind() == ActionKind.COMMAND && !engine.schema(q.commandId()).map(CommandSchema::schemaComplete).orElse(false)) continue;
                 boolean px = false;
                 for (var ch : r.digest().changed()) px |= (p.doc == null || ch.id().equals(p.doc)) && (ch.pixelsChanged() || ch.typeChanged());
-                if (px) undoable++;
+                // ROI-list and Results changes on the plan's document are restorable too (engine snapshots of 18 Oct)
+                // the request actually submitted may have been retargeted to a document an earlier step created (onCreated)
+                TargetScope ranOn = r.record() != null && r.record().target() != null ? r.record().target() : q.target();
+                DocumentId on = ranOn == null ? null : ranOn.document();
+                boolean onDoc = p.doc == null || p.doc.equals(on);
+                boolean state = onDoc && (q.kind() == ActionKind.DIRECT && RESTORABLE_DIRECT.contains(q.operation())
+                        || q.kind() == ActionKind.COMMAND && RESTORABLE_COMMANDS.contains(q.commandId()));
+                if (px || state) undoable++;
             }
             // results are read from the live mirrors: if another action ran after the plan, they may describe it instead
             waitForForeignOpsQuietly();
@@ -1638,9 +1648,13 @@ final class PennyOps {
                 map("fromDocument", "(the mask)", "replace", replace), prov("fromDocument", Params.DERIVED, "replace", PennyJson.has(a, "replace") ? Params.USER : Params.DERIVED),
                 "roiManager(\"" + (replace ? "reset" : "add") + "\"); // objects of the mask", ts);
         final int[] segmentedPlane = position(p) == null ? null : position(p).clone();
+        final int particlesIndex = p.steps.size() - 1;
         p.steps.add(new Step(copy.role(), copy.label(), copy.menuPath(), copy.request(), copy.provenance(), copy.preview(), res -> {
             Map<String, Object> params = new LinkedHashMap<>(copy.request().params());
             params.put("fromDocument", created(res.get(dup)).value());
+            // the objects' measurements (the Analyze Particles rows on the mask) belong with the copy: undoing it removes them
+            HistoryRecord particles = res.get(particlesIndex).record();
+            if (particles != null) params.put("resultsOf", particles.actionId());
             if (segmentedPlane != null)
                 params.put("position", List.of(d.nChannels() > 1 ? segmentedPlane[0] : 0, segmentedPlane[1], d.nFrames() > 1 ? segmentedPlane[2] : 0));
             return new ActionRequest(UUID.randomUUID().toString(), copy.request().origin(), ActionKind.DIRECT, null, Operations.ROI_LIST_ADD, params,
@@ -2238,6 +2252,29 @@ final class PennyOps {
             }
             if (!undone.isEmpty()) m.put("undoneActionId", undone.get(0));
             if (!undone.isEmpty()) m.put("undoneActionIds", undone);
+            // what the engine put back over all undone steps: pixels, the ROI list (first before -> last after), Results rows
+            Map<String, Object> restored = new LinkedHashMap<>();
+            Integer roisFirst = null, roisLast = null, rowsFirst = null, rowsLast = null;
+            boolean pixels = false;
+            for (ActionResult x : res) {
+                HistoryRecord r = x.record();
+                if (r == null || !undo) continue;
+                pixels |= Boolean.TRUE.equals(r.params().get("pixelsRestored"));
+                if (r.params().get("roisBefore") instanceof Number b && r.params().get("roisAfter") instanceof Number a2) {
+                    if (roisFirst == null) roisFirst = b.intValue();
+                    roisLast = a2.intValue();
+                }
+                if (r.params().get("resultsRowsBefore") instanceof Number b && r.params().get("resultsRowsAfter") instanceof Number a2) {
+                    if (rowsFirst == null) rowsFirst = b.intValue();
+                    rowsLast = a2.intValue();
+                }
+            }
+            if (undo && !undone.isEmpty()) {
+                restored.put("pixels", pixels);
+                if (roisFirst != null) restored.put("rois", map("before", roisFirst, "after", roisLast));
+                if (rowsFirst != null) restored.put("resultsRows", map("before", rowsFirst, "after", rowsLast));
+                m.put("restored", restored);
+            }
             m.put("document", engine.document(d.id()).map(this::documentJson).orElse(null));
             m.put("highlight", Highlight.canvas(d.id(), undo ? "Undone" : "Redone"));
             return m;

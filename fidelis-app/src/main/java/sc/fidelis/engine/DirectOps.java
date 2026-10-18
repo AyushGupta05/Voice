@@ -60,6 +60,9 @@ final class DirectOps {
         boolean displayChanged = false;
         boolean pixelsChanged = false;
         boolean dimsChanged = false;
+        // a ROI-list change (and the Results rows a ROI copy brings along) is undoable like a pixel change
+        Snapshots.Snapshot stateSnap = null;
+        boolean fromRedo = r.origin() == sc.fidelis.engine.api.Enums.Origin.REPLAY && r.replayOf() != null;
         try {
             if (ts.channel() != null || ts.slice() != null || ts.frame() != null) {
                 switch (name) {
@@ -198,6 +201,11 @@ final class DirectOps {
                             for (Roi x : copies) x.setPosition(pos[0], pos[1], pos[2]);
                             params.put("position", List.of(pos[0], pos[1], pos[2]));
                         }
+                        // resultsOf: the measurements of the copied objects (an Analyze Particles on the source) go with them,
+                        // so undoing the copy also removes those Results rows
+                        String resultsOf = r.params().get("resultsOf") instanceof String ro && !ro.isBlank() ? ro : null;
+                        if (resultsOf != null) params.put("resultsOf", resultsOf);
+                        stateSnap = eng.snapshots.take(doc, null, r, !fromRedo, false, true, resultsOf != null, null, resultsOf);
                         eng.emitState(op, OperationState.RUNNING, null);
                         synchronized (doc.roiList) {
                             if (replace) doc.roiList.clear();
@@ -217,6 +225,7 @@ final class DirectOps {
                     } else {
                         Roi roi = imp.getRoi();
                         if (roi == null) throw new Bad("there is no active selection to add");
+                        stateSnap = eng.snapshots.take(doc, null, r, !fromRedo, false, true, false, null, null);
                         eng.emitState(op, OperationState.RUNNING, null);
                         synchronized (doc.roiList) {
                             doc.roiList.add((Roi) roi.clone());
@@ -239,6 +248,7 @@ final class DirectOps {
                 }
                 case Operations.ROI_LIST_DELETE -> {
                     int i = index(doc, r);
+                    stateSnap = eng.snapshots.take(doc, null, r, !fromRedo, false, true, false, null, null);
                     eng.emitState(op, OperationState.RUNNING, null);
                     synchronized (doc.roiList) {
                         doc.roiList.remove(i);
@@ -249,6 +259,7 @@ final class DirectOps {
                     int i = index(doc, r);
                     Object n = r.params().get("name");
                     if (!(n instanceof String s) || s.isBlank()) throw new Bad("name must be non-empty text");
+                    stateSnap = eng.snapshots.take(doc, null, r, !fromRedo, false, true, false, null, null);
                     eng.emitState(op, OperationState.RUNNING, null);
                     synchronized (doc.roiList) {
                         doc.roiList.get(i).setName(s);
@@ -267,11 +278,13 @@ final class DirectOps {
                 }
             }
         } catch (Bad e) {
+            if (stateSnap != null) eng.snapshots.release(stateSnap);
             return Outcome.failed(new EngineError(ErrorCode.VALIDATION_FAILED, name + ": " + e.getMessage(), null, Map.of(), true, List.of()));
         }
         if (roiChanged) eng.observers.noteRoi(doc);
         eng.observers.noteThreshold(doc);
         String actionId = eng.history.nextId();
+        if (stateSnap != null) stateSnap.actionId = actionId;
         Map<String, String> gAfter = Globals.capture();
         HistoryRecord rec = History.record(actionId, r.origin(), Provenance.TYPED, name, name, params, ts, lines, exact, gBefore,
                 Globals.delta(gBefore, gAfter), OperationState.COMPLETED, null);
@@ -333,7 +346,7 @@ final class DirectOps {
         eng.emitState(op, OperationState.RUNNING, null);
         boolean hashAll = doc.imp.getStackSize() > 1;
         String hBefore = Pixels.hash(doc.imp, hashAll);
-        Snapshots.restore(snap);
+        Snapshots.Restored back = Snapshots.restore(snap, eng.results);
         eng.snapshots.release(snap);
         synchronized (doc.undo) {
             doc.redo.addFirst(snap.request);
@@ -342,11 +355,23 @@ final class DirectOps {
         String actionId = eng.history.nextId();
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("undoneActionId", snap.actionId);
+        params.put("undoneOperation", snap.request.commandId() != null ? snap.request.commandId() : snap.request.operation());
+        // what came back, for the History panel and Penny: pixels, the ROI list (count before -> after), Results rows
+        params.put("pixelsRestored", back.pixels());
+        if (back.rois()) {
+            params.put("roisBefore", back.roisBefore());
+            params.put("roisAfter", back.roisAfter());
+        }
+        if (back.results()) {
+            params.put("resultsRowsBefore", back.rowsBefore());
+            params.put("resultsRowsAfter", back.rowsAfter());
+        }
         HistoryRecord rec = History.record(actionId, op.request.origin(), Provenance.TYPED, Operations.UNDO, "Undo", params,
                 op.request.target(), List.of(), true, gBefore, Map.of(), OperationState.COMPLETED, null);
         eng.history.add(rec);
         StateDigest digest = new StateDigest(List.of(), List.of(),
-                List.of(new DocumentChange(doc.id, px, true, true, false, true)), 0, Map.of(), List.of(), List.of(), List.of());
+                List.of(new DocumentChange(doc.id, px, back.pixels(), back.pixels(), back.rois() && back.roisBefore() != back.roisAfter(), back.pixels())),
+                0, Map.of(), List.of(), List.of(), List.of());
         return Outcome.ok(digest, rec);
     }
 
@@ -359,7 +384,8 @@ final class DirectOps {
         ActionRequest replay = new ActionRequest(req.requestId() + "-redo", sc.fidelis.engine.api.Enums.Origin.REPLAY, req.kind(),
                 req.commandId(), req.operation(), req.params(), req.target(), req.confirmationToken(),
                 req.requestId());
-        Outcome o = eng.runner.run(new Op(op.id, replay), true);
+        Outcome o = req.kind() == sc.fidelis.engine.api.Enums.ActionKind.DIRECT ? runDirect(new Op(op.id, replay))
+                : eng.runner.run(new Op(op.id, replay), true);
         if (o.state() != OperationState.COMPLETED) {
             synchronized (doc.undo) {
                 doc.redo.addFirst(req);

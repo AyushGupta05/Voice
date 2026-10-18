@@ -221,6 +221,42 @@ final class Results {
         return List.copyOf(rows);
     }
 
+    /**
+     * Undo what one action did to the table: its rows are removed, and the rows it cleared ({@code clearedRows}, when
+     * it restarted the table) are put back in front of the survivors. The live IJ1 table is rewritten from the result,
+     * so the mirror stays equal to it row for row; other actions' rows keep their attribution and their bits. Returns
+     * {rows before, rows after}.
+     */
+    synchronized int[] undoAction(String actionId, List<MeasurementRow> clearedRows) {
+        int before = rows.size();
+        List<MeasurementRow> next = new ArrayList<>();
+        if (clearedRows != null) next.addAll(clearedRows);
+        for (MeasurementRow r : rows) if (actionId == null || !actionId.equals(r.actionId())) next.add(r);
+        ResultsTable rt = ResultsTable.getResultsTable();
+        if (rt == null) rt = new ResultsTable();
+        rt.reset();
+        // Analyzer.measure() resets a table whose last standard heading is missing (what Analyzer.reset() sets up):
+        // keep the standard headings, so the next Measure appends instead of starting over
+        rt.setDefaultHeadings();
+        List<MeasurementRow> renumbered = new ArrayList<>(next.size());
+        for (MeasurementRow r : next) {
+            rt.incrementCounter();
+            if (r.label() != null) rt.addLabel(r.label());
+            for (Map.Entry<String, Double> e : r.values().entrySet()) rt.addValue(e.getKey(), e.getValue());
+            renumbered.add(new MeasurementRow(renumbered.size(), r.label(), r.values(), r.document(), r.actionId()));
+        }
+        if (ij.WindowManager.getFrame("Results") != null) rt.show("Results");
+        rows.clear();
+        rows.addAll(renumbered);
+        restartPending = false;
+        ownerDoc = null;
+        ownerAction = null;
+        generation++;
+        int total = rows.size();
+        events.emit(seq -> new EngineEvent.ResultsChanged(seq, total));
+        return new int[] {before, total};
+    }
+
     MeasurementRow.Columns columns() {
         ResultsTable rt = ResultsTable.getResultsTable();
         List<String> h = new ArrayList<>();
