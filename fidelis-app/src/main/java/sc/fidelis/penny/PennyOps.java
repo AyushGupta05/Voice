@@ -62,7 +62,7 @@ import sc.fidelis.nl.NlService.Proposal;
 final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
-            "results", "object_stats", "explain_object", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
+            "results", "object_stats", "explain_object", "split_object", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
             "confirm", "cancel_plan", "dialog", "dialog_action");
     static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
@@ -73,7 +73,7 @@ final class PennyOps {
     /** View operations that are engine plans (select_roi, display, stack); the other views never reach the engine. */
     static final Set<String> PLAN_VIEWS = Set.of("select_roi", "display", "stack");
     static final Set<String> MUTATING = Set.of("open_path", "command", "segment_cells", "measure", "threshold", "analyze_particles",
-            "filter", "convert", "duplicate", "undo", "redo", "run_macro", "confirm", "dialog_action");
+            "filter", "convert", "duplicate", "split_object", "undo", "redo", "run_macro", "confirm", "dialog_action");
 
     static final List<String> THRESHOLD_METHODS = List.of("Default", "Huang", "Intermodes", "IsoData", "IJ_IsoData", "Li",
             "MaxEntropy", "Mean", "MinError", "Minimum", "Moments", "Otsu", "Percentile", "RenyiEntropy", "Shanbhag", "Triangle", "Yen");
@@ -324,6 +324,7 @@ final class PennyOps {
             case "convert" -> run(convert(c));
             case "duplicate" -> run(duplicate(c));
             case "select_roi" -> run(selectRoi(c));
+            case "split_object" -> run(splitObject(c));
             case "display" -> run(display(c));
             case "stack" -> run(stack(c));
             case "undo" -> run(undoRedo(c, Operations.UNDO));
@@ -1362,22 +1363,10 @@ final class PennyOps {
     private Map<String, Object> explainObject(JsonObject a) {
         DocumentInfo d = requireDoc();
         List<RoiGeometry> all = engine.rois(d.id());
-        if (all.isEmpty()) throw new Failure(409, "The ROI list is empty; segment or add regions first.");
-        Integer index = PennyJson.has(a, "index") ? PennyJson.integer(a, "index", 0, 0, Math.max(0, all.size() - 1)) : null;
-        java.awt.Point at = null;
-        String how;
-        if (index != null) how = "index";
-        else if (PennyJson.has(a, "x") && PennyJson.has(a, "y")) { at = new java.awt.Point((int) Math.floor(PennyJson.num(a, "x")), (int) Math.floor(PennyJson.num(a, "y"))); how = "point"; }
-        else {
-            PennyUi ui = PennyUi.current();
-            at = ui == null ? null : ui.pointer(d.id());
-            if (at == null) throw new Failure(409, "Point at the object first: the pointer is not over the image.");
-            how = "pointer";
-        }
-        if (index == null) {
-            for (int i = 0; i < all.size() && index == null; i++) if (Highlight.contains(all.get(i), at.x + 0.5, at.y + 0.5)) index = i;
-            if (index == null) throw new Failure(409, "No object at " + at.x + "," + at.y + " on " + d.title() + "; it was not counted.");
-        }
+        Located loc = locate(d, all, a);
+        Integer index = loc.index;
+        java.awt.Point at = loc.at;
+        String how = loc.how;
         RoiGeometry g = all.get(index);
         double areaPixels = Highlight.areaPixels(g);
         double calibration = d.pixelWidth() * d.pixelHeight();
@@ -1440,6 +1429,81 @@ final class PennyOps {
         out.put("total", all.size());
         out.put("highlight", Highlight.rois(d.id(), List.of(g), "object " + (index + 1), HIGHLIGHT_LIMIT, true));
         return out;
+    }
+
+    private record Located(int index, java.awt.Point at, String how) {}
+
+    /** The ROI-list entry a request names: {@code index}, an image point {@code x,y}, or the one under the pointer. */
+    private Located locate(DocumentInfo d, List<RoiGeometry> all, JsonObject a) {
+        if (all.isEmpty()) throw new Failure(409, "The ROI list is empty; segment or add regions first.");
+        if (PennyJson.has(a, "index")) return new Located(PennyJson.integer(a, "index", 0, 0, Math.max(0, all.size() - 1)), null, "index");
+        java.awt.Point at;
+        String how;
+        if (PennyJson.has(a, "x") && PennyJson.has(a, "y")) { at = new java.awt.Point((int) Math.floor(PennyJson.num(a, "x")), (int) Math.floor(PennyJson.num(a, "y"))); how = "point"; }
+        else {
+            PennyUi ui = PennyUi.current();
+            at = ui == null ? null : ui.pointer(d.id());
+            if (at == null) throw new Failure(409, "Point at the object first: the pointer is not over the image.");
+            how = "pointer";
+        }
+        for (int i = 0; i < all.size(); i++) if (Highlight.contains(all.get(i), at.x + 0.5, at.y + 0.5)) return new Located(i, at, how);
+        throw new Failure(409, "No object at " + at.x + "," + at.y + " on " + d.title() + "; it was not counted.");
+    }
+
+    /**
+     * "These should be separate": the object under the pointer (or {@code index} / {@code x,y}) is split along its
+     * distance-map watershed; the pieces replace it in the ROI list as recorded, undoable steps (delete, then select and
+     * add each piece, then Select None). The pixels are untouched and the Results rows are the original run's: measure
+     * again for the pieces. 409 when the watershed finds one object.
+     */
+    private Plan splitObject(Call c) {
+        JsonObject a = c.args();
+        DocumentInfo d = requireDoc();
+        List<RoiGeometry> all = engine.rois(d.id());
+        Located loc = locate(d, all, a);
+        RoiGeometry g = all.get(loc.index);
+        double areaPixels = Highlight.areaPixels(g);
+        // a piece is a real object, not a sliver: at least a fifth of the original (or the caller's minPart in pixels)
+        int minPart = PennyJson.has(a, "minPart") ? PennyJson.integer(a, "minPart", 1, 1, 1_000_000) : Math.max(4, (int) Math.round(areaPixels * 0.2));
+        double[] used = new double[1];
+        List<RoiGeometry> pieces = Split.pieces(g, minPart, used);
+        if (pieces.isEmpty()) throw new Failure(409, "Object " + (loc.index + 1) + " does not separate: its distance-map watershed finds one object (pieces under "
+                + minPart + " pixels are not objects). Draw the boundary by hand, or lower minPart.");
+        Plan p = new Plan(c, d.id());
+        TargetScope ts = TargetScope.of(d.id());
+        final int index = loc.index;
+        p.steps.add(directStep(p, "remove", Operations.ROI_LIST_DELETE, "Remove object " + (index + 1), "Analyze>Tools>ROI Manager...",
+                map("index", index), prov("index", loc.how.equals("index") ? Params.USER : Params.DERIVED), "roiManager(\"Select\", " + index + "); roiManager(\"Delete\");", ts));
+        for (int k = 0; k < pieces.size(); k++) {
+            RoiGeometry piece = pieces.get(k);
+            p.steps.add(directStep(p, "piece" + k, Operations.SET_ROI, "Select piece " + (k + 1) + " of " + pieces.size(), "Edit>Selection>Specify...",
+                    map("roi", piece), prov("roi", Params.DERIVED), "makeSelection(\"traced\", …); // piece " + (k + 1), ts));
+            p.steps.add(directStep(p, "add" + k, Operations.ROI_LIST_ADD, "Add piece " + (k + 1) + " to the ROI list", "Analyze>Tools>ROI Manager...",
+                    Map.of(), Map.of(), "roiManager(\"add\");", ts));
+        }
+        p.steps.add(directStep(p, "none", Operations.CLEAR_ROI, "Select None", "Edit>Selection>Select None", Map.of(), Map.of(), "run(\"Select None\");", ts));
+        final double tolerance = used[0];
+        final List<RoiGeometry> parts = pieces;
+        p.finish = (plan, res) -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("index", index);
+            m.put("by", loc.how);
+            m.put("pieces", parts.size());
+            m.put("tolerance", tolerance);
+            m.put("areaPixels", areaPixels);
+            List<Double> areas = new ArrayList<>();
+            for (RoiGeometry x : parts) areas.add(Highlight.areaPixels(x) * d.pixelWidth() * d.pixelHeight());
+            m.put("pieceAreas", areas);
+            m.put("unit", d.unit());
+            List<RoiGeometry> now = engine.rois(d.id());
+            m.put("total", now.size());
+            m.put("resultsNote", "the Results rows are the original segmentation's; measure again for the pieces");
+            m.put("generalisable", false);
+            List<RoiGeometry> shown = now.size() >= parts.size() ? now.subList(now.size() - parts.size(), now.size()) : parts;
+            m.put("highlight", Highlight.rois(d.id(), shown, parts.size() + " pieces", HIGHLIGHT_LIMIT, true));
+            return m;
+        };
+        return p;
     }
 
     private Map<String, Object> history(JsonObject a) {

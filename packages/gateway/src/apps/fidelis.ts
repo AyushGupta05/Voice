@@ -25,7 +25,7 @@ const acknowledgments: Record<string, string> = {
   fidelis_filter: 'Applying the filter.', fidelis_open_path: 'Opening it.', fidelis_command: 'On it.', fidelis_select_roi: 'Selecting the region.', fidelis_zoom: 'Zooming.',
   fidelis_undo: 'Undoing.', fidelis_redo: 'Redoing.', fidelis_run_macro: 'Preparing the macro.', fidelis_confirm: 'Running it.', fidelis_cancel_plan: 'Cancelling.',
   fidelis_convert: 'Converting.', fidelis_duplicate: 'Duplicating.', fidelis_display: 'Adjusting the display.', fidelis_stack: 'Changing slice.', fidelis_activate_image: 'Switching image.',
-  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.', fidelis_explain_object: 'Looking at it.',
+  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.', fidelis_explain_object: 'Looking at it.', fidelis_split_object: 'Separating them.',
   fidelis_commands: 'Looking it up.', fidelis_macro: 'Here is the macro.', fidelis_dialog: 'Checking the dialog.', fidelis_dialog_action: 'Filling in the dialog.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
@@ -217,6 +217,13 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   // in place); otherwise the model phrases it. Areas are valid either way.
   if (name === 'fidelis_measure') return measuresIntensity(inner) && !intensityTrusted(context) ? undefined : measureSentence(args, inner);
   if (name === 'fidelis_threshold') return thresholdSentence(inner);
+  if (name === 'fidelis_split_object') {
+    const pieces = finite(inner.pieces), index = finite(inner.index), total = finite(inner.total);
+    if (pieces === undefined || index === undefined) return undefined;
+    const areas = Array.isArray(inner.pieceAreas) ? inner.pieceAreas.filter((v): v is number => typeof v === 'number') : [];
+    const sizes = areas.length === pieces && pieces <= 3 ? ` (${areas.map(a => spokenArea(a, inner.unit)).join(' and ')})` : '';
+    return `Split object ${index + 1} into ${pieces}${sizes}${total !== undefined ? `; ${plural(total, 'object')} now` : ''}.`;
+  }
   if (name === 'fidelis_open_path') {
     const document = record(inner.document); const title = text(document?.title), width = finite(document?.width), height = finite(document?.height);
     if (!title || width === undefined || height === undefined) return undefined;
@@ -351,6 +358,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
+  // "These should be separate" / "those are two cells": the object under the pointer is split along its watershed (data route)
+  if (/^(?:(?:these|those|they|this|that|it)(?: two| ones?)? (?:should be|are|are actually|is actually|are really|is really) (?:two|2|three|3|several|separate|different|distinct)(?: (?:separate |different |distinct )?(?:cells|nuclei|objects|ones))?|(?:split|separate|divide|cut) (?:this|that|it|these|those|this one|that one|this clump|the clump)(?: (?:in two|into two|in half|up|apart))?|(?:this|that) (?:is|one is) (?:two|2) (?:cells|nuclei|objects)(?: not one)?)$/.test(said))
+    return { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' };
   // "Why did you count this (as a cell)?" / "what is this one": the object under the pointer, explained and flashed
   if (/^(?:so )?(?:why (?:did|do) you (?:count|pick|include|call|keep) (?:this|that|it)(?: one)?(?: as (?:a |an )?(?:cell|nucleus|object))?|why (?:was|is) (?:this|that|it)(?: one)? (?:counted|picked|included|a cell|a nucleus|an object|here)|(?:what is|what's|tell me about) (?:this|that) one|explain (?:this|that)(?: one| cell| nucleus| object)?)$/.test(said))
     return { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' };

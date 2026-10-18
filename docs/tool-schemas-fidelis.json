@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fidelis",
   "app": "fidelis",
-  "toolCount": 34,
+  "toolCount": 35,
   "tools": [
     {
       "name": "fidelis_context",
@@ -611,6 +611,36 @@
           "offset": {
             "type": "integer",
             "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_split_object",
+      "description": "Split one counted object the researcher says is several (\"these should be separate\"): the one under the pointer (no arguments), by ROI index, or at an image point x,y. The outline is cut along its distance-map watershed and the pieces replace it in the ROI list as recorded, undoable steps. Returns pieces, pieceAreas, unit, total, undoSteps, a highlight; refused when it finds one object.",
+      "operation": "split_object",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minPart": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Smallest piece in pixels (default a fifth of the object)."
           }
         },
         "required": [],

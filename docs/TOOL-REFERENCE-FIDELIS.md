@@ -24,6 +24,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fidelis_select_roi`](#fidelis-select-roi) | view | No |
 | [`fidelis_rois`](#fidelis-rois) | read | No |
 | [`fidelis_results`](#fidelis-results) | read | No |
+| [`fidelis_split_object`](#fidelis-split-object) | data | Yes |
 | [`fidelis_explain_object`](#fidelis-explain-object) | read | No |
 | [`fidelis_object_stats`](#fidelis-object-stats) | read | No |
 | [`fidelis_display`](#fidelis-display) | view | No |
@@ -267,6 +268,19 @@ Read Results table rows (bounded by limit and offset) with their column names an
 |---|---|---|
 | `limit` | No | integer; min 1; max 500 |
 | `offset` | No | integer; min 0 |
+
+<a id="fidelis-split-object"></a>
+
+## fidelis_split_object
+
+Split one counted object the researcher says is several ("these should be separate"): the one under the pointer (no arguments), by ROI index, or at an image point x,y. The outline is cut along its distance-map watershed and the pieces replace it in the ROI list as recorded, undoable steps. Returns pieces, pieceAreas, unit, total, undoSteps, a highlight; refused when it finds one object.
+
+| Parameter | Required | Accepted value | Description |
+|---|---|---|---|
+| `index` | No | integer; min 0 |  |
+| `x` | No | number; min 0 |  |
+| `y` | No | number; min 0 |  |
+| `minPart` | No | integer; min 1 | Smallest piece in pixels (default a fifth of the object). |
 
 <a id="fidelis-explain-object"></a>
 

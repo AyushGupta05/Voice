@@ -47,6 +47,11 @@ on this image; a macro's changes are not taken back."
 objects. Otsu threshold, no size floor." With the pointer away from the image she asks you to point at it first. Needs
 a Fidelis relaunch from main `93c9d73` (the bridge jar changed).
 
+"These should be separate" / "Those are actually two cells" with the mouse over a clump: Penny splits that outline
+along its watershed into recorded, undoable ROI-list steps and says "Split object 12 into 2 (260 square pixels and
+256 square pixels); 68 objects now." A single round object is refused ("does not separate"). Bridge-tested on a
+dumbbell outline (2 pieces, undo restores the clump); not yet tried on blobs by voice.
+
 ## 4. Not seen with eyes tonight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were

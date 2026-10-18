@@ -48,7 +48,9 @@ Only the researcher's own "yes" confirms: the gateway refuses `fidelis_confirm` 
   the ROI list holds objects unless asked. "Why did you count this?" is `fidelis_explain_object` (the object under the
   pointer; `index` or `x,y` otherwise): its area against the median, circularity, the threshold and size floor that
   picked it, with a verdict ("large and irregular: possibly two touching objects"); "which is the biggest" is
-  `fidelis_highlight {rois: "largest"}`.
+  `fidelis_highlight {rois: "largest"}`. "These should be separate" is `fidelis_split_object` (pointer / `index` / `x,y`):
+  the outline is split along its watershed into recorded, undoable ROI-list steps; the pixels and Results rows stay, so
+  measure again for the pieces; refused when the watershed finds one object (say so, suggest drawing the boundary).
 - `fidelis_measure` takes Set Measurements keys (`area`, `mean`, `min`, `integrated`, `shape`, `feret's`, …) and a scope:
   `roi` (the active selection), `all` (the whole document) or `rois` (every ROI-list entry).
 - `fidelis_segment_cells` works on a duplicate (`<title>-mask`) that it closes again once the objects are copied to the

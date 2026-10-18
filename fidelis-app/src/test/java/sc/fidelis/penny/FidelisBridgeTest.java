@@ -455,6 +455,61 @@ class FidelisBridgeTest {
         assertTrue(none.get("viewer").isJsonNull());
     }
 
+    @Test
+    void aClumpSplitsAlongItsWatershedIntoRecordedUndoablePieces() throws Exception {
+        String doc = openSquares();
+        sc.fidelis.engine.api.DocumentId id = new sc.fidelis.engine.api.DocumentId(doc);
+        // a dumbbell: two discs of radius 9 whose centres are 20 px apart, joined by a waist 4 px wide
+        ij.process.ByteProcessor mask = new ij.process.ByteProcessor(64, 64);
+        mask.setColor(255);
+        mask.fill(new ij.gui.OvalRoi(6, 20, 18, 18));
+        mask.fill(new ij.gui.OvalRoi(26, 20, 18, 18));
+        mask.fill(new ij.gui.Roi(14, 27, 22, 4));
+        mask.setThreshold(255, 255, ij.process.ImageProcessor.NO_LUT_UPDATE);
+        ij.gui.Roi clump = new ij.plugin.filter.ThresholdToSelection().convert(mask);
+        ij.process.FloatPolygon fp = clump.getFloatPolygon();
+        List<Float> xs = new java.util.ArrayList<>(), ys = new java.util.ArrayList<>();
+        for (int i = 0; i < fp.npoints; i++) { xs.add(fp.xpoints[i]); ys.add(fp.ypoints[i]); }
+        sc.fidelis.engine.api.RoiGeometry g = new sc.fidelis.engine.api.RoiGeometry("TRACED", xs, ys, null, "clump", null, null);
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.SET_ROI,
+                java.util.Map.of("roi", g), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.ROI_LIST_ADD,
+                java.util.Map.of(), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        http.exec("select_roi", args("type", "none"), null, null).result();
+        assertEquals(1, engine.rois(id).size());
+        int history = engine.history().size();
+        // the point in the waist belongs to the clump; the split is a plan of recorded ROI-list steps
+        JsonObject split = http.change("split_object", args("x", 25, "y", 29)).result();
+        assertEquals("completed", split.get("status").getAsString(), split.toString());
+        assertEquals(2, split.get("pieces").getAsInt(), split.toString());
+        assertEquals("point", split.get("by").getAsString());
+        assertEquals(0, split.get("index").getAsInt());
+        assertEquals(2, split.get("total").getAsInt(), split.toString());
+        assertEquals(2, engine.rois(id).size());
+        double sum = 0;
+        for (var v : split.getAsJsonArray("pieceAreas")) sum += v.getAsDouble();
+        assertEquals(split.get("areaPixels").getAsDouble(), sum, split.get("areaPixels").getAsDouble() * 0.1, "the pieces cover the clump " + split);
+        assertEquals(2, split.getAsJsonObject("highlight").getAsJsonArray("targets").size());
+        assertEquals(6, engine.history().size() - history, "delete, 2 x (select, add), select none");
+        int undoSteps = split.get("undoSteps").getAsInt();
+        assertEquals(3, undoSteps, "the delete and the two adds restore; the selections do not " + split);
+        assertFalse(split.get("generalisable").getAsBoolean());
+        // and it comes back as one object with the reported number of undo steps
+        JsonObject undone = http.change("undo", args("steps", undoSteps)).result();
+        assertEquals("completed", undone.get("status").getAsString(), undone.toString());
+        assertEquals(1, engine.rois(id).size(), "the clump is one object again");
+        assertEquals("clump", engine.rois(id).get(0).name());
+        // a disc on its own has no waist: refused, nothing recorded
+        http.exec("select_roi", args("type", "oval", "x", 40, "y", 2, "width", 16, "height", 16), null, null).result();
+        assertTrue(engine.submit(sc.fidelis.engine.api.ActionRequest.direct(sc.fidelis.engine.api.Enums.Origin.PANEL, sc.fidelis.engine.api.ActionRequest.Operations.ROI_LIST_ADD,
+                java.util.Map.of(), sc.fidelis.engine.api.TargetScope.of(id))).get(30, java.util.concurrent.TimeUnit.SECONDS).succeeded());
+        int before = engine.history().size();
+        BridgeHttp.Resp whole = http.change("split_object", args("index", 1));
+        assertEquals(409, whole.status(), whole.body().toString());
+        assertTrue(whole.error().contains("does not separate"), whole.error());
+        assertEquals(before, engine.history().size());
+    }
+
     private JsonObject engineRoiBounds(sc.fidelis.engine.api.DocumentId doc, int index) {
         sc.fidelis.engine.api.RoiGeometry g = engine.rois(doc).get(index);
         double x = Double.MAX_VALUE, y = Double.MAX_VALUE;
