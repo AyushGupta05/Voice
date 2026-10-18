@@ -1674,7 +1674,7 @@ final class PennyOps {
         // the images already open stay open and untouched: only what an iteration opened is closed
         sb.append("keep = newArray(nImages); for (k = 1; k <= nImages; k++) { selectImage(k); keep[k - 1] = getImageID(); }\n");
         sb.append("Table.create(\"Penny folder\");\n");
-        sb.append("row = 0;\n");
+        sb.append("row = 0; skipped = 0;\n");
         sb.append("for (i = 0; i < list.length; i++) {\n");
         sb.append("  name = list[i]; lower = toLowerCase(name);\n");
         StringBuilder test = new StringBuilder();
@@ -1683,6 +1683,10 @@ final class PennyOps {
         sb.append("  run(\"Clear Results\");\n"); // each image's Results are its own
         sb.append("  open(dir + name);\n");
         sb.append("  id1 = getImageID();\n");
+        // the session's recipe was worked out on one plane: a stack (slices, channels or frames) would stop the run on
+        // Fiji's own "Process Stack?" question, so it is recorded as skipped instead of analysed on one plane in silence
+        sb.append("  if (nSlices > 1) { Table.set(\"Image\", row, name, \"Penny folder\"); Table.set(\"Count\", row, -1, \"Penny folder\"); Table.set(\"MeanArea\", row, 0, \"Penny folder\"); Table.set(\"Note\", row, \"skipped: a stack (\" + nSlices + \" planes); the analysis was made on a single image\", \"Penny folder\"); row++; skipped++; close(); continue; }\n");
+        sb.append("  Table.set(\"Note\", row, \"\", \"Penny folder\");\n");
         for (String line : body) sb.append(line).append("\n");
         sb.append("  count = nResults; sum = 0;\n");
         sb.append("  for (r = 0; r < count; r++) sum += getResult(\"Area\", r);\n");
@@ -1696,7 +1700,7 @@ final class PennyOps {
         sb.append("Table.update(\"Penny folder\");\n");
         sb.append("Table.save(out, \"Penny folder\");\n");
         sb.append("setBatchMode(false);\n");
-        sb.append("print(\"PENNY_FOLDER images=\" + row + \" csv=\" + out);\n");
+        sb.append("print(\"PENNY_FOLDER images=\" + (row - skipped) + \" skipped=\" + skipped + \" csv=\" + out);\n");
         String macro = sb.toString();
         if (macro.length() > 32_000) throw new Failure(409, "The folder macro is " + macro.length() + " characters, over the 32000 run_macro accepts; the session has too many steps to apply as one macro.");
         Map<String, Object> out2 = map("macro", macro, "folder", folder.toString(), "images", images.size(), "imageNames", images.size() > 50 ? images.subList(0, 50) : images,

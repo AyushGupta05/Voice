@@ -542,6 +542,10 @@ class FidelisBridgeTest {
         Files.copy(png, dir.resolve("a-squares.png"));
         Files.copy(png, dir.resolve("b-squares.png"));
         Files.writeString(dir.resolve("notes.txt"), "not an image");
+        // a stack in the folder is reported, not analysed on one plane (Fiji would ask "Process Stack?" otherwise)
+        ij.ImagePlus stack = ij.IJ.createImage("c-stack", "8-bit black", 64, 64, 2);
+        ij.IJ.saveAsTiff(stack, dir.resolve("c-stack.tif").toString());
+        stack.close();
         JsonObject opened = http.change("open_path", args("path", dir.resolve("a-squares.png").toString())).result();
         assertEquals("completed", opened.get("status").getAsString(), opened.toString());
         // the demo's own segmentation: its ROI-list copy records every outline literally, which must not reach the folder
@@ -551,7 +555,7 @@ class FidelisBridgeTest {
         assertTrue(perImage > 0, segmented.toString());
         JsonObject folder = http.read("folder_macro", args("folder", dir.toString()));
         assertTrue(folder.has("literalOutlinesSkipped") && folder.get("literalOutlinesSkipped").getAsInt() == perImage, "the copied outlines are skipped: " + folder);
-        assertEquals(2, folder.get("images").getAsInt(), folder.toString());
+        assertEquals(3, folder.get("images").getAsInt(), folder.toString());
         assertEquals(dir.resolve("penny-folder-results.csv").toString(), folder.get("output").getAsString());
         String macro = folder.get("macro").getAsString();
         assertTrue(macro.contains("list = getFileList(dir);") && macro.contains("open(dir + name);") && macro.contains("Table.save(out, \"Penny folder\");"), macro);
@@ -571,11 +575,13 @@ class FidelisBridgeTest {
         Path csv = dir.resolve("penny-folder-results.csv");
         assertTrue(Files.isRegularFile(csv), "the folder summary was written: " + ran);
         List<String> rows = Files.readAllLines(csv);
-        assertEquals(3, rows.size(), "header and two images: " + rows);
-        assertTrue(rows.get(0).contains("Image") && rows.get(0).contains("Count") && rows.get(0).contains("MeanArea"), rows.get(0));
+        assertEquals(4, rows.size(), "header, two images and the skipped stack: " + rows);
+        assertTrue(rows.get(0).contains("Image") && rows.get(0).contains("Count") && rows.get(0).contains("MeanArea") && rows.get(0).contains("Note"), rows.get(0));
         for (String row : rows.subList(1, 3)) assertTrue(row.contains("squares.png") && row.contains("," + perImage + ","), "each image counted like the session: " + row);
-        assertTrue(ran.get("log").toString().contains("PENNY_FOLDER images=2"), ran.toString());
-        for (Path f : List.of(csv, dir.resolve("a-squares.png"), dir.resolve("b-squares.png"), dir.resolve("notes.txt"))) Files.deleteIfExists(f);
+        assertTrue(rows.get(3).contains("c-stack.tif") && rows.get(3).contains(",-1,") && rows.get(3).contains("skipped: a stack (2 planes)"), rows.get(3));
+        assertTrue(ran.get("log").toString().contains("PENNY_FOLDER images=2 skipped=1"), ran.toString());
+        assertEquals(1, engine.documents().size(), "the folder run left only the session's own image open: " + engine.documents());
+        for (Path f : List.of(csv, dir.resolve("a-squares.png"), dir.resolve("b-squares.png"), dir.resolve("c-stack.tif"), dir.resolve("notes.txt"))) Files.deleteIfExists(f);
         Files.deleteIfExists(dir);
     }
 

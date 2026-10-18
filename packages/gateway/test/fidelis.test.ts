@@ -736,4 +736,5 @@ test('"run this macro" routes to fidelis_run_macro with the session macro as its
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (12 lines)', commandId: null }, resultsRowsAdded: 67, documentsAdded: ['doc-2'] })), 'Ran the macro: 67 result rows, 1 new image.');
   assert.equal(fidelis.localSentenceFor('fidelis_run_macro', {}, completed({ step: { label: 'Run macro (3 lines)' }, resultsRowsAdded: 0, documentsAdded: [] })), 'Ran the macro.');
   assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (40 lines)' }, resultsRowsAdded: 0, documentsAdded: [], log: ['PENNY_FOLDER images=5 csv=/data/imagej/penny-folder-results.csv'] })), 'Ran it on 5 images; the results are in penny-folder-results.csv.');
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Run macro (40 lines)' }, resultsRowsAdded: 0, documentsAdded: [], log: ['PENNY_FOLDER images=2 skipped=3 csv=/data/imagej/penny-folder-results.csv'] })), 'Ran it on 2 images (3 stacks skipped); the results are in penny-folder-results.csv.');
 });
