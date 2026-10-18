@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sc.fidelis.penny.BridgeHttp.args;
 
+import java.awt.Color;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,12 @@ import org.junit.jupiter.api.Test;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import ij.CompositeImage;
+import ij.ImagePlus;
+import ij.ImageStack;
+import ij.gui.OvalRoi;
+import ij.process.ByteProcessor;
+import ij.process.LUT;
 
 import sc.fidelis.engine.api.Engine;
 import sc.fidelis.engine.api.HistoryRecord;
@@ -422,5 +430,109 @@ class FidelisBridgeTest {
     @SuppressWarnings("unused")
     private static String str(JsonElement e) {
         return e == null || e.isJsonNull() ? null : e.getAsString();
+    }
+
+    /** A two-channel composite TIFF: channel 1 green and flat, channel 2 blue with two bright discs. */
+    private static Path twoChannelTiff(boolean blueLut, String label2) throws Exception {
+        ImageStack st = new ImageStack(64, 64);
+        ByteProcessor green = new ByteProcessor(64, 64);
+        green.setValue(20);
+        green.fill();
+        ByteProcessor blue = new ByteProcessor(64, 64);
+        blue.setValue(10);
+        blue.fill();
+        blue.setValue(220);
+        blue.fill(new OvalRoi(8, 8, 16, 16));
+        blue.fill(new OvalRoi(36, 36, 16, 16));
+        st.addSlice("GFP", green);
+        st.addSlice(label2, blue);
+        ImagePlus imp = new ImagePlus("twochannel", st);
+        imp.setDimensions(2, 1, 1);
+        CompositeImage ci = new CompositeImage(imp, CompositeImage.COMPOSITE);
+        ci.setChannelLut(LUT.createLutFromColor(blueLut ? Color.GREEN : Color.WHITE), 1);
+        ci.setChannelLut(LUT.createLutFromColor(blueLut ? Color.BLUE : Color.WHITE), 2);
+        Path dir = Files.createTempDirectory("penny-composite");
+        Path tif = dir.resolve((blueLut ? "blue" : "labelled") + "-twochannel.tif");
+        assertTrue(new ij.io.FileSaver(ci).saveAsTiff(tif.toString()), "fixture written");
+        return tif;
+    }
+
+    @Test
+    void nucleiAreSegmentedOnTheBlueOrLabelledChannelOfAMultichannelImage() throws Exception {
+        Path tif = twoChannelTiff(true, "DAPI");
+        JsonObject opened = http.change("open_path", args("path", tif.toString())).result();
+        assertEquals(2, opened.getAsJsonObject("document").get("channels").getAsInt(), opened.toString());
+        int open = engine.documents().size();
+        // no channel given: the blue-LUT channel is the nuclear one, and the mask is closed again
+        JsonObject seg = http.change("segment_cells", args()).result();
+        assertEquals("completed", seg.get("status").getAsString(), seg.toString());
+        assertEquals(2, seg.get("channel").getAsInt(), seg.toString());
+        assertEquals("lut-blue", seg.get("channelBy").getAsString());
+        assertEquals(2, seg.get("count").getAsInt(), "the two discs of the blue channel, not the flat green one: " + seg);
+        assertTrue(seg.getAsJsonObject("mask").get("closed").getAsBoolean(), seg.getAsJsonObject("mask").toString());
+        assertEquals(open, engine.documents().size(), "the mask was closed: " + engine.documents());
+        assertEquals("Channel 2 (blue)", seg.getAsJsonArray("steps").get(0).getAsJsonObject().get("label").getAsString(), seg.toString());
+        // intensities of the objects come from the channel they were segmented on, not the displayed one
+        ImagePlus shown = engine.imagePlus(new sc.fidelis.engine.api.DocumentId(opened.getAsJsonObject("document").get("id").getAsString()));
+        shown.setC(1);
+        JsonObject rois = http.change("measure", args("scope", "rois", "measurements", List.of("mean"))).result();
+        assertEquals(2, rois.get("channel").getAsInt(), rois.toString());
+        double discMean = rois.getAsJsonObject("summary").getAsJsonObject("mean").get("mean").getAsDouble();
+        assertTrue(discMean > 150, "the blue discs (220), not the flat green channel (20): " + rois);
+        JsonObject whole = http.change("measure", args("scope", "all", "measurements", List.of("mean"))).result();
+        assertEquals(2, whole.get("channel").getAsInt(), whole.toString());
+        assertEquals("segmented", whole.get("channelBy").getAsString());
+        double wholeMean = whole.getAsJsonObject("lastRow").get("Mean").getAsDouble();
+        assertTrue(wholeMean > 10 && wholeMean < 60 && wholeMean != 20.0, "the blue plane's mean (background 10 plus two discs), not green's 20: " + whole);
+        assertEquals(1, shown.getC(), "the displayed channel is restored");
+        JsonObject asked = http.change("measure", args("scope", "all", "measurements", List.of("mean"), "channel", 1)).result();
+        assertEquals(20.0, asked.getAsJsonObject("lastRow").get("Mean").getAsDouble(), 1e-9, asked.toString());
+        assertEquals("argument", asked.get("channelBy").getAsString());
+        // an explicit channel wins, and keepMask leaves the mask open
+        JsonObject seg1 = http.change("segment_cells", args("channel", 1, "keepMask", true)).result();
+        assertEquals(1, seg1.get("channel").getAsInt());
+        assertEquals("argument", seg1.get("channelBy").getAsString());
+        // a flat channel thresholds as one whole-image object under Otsu: not the two discs of the blue channel
+        assertNotEquals(2, seg1.get("count").getAsInt(), "the flat green channel, not the blue discs: " + seg1);
+        assertFalse(seg1.getAsJsonObject("mask").get("closed").getAsBoolean());
+        assertEquals(open + 1, engine.documents().size());
+        // the rules themselves: blue LUT first, then a DAPI/Hoechst/nuc label, else the current channel
+        ImagePlus labelled = ij.IJ.openImage(twoChannelTiff(false, "Hoechst 33342").toString());
+        assertNotNull(labelled);
+        labelled.setC(1);
+        assertEquals(new PennyOps.ChannelChoice(2, "label"), PennyOps.nucleiChannel(labelled, 2), "labelled channel");
+        ImagePlus plain = ij.IJ.openImage(twoChannelTiff(false, "ch2").toString());
+        plain.setC(1);
+        assertEquals(new PennyOps.ChannelChoice(1, "current"), PennyOps.nucleiChannel(plain, 2), "no hint: the current channel");
+        assertEquals("blue", PennyOps.lutName(LUT.createLutFromColor(Color.BLUE)));
+        assertEquals("grays", PennyOps.lutName(LUT.createLutFromColor(Color.WHITE)));
+        labelled.close();
+        plain.close();
+    }
+
+    @Test
+    void aFileChooserACommandOpensOnItsWayIsCancelledForThePlanAndUpFrontChoosersStayRefused() throws Exception {
+        // a command whose first act is a chooser is refused before anything runs
+        openSquares();
+        String pdfId = engine.catalogue().stream().filter(x -> "File>Save As".equals(x.menuPath()) && x.label().trim().startsWith("PDF"))
+                .map(sc.fidelis.engine.api.CommandSchema.Summary::commandId).findFirst().orElseThrow();
+        BridgeHttp.Resp pdf = http.change("command", args("commandId", pdfId));
+        assertEquals(409, pdf.status(), pdf.body().toString());
+        assertEquals("FILE_CHOOSER", pdf.body().get("code").getAsString(), pdf.body().toString());
+        // Coloc 2 (legacy, AC4): its own dialog is answered, it runs, and it ends by asking where to save a PDF: the bridge
+        // cancels that chooser itself and the step completes with cancelledFileDialog
+        openSquares();
+        JsonObject held = http.change("command", args("commandId", "ij1:Analyze>Colocalization>Coloc 2")).result();
+        assertEquals("awaiting_confirmation", held.get("status").getAsString(), held.toString());
+        JsonObject dialog = http.change("confirm", args("planId", held.get("planId").getAsString())).result();
+        assertEquals("dialog", dialog.get("status").getAsString(), dialog.toString());
+        assertEquals("generic", dialog.getAsJsonObject("dialog").get("kind").getAsString(), dialog.toString());
+        JsonObject done = http.change("dialog_action", args("dialogId", dialog.get("dialogId").getAsString(), "press", "OK")).result();
+        System.out.println("[penny-bridge] Coloc 2 after OK: " + done);
+        assertTrue(done.has("cancelledFileDialog") && done.get("cancelledFileDialog").getAsBoolean(), "the Save as PDF chooser was cancelled by the bridge: " + done);
+        assertTrue(done.get("note").getAsString().contains("does not drive OS file dialogs"), done.toString());
+        assertTrue(List.of("completed", "cancelled").contains(done.get("status").getAsString()), done.toString());
+        assertTrue(sc.fidelis.penny.DialogDriver.showing().stream().noneMatch(w -> w instanceof java.awt.FileDialog), "no file chooser is left open");
+        assertTrue(http.read("context", null).get("running").isJsonNull(), "the plan ended");
     }
 }

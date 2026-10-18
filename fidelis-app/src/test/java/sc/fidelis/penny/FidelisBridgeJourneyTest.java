@@ -1,6 +1,7 @@
 package sc.fidelis.penny;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static sc.fidelis.penny.BridgeHttp.args;
@@ -74,7 +75,10 @@ class FidelisBridgeJourneyTest {
 
         // segment the cells (on a duplicate: the original keeps its pixels and receives the objects)
         String originalPixels = PixelHash.sha256(engine.imagePlus(doc));
-        JsonObject seg = http.change("segment_cells", args()).result();
+        int openBefore = engine.documents().size();
+        JsonObject seg = http.change("segment_cells", args("keepMask", true)).result();
+        assertEquals(openBefore + 1, engine.documents().size(), "keepMask leaves the mask open");
+        assertFalse(seg.getAsJsonObject("mask").get("closed").getAsBoolean(), seg.getAsJsonObject("mask").toString());
         assertEquals(originalPixels, PixelHash.sha256(engine.imagePlus(doc)), "the original's pixels are untouched");
         assertEquals(doc, engine.focused().orElseThrow(), "the original stays focused");
         DocumentId mask = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
@@ -209,7 +213,7 @@ class FidelisBridgeJourneyTest {
         DocumentId doc = new DocumentId(opened.getAsJsonObject("document").get("id").getAsString());
         String original = PixelHash.sha256(engine.imagePlus(doc));
         int history = engine.history().size();
-        JsonObject seg = http.change("segment_cells", args()).result();
+        JsonObject seg = http.change("segment_cells", args("keepMask", true)).result();
         assertEquals(0, seg.get("undoSteps").getAsInt(), "nothing to undo on the original: " + seg);
         assertEquals(original, PixelHash.sha256(engine.imagePlus(doc)));
         String maskId = seg.getAsJsonObject("mask").get("id").getAsString();
@@ -230,7 +234,7 @@ class FidelisBridgeJourneyTest {
         DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
                 .getAsJsonObject("document").get("id").getAsString());
         http.exec("select_roi", args("type", "rectangle", "x", 10, "y", 10, "width", 60, "height", 40), null, null).result();
-        JsonObject seg = http.change("segment_cells", args()).result();
+        JsonObject seg = http.change("segment_cells", args("keepMask", true)).result();
         DocumentId mask = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
         assertEquals(256, engine.document(mask).orElseThrow().width(), "the mask is the whole image");
         assertEquals(254, engine.document(mask).orElseThrow().height());
@@ -238,6 +242,29 @@ class FidelisBridgeJourneyTest {
         JsonObject roi = http.read("context", null).getAsJsonObject("roi");
         assertEquals(60.0, roi.getAsJsonObject("bounds").get("width").getAsDouble(), "the selection is back on the original");
         assertTrue(engine.activeRoi(mask).isEmpty(), "the mask carries no selection");
+    }
+
+    @Test
+    void theMaskIsClosedAgainByDefaultSoRepeatsDoNotPileUpTabs() throws Exception {
+        Path blobs = Fixtures.require("FX-003", "blobs.gif");
+        DocumentId doc = new DocumentId(http.change("open_path", args("path", blobs.toString())).result()
+                .getAsJsonObject("document").get("id").getAsString());
+        int open = engine.documents().size();
+        JsonObject seg = http.change("segment_cells", args()).result();
+        assertEquals("completed", seg.get("status").getAsString(), seg.toString());
+        assertTrue(seg.getAsJsonObject("mask").get("closed").getAsBoolean(), seg.getAsJsonObject("mask").toString());
+        assertEquals(open, engine.documents().size(), "the mask was closed again: " + engine.documents());
+        assertEquals(doc, engine.focused().orElseThrow(), "the original stays focused");
+        assertEquals(67, seg.get("count").getAsInt());
+        assertEquals(67, engine.rois(doc).size(), "the objects stayed on the original");
+        List<String> labels = new ArrayList<>();
+        for (JsonElement e : seg.getAsJsonArray("steps")) labels.add(e.getAsJsonObject().get("label").getAsString());
+        assertEquals("Close the mask", labels.get(labels.size() - 1), labels.toString());
+        JsonObject again = http.change("segment_cells", args("method", "Li")).result();
+        assertEquals(open, engine.documents().size(), "a second segmentation leaves no extra tab either");
+        assertEquals(68, again.get("count").getAsInt());
+        assertTrue(seg.get("channel") == null || seg.get("channel").isJsonNull(), "a single-channel image reports no channel choice: " + seg);
+        System.out.println("[penny-journey] default segment_cells closed " + seg.getAsJsonObject("mask") + "; documents open: " + engine.documents().size());
     }
 
     @Test
@@ -307,7 +334,7 @@ class FidelisBridgeJourneyTest {
         Path blobs = Fixtures.require("FX-003", "blobs.gif");
         JsonObject opened = http.change("open_path", args("path", blobs.toString())).result();
         DocumentId doc = new DocumentId(opened.getAsJsonObject("document").get("id").getAsString());
-        JsonObject seg = http.change("segment_cells", args("minSize", 20)).result();
+        JsonObject seg = http.change("segment_cells", args("minSize", 20, "keepMask", true)).result();
         int first = seg.get("count").getAsInt();
         doc = new DocumentId(seg.getAsJsonObject("mask").get("id").getAsString());
         http.exec("activate_image", args("id", doc.value()), null, null).result();

@@ -39,6 +39,20 @@ final class LiveRead {
         }
     }
 
+    /** The slice label of one channel's plane (at the current slice and frame) without ImagePlus.getStack(); null when none. */
+    static String sliceLabel(ImagePlus imp, int channel) {
+        if (imp == null || STACK == null || imp.getStackSize() <= 1) return null;
+        ImageStack st;
+        try {
+            st = (ImageStack) STACK.get(imp);
+        } catch (IllegalAccessException e) {
+            return null;
+        }
+        if (st == null) return null;
+        int index = imp.getStackIndex(channel, imp.getZ(), imp.getT());
+        return index >= 1 && index <= st.size() ? st.getSliceLabel(index) : null;
+    }
+
     /** Pixels of one plane: the given channel (null = current) at the current slice and frame; null when unavailable. */
     static Object planePixels(ImagePlus imp, Integer channel) {
         if (imp == null) return null;
