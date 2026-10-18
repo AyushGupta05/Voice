@@ -55,6 +55,7 @@ public final class CommandBar extends JPanel {
     private final JList<Row> list = new JList<>(model);
     private final JPopupMenu popup = new JPopupMenu();
     private final JToggleButton mic = new JToggleButton("Mic");
+    private final JButton demo = new JButton("Demo");
     private final StatusBar.RecordingIndicator recording = new StatusBar.RecordingIndicator();
     private final Timer debounce;
     private final Timer recordingClock;
@@ -163,14 +164,58 @@ public final class CommandBar extends JPanel {
         recording.setToolTipText("Recording from the microphone");
         recordingClock = new Timer(500, e -> updateRecordingText());
 
+        // one click sets the demo up: the demo image open and focused, zoomed to fit, nothing else touched
+        demo.setFocusable(false);
+        demo.setToolTipText("Load the demo image (blobs) so the voice demo can start");
+        demo.addActionListener(e -> loadDemo());
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         right.setOpaque(false);
         right.add(recording);
+        right.add(demo);
         right.add(mic);
         add(field, BorderLayout.CENTER);
         add(right, BorderLayout.EAST);
         bindSpeech(ServiceRegistry.speech());
         updateMic();
+    }
+
+    /**
+     * The demo image: {@code <root>/.local/data/fiji/imagej/blobs.gif} (root from {@code -Dluma.root} / {@code LUMA_ROOT},
+     * else the working directory), or the file named by {@code -Dfidelis.demo.image}. Already open: focused and fitted.
+     */
+    void loadDemo() {
+        java.nio.file.Path image = demoImage();
+        if (image == null) {
+            ctx.notice("No demo image: put blobs.gif under .local/data/fiji/imagej (script/fetch-samples.sh) or set -Dfidelis.demo.image", false);
+            return;
+        }
+        String title = image.getFileName().toString();
+        for (sc.fidelis.engine.api.DocumentInfo d : ctx.engine.documents()) {
+            if (title.equals(d.title())) {
+                ctx.focusDocument(d.id());
+                ctx.notice("Demo image " + title + " is open; say \"Find all the nuclei\"", false);
+                return;
+            }
+        }
+        demo.setEnabled(false);
+        ctx.openPath(image).whenComplete((r, t) -> SwingUtilities.invokeLater(() -> {
+            demo.setEnabled(true);
+            if (t != null || r == null || !r.succeeded()) ctx.notice("Could not open the demo image " + title + (t != null ? ": " + t.getMessage() : ""), false);
+            else ctx.notice("Demo image " + title + " is open; say \"Find all the nuclei\"", false);
+        }));
+    }
+
+    static java.nio.file.Path demoImage() {
+        String named = System.getProperty("fidelis.demo.image");
+        if (named != null && !named.isBlank()) {
+            java.nio.file.Path p = java.nio.file.Path.of(named).toAbsolutePath().normalize();
+            return java.nio.file.Files.isRegularFile(p) ? p : null;
+        }
+        String root = System.getProperty("luma.root");
+        if (root == null || root.isBlank()) root = System.getenv("LUMA_ROOT");
+        if (root == null || root.isBlank()) root = System.getProperty("user.dir");
+        java.nio.file.Path p = java.nio.file.Path.of(root, ".local", "data", "fiji", "imagej", "blobs.gif").toAbsolutePath().normalize();
+        return java.nio.file.Files.isRegularFile(p) ? p : null;
     }
 
     void focusField() {

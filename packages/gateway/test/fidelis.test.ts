@@ -113,7 +113,7 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_duplicate', {}); ok('fidelis_duplicate', { title: 'copy' });
   ok('fidelis_select_roi', { type: 'rectangle', x: 10, y: 10, width: 50, height: 40 }); ok('fidelis_select_roi', { type: 'polygon', points: [[0, 0], [10, 0], [5, 8]] }); ok('fidelis_select_roi', { type: 'none' });
   bad('fidelis_select_roi', { type: 'line', x: 1 }); bad('fidelis_select_roi', { x: 1 });
-  ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); ok('fidelis_explain_object', {}); ok('fidelis_explain_object', { index: 3 }); bad('fidelis_explain_object', { index: -1 }); ok('fidelis_split_object', {}); ok('fidelis_split_object', { x: 25, y: 29, minPart: 40 }); bad('fidelis_split_object', { minPart: 0 }); ok('fidelis_merge_objects', {}); ok('fidelis_merge_objects', { indices: [0, 1] }); bad('fidelis_merge_objects', { indices: [0] }); bad('fidelis_object_stats', { plot: false });
+  ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); ok('fidelis_explain_object', {}); ok('fidelis_size_chart', {}); ok('fidelis_explain_object', { index: 3 }); bad('fidelis_explain_object', { index: -1 }); ok('fidelis_split_object', {}); ok('fidelis_split_object', { x: 25, y: 29, minPart: 40 }); bad('fidelis_split_object', { minPart: 0 }); ok('fidelis_merge_objects', {}); ok('fidelis_merge_objects', { indices: [0, 1] }); bad('fidelis_merge_objects', { indices: [0] }); bad('fidelis_object_stats', { plot: false });
   ok('fidelis_display', { min: 0, max: 200 }); ok('fidelis_display', { auto: true }); ok('fidelis_stack', { slice: 3, channel: 1, frame: 2 }); bad('fidelis_stack', { slice: 0 });
   ok('fidelis_zoom', { direction: 'in' }); ok('fidelis_zoom', { fit: true }); ok('fidelis_zoom', { selection: true }); bad('fidelis_zoom', { magnification: 2 });
   ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); bad('fidelis_highlight', { rois: 'manager' });
@@ -167,6 +167,10 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
   assert.deepEqual(route('Which one is the biggest?', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'largest' }, reply: 'Looking.' });
   assert.deepEqual(route('Why did you count this as a cell?', segmented), { tool: 'fidelis_explain_object', arguments: {}, reply: 'Looking at it.' });
+  assert.deepEqual(route('Show me the size distribution.', segmented), { tool: 'fidelis_size_chart', arguments: {}, reply: 'Drawing the sizes.' });
+  assert.deepEqual(route('How big are they?', segmented), { tool: 'fidelis_size_chart', arguments: {}, reply: 'Drawing the sizes.' });
+  assert.equal(route('show me the sizes', blobs), undefined, 'no objects yet: the model answers');
+  assert.equal(fidelis.localSentenceFor('fidelis_size_chart', {}, { n: 67, unit: 'pixel', shown: true, area: { mean: 327, median: 311, min: 24, max: 848 } }), 'Here is the size distribution: 67 objects, median 311 square pixels, from 24 to 848.');
   assert.deepEqual(route('These should be separate.', segmented), { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' });
   assert.deepEqual(route('Apply this analysis to the entire folder.', segmented), { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing it for the folder.', folderMacro: true });
   assert.deepEqual(route('Run this on the BBBC008 folder.', segmented), { tool: 'fidelis_run_macro', arguments: {}, reply: 'Preparing it for the folder.', folderMacro: true, folderQuery: 'bbbc008' });

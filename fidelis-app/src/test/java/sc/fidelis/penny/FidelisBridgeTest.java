@@ -216,6 +216,12 @@ class FidelisBridgeTest {
             assertEquals(1, pick.get("total").getAsInt());
             assertEquals(which + ": 256 pixel\u00b2", pick.getAsJsonObject("highlight").get("label").getAsString(), pick.toString());
         }
+        // "show me the sizes": the areas of the list, drawn by the workspace and summarised
+        JsonObject chart = http.read("size_chart", args());
+        assertEquals(engine.rois(id).size(), chart.get("n").getAsInt(), chart.toString());
+        assertTrue(chart.get("shown").getAsBoolean(), chart.toString());
+        assertEquals(256.0, chart.getAsJsonObject("area").get("median").getAsDouble(), 1.0, chart.toString());
+        assertTrue(ui.count("chart " + id + " " + engine.rois(id).size() + " pixel") >= 1, ui.calls.toString());
         // "why did you count this": by index, by an image point inside the first square, and the pointer when it is away
         JsonObject why = http.read("explain_object", args("index", 0));
         assertEquals(0, why.get("index").getAsInt(), why.toString());

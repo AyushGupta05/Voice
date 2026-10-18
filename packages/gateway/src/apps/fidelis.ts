@@ -25,7 +25,7 @@ const acknowledgments: Record<string, string> = {
   fidelis_filter: 'Applying the filter.', fidelis_open_path: 'Opening it.', fidelis_command: 'On it.', fidelis_select_roi: 'Selecting the region.', fidelis_zoom: 'Zooming.',
   fidelis_undo: 'Undoing.', fidelis_redo: 'Redoing.', fidelis_run_macro: 'Preparing the macro.', fidelis_confirm: 'Running it.', fidelis_cancel_plan: 'Cancelling.',
   fidelis_convert: 'Converting.', fidelis_duplicate: 'Duplicating.', fidelis_display: 'Adjusting the display.', fidelis_stack: 'Changing slice.', fidelis_activate_image: 'Switching image.',
-  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.', fidelis_explain_object: 'Looking at it.', fidelis_split_object: 'Separating them.', fidelis_merge_objects: 'Merging them.',
+  fidelis_find_images: 'Finding it.', fidelis_images: 'Checking.', fidelis_rois: 'Checking.', fidelis_results: 'Checking.', fidelis_history: 'Checking.', fidelis_object_stats: 'Counting.', fidelis_explain_object: 'Looking at it.', fidelis_size_chart: 'Drawing the sizes.', fidelis_split_object: 'Separating them.', fidelis_merge_objects: 'Merging them.',
   fidelis_commands: 'Looking it up.', fidelis_macro: 'Here is the macro.', fidelis_dialog: 'Checking the dialog.', fidelis_dialog_action: 'Filling in the dialog.',
 };
 function acknowledgmentFor(name: string, args: Record<string, unknown>): string | undefined {
@@ -221,6 +221,11 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     return `${plural(n, 'object')}${mean !== undefined ? `, mean area ${spokenArea(mean, raw.unit)}` : ''}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}.`;
   }
   if (name === 'fidelis_explain_object') return explainSentence(raw);
+  if (name === 'fidelis_size_chart') {
+    const n = finite(raw.n); if (n === undefined) return undefined;
+    const area = record(raw.area), median = finite(area?.median), min = finite(area?.min), max = finite(area?.max);
+    return `Here is the size distribution: ${plural(n, 'object')}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}${min !== undefined && max !== undefined ? `, from ${round(min)} to ${round(max)}` : ''}.`;
+  }
   if (name === 'fidelis_cancel_plan') return raw.dialogCancelled ? 'Cancelled the waiting dialog.' : 'Cancelled; nothing ran.';
   if (name === 'fidelis_macro') return macroSentence(raw);
   if (inner === undefined) return undefined;
@@ -375,6 +380,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
+  // "Show me the sizes" / "size distribution" / "how big are they": the areas as a chart beside the workspace
+  if (objects && /^(?:show (?:me )?|draw |plot |chart |graph )?(?:the |a )?(?:size (?:distribution|histogram|chart|graph)|sizes|distribution of (?:the )?sizes|histogram of (?:the )?(?:sizes|areas)|areas)(?: of (?:the )?(?:nuclei|cells|objects))?$|^how big are (?:they|the (?:nuclei|cells|objects))\??$/.test(said))
+    return { tool: 'fidelis_size_chart', arguments: {}, reply: 'Drawing the sizes.' };
   // "These should be separate" / "those are two cells": the object under the pointer is split along its watershed (data route)
   if (/^(?:(?:these|those|they|this|that|it)(?: two| ones?)? (?:should be|are|are actually|is actually|are really|is really) (?:two|2|three|3|several|separate|different|distinct)(?: (?:separate |different |distinct )?(?:cells|nuclei|objects|ones))?|(?:split|separate|divide|cut) (?:this|that|it|these|those|this one|that one|this clump|the clump)(?: (?:in two|into two|in half|up|apart))?|(?:this|that) (?:is|one is) (?:two|2) (?:cells|nuclei|objects)(?: not one)?)$/.test(said))
     return { tool: 'fidelis_split_object', arguments: {}, reply: 'Separating them.' };

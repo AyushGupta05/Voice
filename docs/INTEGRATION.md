@@ -129,7 +129,9 @@ Full suite after the change: 468 tests, 0 failed (two runs); Codex autoreview of
 
 ## Voice in the workspace
 
-Penny's conversation runs inside the Fidelis workspace. There is a one-line **Penny strip** under
+Penny's conversation runs inside the Fidelis workspace. A **Demo** button beside the Mic opens the demo image
+(`<root>/.local/data/fiji/imagej/blobs.gif`, or `-Dfidelis.demo.image`) through the engine — recorded in History like any
+open, focused if already open — so a demo starts with one click. There is a one-line **Penny strip** under
 the command bar, and it grows into a **plan card** while the bridge shows a plan. The **Mic** button gives Penny the
 microphone, and typed requests reach her through an **Ask Penny** row. The code is in `fidelis-app/src/main/java/sc/fidelis/penny/voice`
 (the gateway client and audio) and `.../penny/ui` (the strip, the canvas highlight and the `PennyUi` hooks). The workspace
@@ -318,7 +320,7 @@ It is coded to the bridge's revised contract of 17 October (undo `steps`, `cance
 |---|---|
 | Profile files | `apps/fidelis.ts` (routes, sentences, confirm binding), `apps/fidelis-tools.ts` (schemas), `apps/fidelis-instructions.ts` (model instructions) |
 | Bridge | `http://127.0.0.1:49558`, token `.local/state/bridge-token` (shared with QuPath and Fiji), bearer on every request including `/health` |
-| Tools | 37: `fidelis_<operation>` for each of the 34 operations (the 32 of the contract table plus `dialog` and `dialog_action`), and local `fidelis_knowledge`, `fidelis_find_images`, `fidelis_action_status` ([reference](TOOL-REFERENCE-FIDELIS.md), [registry](tool-schemas-fidelis.json)) |
+| Tools | 38: `fidelis_<operation>` for each of the 35 operations (the 33 of the contract table plus `dialog` and `dialog_action`), and local `fidelis_knowledge`, `fidelis_find_images`, `fidelis_action_status` ([reference](TOOL-REFERENCE-FIDELIS.md), [registry](tool-schemas-fidelis.json)) |
 | Risks | contract kind `read`/`view`/`data`/`code` unchanged; `session` (`open_path`) takes the `data` decision path; `dialog` is read, `dialog_action` data |
 | Guide and knowledge | [skills/fidelis/SKILL.md](../skills/fidelis/SKILL.md) (also the MCP guide resource) and `.local/upstream/imagej-docs` |
 | Launcher | `./script/run-fidelis.sh` (the `launcherHint` in the gateway's `/health`) |
@@ -422,6 +424,7 @@ open, and `fidelis_run_macro` (always confirmed) for anything else.
 | "convert to mask" (with or without "it") | `fidelis_command {Process>Binary>Convert to Mask}` (waits for confirmation under Fidelis's policy) |
 | "these should be separate", "those are actually two cells", "split this one" | `fidelis_split_object {}`: the object under the pointer is split along its watershed into recorded, undoable ROI-list steps; "Split object 12 into 2 (260 square pixels and 256 square pixels); 68 objects now." |
 | "these are one cell", "that's a single nucleus", "merge these two" | `fidelis_merge_objects {}`: the object under the pointer and its touching neighbour become one, as recorded, undoable ROI-list steps; "Merged objects 4 and 8 into one of 520 square pixels; 66 objects now." |
+| "show me the size distribution", "how big are they?" (objects present) | `fidelis_size_chart {}`: a histogram beside the workspace; "Here is the size distribution: 67 objects, median 311 square pixels, from 24 to 848." |
 | "why did you count this (as a cell)?", "what's this one?", "explain this" | `fidelis_explain_object {}`: the object under the pointer, flashed, with "Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching objects. Otsu threshold, size floor 20." |
 | "which one is the biggest / smallest", "highlight the largest cell", "where's the smallest" | `fidelis_highlight {rois: "largest" / "smallest"}`: flashes that outline and says "The largest is object 12, 657 square pixels." |
 | "run this macro" | `fidelis_macro` then `fidelis_run_macro` with the session's macro; waits for "yes"; over 32000 characters (a long session) Penny says to export it from the History tab instead |
@@ -435,7 +438,7 @@ the nuclei": after `segment_cells` the focused document is its mask (below).
 
 ### Readiness
 
-`adapterReadiness` compares the operations the running bridge declares with the 34 the tools need: from
+`adapterReadiness` compares the operations the running bridge declares with the 35 the tools need: from
 `context.adapter.operations`, or the bridge's `GET /health` when the context has none. The status is `operations_match`
 when all are declared (no build-identity comparison: a complete but stale build passes), `restart_required` with
 `missingOperations` otherwise (a bridge without `dialog`/`dialog_action` reports those two), `build_unverified` for a

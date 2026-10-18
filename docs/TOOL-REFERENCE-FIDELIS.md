@@ -26,6 +26,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fidelis_results`](#fidelis-results) | read | No |
 | [`fidelis_split_object`](#fidelis-split-object) | data | Yes |
 | [`fidelis_merge_objects`](#fidelis-merge-objects) | data | Yes |
+| [`fidelis_size_chart`](#fidelis-size-chart) | read | No |
 | [`fidelis_explain_object`](#fidelis-explain-object) | read | No |
 | [`fidelis_object_stats`](#fidelis-object-stats) | read | No |
 | [`fidelis_display`](#fidelis-display) | view | No |
@@ -296,6 +297,14 @@ Merge two touching counted objects the researcher says are one ("these are one c
 | `index` | No | integer; min 0 |
 | `x` | No | number; min 0 |
 | `y` | No | number; min 0 |
+
+<a id="fidelis-size-chart"></a>
+
+## fidelis_size_chart
+
+Draw the size distribution of the counted objects (the focused document’s ROI list) as a histogram beside the Fidelis workspace and summarise it: n, area mean/median/min/max with the unit. Display only; never re-segments.
+
+Input: `{}`.
 
 <a id="fidelis-explain-object"></a>
 

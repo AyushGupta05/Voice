@@ -62,9 +62,9 @@ import sc.fidelis.nl.NlService.Proposal;
 final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
-            "results", "object_stats", "explain_object", "split_object", "merge_objects", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "folder_macro", "run_macro",
+            "results", "object_stats", "explain_object", "size_chart", "split_object", "merge_objects", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "folder_macro", "run_macro",
             "confirm", "cancel_plan", "dialog", "dialog_action");
-    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "folder_macro", "dialog");
+    static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "size_chart", "history", "macro", "folder_macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
     /** DIRECT operations that depend on the plane (pinned to the approved one; the engine applies a TargetScope plane). */
     static final Set<String> PLANE_DIRECT = Set.of(Operations.SET_THRESHOLD, Operations.SET_AUTO_THRESHOLD, Operations.RESET_THRESHOLD,
@@ -281,6 +281,7 @@ final class PennyOps {
             case "results" -> { return resultsTable(a); }
             case "object_stats" -> { return objectStats(); }
             case "explain_object" -> { return explainObject(a); }
+            case "size_chart" -> { return sizeChart(); }
             case "folder_macro" -> { return folderMacro(a); }
             case "history" -> { return history(a); }
             case "macro" -> { return macro(); }
@@ -1439,6 +1440,27 @@ final class PennyOps {
         }
         out.put("total", all.size());
         out.put("highlight", Highlight.rois(d.id(), List.of(g), "object " + (index + 1), HIGHLIGHT_LIMIT, true));
+        return out;
+    }
+
+    /**
+     * "Show me the sizes": the areas of the focused document's ROI list, drawn beside the workspace as a histogram
+     * ({@link PennyUi#showChart}) and summarised. Read only; 409 with no objects.
+     */
+    private Map<String, Object> sizeChart() {
+        DocumentInfo d = requireDoc();
+        List<RoiGeometry> all = engine.rois(d.id());
+        if (all.isEmpty()) throw new Failure(409, "The ROI list is empty; segment or add regions first.");
+        double calibration = d.pixelWidth() * d.pixelHeight();
+        double[] areas = new double[all.size()];
+        List<Double> values = new ArrayList<>();
+        for (int i = 0; i < all.size(); i++) { areas[i] = Highlight.areaPixels(all.get(i)) * calibration; values.add(areas[i]); }
+        PennyUi ui = PennyUi.current();
+        boolean shown = ui != null;
+        if (shown) ui.showChart(d.id(), areas, d.unit(), "Size distribution — " + d.title());
+        Map<String, Object> out = map("n", all.size(), "unit", d.unit(), "shown", shown, "document", d.id().value());
+        Map<String, Object> st = stats(values);
+        if (st != null) out.put("area", st);
         return out;
     }
 

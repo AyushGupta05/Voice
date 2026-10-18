@@ -26,6 +26,11 @@ class RecordingUi implements PennyUi {
     }
 
     @Override
+    public void showChart(DocumentId document, double[] values, String unit, String title) {
+        calls.add("chart " + document + " " + values.length + " " + unit);
+    }
+
+    @Override
     public void zoom(DocumentId document, String how) {
         calls.add("zoom " + document + " " + how);
     }

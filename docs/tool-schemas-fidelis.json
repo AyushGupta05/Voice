@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fidelis",
   "app": "fidelis",
-  "toolCount": 37,
+  "toolCount": 38,
   "tools": [
     {
       "name": "fidelis_context",
@@ -677,6 +677,18 @@
             "minimum": 0
           }
         },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_size_chart",
+      "description": "Draw the size distribution of the counted objects (the focused document’s ROI list) as a histogram beside the Fidelis workspace and summarise it: n, area mean/median/min/max with the unit. Display only; never re-segments.",
+      "operation": "size_chart",
+      "risk": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
         "required": [],
         "additionalProperties": false
       }
