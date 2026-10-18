@@ -254,7 +254,8 @@ class EngineCodeEffectsTest {
         overlay.add(new ij.gui.Roi(1, 1, 2, 2));
         overlay.add(new ij.gui.Roi(5, 5, 3, 3));
         engine.imagePlus(doc).setOverlay(overlay);
-        ActionResult converted = code("roiManager(\"reset\");\nclose(\"ROI Manager\");\nrun(\"To ROI Manager\");\nroiManager(\"Show None\");\nclose(\"ROI Manager\");\n");
+        // (the manager a command constructs itself is caught by the guard's 100 ms poll: it must exist at a poll)
+        ActionResult converted = code("roiManager(\"reset\");\nclose(\"ROI Manager\");\nrun(\"To ROI Manager\");\nwait(250);\nroiManager(\"Show None\");\nclose(\"ROI Manager\");\n");
         assertEquals(OperationState.COMPLETED, converted.state(), String.valueOf(converted.error()));
         assertEquals(2, engine.rois(doc).size(), "the overlay converted by a directly created manager reached the document: " + engine.rois(doc));
         assertEquals(List.of(5.0, 5.0, 3.0, 3.0), bounds(engine.rois(doc).get(1)));
