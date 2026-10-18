@@ -57,6 +57,11 @@ The jar also registers a SciJava service (`LumaBridgeService`, tagged `SciJavaSe
 
 ## Behaviour notes
 
+- An empty Fiji **Console** window appears at launch (off the current Space on macOS). It mirrors stderr, where the
+  ImageJ legacy patcher prints `Warning: Cannot load class: ij.gui.ImageWindow` (javassist, Java 21) while
+  `LegacyService` initialises — a known Fiji start-up warning, not the bridge, which logs to `.local/bridge.log`
+  precisely so it never opens the Console. The text of each launch is in `.local/fiji.log`. Harmless; close it or leave it.
+
 - Every data/code operation first brings the active image window to the front and writes `Luma: segmenting cells…` (or measuring, thresholding, counting particles, applying the filter, running <command>, …) into Fiji's status bar, cleared when the call returns; `status` (read) returns that text plus `analysisRunning` (ImageJ's progress bar exposes no value).
 - `analyze_particles` and `segment_cells` draw the detections into the image overlay: magenta outlines, stroke 2, numbered labels when there are at most 200, so results are visible even with the ROI Manager closed.
 - `open_path`, and `run_command` when it opened a new image (samples, importers), zoom the new window so the image fills at least 60% of the screen height (ImageJ zoom levels, never above 32×), centre it on screen and return a whole-image `highlight`.

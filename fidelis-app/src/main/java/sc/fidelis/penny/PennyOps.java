@@ -62,7 +62,7 @@ import sc.fidelis.nl.NlService.Proposal;
 final class PennyOps {
     static final List<String> OPERATIONS = List.of("context", "images", "open_path", "activate_image", "commands", "command",
             "segment_cells", "measure", "threshold", "analyze_particles", "filter", "convert", "duplicate", "select_roi", "rois",
-            "results", "object_stats", "explain_object", "split_object", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
+            "results", "object_stats", "explain_object", "split_object", "merge_objects", "display", "stack", "zoom", "highlight", "undo", "redo", "history", "macro", "run_macro",
             "confirm", "cancel_plan", "dialog", "dialog_action");
     static final Set<String> READ = Set.of("context", "images", "commands", "rois", "results", "object_stats", "explain_object", "history", "macro", "dialog");
     /** Data, session and code operations: need {@code approved:true} and a matching {@code expectedContext}. */
@@ -73,7 +73,7 @@ final class PennyOps {
     /** View operations that are engine plans (select_roi, display, stack); the other views never reach the engine. */
     static final Set<String> PLAN_VIEWS = Set.of("select_roi", "display", "stack");
     static final Set<String> MUTATING = Set.of("open_path", "command", "segment_cells", "measure", "threshold", "analyze_particles",
-            "filter", "convert", "duplicate", "split_object", "undo", "redo", "run_macro", "confirm", "dialog_action");
+            "filter", "convert", "duplicate", "split_object", "merge_objects", "undo", "redo", "run_macro", "confirm", "dialog_action");
 
     static final List<String> THRESHOLD_METHODS = List.of("Default", "Huang", "Intermodes", "IsoData", "IJ_IsoData", "Li",
             "MaxEntropy", "Mean", "MinError", "Minimum", "Moments", "Otsu", "Percentile", "RenyiEntropy", "Shanbhag", "Triangle", "Yen");
@@ -325,6 +325,7 @@ final class PennyOps {
             case "duplicate" -> run(duplicate(c));
             case "select_roi" -> run(selectRoi(c));
             case "split_object" -> run(splitObject(c));
+            case "merge_objects" -> run(mergeObjects(c));
             case "display" -> run(display(c));
             case "stack" -> run(stack(c));
             case "undo" -> run(undoRedo(c, Operations.UNDO));
@@ -1501,6 +1502,75 @@ final class PennyOps {
             m.put("generalisable", false);
             List<RoiGeometry> shown = now.size() >= parts.size() ? now.subList(now.size() - parts.size(), now.size()) : parts;
             m.put("highlight", Highlight.rois(d.id(), shown, parts.size() + " pieces", HIGHLIGHT_LIMIT, true));
+            return m;
+        };
+        return p;
+    }
+
+    /**
+     * "These are one cell": two touching objects become one. {@code indices} names both; otherwise the object under the
+     * pointer (or {@code index} / {@code x,y}) and the touching neighbour whose centre is nearest. Recorded, undoable
+     * ROI-list steps: delete both (highest index first), select the union, add it, Select None. 409 when they do not touch.
+     */
+    private Plan mergeObjects(Call c) {
+        JsonObject a = c.args();
+        DocumentInfo d = requireDoc();
+        List<RoiGeometry> all = engine.rois(d.id());
+        int first, second;
+        String how;
+        List<Object> indices = PennyJson.list(a, "indices");
+        if (indices != null) {
+            if (indices.size() != 2 || !(indices.get(0) instanceof Number n0) || !(indices.get(1) instanceof Number n1)) throw new IllegalArgumentException("indices needs two ROI-list indices");
+            first = n0.intValue(); second = n1.intValue();
+            if (first < 0 || second < 0 || first >= all.size() || second >= all.size() || first == second) throw new IllegalArgumentException("indices must be two different entries of the ROI list (size " + all.size() + ")");
+            how = "indices";
+        } else {
+            Located loc = locate(d, all, a);
+            first = loc.index;
+            how = loc.how;
+            Rectangle2D mine = Highlight.bounds(all.get(first));
+            double cx = mine.getCenterX(), cy = mine.getCenterY();
+            second = -1;
+            double best = Double.MAX_VALUE;
+            for (int i = 0; i < all.size(); i++) {
+                if (i == first) continue;
+                Rectangle2D o = Highlight.bounds(all.get(i));
+                if (o == null) continue;
+                Rectangle2D near = new Rectangle2D.Double(o.getX() - 2, o.getY() - 2, o.getWidth() + 4, o.getHeight() + 4);
+                if (!near.intersects(mine)) continue;
+                double dist = Math.hypot(o.getCenterX() - cx, o.getCenterY() - cy);
+                if (dist < best) { best = dist; second = i; }
+            }
+            if (second < 0) throw new Failure(409, "Object " + (first + 1) + " touches no other object; name both with indices, or point between them.");
+        }
+        RoiGeometry merged = Split.union(all.get(first), all.get(second), 2);
+        if (merged == null) throw new Failure(409, "Objects " + (first + 1) + " and " + (second + 1) + " do not touch, so they stay two objects.");
+        Plan p = new Plan(c, d.id());
+        TargetScope ts = TargetScope.of(d.id());
+        int hi = Math.max(first, second), lo = Math.min(first, second);
+        for (int idx : new int[] {hi, lo})
+            p.steps.add(directStep(p, "remove" + idx, Operations.ROI_LIST_DELETE, "Remove object " + (idx + 1), "Analyze>Tools>ROI Manager...",
+                    map("index", idx), prov("index", how.equals("indices") ? Params.USER : Params.DERIVED), "roiManager(\"Select\", " + idx + "); roiManager(\"Delete\");", ts));
+        p.steps.add(directStep(p, "union", Operations.SET_ROI, "Select the merged outline", "Edit>Selection>Specify...",
+                map("roi", merged), prov("roi", Params.DERIVED), "makeSelection(\"traced\", …); // the union", ts));
+        p.steps.add(directStep(p, "add", Operations.ROI_LIST_ADD, "Add the merged object to the ROI list", "Analyze>Tools>ROI Manager...",
+                Map.of(), Map.of(), "roiManager(\"add\");", ts));
+        p.steps.add(directStep(p, "none", Operations.CLEAR_ROI, "Select None", "Edit>Selection>Select None", Map.of(), Map.of(), "run(\"Select None\");", ts));
+        final int fi = first, se = second;
+        final String by = how;
+        p.finish = (plan, res) -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("merged", List.of(fi, se));
+            m.put("by", by);
+            double area = Highlight.areaPixels(merged) * d.pixelWidth() * d.pixelHeight();
+            m.put("area", area);
+            m.put("unit", d.unit());
+            List<RoiGeometry> now = engine.rois(d.id());
+            m.put("index", now.size() - 1);
+            m.put("total", now.size());
+            m.put("resultsNote", "the Results rows are the original segmentation's; measure again for the merged object");
+            m.put("generalisable", false);
+            m.put("highlight", Highlight.rois(d.id(), now.isEmpty() ? List.of(merged) : List.of(now.get(now.size() - 1)), "merged", HIGHLIGHT_LIMIT, true));
             return m;
         };
         return p;

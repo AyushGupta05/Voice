@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "application": "Fidelis",
   "app": "fidelis",
-  "toolCount": 35,
+  "toolCount": 36,
   "tools": [
     {
       "name": "fidelis_context",
@@ -641,6 +641,40 @@
             "type": "integer",
             "minimum": 1,
             "description": "Smallest piece in pixels (default a fifth of the object)."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fidelis_merge_objects",
+      "description": "Merge two touching counted objects the researcher says are one (\"these are one cell\"): indices names both; otherwise the one under the pointer (no arguments), by ROI index or at x,y, with its nearest touching neighbour. The union replaces them in the ROI list as recorded, undoable steps. Returns merged, index, area, unit, total, undoSteps, a highlight; refused when they do not touch.",
+      "operation": "merge_objects",
+      "risk": "data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [],

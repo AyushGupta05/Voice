@@ -50,7 +50,8 @@ Only the researcher's own "yes" confirms: the gateway refuses `fidelis_confirm` 
   picked it, with a verdict ("large and irregular: possibly two touching objects"); "which is the biggest" is
   `fidelis_highlight {rois: "largest"}`. "These should be separate" is `fidelis_split_object` (pointer / `index` / `x,y`):
   the outline is split along its watershed into recorded, undoable ROI-list steps; the pixels and Results rows stay, so
-  measure again for the pieces; refused when the watershed finds one object (say so, suggest drawing the boundary).
+  measure again for the pieces; refused when the watershed finds one object (say so, suggest drawing the boundary). "These are one cell" is
+  `fidelis_merge_objects` (the pointer's object and its touching neighbour, or `indices`); refused when they do not touch.
 - `fidelis_measure` takes Set Measurements keys (`area`, `mean`, `min`, `integrated`, `shape`, `feret's`, …) and a scope:
   `roi` (the active selection), `all` (the whole document) or `rois` (every ROI-list entry).
 - `fidelis_segment_cells` works on a duplicate (`<title>-mask`) that it closes again once the objects are copied to the

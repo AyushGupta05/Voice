@@ -494,7 +494,18 @@ class FidelisBridgeTest {
         int undoSteps = split.get("undoSteps").getAsInt();
         assertEquals(3, undoSteps, "the delete and the two adds restore; the selections do not " + split);
         assertFalse(split.get("generalisable").getAsBoolean());
-        // and it comes back as one object with the reported number of undo steps
+        // "these are one cell": the two pieces merge back into one object (the pointer's piece and its touching neighbour)
+        JsonObject merged = http.change("merge_objects", args("x", 12, "y", 29)).result();
+        assertEquals("completed", merged.get("status").getAsString(), merged.toString());
+        assertEquals(1, merged.get("total").getAsInt(), merged.toString());
+        assertEquals("point", merged.get("by").getAsString());
+        assertEquals(1, engine.rois(id).size());
+        assertEquals(split.get("areaPixels").getAsDouble(), merged.get("area").getAsDouble(), split.get("areaPixels").getAsDouble() * 0.1, "the union covers the clump " + merged);
+        assertEquals(3, merged.get("undoSteps").getAsInt(), merged.toString());
+        JsonObject unmerged = http.change("undo", args("steps", 3)).result();
+        assertEquals("completed", unmerged.get("status").getAsString(), unmerged.toString());
+        assertEquals(2, engine.rois(id).size(), "the two pieces again");
+        // and the split comes back as one object with the reported number of undo steps
         JsonObject undone = http.change("undo", args("steps", undoSteps)).result();
         assertEquals("completed", undone.get("status").getAsString(), undone.toString());
         assertEquals(1, engine.rois(id).size(), "the clump is one object again");
@@ -507,6 +518,9 @@ class FidelisBridgeTest {
         BridgeHttp.Resp whole = http.change("split_object", args("index", 1));
         assertEquals(409, whole.status(), whole.body().toString());
         assertTrue(whole.error().contains("does not separate"), whole.error());
+        BridgeHttp.Resp apart = http.change("merge_objects", args("indices", List.of(0, 1)));
+        assertEquals(409, apart.status(), apart.body().toString());
+        assertTrue(apart.error().contains("do not touch"), apart.error());
         assertEquals(before, engine.history().size());
     }
 

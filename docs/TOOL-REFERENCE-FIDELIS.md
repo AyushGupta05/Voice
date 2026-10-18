@@ -25,6 +25,7 @@ All inputs are JSON objects. Unknown properties are rejected. Read and view tool
 | [`fidelis_rois`](#fidelis-rois) | read | No |
 | [`fidelis_results`](#fidelis-results) | read | No |
 | [`fidelis_split_object`](#fidelis-split-object) | data | Yes |
+| [`fidelis_merge_objects`](#fidelis-merge-objects) | data | Yes |
 | [`fidelis_explain_object`](#fidelis-explain-object) | read | No |
 | [`fidelis_object_stats`](#fidelis-object-stats) | read | No |
 | [`fidelis_display`](#fidelis-display) | view | No |
@@ -281,6 +282,19 @@ Split one counted object the researcher says is several ("these should be separa
 | `x` | No | number; min 0 |  |
 | `y` | No | number; min 0 |  |
 | `minPart` | No | integer; min 1 | Smallest piece in pixels (default a fifth of the object). |
+
+<a id="fidelis-merge-objects"></a>
+
+## fidelis_merge_objects
+
+Merge two touching counted objects the researcher says are one ("these are one cell"): indices names both; otherwise the one under the pointer (no arguments), by ROI index or at x,y, with its nearest touching neighbour. The union replaces them in the ROI list as recorded, undoable steps. Returns merged, index, area, unit, total, undoSteps, a highlight; refused when they do not touch.
+
+| Parameter | Required | Accepted value |
+|---|---|---|
+| `indices` | No | array of (integer; min 0); min 2 items; max 2 items |
+| `index` | No | integer; min 0 |
+| `x` | No | number; min 0 |
+| `y` | No | number; min 0 |
 
 <a id="fidelis-explain-object"></a>
 

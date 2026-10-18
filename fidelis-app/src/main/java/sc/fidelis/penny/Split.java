@@ -83,6 +83,40 @@ final class Split {
         return pieces.size() >= 2 ? pieces : List.of();
     }
 
+    /** The union of two outlines as one traced outline, or null when they do not touch (within {@code gap} pixels). */
+    static RoiGeometry union(RoiGeometry a, RoiGeometry b, int gap) {
+        Roi ra = outline(a), rb = outline(b);
+        if (ra == null || rb == null) return null;
+        Rectangle bounds = ra.getBounds().union(rb.getBounds());
+        int w = bounds.width + 2 * gap + 2, h = bounds.height + 2 * gap + 2;
+        ByteProcessor mask = new ByteProcessor(w, h);
+        mask.setColor(255);
+        for (Roi r : new Roi[] {ra, rb}) {
+            Roi local = (Roi) r.clone();
+            local.setLocation(local.getXBase() - bounds.x + gap + 1, local.getYBase() - bounds.y + gap + 1);
+            mask.fill(local);
+        }
+        // touching: one connected component once each outline is grown by the gap
+        ByteProcessor grown = (ByteProcessor) mask.duplicate();
+        for (int i = 0; i < gap; i++) grown.filter(ImageProcessor.MAX); // a 3 x 3 maximum: grows by one pixel, whatever the background convention
+        int[] labels = new int[w * h];
+        if (label((byte[]) grown.getPixels(), w, h, labels).size() != 1) return null;
+        // the merged object: the outlines plus the gap between them filled (the grown mask eroded back)
+        ByteProcessor merged = grown;
+        for (int i = 0; i < gap; i++) merged.filter(ImageProcessor.MIN);
+        byte[] m = (byte[]) mask.getPixels(), g = (byte[]) merged.getPixels();
+        for (int i = 0; i < m.length; i++) if (m[i] != 0) g[i] = (byte) 255;
+        merged.setThreshold(255, 255, ImageProcessor.NO_LUT_UPDATE);
+        Roi one = new ThresholdToSelection().convert(merged);
+        if (one == null) return null;
+        one.setLocation(one.getXBase() + bounds.x - gap - 1, one.getYBase() + bounds.y - gap - 1);
+        FloatPolygon p = one.getFloatPolygon();
+        if (p == null || p.npoints < 3) return null;
+        List<Float> xs = new ArrayList<>(), ys = new ArrayList<>();
+        for (int i = 0; i < p.npoints; i++) { xs.add(p.xpoints[i]); ys.add(p.ypoints[i]); }
+        return new RoiGeometry("TRACED", xs, ys, null, a.name(), a.position(), null);
+    }
+
     /** 8-connected labelling of a binary byte image; returns each label's pixel count, labels start at 1. */
     static List<Integer> label(byte[] p, int w, int h, int[] labels) {
         List<Integer> areas = new ArrayList<>();

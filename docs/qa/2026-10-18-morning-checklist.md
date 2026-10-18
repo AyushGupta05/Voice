@@ -52,6 +52,12 @@ along its watershed into recorded, undoable ROI-list steps and says "Split objec
 256 square pixels); 68 objects now." A single round object is refused ("does not separate"). Bridge-tested on a
 dumbbell outline (2 pieces, undo restores the clump); not yet tried on blobs by voice.
 
+"These are one cell" / "Merge these two" with the mouse over one of two touching outlines: the union replaces them
+("Merged objects 4 and 8 into one of 520 square pixels; 66 objects now."), undoable. Bridge-tested on the split pieces.
+
+The split was checked live on the relaunched instance (06:40): the two-lobed blob at (175, 100) → 2 pieces, 68 objects,
+undo → 67; the largest blob (object 61) is refused as one object.
+
 ## 4. Not seen with eyes tonight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were
