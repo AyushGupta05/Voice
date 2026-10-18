@@ -167,6 +167,8 @@ final class PennyOps {
         volatile int current = -1;
         /** Title of a dialog Penny pressed Cancel on (the command then ends as cancelled, not as a failure). */
         volatile String cancelledDialog;
+        /** OS file choosers the bridge cancelled on the plan's behalf (a command that wants to save a file mid-way or at its end). */
+        final List<String> cancelledFileDialogs = Collections.synchronizedList(new ArrayList<>());
         /** The exact window of {@link #dialog} once Penny reported it (dialog_action acts on this window only). */
         volatile java.awt.Window dialogWindow;
         List<String> reasons = List.of();
@@ -347,6 +349,12 @@ final class PennyOps {
         return reserve(p, false);
     }
 
+    /** Steps the policy does not assess: the plan's own clean-up of a document it created. */
+    static final Set<String> HOUSEKEEPING_ROLES = Set.of("closeMask");
+
+    /** The channel the last segment_cells plan segmented, per document: intensities of the objects come from it. */
+    private final Map<DocumentId, Integer> segmentedChannel = new java.util.concurrent.ConcurrentHashMap<>();
+
     /** Fidelis's own policy on the plan as a READY {@link Proposal}; the bridge adds the engine's capability reasons. */
     private void assess(Plan p) {
         List<ActionRequest> reqs = new ArrayList<>();
@@ -354,6 +362,9 @@ final class PennyOps {
         List<String> previews = new ArrayList<>();
         List<Map<String, String>> prov = new ArrayList<>();
         for (Step s : p.steps) {
+            // tidying up a document the plan itself created (segment_cells closing its mask) is the bridge's own
+            // housekeeping, not a change the researcher must confirm; the engine still records it in History
+            if (HOUSEKEEPING_ROLES.contains(s.role())) continue;
             reqs.add(s.request());
             menus.add(s.menuPath());
             previews.add(s.preview());
@@ -437,7 +448,9 @@ final class PennyOps {
                         java.awt.Window w = DialogDriver.find(d.title(), d.dialogClass());
                         // a modal dialog blocks the command; a non-modal tool window (Brightness/Contrast) does not, unless the
                         // command is still waiting half a second later (a non-blocking dialog the plugin waits on)
-                        if (w != null && (DialogDriver.onEdt(() -> ((java.awt.Dialog) w).isModal()) || blockedFor(run, 500)))
+                        // an OS file chooser is never offered to the caller: the plan thread cancels it (autoCancelFileDialog)
+                        if (w != null && !(w instanceof java.awt.FileDialog)
+                                && (DialogDriver.onEdt(() -> ((java.awt.Dialog) w).isModal()) || blockedFor(run, 500)))
                             return dialogResult(p, w, null);
                     }
                     if (System.currentTimeMillis() > deadline) throw e;
@@ -505,8 +518,17 @@ final class PennyOps {
                 ActionResult res;
                 try {
                     // no timeout: the plan owns the bridge until the engine reports a terminal state (an original Fiji
-                    // dialog waits for the user); releasing earlier would admit new plans behind a still-running action
-                    res = engine.submit(r).get();
+                    // dialog waits for the user); releasing earlier would admit new plans behind a still-running action.
+                    // Polled, so an OS file chooser the command opens (Coloc 2 ends with "Save as PDF") is cancelled at once.
+                    Future<ActionResult> pending = engine.submit(r);
+                    while (true) {
+                        try {
+                            res = pending.get(100, TimeUnit.MILLISECONDS);
+                            break;
+                        } catch (TimeoutException wait) {
+                            autoCancelFileDialog(p);
+                        }
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw stepFailure(p, i, null, results, "interrupted", false);
@@ -515,6 +537,28 @@ final class PennyOps {
                 }
                 results.add(res);
                 if (res.record() != null) ours.add(res.record().actionId());
+                if (!res.succeeded() && p.cancelledDialog == null && !p.cancelledFileDialogs.isEmpty()) {
+                    // the command ended when the bridge cancelled its file chooser: not done, and not a failure of Penny's
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("status", "cancelled");
+                    out.put("planId", p.id);
+                    out.put("operation", p.call.operation());
+                    out.put("dialog", p.cancelledFileDialogs.get(p.cancelledFileDialogs.size() - 1));
+                    out.put("cancelledFileDialog", true);
+                    out.put("cancelledFileDialogs", List.copyOf(p.cancelledFileDialogs));
+                    out.put("state", String.valueOf(res.state()));
+                    out.put("engineMessage", res.error() == null ? null : res.error().message());
+                    out.put("step", step(s, res));
+                    List<Map<String, Object>> done = new ArrayList<>();
+                    for (int k = 0; k < i; k++) done.add(step(p.steps.get(k), results.get(k)));
+                    out.put("completedSteps", done);
+                    out.put("note", "Fiji wanted to save a file (" + String.join(", ", p.cancelledFileDialogs) + "); Penny does not drive OS file "
+                            + "dialogs (use export instead), so it was cancelled and " + s.label() + " ended there"
+                            + (i + 1 < p.steps.size() ? "; the remaining steps did not run." : "."));
+                    out.put("contextKey", contextKey());
+                    ui(() -> PennyUi.current().planFinished(p.id, false, "cancelled"));
+                    return out;
+                }
                 if (!res.succeeded() && p.cancelledDialog != null) {
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("status", "cancelled");
@@ -568,6 +612,13 @@ final class PennyOps {
                 out.put("note", "Every step completed, but another action ran in Fidelis right after this plan, so the Results and ROI "
                         + "list may describe it; read results or rois again.");
             }
+            if (!p.cancelledFileDialogs.isEmpty()) {
+                out.put("cancelledFileDialog", true);
+                out.put("cancelledFileDialogs", List.copyOf(p.cancelledFileDialogs));
+                String tidy = "Fiji wanted to save a file (" + String.join(", ", p.cancelledFileDialogs)
+                        + "); Penny does not drive OS file dialogs, use export instead.";
+                out.put("note", out.get("note") == null ? tidy : out.get("note") + " " + tidy);
+            }
             List<Map<String, Object>> steps = new ArrayList<>();
             for (int i = 0; i < results.size(); i++) steps.add(step(p.steps.get(i), results.get(i)));
             out.put("steps", steps);
@@ -588,6 +639,69 @@ final class PennyOps {
             byOperation.values().removeIf(x -> x == p);
             running.compareAndSet(p, null);
         }
+    }
+
+    /**
+     * An OS file chooser a command opens during or at the end of its run (Coloc 2 finishes with "Save as PDF"): pressed
+     * Cancel at once and recorded on the plan, because Penny does not drive OS file dialogs (the up-front
+     * {@link #opensFileChooser} refusal covers commands whose first act is one). Called from the plan thread while a step runs.
+     */
+    private void autoCancelFileDialog(Plan p) {
+        PendingDialog d = p.dialog;
+        if (d == null) return;
+        java.awt.Window w;
+        try {
+            w = DialogDriver.find(d.title(), d.dialogClass());
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (!(w instanceof java.awt.FileDialog)) return;
+        String title = d.title() == null || d.title().isBlank() ? "file chooser" : d.title();
+        try {
+            DialogDriver.act(w, Map.of(), "Cancel");
+        } catch (RuntimeException e) {
+            System.err.println("[fidelis-penny] could not cancel the file chooser '" + title + "': " + e);
+            return;
+        }
+        p.cancelledFileDialogs.add(title);
+        p.dialog = null;
+        p.dialogWindow = null;
+    }
+
+    record ChannelChoice(int channel, String by) {}
+
+    /**
+     * The channel "the nuclei" means on a multichannel image when none is given: a blue-LUT channel (DAPI/Hoechst are shown
+     * blue by convention), else a channel labelled DAPI/Hoechst/nuc, else the current channel; {@code by} says which rule
+     * chose it. Read-only: composite LUTs and slice labels, never {@code getProcessor()}/{@code getStack()}.
+     */
+    static ChannelChoice nucleiChannel(ImagePlus imp, int channels) {
+        if (imp == null) return new ChannelChoice(1, "current");
+        if (channels <= 1) return new ChannelChoice(Math.max(1, imp.getC()), "current");
+        if (imp instanceof ij.CompositeImage ci) {
+            for (int c = 1; c <= channels; c++) {
+                ij.process.LUT lut = ci.getChannelLut(c);
+                if (lut != null && "blue".equals(lutName(lut))) return new ChannelChoice(c, "lut-blue");
+            }
+        }
+        for (int c = 1; c <= channels; c++) {
+            String label = LiveRead.sliceLabel(imp, c);
+            if (label != null && label.matches("(?is).*(dapi|hoechst|nuc).*")) return new ChannelChoice(c, "label");
+        }
+        return new ChannelChoice(Math.max(1, imp.getC()), "current");
+    }
+
+    /** The colour a LUT displays at full intensity: red, green, blue, cyan, magenta, yellow, grays, black or other. */
+    static String lutName(ij.process.LUT lut) {
+        int r = lut.getRed(255), g = lut.getGreen(255), b = lut.getBlue(255);
+        int max = Math.max(r, Math.max(g, b));
+        if (max < 32) return "black";
+        boolean red = r > 0.6 * max, green = g > 0.6 * max, blue = b > 0.6 * max;
+        if (red && green && blue) return "grays";
+        if (red && green) return "yellow";
+        if (red && blue) return "magenta";
+        if (green && blue) return "cyan";
+        return red ? "red" : green ? "green" : blue ? "blue" : "other";
     }
 
     private List<HistoryRecord> sinceMark(int from, int to) {
@@ -1457,10 +1571,26 @@ final class PennyOps {
         Double maxSize = PennyJson.num(a, "maxSize");
         Boolean exclude = PennyJson.bool(a, "exclude");
         Boolean pixel = PennyJson.bool(a, "pixel");
+        boolean keepMask = PennyJson.bool(a, "keepMask", false);
+        final Integer channel;
+        final String channelBy;
         if (PennyJson.has(a, "channel")) {
             int ch = PennyJson.integer(a, "channel", 1, 1, Math.max(1, d.nChannels()));
+            channel = ch;
+            channelBy = "argument";
             if (d.nChannels() > 1) p.steps.add(directStep(p, "channel", Operations.SET_POSITION, "Channel " + ch, "Image>Stacks>Set Channel",
                     map("channel", ch), prov("channel", Params.USER), "Stack.setChannel(" + ch + ");", ts));
+        } else if (d.nChannels() > 1) {
+            // "the nuclei" on a multichannel image: the blue-LUT (DAPI) channel, a DAPI/Hoechst-labelled one, else the current
+            ChannelChoice choice = nucleiChannel(imp(d.id()), d.nChannels());
+            channel = choice.channel();
+            channelBy = choice.by();
+            if (!"current".equals(choice.by()))
+                p.steps.add(directStep(p, "channel", Operations.SET_POSITION, "Channel " + choice.channel() + " (" + ("lut-blue".equals(choice.by()) ? "blue" : "nuclear label") + ")",
+                        "Image>Stacks>Set Channel", map("channel", choice.channel()), prov("channel", Params.DERIVED), "Stack.setChannel(" + choice.channel() + ");", ts));
+        } else {
+            channel = null;
+            channelBy = null;
         }
         // an active selection would be restored onto the duplicate (and can crop it): clear it first, restore it at the end
         Optional<RoiGeometry> selection = engine.activeRoi(d.id());
@@ -1518,6 +1648,13 @@ final class PennyOps {
         }));
         if (selection.isPresent()) p.steps.add(directStep(p, "reselect", Operations.SET_ROI, "Restore the selection", "Edit>Selection>Restore Selection",
                 map("roi", selection.get()), prov("roi", Params.DERIVED), "run(\"Restore Selection\");", ts));
+        if (!keepMask) {
+            // the objects now live on the original: close the mask (discarding it) so repeated segmentations do not pile up
+            // tabs; keepMask:true leaves it open. A housekeeping step: not assessed by the policy, recorded by the engine.
+            ActionRequest shown = ActionRequest.session(p.origin, Operations.CLOSE, meta(p, map("discard", true)), null);
+            p.steps.add(new Step("closeMask", "Close the mask", "File>Close", shown, prov("discard", Params.DERIVED), "close(); // the mask",
+                    res -> ActionRequest.session(p.origin, Operations.CLOSE, meta(p, map("discard", true)), TargetScope.of(created(res.get(dup))))));
+        }
         p.finish = (plan, res) -> {
             DocumentId mask = created(res.get(dup));
             engine.focus(d.id()); // the original stays the document Penny and the user work on
@@ -1525,8 +1662,14 @@ final class PennyOps {
             m.put("threshold", map("method", method, "dark", dark));
             m.put("watershed", watershed);
             m.put("replacedRois", replace);
-            m.put("mask", engine.document(mask).map(x -> map("id", x.id().value(), "title", x.title())).orElse(null));
-            m.put("note", "Objects were found on the mask " + engine.document(mask).map(DocumentInfo::title).orElse("") + "; " + d.title()
+            if (channel != null) {
+                m.put("channel", channel);
+                m.put("channelBy", channelBy);
+                segmentedChannel.put(d.id(), channel);
+            }
+            m.put("mask", engine.document(mask).map(x -> map("id", x.id().value(), "title", x.title(), "closed", false))
+                    .orElse(map("id", mask.value(), "title", base + "-mask", "closed", true)));
+            m.put("note", "Objects were found on a mask (" + base + "-mask" + (keepMask ? ", kept open" : ", closed again") + "); " + d.title()
                     + " keeps its pixels and now holds them as its ROI list, so measure {scope:\"rois\"} reads the real signal.");
             return m;
         };
@@ -1674,12 +1817,28 @@ final class PennyOps {
         if (names != null) for (Object o : names) wanted.add(measurementKey(String.valueOf(o)));
         if (!wanted.isEmpty() && !currentMeasurements().containsAll(wanted)) p.steps.add(setMeasurementsStep(p, wanted, true, d));
         Optional<RoiGeometry> active = engine.activeRoi(d.id());
+        // On a multichannel image intensities come from the channel asked for, else the channel the objects were segmented
+        // on (remembered from the last segment_cells of this document), never silently from the displayed channel.
+        ImagePlus live = imp(d.id());
+        final int shownChannel = live == null ? 1 : live.getC();
+        Integer channelArg = PennyJson.has(a, "channel") ? PennyJson.integer(a, "channel", 1, 1, Math.max(1, d.nChannels())) : null;
+        final Integer useChannel = d.nChannels() > 1 ? (channelArg != null ? channelArg : segmentedChannel.get(d.id())) : null;
+        final String channelBy = useChannel == null ? null : channelArg != null ? "argument" : "segmented";
+        boolean switchChannel = useChannel != null && useChannel != shownChannel;
+        if (switchChannel && !scope.equals("rois"))
+            p.steps.add(directStep(p, "channel", Operations.SET_POSITION, "Channel " + useChannel + (channelArg != null ? "" : " (segmented there)"), "Image>Stacks>Set Channel",
+                    map("channel", useChannel), prov("channel", channelArg != null ? Params.USER : Params.DERIVED), "Stack.setChannel(" + useChannel + ");", ts));
+        final Set<Integer> measuredChannels = new LinkedHashSet<>();
         switch (scope) {
-            case "roi" -> p.steps.add(commandStep(p, "measure", PennyCommands.MEASURE, Map.of(), Map.of(), ts));
+            case "roi" -> {
+                p.steps.add(commandStep(p, "measure", PennyCommands.MEASURE, Map.of(), Map.of(), ts));
+                if (d.nChannels() > 1) measuredChannels.add(useChannel != null ? useChannel : shownChannel);
+            }
             case "all" -> {
                 if (active.isPresent()) p.steps.add(directStep(p, "clear", Operations.CLEAR_ROI, "Select None", "Edit>Selection>Select None",
                         Map.of(), Map.of(), "run(\"Select None\");", ts));
                 p.steps.add(commandStep(p, "measure", PennyCommands.MEASURE, Map.of(), Map.of(), ts));
+                if (d.nChannels() > 1) measuredChannels.add(useChannel != null ? useChannel : shownChannel);
                 if (active.isPresent()) p.steps.add(directStep(p, "restore", Operations.SET_ROI, "Restore the selection", "Edit>Selection>Restore Selection",
                         map("roi", active.get()), prov("roi", Params.DERIVED), "// restore the selection", ts));
             }
@@ -1698,8 +1857,11 @@ final class PennyOps {
                         pz = pos[1] > 0 ? pos[1] : null;
                         pt = pos[2] > 0 ? pos[2] : null;
                     }
+                    // an ROI without a channel of its own is measured on the requested or segmented channel
+                    if (pc == null && useChannel != null) pc = useChannel;
                     boolean placed = pc != null || pz != null || pt != null;
                     moved |= placed;
+                    if (d.nChannels() > 1) measuredChannels.add(pc != null ? pc : c0);
                     // unspecified coordinates mean the plane the measurement started on, not wherever a previous ROI left the image
                     TargetScope roiTarget = d.isStack()
                             ? new TargetScope(d.id(), pc != null ? pc : c0, pz != null ? pz : z0, pt != null ? pt : t0, false, i)
@@ -1719,6 +1881,10 @@ final class PennyOps {
             }
             default -> throw new IllegalArgumentException("scope must be roi, all or rois");
         }
+        if (switchChannel && !scope.equals("rois") && live != null)
+            p.steps.add(directStep(p, "position", Operations.SET_POSITION, "Back to channel " + shownChannel, "Image>Stacks",
+                    map("channel", shownChannel, "slice", live.getZ(), "frame", live.getT()), Map.of(),
+                    "Stack.setPosition(" + shownChannel + ", " + live.getZ() + ", " + live.getT() + ");", ts));
         final String sc = scope;
         p.finish = (plan, res) -> {
             Set<String> ids = new LinkedHashSet<>();
@@ -1749,6 +1915,10 @@ final class PennyOps {
             m.put("summary", summary);
             m.put("unit", d.unit());
             m.put("scope", sc);
+            if (measuredChannels.size() == 1) {
+                m.put("channel", measuredChannels.iterator().next());
+                m.put("channelBy", channelBy != null ? channelBy : sc.equals("rois") ? "roi position" : "displayed");
+            } else if (!measuredChannels.isEmpty()) m.put("channels", new ArrayList<>(measuredChannels));
             if (sc.equals("rois")) m.put("highlight", Highlight.rois(d.id(), engine.rois(d.id()), "Measured " + rows.size() + " regions", HIGHLIGHT_LIMIT, true));
             else if (sc.equals("roi") && active.isPresent()) m.put("highlight", Highlight.rois(d.id(), List.of(active.get()), "Measured the selection", 1, true));
             else m.put("highlight", Highlight.canvas(d.id(), "Measured the whole image"));

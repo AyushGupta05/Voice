@@ -77,7 +77,29 @@ function stepName(step: unknown, fallbackId?: unknown): string | undefined {
 function countSentence(inner: Record<string, unknown>): string | undefined {
   const count = finite(inner.count); if (count === undefined) return undefined;
   const mean = finite(inner.averageSize);
-  return `Found ${count} cells${mean !== undefined ? `, mean area ${spokenArea(mean, inner.unit)}` : ''}.`;
+  // The bridge names the channel it segmented on a multichannel image (the blue/DAPI channel unless one was asked for).
+  const channel = finite(inner.channel), by = text(inner.channelBy);
+  const where = channel !== undefined && by !== undefined && by !== 'current' ? ` on channel ${channel}${by === 'lut-blue' ? ' (blue)' : ''}` : '';
+  return `Found ${count} cells${where}${mean !== undefined ? `, mean area ${spokenArea(mean, inner.unit)}` : ''}.`;
+}
+/** "Fiji wanted to save a file" after a command: the bridge cancelled the OS chooser itself (docs/FIDELIS-PROTOCOL.md). */
+const skippedSave = (inner: Record<string, unknown>) => inner.cancelledFileDialog === true ? ' Fiji asked where to save a file; Penny skipped that.' : '';
+/** The exported macro, summarised: a Fidelis session can hold hundreds of steps, which is not a spoken answer. */
+function macroSentence(raw: Record<string, unknown>): string | undefined {
+  const macro = text(raw.macro); if (!macro) return undefined;
+  const steps = Array.isArray(raw.steps) ? raw.steps.length : finite(raw.steps);
+  const lines = macro.split('\n').filter(line => line.trim() && !line.trim().startsWith('//')).length;
+  return `The macro has ${plural(lines, 'line')}${steps !== undefined ? ` from ${plural(steps, 'step')}` : ''}; it is in the History and macro tab, ready to export.`;
+}
+/** The model never receives a whole session macro: its size, its header and first lines, and the step count. */
+const MODEL_MACRO_LINES = 40;
+export function macroForModel(result: unknown): unknown {
+  const raw = record(result); const macro = text(raw?.macro); if (!raw || !macro) return result;
+  const all = macro.split('\n');
+  if (all.length <= MODEL_MACRO_LINES && macro.length <= 6000) return result;
+  const steps = Array.isArray(raw.steps) ? raw.steps.length : raw.steps;
+  return { ...raw, steps, macroLines: all.length, macroChars: macro.length, macro: all.slice(0, MODEL_MACRO_LINES).join('\n') + `\n// … ${all.length - MODEL_MACRO_LINES} more lines; the full macro is in Fidelis's History and macro tab (Export .ijm).`,
+    note: 'The macro is shown truncated to the model; tell the researcher its size and where it is, never paste it.' };
 }
 function measureSentence(args: Record<string, unknown>, inner: Record<string, unknown>): string | undefined {
   if (args.scope === 'rois') {
@@ -88,12 +110,14 @@ function measureSentence(args: Record<string, unknown>, inner: Record<string, un
     // Every object reading exactly 0 or 255 is a binary mask (segment_cells works in place), not an intensity.
     const low = finite((mean as { min?: unknown }).min), high = finite((mean as { max?: unknown }).max);
     if (low === high && (value === 0 || value === 255) && low === value) return undefined;
-    return rows === undefined ? `Mean intensity ${round(value)} across the regions.` : `Mean intensity ${round(value)} over ${plural(rows, 'region')}.`;
+    const channel = finite(inner.channel), onChannel = channel !== undefined && inner.channelBy !== 'displayed' ? ` on channel ${channel}` : '';
+    return rows === undefined ? `Mean intensity ${round(value)} across the regions${onChannel}.` : `Mean intensity ${round(value)} over ${plural(rows, 'region')}${onChannel}.`;
   }
   // Without a known scope (a confirmed plan) the sentence names no place rather than guess one.
   const last = record(inner.lastRow); const where = args.scope === 'all' ? ' in the image' : args.scope === 'roi' ? ' in this region' : '';
   const mean = finite(column(last, 'Mean'));
-  if (mean !== undefined) return `Mean intensity ${round(mean)}${where}.`;
+  const channel = finite(inner.channel), onChannel = channel !== undefined && inner.channelBy !== 'displayed' ? ` on channel ${channel}` : '';
+  if (mean !== undefined) return `Mean intensity ${round(mean)}${where}${onChannel}.`;
   const area = finite(column(last, 'Area'));
   return area === undefined ? undefined : `Area ${spokenArea(area, inner.unit)}${where}.`;
 }
@@ -129,7 +153,11 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
   // A waiting dialog is not an outcome: the model continues and fills it with fidelis_dialog_action.
   if (dialogWaiting(result) || name === 'fidelis_dialog') return undefined;
   const cancelled = cancelledAtDialog(result);
-  if (cancelled) { const title = text(record(cancelled.dialog)?.title)?.replace(/(?:\.{3}|…)$/, ''); return title ? `Cancelled at the ${title} dialog; nothing more ran.` : 'Cancelled; nothing more ran.'; }
+  if (cancelled) {
+    const title = (text(cancelled.dialog) ?? text(record(cancelled.dialog)?.title))?.replace(/(?:\.{3}|…)$/, '');
+    if (cancelled.cancelledFileDialog === true) return `Fiji asked where to save a file${title ? ` (${title})` : ''}; Penny does not drive file dialogs, so the command ended there.`;
+    return title ? `Cancelled at the ${title} dialog; nothing more ran.` : 'Cancelled; nothing more ran.';
+  }
   if (silentFinishTools.has(name)) return '';
   const inner = completedPayload(result);
   // Read and view operations return the bridge result itself, without a decision envelope.
@@ -142,7 +170,8 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const area = record(raw.area), mean = finite(area?.mean), median = finite(area?.median);
     return `${plural(n, 'object')}${mean !== undefined ? `, mean area ${spokenArea(mean, raw.unit)}` : ''}${median !== undefined ? `, median ${spokenArea(median, raw.unit)}` : ''}.`;
   }
-  if (name === 'fidelis_cancel_plan') return raw.dialogCancelled === true ? 'Cancelled the waiting dialog.' : 'Cancelled; nothing ran.';
+  if (name === 'fidelis_cancel_plan') return raw.dialogCancelled ? 'Cancelled the waiting dialog.' : 'Cancelled; nothing ran.';
+  if (name === 'fidelis_macro') return macroSentence(raw);
   if (inner === undefined) return undefined;
   if (name === 'fidelis_segment_cells' || name === 'fidelis_analyze_particles') return countSentence(inner);
   // A mean is spoken as an intensity only on a document the bridge reports as not binary (segment_cells leaves the mask
@@ -161,12 +190,12 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     const what = stepName(inner.step)?.replace(undo ? /^undo\b[:\s-]*/i : /^redo\b[:\s-]*/i, '').trim();
     return what ? `${undo ? 'Undid' : 'Redid'} ${what}.` : undo ? 'Undone.' : 'Redone.';
   }
-  if (name === 'fidelis_command' || name === 'fidelis_dialog_action') { const what = stepName(inner.step, args.commandId); return what ? `Ran ${what}.` : 'Done.'; }
+  if (name === 'fidelis_command' || name === 'fidelis_dialog_action') { const what = stepName(inner.step, args.commandId); return `${what ? `Ran ${what}.` : 'Done.'}${skippedSave(inner)}`; }
   if (name === 'fidelis_filter') return 'Filter applied.';
   if (name === 'fidelis_convert') return typeof args.to === 'string' ? `Converted to ${args.to}.` : 'Converted.';
   if (name === 'fidelis_duplicate') return 'Duplicated.';
   if (name === 'fidelis_run_macro') return 'Ran the macro.';
-  if (name === 'fidelis_confirm') return confirmSentence(inner, context);
+  if (name === 'fidelis_confirm') { const sentence = confirmSentence(inner, context); return sentence === undefined ? undefined : `${sentence}${skippedSave(inner)}`; }
   return undefined;
 }
 const analysisWords = /\b(?:measur\w*|count\w*|segment\w*|detect\w*|quantif\w*|coloc\w*|correlat\w*|overlap\w*|track\w*|analy[sz]\w*|threshold\w*|classif\w*|how many|intensit\w*|percent\w*|compar\w*|subtract\w*|project\w*|export\w*|macro)\b/;
@@ -185,6 +214,7 @@ function requestContinuesAfter(name: string, utterance: string, result?: unknown
   if (name === 'fidelis_threshold') return /\b(count|particles?|how many|cells?|nuclei|segment\w*|strict\w*|loose\w*|tight\w*|sensitiv\w*|aggressive|conservative|more|less|higher|lower|again|redo)\b/.test(said);
   if (name === 'fidelis_analyze_particles') return /\b(intens|mean gray|brightness)\b/.test(said);
   if (name === 'fidelis_rois') return !/\b(how many|count|number of)\b/.test(said);
+  if (name === 'fidelis_macro') return false;
   if (name === 'fidelis_object_stats') return /\b(intens|bright|circular|round|shape|largest|smallest|biggest|total)/.test(said);
   return false;
 }
@@ -226,6 +256,9 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
     if (confirmWords.test(said) && !isQuestion(spokenText)) return { tool: 'fidelis_confirm', arguments: planId ? { planId } : {}, reply: 'Running it.' };
     if (cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: planId ? { planId } : {}, reply: 'Cancelled; nothing ran.' };
   }
+  // A plan still running in Fidelis is stopped at one of its original dialogs: "cancel" presses that dialog's Cancel.
+  const running = record((state as { running?: unknown } | undefined)?.running);
+  if (!pending && running && cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: {}, reply: 'Cancelling.' };
   // "Open the hela cells image": the host resolves imageQuery with fidelis_find_images; an already-open document is focused instead.
   const raw = spokenText.toLowerCase().replace(/'s\b/g, 's').replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
   const opening = raw.match(/^(?:(?:hey )?(?:fidelis|fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
@@ -244,8 +277,8 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
       if (hit.focused === true) return { tool: 'fidelis_context', arguments: {}, reply: `${name.charAt(0).toUpperCase()}${name.slice(1)} is already open.` };
       if (typeof hit.id === 'string') return { tool: 'fidelis_activate_image', arguments: { id: hit.id }, reply: `Switched to ${name}.` };
     }
-    // ImageJ's built-in samples are catalogue commands (File > Open Samples), which the model finds with fidelis_commands.
-    if (/^blobs(?: sample)?$/.test(opening[1]) && !hit) return undefined;
+    // "Open the blobs image" opens the blobs.gif on disk (Penny's data folder) instantly, like any other image; only
+    // when no file matches does the host ask, and ImageJ's built-in sample (File > Open Samples) stays a catalogue command.
     return { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: opening[1] };
   }
   const doc = state?.document;
@@ -284,6 +317,16 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "Find all the nuclei" is the whole request: the bridge runs its segmentation plan on the focused document (a repeat
   // replaces the previous segmentation from the original pixels).
   if (/^(?:now )*(?:find|segment|detect|identify|outline|count|show me|highlight) (?:all )?(?:of )?(?:the )?(?:nuclei|nucleus|cells|cell nuclei)(?: here)?$/.test(said)) return { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' };
+  // "Convert it to a mask (with a black background)" is Process > Binary > Convert to Mask on the focused document, never a
+  // segmentation: the polarity asked for is passed as `black`; a polarity that differs from Fidelis's BlackBackground
+  // preference makes the plan explicit (the bridge's value-aware rule), so it waits for "yes".
+  const mask = said.match(/^(?:(?:please |now )?(?:convert|turn|make|change) (?:it|this|that|the image|this image) (?:in)?to (?:a )?(?:binary )?mask|(?:make|create) (?:a )?(?:binary )?mask(?: of (?:it|this|the image))?)(?: with (?:a )?(black|white|dark|light) background)?$/);
+  if (mask) {
+    const params: Record<string, unknown> = {};
+    if (mask[1]) params.black = mask[1] === 'black' || mask[1] === 'dark';
+    return { tool: 'fidelis_command', arguments: { commandId: 'ij1:Process>Binary>Convert to Mask', params }, reply: 'Converting to a mask.' };
+  }
+  if (/^(?:show (?:me )?|what is |what's |give me |export |save |print )?(?:the )?(?:workflow|macro|script|steps so far|recorded (?:macro|steps))(?: so far| for this| please)?$/.test(said)) return { tool: 'fidelis_macro', arguments: {}, reply: 'Here is the macro.' };
   const slice = said.match(/^(next|previous|prev) slice$/);
   if (slice) {
     const slices = finite(doc.slices), current = finite(doc.position?.slice);
@@ -358,4 +401,5 @@ export const fidelis: AppProfile = {
   needsModel: (name, result, context) => dialogWaiting(result) || name === 'fidelis_confirm' && localSentenceFor(name, {}, result, context) === undefined,
   longRunningTools: new Set(['fidelis_segment_cells', 'fidelis_analyze_particles', 'fidelis_command', 'fidelis_confirm', 'fidelis_open_path']),
   prepareAction, modelArguments,
+  resultForModel: (name, result) => name === 'fidelis_macro' ? macroForModel(result) : result,
 };

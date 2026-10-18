@@ -23,7 +23,9 @@ parameters, act, and say what you did in one short sentence.
    command's schema defaults. Never guess or edit an id.
 4. A command without a catalogued schema may open its original Fiji dialog: the result is `{status: "dialog", dialog}`.
    Fill its fields by key and press a button with `fidelis_dialog_action {fields, press}` (`fidelis_dialog` reads the
-   waiting dialog); never leave a dialog open.
+   waiting dialog). When the researcher only asked to open the plugin, leave its dialog for them in Fidelis and say what it
+   asks. OS file choosers a command opens on its way (Coloc 2's "Save as PDF") are cancelled by the bridge itself
+   (`cancelledFileDialog: true`); commands that start with one are refused (`FILE_CHOOSER`).
 5. `fidelis_run_macro` for anything else. Macros are code and always wait for confirmation.
 6. Report the numbers from the result, with the unit it gives. Never invent a count or measurement.
 
@@ -46,9 +48,12 @@ Only the researcher's own "yes" confirms: the gateway refuses `fidelis_confirm` 
   the ROI list holds objects unless asked.
 - `fidelis_measure` takes Set Measurements keys (`area`, `mean`, `min`, `integrated`, `shape`, `feret's`, …) and a scope:
   `roi` (the active selection), `all` (the whole document) or `rois` (every ROI-list entry).
-- `fidelis_segment_cells` converts the focused document to its mask in place (no duplicate). Running it again with a
-  stricter (`Li`) or looser (`Huang`) method replaces the previous segmentation from the original pixels. A Mean
-  measured on the mask is not an intensity; say the original pixels are needed.
+- `fidelis_segment_cells` works on a duplicate (`<title>-mask`) that it closes again once the objects are copied to the
+  original's ROI list (`keepMask: true` keeps it open), so the original keeps its pixels and `fidelis_measure {scope:
+  "rois", measurements: ["mean"]}` reads the real signal. On a multichannel image it segments the blue-LUT (DAPI) channel,
+  else a DAPI/Hoechst-labelled one, else the current channel, unless `channel` is given; the result reports `channel` and
+  `channelBy`. Running it again with a stricter (`Li`) or looser (`Huang`) method replaces the previous segmentation
+  from the original pixels. A Mean measured on a mask (`document.binary` true) is not an intensity.
 - `fidelis_undo {steps}` reverts several History steps at once (a segmentation reports its `undoSteps`).
 - "What did you do" is `fidelis_history`; "show me the macro / make this reproducible" is `fidelis_macro`.
 
