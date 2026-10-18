@@ -22,6 +22,16 @@ public interface PennyUi {
     default Rectangle toScreen(DocumentId document, Rectangle2D imageRect) { return null; }
     /** Current magnification of the document's view (1.0 = 100 %), or NaN. */
     default double magnification(DocumentId document) { return Double.NaN; }
+    /**
+     * The image pixel under the mouse pointer on the document's visible canvas ("this one", "why did you count this"),
+     * or null when the pointer is not over it (or no workspace is attached). Never blocks for long.
+     */
+    default java.awt.Point pointer(DocumentId document) { return null; }
+    /**
+     * Show a light-themed chart of {@code values} (object areas in {@code unit}²) in a small non-focusable window beside the
+     * workspace, never over the canvas and never as an ImageJ image (object_stats {plot:true}). No-op without a workspace.
+     */
+    default void showChart(DocumentId document, double[] values, String unit, String title) {}
 
     /** A plan the bridge is about to run (auto) or holds for confirmation (explicit). */
     record Plan(String planId, String utterance, boolean spoken, boolean explicit, List<String> reasons,

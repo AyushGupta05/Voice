@@ -55,6 +55,11 @@ final class LiveRead {
 
     /** Pixels of one plane: the given channel (null = current) at the current slice and frame; null when unavailable. */
     static Object planePixels(ImagePlus imp, Integer channel) {
+        return planePixels(imp, channel, null, null);
+    }
+
+    /** Pixels of the plane (c, z, t) (each null = the current position); null when unavailable. */
+    static Object planePixels(ImagePlus imp, Integer channel, Integer slice, Integer frame) {
         if (imp == null) return null;
         if (imp.getStackSize() > 1) {
             if (STACK == null) return null;
@@ -66,7 +71,9 @@ final class LiveRead {
             }
             if (st == null) return null;
             int c = channel == null ? imp.getC() : channel;
-            int index = imp.getStackIndex(c, imp.getZ(), imp.getT());
+            int z = slice == null ? imp.getZ() : slice;
+            int t = frame == null ? imp.getT() : frame;
+            int index = imp.getStackIndex(c, z, t);
             return index >= 1 && index <= st.size() ? st.getPixels(index) : null;
         }
         ImageProcessor ip = processor(imp);
