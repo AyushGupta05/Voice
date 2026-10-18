@@ -32,10 +32,10 @@ canvas; the numbers are what Penny said on this build.
 > *The largest is object 145, 179 square pixels.* — it flashes.
 
 > **"Highlight the ten biggest."**
-> *These are the 10 largest, from 179 down to … square pixels.* — ten flash together.
+> *These are the 10 largest, from 179 down to 125 square pixels.* — ten flash together.
 
 > **"Show me anything smaller than 40 pixels."**
-> *… of 168 objects are smaller than 40 square pixels.* — the debris lights up, so you can see what the next line
+> *12 of 168 objects are smaller than 40 square pixels.* — the debris lights up, so you can see what the next line
 > removes.
 
 > **"Show me the size distribution."**
