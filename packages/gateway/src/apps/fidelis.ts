@@ -278,7 +278,7 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   if (!pending && running && cancelWords.test(said)) return { tool: 'fidelis_cancel_plan', arguments: {}, reply: 'Cancelling.' };
   // "Open the hela cells image": the host resolves imageQuery with fidelis_find_images; an already-open document is focused instead.
   const raw = spokenText.toLowerCase().replace(/'s\b/g, 's').replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
-  const opening = raw.match(/^(?:(?:hey )?(?:fidelis|fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
+  const opening = raw.match(/^(?:(?:hey )?(?:fidelis|fiji|penny)\s+)?(?:please |can you |could you )?(?:open|opened|load|bring up|pull up|switch to|switch back to|go to|go back to|bring back)(?: up)? (?:the |my |that )?(.+?)(?: (?:image|picture|file|movie|video|stack|slide|sample))?(?: please)?$/);
   if (opening && !/\b(and|then|also)\b/.test(opening[1]) && !/^(?:a|an|new)\b/.test(opening[1]) && opening[1].length >= 2) {
     const words = queryWords(opening[1]);
     const open = Array.isArray(state?.documents) ? state!.documents : [];
@@ -305,7 +305,7 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   }
   // A fast action is the whole request, never just the first half of a spoken chain.
   if (continuesGenerally(said.replace(/^(?:and|also)\s+/, ''))) return undefined;
-  const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?$/);
+  const zoom = said.match(/^zoom (in|out)(?: (a (?:little|bit)|slightly|a lot|way (?:in|out)|more))?(?: (?:on|to|into) (?:the |this )?(?:image|picture|it|here))?$/);
   if (zoom) return { tool: 'fidelis_zoom', arguments: { direction: zoom[1] }, reply: zoom[1] === 'in' ? 'Zooming in.' : 'Zooming out.' };
   if (/^(?:zoom to fit|fit (?:to|the) (?:window|screen|view)|fit to window)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' };
   if (/^zoom (?:in )?(?:to|on) (?:the |this |my )?(?:selection|selected region|roi)$/.test(said)) return { tool: 'fidelis_zoom', arguments: { selection: true }, reply: 'Zooming to the selection.' };

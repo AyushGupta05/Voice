@@ -144,6 +144,7 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('Find the nuclei.'), { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' });
   assert.deepEqual(route('Hey Penny, segment all the cells'), { tool: 'fidelis_segment_cells', arguments: {}, reply: 'Finding the nuclei.' });
   assert.deepEqual(route('Zoom in a little.'), { tool: 'fidelis_zoom', arguments: { direction: 'in' }, reply: 'Zooming in.' });
+  assert.deepEqual(route('Zoom in on the image.'), { tool: 'fidelis_zoom', arguments: { direction: 'in' }, reply: 'Zooming in.' });
   assert.deepEqual(route('zoom out'), { tool: 'fidelis_zoom', arguments: { direction: 'out' }, reply: 'Zooming out.' });
   assert.deepEqual(route('Fit to window'), { tool: 'fidelis_zoom', arguments: { fit: true }, reply: 'Fitting to the window.' });
   assert.deepEqual(route('zoom to the selection'), { tool: 'fidelis_zoom', arguments: { selection: true }, reply: 'Zooming to the selection.' });
@@ -178,6 +179,8 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   // Opening: an open document is focused instead of opened twice; otherwise the host resolves the name.
   assert.deepEqual(route('open the hela cells image'), { tool: 'fidelis_activate_image', arguments: { id: 'doc-2' }, reply: 'Switched to hela cells.' });
   assert.deepEqual(route('open blobs'), { tool: 'fidelis_context', arguments: {}, reply: 'Blobs is already open.' });
+  assert.deepEqual(route('Switch to the hela cells image.'), { tool: 'fidelis_activate_image', arguments: { id: 'doc-2' }, reply: 'Switched to hela cells.' });
+  assert.deepEqual(route('go back to blobs'), { tool: 'fidelis_context', arguments: {}, reply: 'Blobs is already open.' });
   assert.deepEqual(route('Open the embryos image.'), { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'embryos' });
   assert.deepEqual(route('open the blobs image', { ...blobs, documents: [] }), { tool: 'fidelis_open_path', arguments: {}, reply: 'Opening it.', imageQuery: 'blobs' }, 'the blobs.gif on disk opens instantly');
   assert.deepEqual(route('What am I looking at?'), { tool: 'fidelis_context', arguments: {}, reply: 'Blobs: 256 by 254, 8-bit; one channel.' });
