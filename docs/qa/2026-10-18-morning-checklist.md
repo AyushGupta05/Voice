@@ -63,7 +63,9 @@ macro over every image of the folder, shows it ("Ready to run this on 12 images 
 ahead.") and after "Yes" writes `penny-folder-results.csv` (Image, Count, MeanArea) into that folder. Engine-tested on a
 two-image folder segmented with the demo's own segment_cells (both counted like the session, CSV with two rows). The
 first live try (05:45) hit run_macro's 32 kB limit because the session macro carries every outline of the segmentation
-literally; the folder macro now keeps the rule and skips literal outlines and hand corrections. Typed "yes" cannot be
+literally; the folder macro now keeps the rule and skips literal outlines and hand corrections. Live on the relaunched
+cfbfb7a instance (06:0x): the typed line after blobs → 67 answered "Ready to run this on 5 images in imagej; say yes to
+go ahead." in 29 ms (macro 2,266 characters, 67 outlines skipped). Typed "yes" cannot be
 checked with the text-drive tool (each run is a new conversation); the confirmation path is engine-tested and is the
 same one "Run this macro" → "Yes" used by voice.
 
