@@ -55,7 +55,7 @@ public final class CommandBar extends JPanel {
     private final JList<Row> list = new JList<>(model);
     private final JPopupMenu popup = new JPopupMenu();
     private final JToggleButton mic = new JToggleButton("Mic");
-    private final JButton demo = new JButton("Demo");
+    private final JButton demo = new JButton("Load data \u25BE");
     private final StatusBar.RecordingIndicator recording = new StatusBar.RecordingIndicator();
     private final Timer debounce;
     private final Timer recordingClock;
@@ -164,10 +164,10 @@ public final class CommandBar extends JPanel {
         recording.setToolTipText("Recording from the microphone");
         recordingClock = new Timer(500, e -> updateRecordingText());
 
-        // one click sets the demo up: the demo image open and focused, zoomed to fit, nothing else touched
+        // one click sets a demo up: the chosen image open and focused through the engine, nothing else touched
         demo.setFocusable(false);
-        demo.setToolTipText("Load the demo image (blobs) so the voice demo can start");
-        demo.addActionListener(e -> loadDemo());
+        demo.setToolTipText("Load a demo image so the voice demo can start");
+        demo.addActionListener(e -> showDemoMenu());
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         right.setOpaque(false);
         right.add(recording);
@@ -179,43 +179,66 @@ public final class CommandBar extends JPanel {
         updateMic();
     }
 
-    /**
-     * The demo image: {@code <root>/.local/data/fiji/imagej/blobs.gif} (root from {@code -Dluma.root} / {@code LUMA_ROOT},
-     * else the working directory), or the file named by {@code -Dfidelis.demo.image}. Already open: focused and fitted.
-     */
-    void loadDemo() {
-        java.nio.file.Path image = demoImage();
-        if (image == null) {
-            ctx.notice("No demo image: put blobs.gif under .local/data/fiji/imagej (script/fetch-samples.sh) or set -Dfidelis.demo.image", false);
-            return;
+    /** A demo: its menu label, the image (under the Penny root's {@code .local/data}) and the first line to say. */
+    record DemoSet(String label, String relativePath, String firstLine) {}
+
+    static final List<DemoSet> DEMOS = List.of(
+            new DemoSet("Macros demo \u2014 blobs", ".local/data/fiji/imagej/blobs.gif", "Find all the nuclei"),
+            new DemoSet("Nuclei demo \u2014 BBBC008 (DNA channel)", ".local/data/samples/bbbc008/images/AS_09125_050116000001_A24f00d0_slice1_channel1.tif", "Find all the nuclei"));
+
+    /** The Load data menu: one entry per demo (greyed when its file is missing), plus the file named by -Dfidelis.demo.image. */
+    private void showDemoMenu() {
+        javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+        String named = System.getProperty("fidelis.demo.image");
+        if (named != null && !named.isBlank()) {
+            java.nio.file.Path p = java.nio.file.Path.of(named).toAbsolutePath().normalize();
+            javax.swing.JMenuItem item = new javax.swing.JMenuItem("Demo image \u2014 " + p.getFileName());
+            item.setEnabled(java.nio.file.Files.isRegularFile(p));
+            item.addActionListener(e -> loadDemo(p, "Find all the nuclei"));
+            menu.add(item);
         }
+        for (DemoSet d : DEMOS) {
+            java.nio.file.Path p = demoPath(d.relativePath());
+            javax.swing.JMenuItem item = new javax.swing.JMenuItem(d.label());
+            item.setEnabled(p != null);
+            item.setToolTipText(p == null ? "Missing: run script/fetch-samples.sh" : p.toString());
+            item.addActionListener(e -> loadDemo(p, d.firstLine()));
+            menu.add(item);
+        }
+        menu.show(demo, 0, demo.getHeight());
+    }
+
+    /** Open the demo image through the engine (recorded like any open) and focus it; already open: focused only. */
+    void loadDemo(java.nio.file.Path image, String firstLine) {
+        if (image == null) return;
         String title = image.getFileName().toString();
         for (sc.fidelis.engine.api.DocumentInfo d : ctx.engine.documents()) {
             if (title.equals(d.title())) {
                 ctx.focusDocument(d.id());
-                ctx.notice("Demo image " + title + " is open; say \"Find all the nuclei\"", false);
+                ctx.notice(title + " is open; say \"" + firstLine + "\"", false);
                 return;
             }
         }
         demo.setEnabled(false);
         ctx.openPath(image).whenComplete((r, t) -> SwingUtilities.invokeLater(() -> {
             demo.setEnabled(true);
-            if (t != null || r == null || !r.succeeded()) ctx.notice("Could not open the demo image " + title + (t != null ? ": " + t.getMessage() : ""), false);
-            else ctx.notice("Demo image " + title + " is open; say \"Find all the nuclei\"", false);
+            if (t != null || r == null || !r.succeeded()) ctx.notice("Could not open " + title + (t != null ? ": " + t.getMessage() : ""), false);
+            else ctx.notice(title + " is open; say \"" + firstLine + "\"", false);
         }));
     }
 
-    static java.nio.file.Path demoImage() {
-        String named = System.getProperty("fidelis.demo.image");
-        if (named != null && !named.isBlank()) {
-            java.nio.file.Path p = java.nio.file.Path.of(named).toAbsolutePath().normalize();
-            return java.nio.file.Files.isRegularFile(p) ? p : null;
-        }
+    /** The Penny root: {@code -Dluma.root}, {@code LUMA_ROOT}, else the working directory. */
+    static java.nio.file.Path demoPath(String relative) {
         String root = System.getProperty("luma.root");
         if (root == null || root.isBlank()) root = System.getenv("LUMA_ROOT");
         if (root == null || root.isBlank()) root = System.getProperty("user.dir");
-        java.nio.file.Path p = java.nio.file.Path.of(root, ".local", "data", "fiji", "imagej", "blobs.gif").toAbsolutePath().normalize();
+        java.nio.file.Path p = java.nio.file.Path.of(root).resolve(relative).toAbsolutePath().normalize();
         return java.nio.file.Files.isRegularFile(p) ? p : null;
+    }
+
+    /** The first demo's image, for tests and the old one-click path. */
+    static java.nio.file.Path demoImage() {
+        return demoPath(DEMOS.get(0).relativePath());
     }
 
     void focusField() {

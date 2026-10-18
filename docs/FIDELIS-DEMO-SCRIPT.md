@@ -1,52 +1,67 @@
-# What to say — the Penny × Fidelis demo (18 October 2026)
+# What to say — the Penny × Fidelis demos (18 October 2026)
 
-Four minutes, hands on nothing but the mouse. Every line below was spoken to the real build this morning and answered
-in about a second; the replies quoted are what Penny said. Speak naturally, pause a beat after each answer.
+Hands on nothing but the mouse. Every line below was spoken to the real build this morning and answered in about a
+second; the replies quoted are what Penny said. Speak naturally, pause a beat after each answer.
 
-## Before you start (30 seconds)
+## Before you start (20 seconds)
 
-1. Fidelis is up with Penny's strip under the command bar reading **Penny · Ready**.
-2. Click **Demo** (top right, beside Mic). It opens `blobs.gif` through the engine and focuses it — the first step of
-   History, so the replay later starts from a real "open". The strip says *Demo image blobs.gif is open; say "Find all
-   the nuclei"*.
-3. Click **Mic** once (it stays on for 30 minutes). Put the mouse somewhere on the image.
+1. Fidelis is up; the strip under the command bar reads **Penny · Ready**.
+2. Click **Load data ▾** (top right, beside Mic) and pick the demo. The image opens through the engine — the first
+   step of History, so the replay later starts from a real "open" — and the strip tells you the first line to say.
+3. Click **Mic** once (it stays on for 30 minutes). Put the mouse on the image.
 
-## Act 1 — it just does it (60 s)
+Two demos live in that menu. Do the **Nuclei** one first (it is the visual one), then **Macros** (the trust one).
+
+---
+
+## Demo 1 — Nuclei (Load data ▾ → *Nuclei demo — BBBC008*)
+
+A 512 × 512 fluorescence image of human cell nuclei (DNA channel), 168 of them.
 
 > **"Find all the nuclei."**
-> *Finding the nuclei.* → *Found 67 nuclei, mean area 327 square pixels.*
-> Outlines appear on every blob, numbered; the ROI list fills; History shows the eight steps Fiji ran.
+> *Finding the nuclei.* → *Found 168 nuclei, mean area 70 square pixels.*
+> Green outlines appear on every nucleus, numbered; the ROI list fills; History shows the eight Fiji steps.
+
+> **"Show me the nuclei."**
+> *Here they are.* — every outline flashes on the canvas.
 
 > **"Which one is the biggest?"**
-> *The largest is object 61, 848 square pixels.* — that one flashes on the canvas.
+> *The largest is object N, … square pixels.* — that nucleus flashes.
 
 > **"Show me the size distribution."**
-> *Here is the size distribution: 67 objects, median 311 square pixels, from 24 to 848.* — a histogram opens beside
+> *Here is the size distribution: 168 objects, median … square pixels, from … to ….* — the histogram opens beside
 > the window.
 
-What to say while it draws: *"This is the real Fiji — every step is a Fiji command, recorded in History, and the
-numbers come from Fiji's own Results table. Nothing is invented."*
+> **"Remove anything smaller than 30 pixels."**
+> *Segmenting cells.* → *… nuclei remain, all ≥ 30 pixel².* — the debris disappears, the count updates.
 
-## Act 2 — the researcher is in charge (60 s)
-
-Move the mouse onto the two-lobed blob near the middle-right (object 28, the one that looks like a peanut).
+Move the mouse onto a nucleus that looks like two touching.
 
 > **"Those are actually two separate cells."**
-> *Separating them.* → *Split object 28 into 2 (340 square pixels and 334 square pixels); 68 objects now.*
+> *Separating them.* → *Split object N into 2 (… and … square pixels); … objects now.*
 
-Move the mouse onto a small blob near the edge.
+Move the mouse onto a small one.
 
 > **"Why did you count this as a cell?"**
-> *Object 1: 75 square pixels, 0.3 times the median, circularity 0.41 — small: near the size floor. Otsu threshold, no
-> size floor.*
+> *Object N: … square pixels, 0.4 times the median, circularity 0.7 — small: near the size floor. Otsu threshold,
+> size floor 30.*
 
-What to say: *"Corrections are not drawings on top — they are steps in the workflow. And when I ask why, the answer is
-the actual measurement and the actual threshold."*
+> **"Go back."** (twice if you want the split undone too)
+> *Undid: …* — outlines and count follow History.
 
-## Act 3 — trust: go back, replay, scale (90 s)
+Say while it works: *"This is the real Fiji. Every step is a Fiji command, recorded in History; the numbers are Fiji's
+own measurements. Corrections are steps in the workflow, not drawings on top — and when I ask why, the answer is the
+measurement and the threshold, not an opinion."*
+
+---
+
+## Demo 2 — Macros (Load data ▾ → *Macros demo — blobs*)
+
+> **"Find all the nuclei."**
+> *Found 67 nuclei, mean area 327 square pixels.*
 
 > **"Go back."**
-> *Undid: 68 objects → 0, Results cleared.* — the outlines vanish; History keeps the record.
+> *Undid: 67 objects → 0, Results cleared.* — the outlines vanish; History keeps the record.
 
 > **"Run this macro."**
 > *Ready to run 1 step; say yes to go ahead.* — the plan card shows the exact macro Fidelis generated from History.
@@ -60,16 +75,16 @@ the actual measurement and the actual threshold."*
 > **"Yes."**
 > *Ran it on 1 image (4 stacks skipped); the results are in penny-folder-results.csv.*
 
-What to say: *"Anything that runs code or touches more than this image waits for my yes — that is Fidelis's policy,
-not Penny's mood. The macro it ran is the one in the editor; the CSV is in the folder; the stacks it could not treat
-like this image are listed as skipped, not quietly mis-measured."*
-
-## Close (20 s)
-
 > **"What am I looking at?"**
 > *Blobs: 256 by 254, 8-bit; one channel; 67 objects outlined.*
 
-*"Voice first, hands free, on the real software, every step reproducible. That is Penny."*
+Say: *"Anything that runs code or touches more than this image waits for my yes — that is Fidelis's policy. The macro
+it ran is the one in the editor; the CSV is in the folder; what it could not treat like this image is listed as skipped,
+not quietly mis-measured. Voice first, hands free, on the real software, every step reproducible."*
+
+(On the BBBC008 folder — 24 single-plane images — "Apply this analysis to the whole folder" runs on all 24.)
+
+---
 
 ## If something goes sideways
 
@@ -77,6 +92,6 @@ like this image are listed as skipped, not quietly mis-measured."*
 - "Point at the object first" — the mouse is not over the image; move it onto an outline and repeat.
 - A plan is waiting and you want out: **"No."** → *Cancelled; nothing ran.*
 - Voice silent: the Penny strip shows the reason. Funding proofs are valid until 04:31 tomorrow; the attempt ledger
-  has ~$190 of its $200 left. docs/qa/2026-10-18-morning-checklist.md has the recovery steps.
-- Start over: click **Demo** again (it refocuses blobs), say **"Go back"** until the list is empty, or relaunch with
+  has most of its $200 left. docs/qa/2026-10-18-morning-checklist.md has the recovery steps.
+- Start over: **Load data ▾** again refocuses the image; say **"Go back"** until the list is empty, or relaunch with
   `./script/run-fidelis.sh` for an empty History.

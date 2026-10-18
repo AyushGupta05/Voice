@@ -129,9 +129,11 @@ Full suite after the change: 468 tests, 0 failed (two runs); Codex autoreview of
 
 ## Voice in the workspace
 
-Penny's conversation runs inside the Fidelis workspace. A **Demo** button beside the Mic opens the demo image
-(`<root>/.local/data/fiji/imagej/blobs.gif`, or `-Dfidelis.demo.image`) through the engine — recorded in History like any
-open, focused if already open — so a demo starts with one click. The document's ROI list is drawn on the canvas as Fiji's overlay (green outlines,
+Penny's conversation runs inside the Fidelis workspace. A **Load data ▾** menu beside the Mic opens a demo image through the
+engine — recorded in History like any open, focused if already open — so a demo starts with one click: *Macros demo —
+blobs* (`.local/data/fiji/imagej/blobs.gif`) and *Nuclei demo — BBBC008* (`.local/data/samples/bbbc008/images/…slice1_channel1.tif`,
+168 nuclei), plus the file named by `-Dfidelis.demo.image`; the strip then says the first line to say. What to say for
+each is in [FIDELIS-DEMO-SCRIPT.md](FIDELIS-DEMO-SCRIPT.md). The document's ROI list is drawn on the canvas as Fiji's overlay (green outlines,
 numbered up to 200), refreshed with the list, so a segmentation shows its objects at once and an undo that empties the
 list clears the canvas; the overlay is view state, never pixels, never a History step. There is a one-line **Penny
 strip** under the command bar, and it grows into a **plan card** while the bridge shows a plan. The **Mic** button gives Penny the
