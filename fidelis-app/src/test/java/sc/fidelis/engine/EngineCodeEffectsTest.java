@@ -194,6 +194,37 @@ class EngineCodeEffectsTest {
     }
 
     @Test
+    void unnamedDocumentRoisKeepTheManagerSelectionAcrossRunsAndABatchMacroInAnEmptySessionIsSynced() throws Exception {
+        // ROIs the workspace put into the list without names (IJ1 names them when it adds them to its manager)
+        Doc d = engine.registry.get(doc);
+        synchronized (d.roiList) {
+            d.roiList.add(new ij.gui.Roi(1, 1, 3, 3));
+            d.roiList.add(new ij.gui.Roi(6, 6, 2, 2));
+        }
+        ActionResult select = code("roiManager(\"Select\", 0);\n"); // changes no content
+        assertEquals(OperationState.COMPLETED, select.state(), String.valueOf(select.error()));
+        assertEquals(2, engine.rois(doc).size());
+        ActionResult del = code("roiManager(\"Delete\");\n"); // the next run must not reload and lose the selection
+        assertEquals(OperationState.COMPLETED, del.state(), String.valueOf(del.error()));
+        assertEquals(1, engine.rois(doc).size(), "only the selected entry was deleted: " + engine.rois(doc));
+        assertEquals(List.of(6.0, 6.0, 2.0, 2.0), bounds(engine.rois(doc).get(0)));
+        // an empty session without any registered manager: a batch-mode macro would write to IJ1's private manager
+        engine.submit(ActionRequest.session(Origin.PANEL, Operations.CLOSE, Map.of("discard", true), TargetScope.of(doc))).get(30, TimeUnit.SECONDS);
+        RoiManager rm = RoiManager.getRawInstance();
+        if (rm != null) sc.fidelis.engine.Edt.run(rm::close);
+        assertTrue(RoiManager.getRawInstance() == null, "no registered ROI Manager");
+        String text = "setBatchMode(true);\nnewImage(\"batch-made\", \"8-bit black\", 20, 20, 1);\nmakeRectangle(1, 1, 5, 5);\n"
+                + "roiManager(\"Add\");\nrun(\"Select None\");\nsetBatchMode(false);\n";
+        ActionResult first = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, null)).get(60, TimeUnit.SECONDS);
+        ActionResult made = engine.submit(ActionRequest.code(Origin.PANEL, "ijm", text, null, first.confirmationToken())).get(120, TimeUnit.SECONDS);
+        assertEquals(OperationState.COMPLETED, made.state(), String.valueOf(made.error()));
+        assertEquals(1, engine.documents().size(), "the batch macro's image became a document");
+        doc = engine.documents().get(0).id(); // for tearDown
+        assertEquals(1, engine.rois(doc).size(), "the batch macro's manager entry reached the document: " + engine.rois(doc));
+        assertEquals(List.of(1.0, 1.0, 5.0, 5.0), bounds(engine.rois(doc).get(0)));
+    }
+
+    @Test
     void anUntargetedMacroWorksOnTheCurrentDocumentsListNotTheLastLoadedOne() throws Exception {
         DocumentId a = doc;
         ActionResult onA = code("makeRectangle(1, 1, 3, 3);\nroiManager(\"Add\");\nrun(\"Select None\");\n");

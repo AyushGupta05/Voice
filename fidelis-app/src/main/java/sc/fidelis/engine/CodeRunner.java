@@ -152,20 +152,16 @@ final class CodeRunner {
             ImagePlus cur = ij.WindowManager.getCurrentImage();
             roiOwner = cur == null ? null : eng.registry.byImp(cur);
         }
-        List<String> managerBefore = managerContent();
         if (roiOwner != null) {
-            // reload only when the manager does not already mirror this document, so a selection the previous macro
-            // left (roiManager("Select", 0), then roiManager("Delete") in the next run) survives as it does in Fiji
-            if (managerBefore == null || !managerBefore.equals(listContent(roiOwner))) {
-                eng.roiLists.load(roiOwner);
-                managerBefore = managerContent();
-            }
-        } else if (managerBefore != null && !managerBefore.isEmpty()) {
-            // no document to own them: entries left by a closed document must not flow into one the macro opens
-            RoiManager rm = RoiManager.getRawInstance();
-            if (rm != null) rm.reset();
-            managerBefore = managerContent();
+            // loaded only when the manager does not already hold this document's objects, so a selection the previous
+            // macro left (roiManager("Select", 0), then roiManager("Delete") in the next run) survives as it does in Fiji
+            eng.roiLists.ensureMirrors(roiOwner);
+        } else {
+            // no document to own them: the registered manager exists (a batch-mode macro writes to it rather than to
+            // IJ1's private one) and is empty, so a closed document's leftovers never flow into one the macro opens
+            eng.roiLists.manager().reset();
         }
+        List<String> managerBefore = managerContent();
         eng.setRunning(op);
         eng.emitState(op, OperationState.RUNNING, null);
         Guard guard = Guard.begin(new Guard.Listener() {
@@ -287,13 +283,6 @@ final class CodeRunner {
     private static List<String> managerContent() {
         RoiManager rm = RoiManager.getRawInstance();
         return rm == null ? null : content(List.of(rm.getRoisAsArray()));
-    }
-
-    /** A document's ROI list in the same form as {@link #managerContent()}. */
-    private static List<String> listContent(Doc d) {
-        synchronized (d.roiList) {
-            return content(new ArrayList<>(d.roiList));
-        }
     }
 
     private static List<String> content(List<ij.gui.Roi> rois) {
