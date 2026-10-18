@@ -398,3 +398,9 @@ Real-app-tested by AWS voice until 04:50 (Act 2 on the merged build: open, 67 nu
 - Not verified tonight: anything by voice after 04:50, and the screen (the display was asleep; captures black).
   docs/qa/2026-10-18-morning-checklist.md has the order for the morning.
 
+
+## 18 October 2026, 05:40 BST — Act 2 live: Penny inside the Fidelis workspace
+
+The demo switched to Act 2 on the owner's instruction: the stand-alone Fiji quit, Fidelis launched from `./script/run-fidelis.sh`, and the companion-owned gateway respawned with `.local/state/app=fidelis` (37 Fidelis tools over 34 bridge operations). The launcher had never actually started Fidelis before: macOS bash 3.2 treats an empty optional-arguments array as unbound under `set -u`, so the launch line aborted while the script still printed "Started" with a stale pid; fixed with the `${arr[@]+"${arr[@]}"}` idiom. Every relaunch tonight came from a clean checkout at the pushed tip, with the companion left running and its voice off so the Fidelis Mic button owns the microphone.
+
+The whole Act 2 script passed by real AWS speech on the final build (23b1ee2): open blobs, 67 nuclei, biggest object, go back (engine undo), "run this macro" → "yes" → 67, "apply this analysis to the whole folder" → "Ran it on 1 image (4 stacks skipped)" with the CSV written, split/merge/explain verified through the bridge with undo. Funding: the $200 attempt reserve ran out at 03:48Z (1,780 reservations, about $2.50 of real spend, never refunded by design); the owner authorised the documented renewal (`npm run budget:renew -- --authorized-new-budget`), which archived the ledger and started a new $200 one under the $1,000 cap; both funding proofs hold until 2026-10-19T03:31Z. Act 1 returns with quit Fidelis, `./script/run-fiji.sh`, gateway restart.
