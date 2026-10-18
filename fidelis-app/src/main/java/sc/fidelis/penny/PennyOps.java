@@ -1699,6 +1699,7 @@ final class PennyOps {
         sb.append("}\n");
         sb.append("Table.update(\"Penny folder\");\n");
         sb.append("Table.save(out, \"Penny folder\");\n");
+        sb.append("close(\"Penny folder\"); // the table lives in the CSV; no stray Fiji window stays behind\n");
         sb.append("setBatchMode(false);\n");
         sb.append("print(\"PENNY_FOLDER images=\" + (row - skipped) + \" skipped=\" + skipped + \" csv=\" + out);\n");
         String macro = sb.toString();

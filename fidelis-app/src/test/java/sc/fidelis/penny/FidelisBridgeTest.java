@@ -581,6 +581,7 @@ class FidelisBridgeTest {
         assertTrue(rows.get(3).contains("c-stack.tif") && rows.get(3).contains(",-1,") && rows.get(3).contains("skipped: a stack (2 planes)"), rows.get(3));
         assertTrue(ran.get("log").toString().contains("PENNY_FOLDER images=2 skipped=1"), ran.toString());
         assertEquals(1, engine.documents().size(), "the folder run left only the session's own image open: " + engine.documents());
+        assertTrue(ij.WindowManager.getWindow("Penny folder") == null, "the summary table window is closed once saved");
         for (Path f : List.of(csv, dir.resolve("a-squares.png"), dir.resolve("b-squares.png"), dir.resolve("c-stack.tif"), dir.resolve("notes.txt"))) Files.deleteIfExists(f);
         Files.deleteIfExists(dir);
     }
