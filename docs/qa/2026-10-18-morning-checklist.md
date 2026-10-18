@@ -40,6 +40,13 @@ square pixels." — typed check on the final build), "Highlight the smallest cel
 image", "What am I looking at?", "Export the macro", and a second "Go back" with nothing left: "nothing to go back to
 on this image; a macro's changes are not taken back."
 
+## 3b. Added after the voice outage (typed and suite-tested only, not yet by voice)
+
+"Why did you count this as a cell?" / "What's this one?" with the mouse over an outline: Penny flashes it and says
+"Object 12: 657 square pixels, 1.8 times the median, circularity 0.62 — large and irregular: possibly two touching
+objects. Otsu threshold, no size floor." With the pointer away from the image she asks you to point at it first. Needs
+a Fidelis relaunch from main `93c9d73` (the bridge jar changed).
+
 ## 4. Not seen with eyes tonight
 
 The display was asleep from about 04:30, so window captures came back black. The ROI counts, focus and History were
