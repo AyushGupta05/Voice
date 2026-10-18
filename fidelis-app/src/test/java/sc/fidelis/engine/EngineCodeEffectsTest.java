@@ -259,6 +259,24 @@ class EngineCodeEffectsTest {
         assertEquals(OperationState.COMPLETED, converted.state(), String.valueOf(converted.error()));
         assertEquals(2, engine.rois(doc).size(), "the overlay converted by a directly created manager reached the document: " + engine.rois(doc));
         assertEquals(List.of(5.0, 5.0, 3.0, 3.0), bounds(engine.rois(doc).get(1)));
+        // named overlay entries get IJ1 labels ("1-cellA") that differ from their names ("cellA"): not a reason to reload,
+        // so a selection made in one macro still stands in the next
+        ij.gui.Overlay named = new ij.gui.Overlay();
+        ij.gui.Roi cellA = new ij.gui.Roi(1, 1, 2, 2);
+        cellA.setName("cellA");
+        ij.gui.Roi cellB = new ij.gui.Roi(6, 6, 2, 2);
+        cellB.setName("cellB");
+        named.add(cellA);
+        named.add(cellB);
+        engine.imagePlus(doc).setOverlay(named);
+        ActionResult selected = code("roiManager(\"reset\");\nrun(\"To ROI Manager\");\nroiManager(\"Select\", 0);\n");
+        assertEquals(OperationState.COMPLETED, selected.state(), String.valueOf(selected.error()));
+        assertEquals(2, engine.rois(doc).size());
+        assertEquals("cellA", engine.rois(doc).get(0).name());
+        ActionResult deletedOne = code("roiManager(\"Delete\");\n");
+        assertEquals(OperationState.COMPLETED, deletedOne.state(), String.valueOf(deletedOne.error()));
+        assertEquals(1, engine.rois(doc).size(), "the selection survived IJ1's label/name difference: " + engine.rois(doc));
+        assertEquals("cellB", engine.rois(doc).get(0).name());
     }
 
     @Test

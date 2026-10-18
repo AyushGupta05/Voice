@@ -75,15 +75,22 @@ final class RoiLists {
         Roi[] arr = rm.getRoisAsArray();
         synchronized (d.roiList) {
             if (arr.length != d.roiList.size()) return false;
+            List<String> synced = namesAtSync.get(d);
+            if (synced == null || synced.size() != arr.length) return false;
             for (int i = 0; i < arr.length; i++) {
                 if (arr[i] != d.roiList.get(i)) return false;
-                // the manager keeps its labels apart from the ROI objects: a workspace rename (ROI_LIST_RENAME changes
-                // the shared object's name) must reach the label too, which only a reload does
-                if (!java.util.Objects.equals(rm.getName(i), arr[i].getName())) return false;
+                // the manager keeps its labels apart from the ROI objects: a workspace rename since the last sync
+                // (ROI_LIST_RENAME changes the shared object's name) must reach the label too, which only a reload does.
+                // IJ1's own labels may differ from the names ("1-cellA" for an overlay entry named "cellA"), so the
+                // comparison is with the name the object had when it was last synchronised, not with the label.
+                if (!java.util.Objects.equals(synced.get(i), arr[i].getName())) return false;
             }
             return true;
         }
     }
+
+    /** The name each ROI of a document had when its list was last taken from the manager (see {@link #mirrors}). */
+    private final java.util.Map<Doc, List<String>> namesAtSync = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
 
     /** Managers created by IJ1 while an action ran (a macro's roiManager("Add") after it closed the previous one), strongly held. */
     private final List<RoiManager> createdDuringAction = new ArrayList<>();
@@ -134,9 +141,14 @@ final class RoiLists {
     /** {@link #syncBack(Doc)} from a given manager (one a macro closed is no longer the singleton but still holds its list). */
     int syncBack(Doc d, RoiManager rm) {
         Roi[] arr = rm.getRoisAsArray();
+        List<String> names = new ArrayList<>();
         synchronized (d.roiList) {
             d.roiList.clear();
-            for (Roi r : arr) d.roiList.add(r);
+            for (Roi r : arr) {
+                d.roiList.add(r);
+                names.add(r.getName());
+            }
+            namesAtSync.put(d, names);
             return d.roiList.size();
         }
     }
