@@ -91,6 +91,9 @@ export type AppProfile = {
   prepareAction?(input: PrepareInput): Promise<void>;
   /** Arguments the model filled in that the researcher never asked for, removed so the bridge's tested defaults apply. */
   modelArguments?(name: string, args: Record<string, unknown>, utterance: string): Record<string, unknown>;
+  /** What the model is shown for a tool result, when the real result is too large to send whole (a Fidelis macro of
+   * hundreds of lines): a bounded view of the same data. The runtime, audit and companion keep the full result. */
+  resultForModel?(name: string, result: unknown): unknown;
   /** Answers a tool that has no bridge operation of its own (`name` without the prefix), or returns undefined. A tool
    * that acts must do so through `runtime.call` of a real operation tool, so the decision, audit and checkpoint path
    * is the same as for a direct call. `root` is the repository root. */

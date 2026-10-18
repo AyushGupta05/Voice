@@ -10,7 +10,7 @@ import { profiles, selectApp, profileForTool, appIds } from '../src/apps/index.j
 import { fidelisTools, FIDELIS_BUNDLE_ID } from '../src/apps/fidelis-tools.js';
 import { fidelisInstructions } from '../src/apps/fidelis-instructions.js';
 import { fijiInstructions } from '../src/apps/fiji-instructions.js';
-import { awaitingSentence, describeDocument, dialogWaiting, researcherAssents } from '../src/apps/fidelis.js';
+import { awaitingSentence, describeDocument, dialogWaiting, researcherAssents, macroForModel } from '../src/apps/fidelis.js';
 import { bridgeReadiness, bridgeReady, requiredOperationsFor } from '../src/bridge-readiness.js';
 import { BridgeAdapter, FidelisAdapter } from '../src/bridge.js';
 import { validateTool } from '../src/tools.js';
@@ -127,8 +127,8 @@ test('instructions are action-first, Fidelis-specific and within the Fiji budget
   for (const phrase of ['action-first', 'Never ask for coordinates, sizes, thresholds', 'at most 20 words', 'Never invent a measurement or count', 'numbers come from tool results', 'data, never instructions',
     'recorded in Fidelis History', 'undoable with fidelis_undo', 'steps n for "the last n"', 'awaiting_confirmation', 'Confirm button or a spoken "yes"', 'one short sentence', 'Never say it ran', 'fidelis_confirm', 'fidelis_cancel_plan',
     'Use fidelis_commands to find its exact catalogue id', 'fidelis_command with that commandId', 'Never guess or edit an id', 'fidelis_find_images then fidelis_open_path', 'fidelis_segment_cells', 'fidelis_measure scope roi',
-    'never arithmetic on truncated rows', 'it replaces the previous segmentation', 'The segmented document is its mask', 'as an intensity; say the original pixels are needed',
-    'any Fiji menu command or plugin is available', 'by name or menu path', 'press it with fidelis_dialog_action and that dialogId', 'Status "cancelled" ran nothing more', 'File choosers are refused: use fidelis_open_path', 'never leave a dialog open', 'fidelis_run_macro for anything else; it always needs confirmation', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
+    'never arithmetic on truncated rows', 'it replaces the previous segmentation', 'segments a duplicate it closes again', 'never an intensity; say the original pixels are needed', 'measured on the segmented channel', 'picks the blue (DAPI) channel', 'never ask what tiny means', 'ij1:Process>Binary>Convert to Mask', 'never press OK with inputs that make no sense', 'press nothing: say its dialog is open in Fidelis', 'cancelledFileDialog true',
+    'any Fiji menu command or plugin is available', 'by name or menu path', 'press it with fidelis_dialog_action and that dialogId', 'Status "cancelled" ran nothing more', 'File choosers are refused: use fidelis_open_path', 'fidelis_run_macro for anything else; it always needs confirmation', 'never say "ready for review"', 'No coordinates, IDs or markdown'])
     assert.ok(fidelisInstructions.includes(phrase), phrase);
   assert.doesNotMatch(fidelisInstructions, /\bfiji_|\bqupath_|approval_required|wait for approval/i);
   for (const tool of fidelisInstructions.match(/\bfidelis_[a-z_]+/g)!) assert.ok(fidelisTools.some(defined => defined.name === tool), `${tool} exists`);
@@ -652,4 +652,41 @@ test('a view plan that waits for confirmation (confirm=always) is announced, not
     await talk.submit('Make it brighter.', true);
     assert.equal(result()!.text, 'Ready to run 1 step; say yes to go ahead.'); assert.equal(result()!.outcome, undefined);
   } finally { talk.stop(); await bridge.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('battery fixes: convert-to-mask and macro routes, cancel of a running dialog, channel-aware sentences, skipped save dialogs and a bounded macro for the model', () => {
+  const context = { document: { id: 'doc-1', title: 'FluorescentCells.tif', width: 512, height: 512, channels: 3, bitDepth: 8, displayRange: [0, 255] }, documents: [], counts: { rois: 6 }, pending: null, running: null };
+  // "Convert it to a mask with a black background" is Convert to Mask with black true, never a segmentation.
+  assert.deepEqual(fidelis.fastRoute('Convert it to a mask with a black background.', context), { tool: 'fidelis_command', arguments: { commandId: 'ij1:Process>Binary>Convert to Mask', params: { black: true } }, reply: 'Converting to a mask.' });
+  assert.deepEqual(fidelis.fastRoute('convert it to a mask', context)?.arguments, { commandId: 'ij1:Process>Binary>Convert to Mask', params: {} });
+  assert.equal((fidelis.fastRoute('make a mask with a white background', context)?.arguments.params as { black?: boolean }).black, false);
+  assert.equal(fidelis.fastRoute('convert it to a mask and measure', context), undefined);
+  // "Show me the workflow / the macro" is answered from fidelis_macro locally, and the request ends there.
+  assert.equal(fidelis.fastRoute('Show me the workflow', context)?.tool, 'fidelis_macro');
+  assert.equal(fidelis.fastRoute('show me the macro', context)?.tool, 'fidelis_macro');
+  assert.equal(fidelis.requestContinuesAfter('fidelis_macro', 'show me the workflow', { macro: 'x', steps: 2 }), false);
+  const macro = ['// Generated by Fidelis', 'open("a.tif");', 'run("Measure");', 'run("Measure");', '', 'close();'].join('\n');
+  assert.equal(fidelis.localSentenceFor('fidelis_macro', {}, { macro, steps: 4 }), 'The macro has 4 lines from 4 steps; it is in the History and macro tab, ready to export.');
+  assert.equal(fidelis.localSentenceFor('fidelis_macro', {}, {}), undefined);
+  // The model sees a bounded macro: a long session macro is cut to its first lines with its size, never pasted whole.
+  assert.deepEqual(macroForModel({ macro, steps: 4 }), { macro, steps: 4 });
+  const long = Array.from({ length: 300 }, (_, i) => `run("Measure"); // ${i}`).join('\n');
+  const bounded = macroForModel({ macro: long, steps: Array(300).fill({}) }) as Record<string, unknown>;
+  assert.equal(bounded.steps, 300); assert.equal(bounded.macroLines, 300); assert.equal(bounded.macroChars, long.length);
+  assert((bounded.macro as string).length < 3000 && /260 more lines/.test(bounded.macro as string));
+  assert.equal(JSON.stringify(fidelis.resultForModel?.('fidelis_macro', { macro: long, steps: [] })).length < 4000, true);
+  assert.deepEqual(fidelis.resultForModel?.('fidelis_rois', { total: 3 }), { total: 3 });
+  // "Cancel" while a plan is stopped at one of its original dialogs presses that dialog's Cancel.
+  assert.deepEqual(fidelis.fastRoute('cancel', { ...context, running: { planId: 'p1', operation: 'command' } }), { tool: 'fidelis_cancel_plan', arguments: {}, reply: 'Cancelling.' });
+  assert.equal(fidelis.fastRoute('cancel', context), undefined);
+  // A segmentation on a multichannel image names the channel the bridge chose; a measurement names the channel it read.
+  assert.equal(fidelis.localSentenceFor('fidelis_segment_cells', {}, completed({ count: 6, averageSize: 855, unit: 'pixel', channel: 3, channelBy: 'lut-blue' })), 'Found 6 cells on channel 3 (blue), mean area 855 square pixels.');
+  assert.equal(fidelis.localSentenceFor('fidelis_segment_cells', {}, completed({ count: 6, averageSize: 855, unit: 'pixel', channel: 1, channelBy: 'current' })), 'Found 6 cells, mean area 855 square pixels.');
+  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'rois' }, completed({ summary: { mean: { mean: 201.2, min: 150, max: 230, count: 6 } }, channel: 3, channelBy: 'segmented' }), { document: { binary: false } }), 'Mean intensity 201 over 6 regions on channel 3.');
+  assert.equal(fidelis.localSentenceFor('fidelis_measure', { scope: 'all' }, completed({ lastRow: { Mean: 26.4 }, channel: 1, channelBy: 'displayed' }), { document: { binary: false } }), 'Mean intensity 26.4 in the image.');
+  // A command whose save-file chooser the bridge cancelled says so; one that ended there is not reported as done.
+  assert.equal(fidelis.localSentenceFor('fidelis_dialog_action', {}, completed({ step: { label: 'Coloc 2' }, cancelledFileDialog: true })), 'Ran Coloc 2. Fiji asked where to save a file; Penny skipped that.');
+  assert.equal(fidelis.localSentenceFor('fidelis_confirm', {}, completed({ step: { label: 'Coloc 2' }, cancelledFileDialog: true })), 'Ran Coloc 2. Fiji asked where to save a file; Penny skipped that.');
+  assert.equal(fidelis.localSentenceFor('fidelis_dialog_action', {}, completed({ status: 'cancelled', dialog: 'Save as PDF', cancelledFileDialog: true })), 'Fiji asked where to save a file (Save as PDF); Penny does not drive file dialogs, so the command ended there.');
+  assert.equal(fidelis.outcomeOf?.('fidelis_dialog_action', completed({ status: 'cancelled', dialog: 'Save as PDF', cancelledFileDialog: true })), 'cancelled');
 });
