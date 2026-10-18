@@ -337,7 +337,7 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "Convert it to a mask (with a black background)" is Process > Binary > Convert to Mask on the focused document, never a
   // segmentation: the polarity asked for is passed as `black`; a polarity that differs from Fidelis's BlackBackground
   // preference makes the plan explicit (the bridge's value-aware rule), so it waits for "yes".
-  const mask = said.match(/^(?:(?:please |now )?(?:convert|turn|make|change) (?:it|this|that|the image|this image) (?:in)?to (?:a )?(?:binary )?mask|(?:make|create) (?:a )?(?:binary )?mask(?: of (?:it|this|the image))?)(?: with (?:a )?(black|white|dark|light) background)?$/);
+  const mask = said.match(/^(?:(?:please |now )?(?:convert|turn|make|change)(?: (?:it|this|that|the image|this image))? (?:in)?to (?:a )?(?:binary )?mask|(?:make|create) (?:a )?(?:binary )?mask(?: of (?:it|this|the image))?)(?: with (?:a )?(black|white|dark|light) background)?$/);
   if (mask) {
     const params: Record<string, unknown> = {};
     if (mask[1]) params.black = mask[1] === 'black' || mask[1] === 'dark';

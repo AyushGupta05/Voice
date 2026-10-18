@@ -662,6 +662,7 @@ test('battery fixes: convert-to-mask and macro routes, cancel of a running dialo
   // "Convert it to a mask with a black background" is Convert to Mask with black true, never a segmentation.
   assert.deepEqual(fidelis.fastRoute('Convert it to a mask with a black background.', context), { tool: 'fidelis_command', arguments: { commandId: 'ij1:Process>Binary>Convert to Mask', params: { black: true } }, reply: 'Converting to a mask.' });
   assert.deepEqual(fidelis.fastRoute('convert it to a mask', context)?.arguments, { commandId: 'ij1:Process>Binary>Convert to Mask', params: {} });
+  assert.deepEqual(fidelis.fastRoute('Convert to mask.', context)?.arguments, { commandId: 'ij1:Process>Binary>Convert to Mask', params: {} });
   assert.equal((fidelis.fastRoute('make a mask with a white background', context)?.arguments.params as { black?: boolean }).black, false);
   assert.equal(fidelis.fastRoute('convert it to a mask and measure', context), undefined);
   // "Show me the workflow / the macro" is answered from fidelis_macro locally, and the request ends there.
