@@ -248,7 +248,8 @@ public final class MacroEditorPanel extends JPanel {
         // Log lines written during the run arrived as live LogLine events (handle() appends them as they come; the engine
         // flushes the last ones before it completes the result). The digest's newLogLines are the run's complete list:
         // a line it holds that no live event delivered (a clear and reprint between two looks of the engine's Log mirror)
-        // is appended now, each line once.
+        // is appended now, each line once, in the digest's order. The console is append-only, so in that rare case a
+        // back-filled line follows lines printed after it; the Log tab and the digest keep the run's true order.
         if (r.digest() != null && r.digest().newLogLines() != null) {
             java.util.List<String> undelivered = new java.util.ArrayList<>(r.digest().newLogLines());
             for (String live : liveLogLines) undelivered.remove(live);

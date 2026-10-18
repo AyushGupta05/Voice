@@ -277,6 +277,14 @@ class EngineCodeEffectsTest {
         assertEquals(OperationState.COMPLETED, deletedOne.state(), String.valueOf(deletedOne.error()));
         assertEquals(1, engine.rois(doc).size(), "the selection survived IJ1's label/name difference: " + engine.rois(doc));
         assertEquals("cellB", engine.rois(doc).get(0).name());
+        // a batch-mode macro that closes the registered manager: IJ1 then uses its private batch manager, which the
+        // guard's poll notes while the macro runs
+        // (Show None first: IJ1's manager asks "Save the N displayed ROIs as an overlay?" when closed with Show All on)
+        ActionResult batch = code("roiManager(\"Show None\");\nsetBatchMode(true);\nclose(\"ROI Manager\");\nmakeRectangle(2, 3, 6, 5);\nroiManager(\"Add\");\nwait(300);\n"
+                + "run(\"Select None\");\nsetBatchMode(false);\n");
+        assertEquals(OperationState.COMPLETED, batch.state(), String.valueOf(batch.error()));
+        assertEquals(1, engine.rois(doc).size(), "the private batch manager's entry reached the document: " + engine.rois(doc));
+        assertEquals(List.of(2.0, 3.0, 6.0, 5.0), bounds(engine.rois(doc).get(0)));
     }
 
     @Test

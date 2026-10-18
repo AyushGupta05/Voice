@@ -302,8 +302,14 @@ final class CodeRunner {
      * so a macro that resets the manager and adds the same number of other ROIs, moves, renames or restyles one
      * ({@code roiManager("Set Line Width", 5)}) is seen as a change although the count is unchanged.
      */
+    /**
+     * Serialised on the EDT: while the canvas paints a "Show All" list it sets and restores each ROI's stroke colour
+     * (the highlight of the entry under the pointer), and a serialisation on the worker could catch that transient and
+     * report a change a print-only macro never made.
+     */
     private static List<String> content(RoiManager rm) {
-        return rm == null ? null : content(List.of(rm.getRoisAsArray()));
+        if (rm == null) return null;
+        return Edt.call(() -> content(List.of(rm.getRoisAsArray())));
     }
 
     private static List<String> content(List<ij.gui.Roi> rois) {

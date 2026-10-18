@@ -111,9 +111,14 @@ final class RoiLists {
         return rm;
     }
 
-    /** Note the manager registered right now (the guard's poll every 100 ms): one a command created directly. */
+    /**
+     * Note the manager in use right now (the guard's poll every 100 ms): the registered one a command created directly,
+     * or the private one IJ1 gives a batch-mode macro that closed the registered manager and added again (it never
+     * becomes the singleton and IJ1 drops its reference when the macro ends).
+     */
     synchronized void noteManagerSeen() {
         RoiManager rm = RoiManager.getRawInstance();
+        if (rm == null && ij.macro.Interpreter.isBatchMode()) rm = ij.macro.Interpreter.getBatchModeRoiManager();
         if (rm != null && !createdDuringAction.contains(rm)) createdDuringAction.add(rm);
     }
 
