@@ -175,10 +175,15 @@ function localSentenceFor(name: string, args: Record<string, unknown>, result: u
     if (cancelled.cancelledFileDialog === true) return `Fiji asked where to save a file${title ? ` (${title})` : ''}; Penny does not drive file dialogs, so the command ended there.`;
     return title ? `Cancelled at the ${title} dialog; nothing more ran.` : 'Cancelled; nothing more ran.';
   }
-  if (silentFinishTools.has(name)) return '';
   const inner = completedPayload(result);
   // Read and view operations return the bridge result itself, without a decision envelope.
   const raw = inner ?? record(result) ?? {};
+  // a highlight that picked the largest or smallest outline names it; every other silent-finish tool keeps its acknowledgment
+  if (name === 'fidelis_highlight' && record(raw.picked)) {
+    const picked = record(raw.picked)!; const index = finite(picked.index), area = finite(picked.area);
+    if (index !== undefined && area !== undefined) return `The ${picked.which === 'smallest' ? 'smallest' : 'largest'} is object ${index + 1}, ${spokenArea(area, picked.unit)}.`;
+  }
+  if (silentFinishTools.has(name)) return '';
   // A zero is a real answer and keeps its digit, so an instant route speaks it instead of its "Counting." placeholder.
   if (name === 'fidelis_rois') { const total = finite(raw.total); return total === undefined ? undefined : total === 0 ? '0 objects in the ROI list.' : `${plural(total, 'object')}.`; }
   if (name === 'fidelis_object_stats') {
@@ -272,7 +277,8 @@ const isQuestion = (value: string) => /\?["'\u201d\u2019)\s]*$/.test(value);
 /** Typographic apostrophes and quotes as ASCII, so "don’t" reads like "don't" (cleanUtterance keeps only ASCII ones). */
 const asciiApostrophes = (value: string) => value.replace(/[\u2018\u2019\u02bc\u0060\u00b4]/g, "'");
 function fastRoute(spokenText: string, context: unknown): FastRoute | undefined {
-  const said = cleanUtterance(asciiApostrophes(spokenText));
+  // Transcribe hears a bare "Redo" as "Rido" / "Re do" now and then
+  const said = cleanUtterance(asciiApostrophes(spokenText)).replace(/^(?:rido|reado|re do|ree do)$/, 'redo');
   const state = context as FidelisContext | undefined;
   // A plan waiting for confirmation is answered by "yes" or "no" before anything else (docs/FIDELIS-PROTOCOL.md, Confirmation).
   const pending = record(state?.pending);
@@ -328,6 +334,8 @@ function fastRoute(spokenText: string, context: unknown): FastRoute | undefined 
   // "How many?" reads the ROI list (the segmentation output); re-segmenting would discard the researcher's corrections.
   if (/^(?:so |and )?how many(?: (?:cells|objects|particles|nuclei|blobs|of them))?(?: are)?(?: there| left| now| remaining| do (?:we|i) have| did (?:you|that) (?:find|get|keep))?(?: now)?$/.test(said))
     return objects !== undefined ? { tool: 'fidelis_rois', arguments: { limit: 1 }, reply: 'Counting.' } : { tool: 'fidelis_object_stats', arguments: {}, reply: 'Counting.' };
+  const extreme = said.match(/^(?:(?:which|what)(?: one| cell| nucleus| object)? is|what's|show(?: me)?|highlight|outline|point (?:at|out|to)|find|where is|where's) (?:the )?(biggest|largest|smallest|tiniest)(?: (?:cell|nucleus|object|one|region|blob))?$/);
+  if (extreme) return { tool: 'fidelis_highlight', arguments: { rois: /small|tin/.test(extreme[1]) ? 'smallest' : 'largest' }, reply: 'Looking.' };
   if (objects && /^(?:show(?: me)?|highlight|outline|point out) (?:all )?(?:of )?(?:the )?(?:nuclei|cells|objects|detections)(?: again| here)?$/.test(said)) return { tool: 'fidelis_highlight', arguments: { rois: 'all', label: `${objects} objects` }, reply: 'Here they are.' };
   // No instant "mean intensity of the nuclei": segment_cells leaves the focused document as its mask, so measuring the ROI
   // list right after it would read mask values (0/255), not intensities. The model handles intensity requests.

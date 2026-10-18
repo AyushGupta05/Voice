@@ -204,6 +204,18 @@ class FidelisBridgeTest {
         assertTrue(shown.get("count").getAsInt() > 0, shown.toString());
         assertEquals(shown.get("count").getAsInt(), quiet.get("count").getAsInt());
         assertEquals(engine.rois(id).size(), quiet.get("count").getAsInt());
+        // the largest / smallest outline by area: both squares are 16 x 16, so either pick is one object of 256 pixel²
+        for (String which : List.of("largest", "smallest")) {
+            JsonObject pick = http.exec("highlight", args("rois", which), null, null).result();
+            JsonObject picked = pick.getAsJsonObject("picked");
+            assertEquals(which, picked.get("which").getAsString(), pick.toString());
+            assertTrue(picked.get("index").getAsInt() >= 0 && picked.get("index").getAsInt() < engine.rois(id).size(), pick.toString());
+            assertEquals(256.0, picked.get("areaPixels").getAsDouble(), 1.0, pick.toString());
+            assertEquals(256.0, picked.get("area").getAsDouble(), 1.0, "uncalibrated: area equals pixels " + pick);
+            assertEquals("pixel", picked.get("unit").getAsString(), pick.toString());
+            assertEquals(1, pick.get("total").getAsInt());
+            assertEquals(which + ": 256 pixel\u00b2", pick.getAsJsonObject("highlight").get("label").getAsString(), pick.toString());
+        }
         // without add the ROI list is not this run's: the highlight shows the image, never older objects
         JsonObject noAdd = http.change("analyze_particles", args("add", false, "size", "0-Infinity")).result();
         assertEquals(shown.get("count").getAsInt(), noAdd.get("count").getAsInt());

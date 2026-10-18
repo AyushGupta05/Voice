@@ -21,6 +21,23 @@ final class Highlight {
     static final double MIN_TARGET = 8;
 
     /** Image-pixel bounds of a ROI: its rectangle/oval bounds, else the box around its vertices; null when it has none. */
+    /** Outline area in pixels: the polygon's (shoelace) when it has three or more vertices, an oval's ellipse, else its bounds. */
+    static double areaPixels(RoiGeometry g) {
+        if (g == null) return 0;
+        List<Float> xs = g.xs(), ys = g.ys();
+        if (!"OVAL".equals(g.type()) && !"RECTANGLE".equals(g.type()) && xs != null && ys != null && xs.size() >= 3 && ys.size() >= xs.size()) {
+            double twice = 0;
+            for (int i = 0, n = xs.size(); i < n; i++) {
+                int j = (i + 1) % n;
+                twice += (double) xs.get(i) * ys.get(j) - (double) xs.get(j) * ys.get(i);
+            }
+            return Math.abs(twice) / 2;
+        }
+        Rectangle2D b = bounds(g);
+        if (b == null) return 0;
+        return "OVAL".equals(g.type()) ? Math.PI / 4 * b.getWidth() * b.getHeight() : b.getWidth() * b.getHeight();
+    }
+
     static Rectangle2D bounds(RoiGeometry g) {
         if (g == null) return null;
         double[] b = g.bounds();

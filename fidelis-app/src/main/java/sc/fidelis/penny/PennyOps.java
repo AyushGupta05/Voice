@@ -1410,6 +1410,7 @@ final class PennyOps {
         int limit = PennyJson.integer(a, "limit", HIGHLIGHT_LIMIT, 1, 1000);
         List<RoiGeometry> all = engine.rois(d.id());
         List<RoiGeometry> chosen = new ArrayList<>();
+        Map<String, Object> picked = null;
         switch (which) {
             case "all" -> chosen.addAll(all);
             case "indices" -> {
@@ -1422,11 +1423,29 @@ final class PennyOps {
                 }
             }
             case "active" -> engine.activeRoi(d.id()).ifPresent(chosen::add);
-            default -> throw new IllegalArgumentException("rois must be all, indices or active");
+            case "largest", "smallest" -> {
+                // the extreme by outline area (polygon area; an oval's ellipse; else its bounds), in the document's units
+                int best = -1;
+                double bestPixels = 0;
+                for (int i = 0; i < all.size(); i++) {
+                    double area = Highlight.areaPixels(all.get(i));
+                    if (best < 0 || (which.equals("largest") ? area > bestPixels : area < bestPixels)) { best = i; bestPixels = area; }
+                }
+                if (best >= 0) {
+                    chosen.add(all.get(best));
+                    double calibrated = bestPixels * d.pixelWidth() * d.pixelHeight();
+                    picked = map("which", which, "index", best, "name", all.get(best).name(), "areaPixels", bestPixels,
+                            "area", calibrated, "unit", d.unit());
+                }
+            }
+            default -> throw new IllegalArgumentException("rois must be all, indices, active, largest or smallest");
         }
         if (chosen.isEmpty()) throw new Failure(409, which.equals("active") ? "There is no active selection." : "The ROI list is empty; segment or add regions first.");
-        String label = PennyJson.str(a, "label", chosen.size() == 1 ? "1 region" : chosen.size() + " regions");
-        return map("highlight", Highlight.rois(d.id(), chosen, label, limit, true), "total", chosen.size());
+        String label = PennyJson.str(a, "label", picked != null ? which + ": " + Math.round((Double) picked.get("area")) + " " + d.unit() + "\u00b2"
+                : chosen.size() == 1 ? "1 region" : chosen.size() + " regions");
+        Map<String, Object> out = map("highlight", Highlight.rois(d.id(), chosen, label, limit, true), "total", chosen.size());
+        if (picked != null) out.put("picked", picked);
+        return out;
     }
 
     // =============================================================================================

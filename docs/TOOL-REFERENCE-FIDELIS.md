@@ -316,11 +316,11 @@ Change the focused document’s view: direction in/out (one zoom step), fit true
 
 ## fidelis_highlight
 
-Point at what you are talking about: flash all ROI-list entries (rois all), the given indices (rois indices) or the active selection (rois active) on the Fidelis canvas, with a short label beside Penny’s cursor. Display only.
+Point at what you are talking about: flash all ROI-list entries (rois all), the given indices (rois indices), the active selection (rois active), or the largest / smallest outline by area (rois largest|smallest; returns picked {index, name, area, unit}) on the Fidelis canvas, with a short label beside Penny’s cursor. Display only.
 
 | Parameter | Required | Accepted value | Description |
 |---|---|---|---|
-| `rois` | Yes | "all", "indices", "active" |  |
+| `rois` | Yes | "all", "indices", "active", "largest", "smallest" |  |
 | `indices` | No | array of (integer; min 0); min 1 items; max 1000 items |  |
 | `label` | No | string; max 80 characters | Two to six words shown beside the cursor, e.g. "64 nuclei". |
 | `limit` | No | integer; min 1; max 120 |  |

@@ -116,7 +116,7 @@ test('Fidelis tool schemas are valid, prefixed and cover exactly the contract op
   ok('fidelis_rois', { limit: 1 }); ok('fidelis_results', { limit: 10, offset: 20 }); ok('fidelis_object_stats', {}); bad('fidelis_object_stats', { plot: false });
   ok('fidelis_display', { min: 0, max: 200 }); ok('fidelis_display', { auto: true }); ok('fidelis_stack', { slice: 3, channel: 1, frame: 2 }); bad('fidelis_stack', { slice: 0 });
   ok('fidelis_zoom', { direction: 'in' }); ok('fidelis_zoom', { fit: true }); ok('fidelis_zoom', { selection: true }); bad('fidelis_zoom', { magnification: 2 });
-  ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); bad('fidelis_highlight', { rois: 'manager' });
+  ok('fidelis_highlight', { rois: 'all', label: '64 nuclei' }); ok('fidelis_highlight', { rois: 'indices', indices: [0, 4] }); ok('fidelis_highlight', { rois: 'largest' }); bad('fidelis_highlight', { rois: 'manager' });
   ok('fidelis_undo', {}); ok('fidelis_redo', {}); ok('fidelis_history', { limit: 20 }); ok('fidelis_macro', {});
   ok('fidelis_run_macro', { code: 'run("Invert");' }); bad('fidelis_run_macro', {});
   ok('fidelis_confirm', {}); ok('fidelis_confirm', { planId: 'plan-7' }); ok('fidelis_cancel_plan', {});
@@ -165,6 +165,11 @@ test('fast routes: nuclei, zoom, undo/redo, counts, brightness, open, describe, 
   assert.deepEqual(route('how many cells', blobs)?.tool, 'fidelis_rois', 'an empty ROI list is still counted');
   assert.deepEqual(route('how many are left', { ...blobs, counts: undefined })?.tool, 'fidelis_object_stats', 'without ROI counts the Results table answers');
   assert.deepEqual(route('show me the nuclei', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'all', label: '64 objects' }, reply: 'Here they are.' });
+  assert.deepEqual(route('Which one is the biggest?', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'largest' }, reply: 'Looking.' });
+  assert.deepEqual(route('Highlight the smallest cell.', segmented), { tool: 'fidelis_highlight', arguments: { rois: 'smallest' }, reply: 'Looking.' });
+  assert.deepEqual(route('Rido.', segmented), { tool: 'fidelis_redo', arguments: {}, reply: 'Redoing.' });
+  assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'largest' }, { highlight: {}, total: 1, picked: { which: 'largest', index: 11, name: '0012-0040', areaPixels: 657, area: 657, unit: 'pixel' } }), 'The largest is object 12, 657 square pixels.');
+  assert.equal(fidelis.localSentenceFor('fidelis_highlight', { rois: 'all' }, { highlight: {}, total: 64 }), '');
   assert.deepEqual(route('find the nuclei', segmented)?.tool, 'fidelis_segment_cells', 'a repeat replaces the previous segmentation');
   for (const other of ['what is the mean intensity of the nuclei', 'mean intensity of the nuclei in the top left', 'what is the median intensity of the nuclei'])
     assert.equal(route(other, segmented), undefined, `${other}: the ROI list would be measured on the mask`);
